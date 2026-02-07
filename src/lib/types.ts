@@ -131,16 +131,28 @@ export interface ClassificationResult {
   }[];
 }
 
-export interface InboundEmail {
-  from: string;
+/** The shape of a parsed message before it's inserted into the DB */
+export interface ParsedMessage {
+  sender_name: string | null;
+  sender_email: string | null;
+  sent_at: string | null;
+  subject: string | null;
+  body_text: string;
+  body_raw: string;
+}
+
+/** Mailgun inbound webhook multipart form fields */
+export interface MailgunWebhookPayload {
   sender: string;
+  recipient: string;
   subject: string;
-  body_plain: string;
-  body_html: string;
-  stripped_text: string;
-  timestamp: number;
-  message_headers: [string, string][];
-  content_id_map: Record<string, unknown>;
+  "body-plain": string;
+  "body-html": string;
+  "stripped-text": string;
+  "stripped-html": string;
+  timestamp: string;
+  token: string;
+  signature: string;
 }
 
 export interface SMSNotification {

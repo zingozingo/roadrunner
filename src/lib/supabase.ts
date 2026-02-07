@@ -1,6 +1,103 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { Initiative, Event, Program, Message, ParsedMessage } from "./types";
 
-const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY!;
+let client: SupabaseClient | null = null;
 
-export const supabase = createClient(supabaseUrl, supabaseServiceKey);
+export function getSupabaseClient(): SupabaseClient {
+  if (!client) {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_KEY;
+    if (!url || !key) {
+      throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_KEY env vars");
+    }
+    client = createClient(url, key);
+  }
+  return client;
+}
+
+/** Convenience alias for existing imports */
+export const supabase = new Proxy({} as SupabaseClient, {
+  get(_, prop) {
+    return (getSupabaseClient() as unknown as Record<string | symbol, unknown>)[
+      prop
+    ];
+  },
+});
+
+/**
+ * Bulk insert parsed messages into the messages table.
+ * Messages are stored as unclassified (initiative_id = null).
+ */
+export async function storeMessages(
+  messages: ParsedMessage[]
+): Promise<Message[]> {
+  if (messages.length === 0) return [];
+
+  const rows = messages.map((m) => ({
+    sender_name: m.sender_name,
+    sender_email: m.sender_email,
+    sent_at: m.sent_at,
+    subject: m.subject,
+    body_text: m.body_text,
+    body_raw: m.body_raw,
+    initiative_id: null,
+    content_type: null,
+    classification_confidence: null,
+    linked_entities: [],
+  }));
+
+  const { data, error } = await getSupabaseClient()
+    .from("messages")
+    .insert(rows)
+    .select();
+
+  if (error) {
+    throw new Error(`Failed to store messages: ${error.message}`);
+  }
+
+  return data as Message[];
+}
+
+export async function getActiveInitiatives(): Promise<Initiative[]> {
+  const { data, error } = await getSupabaseClient()
+    .from("initiatives")
+    .select("*")
+    .eq("status", "active")
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(`Failed to fetch initiatives: ${error.message}`);
+  return data as Initiative[];
+}
+
+export async function getActiveEvents(): Promise<Event[]> {
+  const { data, error } = await getSupabaseClient()
+    .from("events")
+    .select("*")
+    .order("start_date", { ascending: true });
+
+  if (error) throw new Error(`Failed to fetch events: ${error.message}`);
+  return data as Event[];
+}
+
+export async function getActivePrograms(): Promise<Program[]> {
+  const { data, error } = await getSupabaseClient()
+    .from("programs")
+    .select("*")
+    .eq("status", "active")
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(`Failed to fetch programs: ${error.message}`);
+  return data as Program[];
+}
+
+export async function getUnclassifiedMessages(): Promise<Message[]> {
+  const { data, error } = await getSupabaseClient()
+    .from("messages")
+    .select("*")
+    .is("initiative_id", null)
+    .order("forwarded_at", { ascending: false });
+
+  if (error)
+    throw new Error(`Failed to fetch unclassified messages: ${error.message}`);
+  return data as Message[];
+}
