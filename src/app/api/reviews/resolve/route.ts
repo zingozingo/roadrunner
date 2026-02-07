@@ -23,7 +23,8 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as ResolveRequest;
     const { review_id, action, option_number, initiative_name } = body;
 
-    console.log("Resolve request:", { review_id, action, option_number, initiative_name });
+    console.log("=== RESOLVE START ===");
+    console.log("Request body:", JSON.stringify(body));
 
     if (!review_id || !action) {
       return NextResponse.json(
@@ -32,34 +33,47 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch the specific review
+    // Fetch the review by ID only — no resolved filter.
+    // Use .maybeSingle() so 0 rows returns null instead of throwing.
     const { data: review, error: fetchError } = await getSupabaseClient()
       .from("pending_reviews")
       .select("*")
       .eq("id", review_id)
-      .eq("resolved", false)
-      .single();
+      .maybeSingle();
 
     if (fetchError) {
       console.error("Review fetch error:", fetchError.message, fetchError.code);
       return NextResponse.json(
-        { error: `Review not found: ${fetchError.message}` },
-        { status: 404 }
+        { error: `Database error fetching review: ${fetchError.message}` },
+        { status: 500 }
       );
     }
 
     if (!review) {
+      console.error("No review found with id:", review_id);
       return NextResponse.json(
-        { error: "Review not found or already resolved" },
+        { error: `No review found with id ${review_id}` },
         { status: 404 }
       );
     }
 
     const pendingReview = review as PendingReview;
+
+    // Check resolved status in application code — clear error message
+    if (pendingReview.resolved) {
+      console.warn("Review already resolved:", review_id, pendingReview.resolution);
+      return NextResponse.json(
+        { error: "This review has already been resolved" },
+        { status: 409 }
+      );
+    }
+
     console.log("Found review:", {
       id: pendingReview.id,
       message_id: pendingReview.message_id,
+      resolved: pendingReview.resolved,
       options_count: pendingReview.options_sent?.length ?? 0,
+      options: pendingReview.options_sent,
     });
 
     // Handle "skip"
@@ -80,12 +94,12 @@ export async function POST(request: NextRequest) {
           available: pendingReview.options_sent?.map((o) => o.number),
         });
         return NextResponse.json(
-          { error: `Invalid option number ${option_number}` },
+          { error: `Invalid option number ${option_number}. Available: ${pendingReview.options_sent?.map((o) => o.number).join(", ") ?? "none"}` },
           { status: 400 }
         );
       }
 
-      console.log("Selected option:", option);
+      console.log("Selected option:", JSON.stringify(option));
 
       if (option.is_new) {
         // Create new initiative from the AI suggestion
@@ -95,10 +109,13 @@ export async function POST(request: NextRequest) {
             pendingReview.classification_result.initiative_match.partner_name,
           summary: pendingReview.classification_result.summary_update,
         });
+        console.log("Created initiative:", initiative.id, initiative.name);
 
         await updateMessageInitiative(pendingReview.message_id, initiative.id);
+        console.log("Message assigned:", pendingReview.message_id, "->", initiative.id);
 
         // Persist events, programs, and entity links from classification
+        // Errors here should NOT block resolve completion
         await persistClassificationEntities(
           pendingReview.classification_result,
           initiative.id
@@ -109,7 +126,7 @@ export async function POST(request: NextRequest) {
           `created:${initiative.id}:${initiative.name}`
         );
 
-        console.log("Created initiative:", initiative.id, initiative.name);
+        console.log("=== RESOLVE DONE (created) ===");
         return NextResponse.json({
           status: "created",
           initiative: initiative,
@@ -140,7 +157,7 @@ export async function POST(request: NextRequest) {
           `assigned:${option.initiative_id}:${option.label}`
         );
 
-        console.log("Assigned to initiative:", option.initiative_id);
+        console.log("=== RESOLVE DONE (assigned) ===");
         return NextResponse.json({
           status: "assigned",
           initiative_id: option.initiative_id,
@@ -185,7 +202,7 @@ export async function POST(request: NextRequest) {
         `created:${initiative.id}:${initiative.name}`
       );
 
-      console.log("Created initiative (custom name):", initiative.id, name);
+      console.log("=== RESOLVE DONE (new) ===");
       return NextResponse.json({
         status: "created",
         initiative: initiative,
@@ -198,7 +215,8 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("POST /api/reviews/resolve error:", message, error);
+    const stack = error instanceof Error ? error.stack : "";
+    console.error("=== RESOLVE FAILED ===", message, stack);
     return NextResponse.json(
       { error: `Failed to resolve review: ${message}` },
       { status: 500 }
@@ -209,155 +227,174 @@ export async function POST(request: NextRequest) {
 /**
  * After resolving a review, persist the events, programs, and entity links
  * that Claude identified in the classification_result.
+ *
+ * Errors here are logged but never thrown — entity creation is best-effort
+ * and must not prevent the review from being resolved.
  */
 async function persistClassificationEntities(
   result: ClassificationResult,
   initiativeId: string
 ): Promise<void> {
-  // Track created entity IDs for linking
-  const entityIdMap = new Map<string, { type: string; id: string }>();
-  entityIdMap.set(
-    result.initiative_match.name.toLowerCase().trim(),
-    { type: "initiative", id: initiativeId }
-  );
+  try {
+    // Track created entity IDs for linking
+    const entityIdMap = new Map<string, { type: string; id: string }>();
+    entityIdMap.set(
+      result.initiative_match.name.toLowerCase().trim(),
+      { type: "initiative", id: initiativeId }
+    );
 
-  // 1. Create/find events referenced in classification
-  for (const eventRef of result.events_referenced) {
-    try {
-      const event = await findOrCreateEvent({
-        name: eventRef.name,
-        type: eventRef.type,
-        start_date: eventRef.date,
-        date_precision: eventRef.date_precision,
-      });
-      entityIdMap.set(eventRef.name.toLowerCase().trim(), {
-        type: "event",
-        id: event.id,
-      });
-
-      // Link event to initiative
-      await createEntityLink({
-        source_type: "initiative",
-        source_id: initiativeId,
-        target_type: "event",
-        target_id: event.id,
-        relationship: "relevant_to",
-        context: null,
-      });
-    } catch (err) {
-      console.error(`Failed to create/link event "${eventRef.name}":`, err);
-    }
-  }
-
-  // 2. Create/find programs referenced in classification
-  for (const progRef of result.programs_referenced) {
-    try {
-      const program = await findOrCreateProgram({ name: progRef.name });
-      entityIdMap.set(progRef.name.toLowerCase().trim(), {
-        type: "program",
-        id: program.id,
-      });
-
-      // Link program to initiative
-      await createEntityLink({
-        source_type: "initiative",
-        source_id: initiativeId,
-        target_type: "program",
-        target_id: program.id,
-        relationship: "relevant_to",
-        context: null,
-      });
-    } catch (err) {
-      console.error(`Failed to create/link program "${progRef.name}":`, err);
-    }
-  }
-
-  // 3. Create explicit entity links from Claude's entity_links array
-  for (const link of result.entity_links) {
-    try {
-      const source = entityIdMap.get(link.source_name.toLowerCase().trim());
-      const target = entityIdMap.get(link.target_name.toLowerCase().trim());
-      if (!source || !target) continue;
-      if (source.id === target.id) continue;
-
-      await createEntityLink({
-        source_type: link.source_type,
-        source_id: source.id,
-        target_type: link.target_type,
-        target_id: target.id,
-        relationship: link.relationship,
-        context: link.context,
-      });
-    } catch (err) {
-      console.error(`Failed to create entity link:`, err);
-    }
-  }
-
-  // 4. Upsert participants and link to initiative
-  if (result.participants.length > 0) {
-    const db = (await import("@/lib/supabase")).getSupabaseClient();
-    for (const participant of result.participants) {
-      if (!participant.email) continue;
+    // 1. Create/find events referenced in classification
+    for (const eventRef of result.events_referenced) {
       try {
-        const { data: existing } = await db
-          .from("participants")
-          .select("*")
-          .eq("email", participant.email)
-          .limit(1);
+        const event = await findOrCreateEvent({
+          name: eventRef.name,
+          type: eventRef.type,
+          start_date: eventRef.date,
+          date_precision: eventRef.date_precision,
+        });
+        entityIdMap.set(eventRef.name.toLowerCase().trim(), {
+          type: "event",
+          id: event.id,
+        });
 
-        let participantId: string;
-
-        if (existing && existing.length > 0) {
-          participantId = existing[0].id;
-          // Update if we have better info
-          const updates: Record<string, string> = {};
-          if (!existing[0].name && participant.name)
-            updates.name = participant.name;
-          if (!existing[0].organization && participant.organization)
-            updates.organization = participant.organization;
-          if (Object.keys(updates).length > 0) {
-            await db
-              .from("participants")
-              .update(updates)
-              .eq("id", participantId);
-          }
-        } else {
-          const { data: inserted } = await db
-            .from("participants")
-            .insert({
-              email: participant.email,
-              name: participant.name,
-              organization: participant.organization,
-            })
-            .select("id")
-            .single();
-          if (!inserted) continue;
-          participantId = inserted.id;
-        }
-
-        // Link to initiative (deduped)
-        const { data: existingLink } = await db
-          .from("participant_links")
-          .select("id")
-          .eq("participant_id", participantId)
-          .eq("entity_type", "initiative")
-          .eq("entity_id", initiativeId)
-          .limit(1);
-
-        if (!existingLink || existingLink.length === 0) {
-          await db.from("participant_links").insert({
-            participant_id: participantId,
-            entity_type: "initiative",
-            entity_id: initiativeId,
-            role: participant.role,
-          });
-        }
+        // Link event to initiative
+        await createEntityLink({
+          source_type: "initiative",
+          source_id: initiativeId,
+          target_type: "event",
+          target_id: event.id,
+          relationship: "relevant_to",
+          context: null,
+        });
+        console.log("Linked event:", eventRef.name, event.id);
       } catch (err) {
-        console.error(
-          `Failed to upsert participant "${participant.email}":`,
-          err
-        );
+        console.error(`Failed to create/link event "${eventRef.name}":`, err);
       }
+    }
+
+    // 2. Create/find programs referenced in classification
+    for (const progRef of result.programs_referenced) {
+      try {
+        const program = await findOrCreateProgram({ name: progRef.name });
+        entityIdMap.set(progRef.name.toLowerCase().trim(), {
+          type: "program",
+          id: program.id,
+        });
+
+        // Link program to initiative
+        await createEntityLink({
+          source_type: "initiative",
+          source_id: initiativeId,
+          target_type: "program",
+          target_id: program.id,
+          relationship: "relevant_to",
+          context: null,
+        });
+        console.log("Linked program:", progRef.name, program.id);
+      } catch (err) {
+        console.error(`Failed to create/link program "${progRef.name}":`, err);
+      }
+    }
+
+    // 3. Create explicit entity links from Claude's entity_links array
+    for (const link of result.entity_links) {
+      try {
+        const source = entityIdMap.get(link.source_name.toLowerCase().trim());
+        const target = entityIdMap.get(link.target_name.toLowerCase().trim());
+        if (!source || !target) continue;
+        if (source.id === target.id) continue;
+
+        await createEntityLink({
+          source_type: link.source_type,
+          source_id: source.id,
+          target_type: link.target_type,
+          target_id: target.id,
+          relationship: link.relationship,
+          context: link.context,
+        });
+      } catch (err) {
+        console.error("Failed to create entity link:", err);
+      }
+    }
+
+    // 4. Upsert participants and link to initiative
+    await upsertParticipants(result, initiativeId);
+  } catch (err) {
+    // Catch-all: entity creation must never break the resolve flow
+    console.error("persistClassificationEntities error:", err);
+  }
+}
+
+async function upsertParticipants(
+  result: ClassificationResult,
+  initiativeId: string
+): Promise<void> {
+  if (result.participants.length === 0) return;
+
+  const db = getSupabaseClient();
+
+  for (const participant of result.participants) {
+    if (!participant.email) continue;
+    try {
+      const { data: existing } = await db
+        .from("participants")
+        .select("*")
+        .eq("email", participant.email)
+        .limit(1);
+
+      let participantId: string;
+
+      if (existing && existing.length > 0) {
+        participantId = existing[0].id;
+        // Update if we have better info
+        const updates: Record<string, string> = {};
+        if (!existing[0].name && participant.name)
+          updates.name = participant.name;
+        if (!existing[0].organization && participant.organization)
+          updates.organization = participant.organization;
+        if (Object.keys(updates).length > 0) {
+          await db
+            .from("participants")
+            .update(updates)
+            .eq("id", participantId);
+        }
+      } else {
+        // Use .maybeSingle() — if insert somehow returns nothing, skip gracefully
+        const { data: inserted } = await db
+          .from("participants")
+          .insert({
+            email: participant.email,
+            name: participant.name,
+            organization: participant.organization,
+          })
+          .select("id")
+          .maybeSingle();
+        if (!inserted) continue;
+        participantId = inserted.id;
+      }
+
+      // Link to initiative (deduped)
+      const { data: existingLink } = await db
+        .from("participant_links")
+        .select("id")
+        .eq("participant_id", participantId)
+        .eq("entity_type", "initiative")
+        .eq("entity_id", initiativeId)
+        .limit(1);
+
+      if (!existingLink || existingLink.length === 0) {
+        await db.from("participant_links").insert({
+          participant_id: participantId,
+          entity_type: "initiative",
+          entity_id: initiativeId,
+          role: participant.role,
+        });
+      }
+    } catch (err) {
+      console.error(
+        `Failed to upsert participant "${participant.email}":`,
+        err
+      );
     }
   }
 }
