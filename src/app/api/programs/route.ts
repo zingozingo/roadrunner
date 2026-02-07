@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
+import { getAllProgramsWithCounts } from "@/lib/supabase";
 
 export async function GET() {
-  return NextResponse.json({ message: "not implemented" }, { status: 501 });
-}
-
-export async function POST() {
-  return NextResponse.json({ message: "not implemented" }, { status: 501 });
+  try {
+    const programs = await getAllProgramsWithCounts();
+    return NextResponse.json({ programs });
+  } catch (error) {
+    console.error("GET /api/programs error:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch programs" },
+      { status: 500 }
+    );
+  }
 }

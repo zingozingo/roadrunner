@@ -1,26 +1,73 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0f1117;
+  --foreground: #e4e4e7;
+  --surface: #1a1b23;
+  --surface-hover: #22232d;
+  --border: #2a2b35;
+  --muted: #71717a;
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+
+  /* Status colors */
+  --status-active: #22c55e;
+  --status-paused: #f59e0b;
+  --status-closed: #6b7280;
+  --status-archived: #6b7280;
+
+  /* Confidence colors */
+  --confidence-high: #22c55e;
+  --confidence-medium: #f59e0b;
+  --confidence-low: #ef4444;
+
+  /* Event type colors */
+  --event-conference: #8b5cf6;
+  --event-summit: #6366f1;
+  --event-deadline: #ef4444;
+  --event-review-cycle: #f59e0b;
+  --event-meeting-series: #06b6d4;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-status-active: var(--status-active);
+  --color-status-paused: var(--status-paused);
+  --color-status-closed: var(--status-closed);
+  --color-confidence-high: var(--confidence-high);
+  --color-confidence-medium: var(--confidence-medium);
+  --color-confidence-low: var(--confidence-low);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans, Arial, Helvetica, sans-serif);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
 }

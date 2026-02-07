@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { parseForwardedEmail } from "@/lib/email-parser";
-import { storeMessages } from "@/lib/supabase";
+import { storeMessages, checkDuplicateMessage } from "@/lib/supabase";
 import { processSingleMessage } from "@/lib/classifier";
 
 /**
@@ -160,6 +160,24 @@ export async function POST(request: NextRequest) {
     if (parsed.length === 0) {
       console.warn("Email parser produced no messages");
       return NextResponse.json({ message: "No messages extracted" });
+    }
+
+    // Dedup check: skip if first message already exists
+    const first = parsed[0];
+    if (first.sender_email && first.subject) {
+      const bodyPrefix = (first.body_text || "").slice(0, 100);
+      const isDuplicate = await checkDuplicateMessage(
+        first.sender_email,
+        first.subject,
+        bodyPrefix
+      );
+      if (isDuplicate) {
+        console.log(`Duplicate detected: "${first.subject}" from ${first.sender_email}`);
+        return NextResponse.json({
+          message: "Duplicate message, skipped",
+          duplicate: true,
+        });
+      }
     }
 
     // Store in Supabase (unclassified — initiative_id = null)

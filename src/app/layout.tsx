@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import Sidebar from "@/components/Sidebar";
+import { getUnresolvedReviewCount } from "@/lib/supabase";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,21 +15,33 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Roadrunner",
+  title: "Relay — Initiative Tracker",
   description: "AI-powered initiative tracker for AWS Partner Development",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  let badgeCount = 0;
+  try {
+    badgeCount = await getUnresolvedReviewCount();
+  } catch {
+    // Supabase may not be available during build
+  }
+
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <div className="flex min-h-screen">
+          <Sidebar initialBadgeCount={badgeCount} />
+          <main className="flex-1 overflow-y-auto lg:ml-0">
+            {children}
+          </main>
+        </div>
       </body>
     </html>
   );
