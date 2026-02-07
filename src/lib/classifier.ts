@@ -5,7 +5,9 @@ import {
   getActiveEvents,
   getActivePrograms,
   getUnclassifiedMessages,
+  createPendingReview,
 } from "./supabase";
+import { sendClassificationPrompt } from "./sms";
 import { ClassificationResult, Message, Initiative, Event, Program } from "./types";
 
 const AUTO_ASSIGN_THRESHOLD = 0.85;
@@ -204,6 +206,38 @@ async function applyClassificationResult(
   // 4. Upsert participants
   if (!isNoise && result.participants.length > 0) {
     await upsertParticipants(result, messages, context);
+  }
+
+  // 5. If flagged for review, create pending review and send SMS
+  if (needsReview) {
+    try {
+      const initiatives = context.initiatives;
+      // Use the first message as the representative for the SMS
+      const representative = messages[0];
+      const { options } = await sendClassificationPrompt(
+        representative,
+        result,
+        initiatives
+      );
+
+      await createPendingReview({
+        message_id: representative.id,
+        classification_result: result,
+        options_sent: options,
+        sms_sent: true,
+        sms_sent_at: new Date().toISOString(),
+      });
+    } catch (smsError) {
+      // SMS failure shouldn't block classification — create review without SMS
+      console.error("Failed to send classification SMS:", smsError);
+      await createPendingReview({
+        message_id: messages[0].id,
+        classification_result: result,
+        options_sent: [],
+        sms_sent: false,
+        sms_sent_at: null,
+      });
+    }
   }
 
   console.log(

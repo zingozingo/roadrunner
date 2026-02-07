@@ -11,6 +11,8 @@ const {
   mockGetActiveEvents,
   mockGetActivePrograms,
   mockGetUnclassifiedMessages,
+  mockCreatePendingReview,
+  mockSendClassificationPrompt,
   mockFrom,
 } = vi.hoisted(() => {
   const mockUpdate = vi.fn().mockReturnValue({
@@ -99,6 +101,11 @@ const {
     mockGetActiveEvents: vi.fn(),
     mockGetActivePrograms: vi.fn(),
     mockGetUnclassifiedMessages: vi.fn(),
+    mockCreatePendingReview: vi.fn().mockResolvedValue({ id: "review-001" }),
+    mockSendClassificationPrompt: vi.fn().mockResolvedValue({
+      sid: "SM123",
+      options: [{ number: 1, label: "Test", initiative_id: null, is_new: true }],
+    }),
     mockFrom,
   };
 });
@@ -117,6 +124,11 @@ vi.mock("../supabase", () => ({
   getActiveEvents: mockGetActiveEvents,
   getActivePrograms: mockGetActivePrograms,
   getUnclassifiedMessages: mockGetUnclassifiedMessages,
+  createPendingReview: mockCreatePendingReview,
+}));
+
+vi.mock("../sms", () => ({
+  sendClassificationPrompt: mockSendClassificationPrompt,
 }));
 
 // Now import the module under test

@@ -184,6 +184,26 @@ export interface MailgunWebhookPayload {
   signature: string;
 }
 
+export interface PendingReview {
+  id: string;
+  message_id: string;
+  sms_sent: boolean;
+  sms_sent_at: string | null;
+  resolved: boolean;
+  resolved_at: string | null;
+  resolution: string | null;
+  classification_result: ClassificationResult;
+  options_sent: SMSOption[] | null;
+  created_at: string;
+}
+
+export interface SMSOption {
+  number: number;
+  label: string;
+  initiative_id: string | null;
+  is_new: boolean;
+}
+
 export interface SMSNotification {
   to: string;
   body: string;
