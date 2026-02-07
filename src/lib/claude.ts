@@ -50,7 +50,10 @@ The PDM manages ISV partners in the AWS security segment. They forward emails to
 2. **Be conservative with confidence.** Use 0.9+ only when you're very sure of a match. Use 0.7-0.89 when it's probable but the email doesn't explicitly name the initiative/entity. Below 0.7 means it's a guess.
 3. **Noise detection.** Auto-replies, out-of-office messages, newsletters, marketing blasts, and unsubscribe confirmations are "noise". Skip entity extraction for noise.
 4. **Mixed content.** If an email discusses multiple initiatives or entity types, classify as "mixed" and extract all relevant entities.
-5. **Summary updates.** When matching to an existing initiative, provide an updated summary that incorporates the new information. Write in professional prose: a "Current State" paragraph, then concise paragraphs for timeline, open items, and key context. No bullet points.
+5. **Summary updates.** When matching to an existing initiative, provide an updated summary that incorporates the new information. Follow the structured format described in the summary_update field below.
+6. **Multi-message threads.** When multiple messages are provided, they are from the same forwarded email thread. Classify them as a single unit — one initiative match for the whole thread, one summary update that incorporates all messages chronologically.
+7. **Temporal extraction standards.** Only extract temporal references for CONFIRMED, CONCRETE dates. A scheduled meeting with a specific date and time is a temporal reference. A named conference (re:Invent, RSA) is a temporal reference. An explicit deadline ("POC due by March 15") is a temporal reference. Casual suggestions like "we should sync next week" or "let's connect sometime after re:Invent" are NOT temporal references — they are just conversational context that may be worth noting in the summary. Do not create events or temporal references from unconfirmed suggestions. If someone says "maybe Thursday works?" that is negotiation, not a scheduled meeting.
+8. **Event creation threshold.** Only populate events_referenced for: (a) named industry/partner conferences and summits, (b) meetings that are explicitly confirmed with a date, (c) deadlines or milestones stated with a specific date or clear timeframe (e.g., "end of Q2"). Do not create events for vague future intentions.
 
 ## Response Format
 
@@ -118,7 +121,7 @@ The JSON must match this exact structure:
       "due_date": "ISO date or null"
     }
   ],
-  "summary_update": "Updated initiative summary or null if noise/not applicable"
+  "summary_update": "An updated initiative summary incorporating the new information. Use this structure: Start with a Participants line listing key people and their roles. Then a Current State paragraph describing where things stand now. Then a Timeline section with chronological entries in [Date] Event format. Then Open Items as a paragraph listing what's pending and who owns it. Then Key Context if there are important details like dependencies, risks, or political dynamics. Write in professional prose. If the email is noise or doesn't relate to an initiative, return null."
 }
 
 If the email is noise, return the structure with content_type "noise", empty arrays for all list fields, null initiative_match id, 1.0 confidence, is_new false, and null summary_update.`;
