@@ -69,6 +69,8 @@ export interface Message {
   classification_confidence: number | null;
   linked_entities: LinkedEntity[];
   forwarded_at: string;
+  pending_review: boolean;
+  classification_result: ClassificationResult | null;
 }
 
 export interface Participant {
@@ -108,27 +110,54 @@ export interface LinkedEntity {
 
 export interface ClassificationResult {
   content_type: Message["content_type"];
-  confidence: number;
-  summary: string;
-  extracted_entities: {
-    initiatives: { name: string; partner_name?: string; is_new: boolean }[];
-    events: {
-      name: string;
-      type: Event["type"];
-      start_date?: string;
-      end_date?: string;
-      location?: string;
-    }[];
-    programs: { name: string; description?: string; url?: string }[];
-    participants: { name: string; email?: string; organization?: string }[];
+  initiative_match: {
+    id: string | null;
+    name: string;
+    confidence: number;
+    is_new: boolean;
+    partner_name: string | null;
   };
-  suggested_links: {
+  events_referenced: {
+    id: string | null;
+    name: string;
+    type: Event["type"];
+    date: string | null;
+    date_precision: "exact" | "week" | "month" | "quarter";
+    is_new: boolean;
+    confidence: number;
+  }[];
+  programs_referenced: {
+    id: string | null;
+    name: string;
+    is_new: boolean;
+    confidence: number;
+  }[];
+  entity_links: {
     source_type: EntityLink["source_type"];
     source_name: string;
     target_type: EntityLink["target_type"];
     target_name: string;
     relationship: string;
+    context: string;
   }[];
+  participants: {
+    name: string;
+    email: string | null;
+    organization: string | null;
+    role: string | null;
+  }[];
+  temporal_references: {
+    date: string;
+    precision: "exact" | "week" | "month" | "quarter";
+    description: string;
+    type: "meeting" | "deadline" | "event" | "milestone" | "reference";
+  }[];
+  action_items: {
+    owner: string;
+    description: string;
+    due_date: string | null;
+  }[];
+  summary_update: string | null;
 }
 
 /** The shape of a parsed message before it's inserted into the DB */

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { parseForwardedEmail } from "@/lib/email-parser";
 import { storeMessages } from "@/lib/supabase";
+import { processSingleMessage } from "@/lib/classifier";
 
 /**
  * Verify Mailgun webhook signature.
@@ -83,14 +84,29 @@ export async function POST(request: NextRequest) {
 
     // Store in Supabase (unclassified — initiative_id = null)
     const stored = await storeMessages(parsed);
+    const storedIds = stored.map((m) => m.id);
 
     console.log(
       `Inbound: stored ${stored.length} message(s) from "${subject}"`
     );
 
+    // Trigger classification synchronously — Claude responds in 2-3s,
+    // well within Vercel's serverless timeout. We want the classification
+    // result available immediately for potential SMS notifications (Chunk 4).
+    let classified = false;
+    try {
+      const result = await processSingleMessage(storedIds);
+      classified = result !== null;
+    } catch (classifyError) {
+      // Classification failure shouldn't fail the webhook — messages are stored
+      // and can be batch-classified later via POST /api/classify
+      console.error("Post-ingest classification failed:", classifyError);
+    }
+
     return NextResponse.json({
       message: "ok",
       stored: stored.length,
+      classified,
     });
   } catch (error) {
     // Always return 200-range to Mailgun to prevent retry floods,
