@@ -2,7 +2,7 @@
 
 **Project Codename:** Roadrunner
 **Owner:** Steven
-**Last Updated:** 2026-02-06
+**Last Updated:** 2026-02-07
 
 ---
 
@@ -479,10 +479,12 @@ You (Outlook) ──forward──→ inbox@relay.stevenromero.dev
 - [x] Inbound email webhook + parser
 - [x] Claude classification engine
 - [x] Prompt tuning (temporal rules, event thresholds, summary format)
-- [ ] SMS notifications for low-confidence (Chunk 4)
-- [ ] Dashboard: initiatives list, detail view, unclassified inbox (Chunk 5)
-- [ ] Dashboard: edit/CRUD operations (Chunk 6)
-- [ ] End-to-end wiring + testing with real emails (Chunk 7)
+- [x] SMS notifications for low-confidence (sends via Twilio; A2P 10DLC registration pending for delivery)
+- [x] Dashboard: initiatives list, detail view, unclassified inbox (dark theme, sidebar, inbox resolve, events, programs pages)
+- [x] Dashboard: inbox review resolution (button click → initiative created → entities linked → review resolved)
+- [x] Message deduplication on inbound webhook
+- [x] End-to-end wiring + testing with real emails (Mailgun → parse → classify → review → resolve tested in production)
+- [ ] Dashboard: edit/CRUD operations (rename initiatives, close, reassign messages, manual notes)
 
 ### v0.2 — The Polish
 - [ ] Daily digest email
