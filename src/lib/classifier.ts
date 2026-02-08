@@ -8,6 +8,7 @@ import {
   createPendingReview,
   createInitiative,
   findOrCreateProgram,
+  createPendingEventApproval,
 } from "./supabase";
 import { sendClassificationPrompt } from "./sms";
 import { ClassificationResult, Message, Initiative, Event, Program } from "./types";
@@ -235,6 +236,29 @@ async function applyClassificationResult(
   // 6. Upsert participants — link to assigned initiative if available
   if (!isNoise && result.participants.length > 0) {
     await upsertParticipants(result, messages, context, assignedInitiativeId);
+  }
+
+  // 6b. Store pending event approvals for new events
+  if (!isNoise) {
+    for (const eventRef of result.events_referenced) {
+      if (!eventRef.is_new) continue;
+      try {
+        await createPendingEventApproval({
+          event_data: {
+            name: eventRef.name,
+            type: eventRef.type,
+            date: eventRef.date,
+            date_precision: eventRef.date_precision,
+            confidence: eventRef.confidence,
+          },
+          source_message_id: messages[0].id,
+          initiative_id: assignedInitiativeId,
+        });
+        console.log(`Pending event approval created: "${eventRef.name}"`);
+      } catch (err) {
+        console.error(`Failed to create pending event approval for "${eventRef.name}":`, err);
+      }
+    }
   }
 
   // 7. If flagged for review, create pending review and send SMS

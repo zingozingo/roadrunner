@@ -6,6 +6,8 @@ import {
   Message,
   ParsedMessage,
   PendingReview,
+  PendingEventApproval,
+  EventSuggestion,
   Participant,
   EntityLink,
   ClassificationResult,
@@ -665,4 +667,81 @@ export async function getInitiativesWithMessageCounts(): Promise<
       messages: undefined as never,
     })
   );
+}
+
+// ============================================================
+// Pending event approvals
+// ============================================================
+
+export async function createPendingEventApproval(data: {
+  event_data: EventSuggestion;
+  source_message_id: string | null;
+  initiative_id: string | null;
+}): Promise<PendingEventApproval> {
+  const { data: row, error } = await getSupabaseClient()
+    .from("pending_event_approvals")
+    .insert(data)
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to create pending event approval: ${error.message}`);
+  return row as PendingEventApproval;
+}
+
+export async function getUnresolvedEventApprovals(): Promise<
+  (PendingEventApproval & {
+    message: Message | null;
+    initiative: Initiative | null;
+  })[]
+> {
+  const { data, error } = await getSupabaseClient()
+    .from("pending_event_approvals")
+    .select("*, message:messages(*), initiative:initiatives(*)")
+    .eq("resolved", false)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(`Failed to fetch event approvals: ${error.message}`);
+  return (data ?? []) as (PendingEventApproval & {
+    message: Message | null;
+    initiative: Initiative | null;
+  })[];
+}
+
+export async function getUnresolvedEventApprovalCount(): Promise<number> {
+  const { count, error } = await getSupabaseClient()
+    .from("pending_event_approvals")
+    .select("*", { count: "exact", head: true })
+    .eq("resolved", false);
+
+  if (error) throw new Error(`Failed to count event approvals: ${error.message}`);
+  return count ?? 0;
+}
+
+export async function resolveEventApproval(
+  id: string,
+  resolution: string
+): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .from("pending_event_approvals")
+    .update({
+      resolved: true,
+      resolved_at: new Date().toISOString(),
+      resolution,
+    })
+    .eq("id", id);
+
+  if (error) throw new Error(`Failed to resolve event approval: ${error.message}`);
+}
+
+export async function getEventApprovalById(
+  id: string
+): Promise<PendingEventApproval | null> {
+  const { data, error } = await getSupabaseClient()
+    .from("pending_event_approvals")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw new Error(`Failed to fetch event approval: ${error.message}`);
+  return data as PendingEventApproval | null;
 }

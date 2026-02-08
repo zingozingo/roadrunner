@@ -7,6 +7,7 @@ import {
   updateInitiativeSummary,
   findOrCreateProgram,
   createEntityLink,
+  createPendingEventApproval,
 } from "@/lib/supabase";
 import { PendingReview, ClassificationResult } from "@/lib/types";
 
@@ -242,10 +243,25 @@ async function persistClassificationEntities(
       { type: "initiative", id: initiativeId }
     );
 
-    // 1. Register existing events in the entity map (new events require separate approval)
+    // 1. Register existing events / create pending approvals for new ones
     for (const eventRef of result.events_referenced) {
       if (eventRef.is_new || !eventRef.id) {
-        console.log("Skipping new event (requires approval):", eventRef.name);
+        try {
+          await createPendingEventApproval({
+            event_data: {
+              name: eventRef.name,
+              type: eventRef.type,
+              date: eventRef.date,
+              date_precision: eventRef.date_precision,
+              confidence: eventRef.confidence,
+            },
+            source_message_id: null,
+            initiative_id: initiativeId,
+          });
+          console.log(`Pending event approval created: "${eventRef.name}"`);
+        } catch (err) {
+          console.error(`Failed to create pending event approval for "${eventRef.name}":`, err);
+        }
         continue;
       }
       entityIdMap.set(eventRef.name.toLowerCase().trim(), {

@@ -2,25 +2,38 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { PendingReview, Message } from "@/lib/types";
+import { PendingReview, PendingEventApproval, Message, Initiative } from "@/lib/types";
 import ReviewCard from "./ReviewCard";
+import EventApprovalCard from "./EventApprovalCard";
 import OrphanedMessageCard from "./OrphanedMessageCard";
 import EmptyState from "./EmptyState";
 
 type ReviewWithMessage = PendingReview & { message: Message };
+type ApprovalWithContext = PendingEventApproval & {
+  message: Message | null;
+  initiative: Initiative | null;
+};
 
 export default function InboxClient({
   initialReviews,
+  initialEventApprovals,
   initialOrphaned,
 }: {
   initialReviews: ReviewWithMessage[];
+  initialEventApprovals: ApprovalWithContext[];
   initialOrphaned: Message[];
 }) {
   const router = useRouter();
   const [reviews, setReviews] = useState(initialReviews);
+  const [eventApprovals, setEventApprovals] = useState(initialEventApprovals);
 
   function handleResolved(id: string) {
     setReviews((prev) => prev.filter((r) => r.id !== id));
+    router.refresh();
+  }
+
+  function handleEventResolved(id: string) {
+    setEventApprovals((prev) => prev.filter((a) => a.id !== id));
     router.refresh();
   }
 
@@ -53,6 +66,27 @@ export default function InboxClient({
           </div>
         )}
       </section>
+
+      {/* Pending event approvals section */}
+      {eventApprovals.length > 0 && (
+        <section>
+          <h2 className="mb-4 text-lg font-semibold text-foreground">
+            Pending Event Approvals
+            <span className="ml-2 text-sm font-normal text-muted">
+              ({eventApprovals.length})
+            </span>
+          </h2>
+          <div className="space-y-4">
+            {eventApprovals.map((approval) => (
+              <EventApprovalCard
+                key={approval.id}
+                approval={approval}
+                onResolved={handleEventResolved}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Orphaned messages section */}
       {initialOrphaned.length > 0 && (

@@ -211,3 +211,22 @@ export interface SMSNotification {
   initiative_id?: string;
   type: "new_initiative" | "status_change" | "digest" | "alert";
 }
+
+export interface EventSuggestion {
+  name: string;
+  type: Event["type"];
+  date: string | null;
+  date_precision: "exact" | "week" | "month" | "quarter";
+  confidence: number;
+}
+
+export interface PendingEventApproval {
+  id: string;
+  event_data: EventSuggestion;
+  source_message_id: string | null;
+  initiative_id: string | null;
+  resolved: boolean;
+  resolved_at: string | null;
+  resolution: string | null;
+  created_at: string;
+}

@@ -14,6 +14,7 @@ const {
   mockCreatePendingReview,
   mockCreateInitiative,
   mockFindOrCreateProgram,
+  mockCreatePendingEventApproval,
   mockSendClassificationPrompt,
   mockFrom,
 } = vi.hoisted(() => {
@@ -106,6 +107,7 @@ const {
     mockCreatePendingReview: vi.fn().mockResolvedValue({ id: "review-001" }),
     mockCreateInitiative: vi.fn().mockResolvedValue({ id: "init-auto", name: "Auto-Created", status: "active", summary: null, partner_name: null, created_at: "", updated_at: "", closed_at: null }),
     mockFindOrCreateProgram: vi.fn().mockResolvedValue({ id: "prog-auto", name: "Auto-Program", description: null, eligibility: null, url: null, status: "active", created_at: "" }),
+    mockCreatePendingEventApproval: vi.fn().mockResolvedValue({ id: "evt-approval-001" }),
     mockSendClassificationPrompt: vi.fn().mockResolvedValue({
       sid: "SM123",
       options: [{ number: 1, label: "Test", initiative_id: null, is_new: true }],
@@ -131,6 +133,7 @@ vi.mock("../supabase", () => ({
   createPendingReview: mockCreatePendingReview,
   createInitiative: mockCreateInitiative,
   findOrCreateProgram: mockFindOrCreateProgram,
+  createPendingEventApproval: mockCreatePendingEventApproval,
 }));
 
 vi.mock("../sms", () => ({
