@@ -38,8 +38,8 @@ const navItems = [
     showBadge: false,
   },
   {
-    href: "/programs",
-    label: "Programs",
+    href: "/tracks",
+    label: "Tracks",
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
         <rect x="3" y="3" width="14" height="14" rx="2" />

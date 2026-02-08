@@ -1,5 +1,6 @@
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
+import StatusBadge from "@/components/StatusBadge";
 import {
   getUnresolvedReviewCount,
   getAllInitiatives,
@@ -124,17 +125,7 @@ export default async function DashboardPage() {
                     <p className="text-xs text-muted">{init.partner_name}</p>
                   )}
                 </div>
-                <span
-                  className={`ml-3 rounded-full px-2 py-0.5 text-xs ${
-                    init.status === "active"
-                      ? "bg-status-active/20 text-status-active"
-                      : init.status === "paused"
-                        ? "bg-status-paused/20 text-status-paused"
-                        : "bg-status-closed/20 text-status-closed"
-                  }`}
-                >
-                  {init.status}
-                </span>
+                <StatusBadge status={init.status} />
               </Link>
             ))}
           </div>

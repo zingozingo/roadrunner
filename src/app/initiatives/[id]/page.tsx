@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import PageHeader from "@/components/PageHeader";
 import StatusBadge from "@/components/StatusBadge";
-import Timeline from "@/components/Timeline";
+import SummaryCard from "@/components/SummaryCard";
+import CollapsibleEmails from "@/components/CollapsibleEmails";
 import EntityLinkChip from "@/components/EntityLink";
 import {
   getInitiativeById,
   getMessagesByInitiative,
   getParticipantsByInitiative,
   getEntityLinksForEntity,
+  resolveEntityLinkNames,
 } from "@/lib/supabase";
 
 export default async function InitiativeDetailPage({
@@ -26,6 +27,9 @@ export default async function InitiativeDetailPage({
     getParticipantsByInitiative(id),
     getEntityLinksForEntity("initiative", id),
   ]);
+
+  // Resolve entity link target names
+  const nameMap = await resolveEntityLinkNames(entityLinks);
 
   return (
     <div className="p-6 lg:p-8">
@@ -52,26 +56,45 @@ export default async function InitiativeDetailPage({
       </div>
 
       {initiative.summary && (
-        <div className="mb-6 rounded-xl border border-border bg-surface p-4">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted">
-            Summary
-          </h2>
-          <p className="text-sm text-foreground/90">{initiative.summary}</p>
+        <div className="mb-6">
+          <SummaryCard summary={initiative.summary} />
         </div>
       )}
 
+      <div className="mb-6">
+        <CollapsibleEmails messages={messages} />
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Main content: message timeline */}
-        <div className="lg:col-span-2">
-          <div className="rounded-xl border border-border bg-surface p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-              Messages ({messages.length})
-            </h2>
-            <Timeline messages={messages} />
-          </div>
+        <div className="lg:col-span-2 space-y-4">
+          {/* Entity links */}
+          {entityLinks.length > 0 && (
+            <div className="rounded-xl border border-border bg-surface p-4">
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
+                Linked Entities
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {entityLinks.map((link) => {
+                  // Determine the "other" entity (not this initiative)
+                  const isSource = link.source_id === id;
+                  const otherId = isSource ? link.target_id : link.source_id;
+                  const otherName = nameMap.get(otherId);
+
+                  return (
+                    <EntityLinkChip
+                      key={link.id}
+                      link={link}
+                      entityName={otherName}
+                      entityId={otherId}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Sidebar: participants + links */}
+        {/* Sidebar: participants + metadata */}
         <div className="space-y-4">
           {/* Participants */}
           <div className="rounded-xl border border-border bg-surface p-4">
@@ -98,20 +121,6 @@ export default async function InitiativeDetailPage({
               </ul>
             )}
           </div>
-
-          {/* Entity links */}
-          {entityLinks.length > 0 && (
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-                Linked Entities
-              </h2>
-              <div className="flex flex-wrap gap-2">
-                {entityLinks.map((link) => (
-                  <EntityLinkChip key={link.id} link={link} />
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Metadata */}
           <div className="rounded-xl border border-border bg-surface p-4">

@@ -518,6 +518,51 @@ export async function checkDuplicateMessage(
   return (data?.length ?? 0) > 0;
 }
 
+/**
+ * Resolve entity link target IDs to their display names.
+ * Returns a map of entityId → name.
+ */
+export async function resolveEntityLinkNames(
+  links: EntityLink[]
+): Promise<Map<string, string>> {
+  const nameMap = new Map<string, string>();
+  if (links.length === 0) return nameMap;
+
+  const db = getSupabaseClient();
+
+  // Collect unique IDs by type (both source and target)
+  const idsByType: Record<string, Set<string>> = {
+    initiative: new Set(),
+    event: new Set(),
+    program: new Set(),
+  };
+  for (const link of links) {
+    idsByType[link.source_type]?.add(link.source_id);
+    idsByType[link.target_type]?.add(link.target_id);
+  }
+
+  const tableMap: Record<string, string> = {
+    initiative: "initiatives",
+    event: "events",
+    program: "programs",
+  };
+
+  await Promise.all(
+    Object.entries(idsByType).map(async ([type, ids]) => {
+      if (ids.size === 0) return;
+      const { data } = await db
+        .from(tableMap[type])
+        .select("id, name")
+        .in("id", [...ids]);
+      for (const row of (data ?? []) as { id: string; name: string }[]) {
+        nameMap.set(row.id, row.name);
+      }
+    })
+  );
+
+  return nameMap;
+}
+
 export async function getInitiativesWithMessageCounts(): Promise<
   (Initiative & { message_count: number })[]
 > {
