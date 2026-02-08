@@ -16,7 +16,7 @@ export interface Initiative {
 export interface Event {
   id: string;
   name: string;
-  type: "conference" | "summit" | "deadline" | "review_cycle" | "meeting_series";
+  type: "conference" | "summit" | "workshop" | "kickoff" | "trade_show" | "deadline" | "review_cycle" | "training";
   start_date: string | null;
   end_date: string | null;
   date_precision: "exact" | "week" | "month" | "quarter";

@@ -368,7 +368,7 @@ describe("processUnclassifiedMessages", () => {
     expect(mockClassifyMessage).toHaveBeenCalledTimes(2);
   });
 
-  it("flags for review when new entities are suggested even with high confidence match", async () => {
+  it("auto-assigns even when new events are suggested with high confidence match", async () => {
     const resultWithNewEvent: ClassificationResult = {
       ...HIGH_CONFIDENCE_RESULT,
       events_referenced: [
@@ -390,7 +390,8 @@ describe("processUnclassifiedMessages", () => {
 
     const result = await processUnclassifiedMessages();
 
-    expect(result.flaggedForReview).toBe(1);
-    expect(result.autoAssigned).toBe(0);
+    // New events no longer block auto-assign — only new initiatives/programs do
+    expect(result.autoAssigned).toBe(1);
+    expect(result.flaggedForReview).toBe(0);
   });
 });

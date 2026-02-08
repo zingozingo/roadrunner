@@ -106,6 +106,7 @@ export async function getUnclassifiedMessages(): Promise<Message[]> {
     .from("messages")
     .select("*")
     .is("initiative_id", null)
+    .is("classification_result", null)
     .order("forwarded_at", { ascending: false });
 
   if (error)

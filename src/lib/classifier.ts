@@ -53,7 +53,6 @@ export async function processUnclassifiedMessages(): Promise<{
         result.initiative_match.id;
       const hasNewEntitySuggestions =
         result.initiative_match.is_new ||
-        result.events_referenced.some((e) => e.is_new) ||
         result.programs_referenced.some((p) => p.is_new);
 
       if (hasHighConfidenceMatch && !hasNewEntitySuggestions) {
@@ -169,7 +168,6 @@ async function applyClassificationResult(
 
   const hasNewEntitySuggestions =
     result.initiative_match.is_new ||
-    result.events_referenced.some((e) => e.is_new) ||
     result.programs_referenced.some((p) => p.is_new);
 
   const needsReview =
@@ -344,9 +342,15 @@ async function upsertParticipants(
   context: ClassifyContext
 ): Promise<void> {
   const db = getSupabaseClient();
+  const pdmEmail = process.env.RELAY_EMAIL_ADDRESS?.toLowerCase();
 
   for (const participant of result.participants) {
     if (!participant.email) continue;
+
+    // PDM forwarder gets role "forwarder" instead of whatever Claude extracted
+    if (pdmEmail && participant.email.toLowerCase() === pdmEmail) {
+      participant.role = "forwarder";
+    }
 
     // Try to find existing participant by email
     const { data: existing } = await db

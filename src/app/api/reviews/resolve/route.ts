@@ -5,7 +5,6 @@ import {
   createInitiative,
   updateMessageInitiative,
   updateInitiativeSummary,
-  findOrCreateEvent,
   findOrCreateProgram,
   createEntityLink,
 } from "@/lib/supabase";
@@ -243,36 +242,19 @@ async function persistClassificationEntities(
       { type: "initiative", id: initiativeId }
     );
 
-    // 1. Create/find events referenced in classification
+    // 1. Register existing events in the entity map (new events require separate approval)
     for (const eventRef of result.events_referenced) {
-      try {
-        const event = await findOrCreateEvent({
-          name: eventRef.name,
-          type: eventRef.type,
-          start_date: eventRef.date,
-          date_precision: eventRef.date_precision,
-        });
-        entityIdMap.set(eventRef.name.toLowerCase().trim(), {
-          type: "event",
-          id: event.id,
-        });
-
-        // Link event to initiative
-        await createEntityLink({
-          source_type: "initiative",
-          source_id: initiativeId,
-          target_type: "event",
-          target_id: event.id,
-          relationship: "relevant_to",
-          context: null,
-        });
-        console.log("Linked event:", eventRef.name, event.id);
-      } catch (err) {
-        console.error(`Failed to create/link event "${eventRef.name}":`, err);
+      if (eventRef.is_new || !eventRef.id) {
+        console.log("Skipping new event (requires approval):", eventRef.name);
+        continue;
       }
+      entityIdMap.set(eventRef.name.toLowerCase().trim(), {
+        type: "event",
+        id: eventRef.id,
+      });
     }
 
-    // 2. Create/find programs referenced in classification
+    // 2. Find or create programs (stable entities, low-risk)
     for (const progRef of result.programs_referenced) {
       try {
         const program = await findOrCreateProgram({ name: progRef.name });
@@ -280,19 +262,8 @@ async function persistClassificationEntities(
           type: "program",
           id: program.id,
         });
-
-        // Link program to initiative
-        await createEntityLink({
-          source_type: "initiative",
-          source_id: initiativeId,
-          target_type: "program",
-          target_id: program.id,
-          relationship: "relevant_to",
-          context: null,
-        });
-        console.log("Linked program:", progRef.name, program.id);
       } catch (err) {
-        console.error(`Failed to create/link program "${progRef.name}":`, err);
+        console.error(`Failed to find/create program "${progRef.name}":`, err);
       }
     }
 
@@ -333,8 +304,16 @@ async function upsertParticipants(
 
   const db = getSupabaseClient();
 
+  const pdmEmail = process.env.RELAY_EMAIL_ADDRESS?.toLowerCase();
+
   for (const participant of result.participants) {
     if (!participant.email) continue;
+
+    // PDM forwarder gets role "forwarder" instead of whatever Claude extracted
+    if (pdmEmail && participant.email.toLowerCase() === pdmEmail) {
+      participant.role = "forwarder";
+    }
+
     try {
       const { data: existing } = await db
         .from("participants")
