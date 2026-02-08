@@ -4,6 +4,7 @@ import StatusBadge from "@/components/StatusBadge";
 import SummaryCard from "@/components/SummaryCard";
 import CollapsibleEmails from "@/components/CollapsibleEmails";
 import EntityLinkChip from "@/components/EntityLink";
+import InitiativeActions from "@/components/InitiativeActions";
 import {
   getInitiativeById,
   getMessagesByInitiative,
@@ -52,7 +53,10 @@ export default async function InitiativeDetailPage({
             <p className="mt-1 text-muted">{initiative.partner_name}</p>
           )}
         </div>
-        <StatusBadge status={initiative.status} />
+        <div className="flex items-center gap-3">
+          <StatusBadge status={initiative.status} />
+          <InitiativeActions initiative={initiative} />
+        </div>
       </div>
 
       {initiative.summary && (

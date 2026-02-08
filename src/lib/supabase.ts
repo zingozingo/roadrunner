@@ -211,6 +211,90 @@ export async function updateInitiativeSummary(
   if (error) throw new Error(`Failed to update initiative summary: ${error.message}`);
 }
 
+export async function updateInitiative(
+  id: string,
+  updates: {
+    name?: string;
+    partner_name?: string | null;
+    status?: Initiative["status"];
+    summary?: string | null;
+  }
+): Promise<Initiative> {
+  const row: Record<string, unknown> = {};
+
+  if (updates.name !== undefined) row.name = updates.name;
+  if (updates.partner_name !== undefined) row.partner_name = updates.partner_name;
+  if (updates.summary !== undefined) row.summary = updates.summary;
+
+  if (updates.status !== undefined) {
+    row.status = updates.status;
+    if (updates.status === "closed") {
+      row.closed_at = new Date().toISOString();
+    } else {
+      row.closed_at = null;
+    }
+  }
+
+  const { data, error } = await getSupabaseClient()
+    .from("initiatives")
+    .update(row)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to update initiative: ${error.message}`);
+  return data as Initiative;
+}
+
+export async function deleteInitiative(id: string): Promise<void> {
+  const db = getSupabaseClient();
+
+  // Application-level cascade — order matters:
+  // 1. Orphan messages (set initiative_id = null, don't delete)
+  const { error: msgErr } = await db
+    .from("messages")
+    .update({ initiative_id: null })
+    .eq("initiative_id", id);
+  if (msgErr) throw new Error(`Failed to orphan messages: ${msgErr.message}`);
+
+  // 2. Delete notes
+  const { error: noteErr } = await db
+    .from("notes")
+    .delete()
+    .eq("initiative_id", id);
+  if (noteErr) throw new Error(`Failed to delete notes: ${noteErr.message}`);
+
+  // 3. Delete entity links (both directions)
+  const { error: linkSrcErr } = await db
+    .from("entity_links")
+    .delete()
+    .eq("source_type", "initiative")
+    .eq("source_id", id);
+  if (linkSrcErr) throw new Error(`Failed to delete entity links (source): ${linkSrcErr.message}`);
+
+  const { error: linkTgtErr } = await db
+    .from("entity_links")
+    .delete()
+    .eq("target_type", "initiative")
+    .eq("target_id", id);
+  if (linkTgtErr) throw new Error(`Failed to delete entity links (target): ${linkTgtErr.message}`);
+
+  // 4. Delete participant links
+  const { error: plinkErr } = await db
+    .from("participant_links")
+    .delete()
+    .eq("entity_type", "initiative")
+    .eq("entity_id", id);
+  if (plinkErr) throw new Error(`Failed to delete participant links: ${plinkErr.message}`);
+
+  // 5. Delete the initiative
+  const { error: initErr } = await db
+    .from("initiatives")
+    .delete()
+    .eq("id", id);
+  if (initErr) throw new Error(`Failed to delete initiative: ${initErr.message}`);
+}
+
 // ============================================================
 // Dashboard query helpers
 // ============================================================
