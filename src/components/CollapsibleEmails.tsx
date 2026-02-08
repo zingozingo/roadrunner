@@ -9,7 +9,7 @@ export default function CollapsibleEmails({
 }: {
   messages: Message[];
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
 
   if (messages.length === 0) return null;
 

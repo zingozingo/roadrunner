@@ -6,6 +6,8 @@ import {
   getActivePrograms,
   getUnclassifiedMessages,
   createPendingReview,
+  createInitiative,
+  findOrCreateProgram,
 } from "./supabase";
 import { sendClassificationPrompt } from "./sms";
 import { ClassificationResult, Message, Initiative, Event, Program } from "./types";
@@ -42,22 +44,13 @@ export async function processUnclassifiedMessages(): Promise<{
   for (const group of groups) {
     try {
       const result = await classifyMessage(group, context);
-      await applyClassificationResult(group, result, context);
+      const { needsReview } = await applyClassificationResult(group, result, context);
       stats.processed += group.length;
 
       const isNoise = result.content_type === "noise";
-      const hasHighConfidenceMatch =
-        !isNoise &&
-        result.initiative_match.confidence >= AUTO_ASSIGN_THRESHOLD &&
-        !result.initiative_match.is_new &&
-        result.initiative_match.id;
-      const hasNewEntitySuggestions =
-        result.initiative_match.is_new ||
-        result.programs_referenced.some((p) => p.is_new);
-
-      if (hasHighConfidenceMatch && !hasNewEntitySuggestions) {
+      if (!isNoise && !needsReview) {
         stats.autoAssigned += group.length;
-      } else if (!isNoise) {
+      } else if (needsReview) {
         stats.flaggedForReview += group.length;
       }
     } catch (error) {
@@ -154,26 +147,65 @@ async function applyClassificationResult(
   messages: Message[],
   result: ClassificationResult,
   context: ClassifyContext
-): Promise<void> {
+): Promise<{ needsReview: boolean }> {
   const db = getSupabaseClient();
   const messageIds = messages.map((m) => m.id);
 
-  // Determine if this is an auto-assign or needs review
+  // Determine routing
   const isNoise = result.content_type === "noise";
-  const hasHighConfidenceMatch =
+  const isHighConfidence =
     !isNoise &&
-    result.initiative_match.confidence >= AUTO_ASSIGN_THRESHOLD &&
-    !result.initiative_match.is_new &&
-    result.initiative_match.id;
-
-  const hasNewEntitySuggestions =
-    result.initiative_match.is_new ||
+    result.initiative_match.confidence >= AUTO_ASSIGN_THRESHOLD;
+  const hasHighConfidenceExisting =
+    isHighConfidence && !result.initiative_match.is_new && result.initiative_match.id;
+  const hasHighConfidenceNew =
+    isHighConfidence && result.initiative_match.is_new;
+  const hasNewTrackSuggestions =
     result.programs_referenced.some((p) => p.is_new);
 
-  const needsReview =
-    !isNoise && (!hasHighConfidenceMatch || hasNewEntitySuggestions);
+  // Review needed when: low confidence, OR new tracks suggested
+  // NOT needed for high-confidence new initiatives — those auto-create
+  let needsReview =
+    !isNoise && (!isHighConfidence || hasNewTrackSuggestions);
 
-  // 1. Update messages with classification result
+  // Track which initiative ID gets assigned to messages
+  let assignedInitiativeId: string | null = null;
+
+  // 1. Auto-create new initiative at high confidence
+  if (hasHighConfidenceNew && !hasNewTrackSuggestions) {
+    try {
+      const initiative = await createInitiative({
+        name: result.initiative_match.name,
+        partner_name: result.initiative_match.partner_name,
+        summary: result.summary_update,
+      });
+      assignedInitiativeId = initiative.id;
+
+      // Find or create referenced tracks (programs)
+      for (const prog of result.programs_referenced) {
+        try {
+          await findOrCreateProgram({ name: prog.name });
+        } catch (err) {
+          console.error(`Failed to find/create track "${prog.name}":`, err);
+        }
+      }
+
+      console.log(
+        `Auto-created initiative: ${initiative.name} (${initiative.id}) from ${messageIds.length} message(s)`
+      );
+    } catch (err) {
+      // Auto-create failed — fall back to review
+      console.error("Auto-create initiative failed, falling back to review:", err);
+      needsReview = true;
+    }
+  }
+
+  // 2. Auto-assign to existing initiative at high confidence
+  if (hasHighConfidenceExisting && !hasNewTrackSuggestions) {
+    assignedInitiativeId = result.initiative_match.id!;
+  }
+
+  // 3. Update messages with classification result
   const messageUpdate: Record<string, unknown> = {
     content_type: result.content_type,
     classification_confidence: result.initiative_match.confidence,
@@ -181,36 +213,34 @@ async function applyClassificationResult(
     pending_review: needsReview,
   };
 
-  // Auto-assign to initiative if high confidence match to existing
-  if (hasHighConfidenceMatch) {
-    messageUpdate.initiative_id = result.initiative_match.id;
+  if (assignedInitiativeId) {
+    messageUpdate.initiative_id = assignedInitiativeId;
   }
 
   await db.from("messages").update(messageUpdate).in("id", messageIds);
 
-  // 2. If auto-assigned, update initiative summary
-  if (hasHighConfidenceMatch && result.summary_update) {
+  // 4. If assigned to existing initiative, update its summary
+  if (hasHighConfidenceExisting && !hasNewTrackSuggestions && result.summary_update) {
     await db
       .from("initiatives")
       .update({ summary: result.summary_update })
-      .eq("id", result.initiative_match.id!);
+      .eq("id", assignedInitiativeId!);
   }
 
-  // 3. Create entity links where both source and target already exist
+  // 5. Create entity links where both source and target already exist
   if (!isNoise) {
     await createEntityLinks(result, context);
   }
 
-  // 4. Upsert participants
+  // 6. Upsert participants — link to assigned initiative if available
   if (!isNoise && result.participants.length > 0) {
-    await upsertParticipants(result, messages, context);
+    await upsertParticipants(result, messages, context, assignedInitiativeId);
   }
 
-  // 5. If flagged for review, create pending review and send SMS
+  // 7. If flagged for review, create pending review and send SMS
   if (needsReview) {
     try {
       const initiatives = context.initiatives;
-      // Use the first message as the representative for the SMS
       const representative = messages[0];
       const { options } = await sendClassificationPrompt(
         representative,
@@ -226,7 +256,6 @@ async function applyClassificationResult(
         sms_sent_at: new Date().toISOString(),
       });
     } catch (smsError) {
-      // SMS failure shouldn't block classification — create review without SMS
       console.error("Failed to send classification SMS:", smsError);
       await createPendingReview({
         message_id: messages[0].id,
@@ -243,6 +272,8 @@ async function applyClassificationResult(
       `confidence=${result.initiative_match.confidence}, ` +
       `review=${needsReview}, initiative=${result.initiative_match.name}`
   );
+
+  return { needsReview };
 }
 
 // ============================================================
@@ -339,7 +370,8 @@ function normalizeEntityName(name: string): string {
 async function upsertParticipants(
   result: ClassificationResult,
   messages: Message[],
-  context: ClassifyContext
+  context: ClassifyContext,
+  assignedInitiativeId: string | null
 ): Promise<void> {
   const db = getSupabaseClient();
   const pdmEmail = process.env.RELAY_EMAIL_ADDRESS?.toLowerCase();
@@ -359,8 +391,11 @@ async function upsertParticipants(
       .eq("email", participant.email)
       .limit(1);
 
+    let participantId: string | null = null;
+
     if (existing && existing.length > 0) {
-      // Update if we have better info (name or org was null, now we have it)
+      participantId = existing[0].id;
+      // Update if we have better info (name, org, or title was null, now we have it)
       const updates: Record<string, string> = {};
       if (!existing[0].name && participant.name) {
         updates.name = participant.name;
@@ -368,26 +403,14 @@ async function upsertParticipants(
       if (!existing[0].organization && participant.organization) {
         updates.organization = participant.organization;
       }
+      if (!existing[0].title && participant.role && participant.role !== "forwarder") {
+        updates.title = participant.role;
+      }
       if (Object.keys(updates).length > 0) {
         await db
           .from("participants")
           .update(updates)
-          .eq("id", existing[0].id);
-      }
-
-      // Link to initiative if we have a high-confidence match
-      if (
-        result.initiative_match.id &&
-        !result.initiative_match.is_new &&
-        result.initiative_match.confidence >= AUTO_ASSIGN_THRESHOLD
-      ) {
-        await ensureParticipantLink(
-          db,
-          existing[0].id,
-          "initiative",
-          result.initiative_match.id,
-          participant.role
-        );
+          .eq("id", participantId);
       }
     } else {
       // Insert new participant
@@ -397,24 +420,25 @@ async function upsertParticipants(
           email: participant.email,
           name: participant.name,
           organization: participant.organization,
+          title: participant.role !== "forwarder" ? participant.role : null,
         })
         .select("id")
         .single();
 
-      if (
-        inserted &&
-        result.initiative_match.id &&
-        !result.initiative_match.is_new &&
-        result.initiative_match.confidence >= AUTO_ASSIGN_THRESHOLD
-      ) {
-        await ensureParticipantLink(
-          db,
-          inserted.id,
-          "initiative",
-          result.initiative_match.id,
-          participant.role
-        );
+      if (inserted) {
+        participantId = inserted.id;
       }
+    }
+
+    // Link to initiative if we have an assigned initiative
+    if (participantId && assignedInitiativeId) {
+      await ensureParticipantLink(
+        db,
+        participantId,
+        "initiative",
+        assignedInitiativeId,
+        participant.role
+      );
     }
   }
 }

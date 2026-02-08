@@ -12,6 +12,8 @@ const {
   mockGetActivePrograms,
   mockGetUnclassifiedMessages,
   mockCreatePendingReview,
+  mockCreateInitiative,
+  mockFindOrCreateProgram,
   mockSendClassificationPrompt,
   mockFrom,
 } = vi.hoisted(() => {
@@ -102,6 +104,8 @@ const {
     mockGetActivePrograms: vi.fn(),
     mockGetUnclassifiedMessages: vi.fn(),
     mockCreatePendingReview: vi.fn().mockResolvedValue({ id: "review-001" }),
+    mockCreateInitiative: vi.fn().mockResolvedValue({ id: "init-auto", name: "Auto-Created", status: "active", summary: null, partner_name: null, created_at: "", updated_at: "", closed_at: null }),
+    mockFindOrCreateProgram: vi.fn().mockResolvedValue({ id: "prog-auto", name: "Auto-Program", description: null, eligibility: null, url: null, status: "active", created_at: "" }),
     mockSendClassificationPrompt: vi.fn().mockResolvedValue({
       sid: "SM123",
       options: [{ number: 1, label: "Test", initiative_id: null, is_new: true }],
@@ -125,6 +129,8 @@ vi.mock("../supabase", () => ({
   getActivePrograms: mockGetActivePrograms,
   getUnclassifiedMessages: mockGetUnclassifiedMessages,
   createPendingReview: mockCreatePendingReview,
+  createInitiative: mockCreateInitiative,
+  findOrCreateProgram: mockFindOrCreateProgram,
 }));
 
 vi.mock("../sms", () => ({
@@ -240,6 +246,26 @@ const LOW_CONFIDENCE_RESULT: ClassificationResult = {
   temporal_references: [],
   action_items: [],
   summary_update: null,
+};
+
+const HIGH_CONFIDENCE_NEW_RESULT: ClassificationResult = {
+  content_type: "initiative_email",
+  initiative_match: {
+    id: null,
+    name: "NewCorp - Cloud Migration",
+    confidence: 0.92,
+    is_new: true,
+    partner_name: "NewCorp",
+  },
+  events_referenced: [],
+  programs_referenced: [],
+  entity_links: [],
+  participants: [
+    { name: "Bob Smith", email: "bob@newcorp.com", organization: "NewCorp", role: "CTO" },
+  ],
+  temporal_references: [],
+  action_items: [],
+  summary_update: "NewCorp exploring cloud migration.",
 };
 
 const NOISE_RESULT: ClassificationResult = {
@@ -368,6 +394,36 @@ describe("processUnclassifiedMessages", () => {
     expect(mockClassifyMessage).toHaveBeenCalledTimes(2);
   });
 
+  it("auto-creates new initiative at high confidence", async () => {
+    const msg = makeMessage({ id: "msg-new" });
+    mockGetUnclassifiedMessages.mockResolvedValue([msg]);
+    mockClassifyMessage.mockResolvedValue(HIGH_CONFIDENCE_NEW_RESULT);
+
+    const result = await processUnclassifiedMessages();
+
+    expect(result.processed).toBe(1);
+    expect(result.autoAssigned).toBe(1);
+    expect(result.flaggedForReview).toBe(0);
+    expect(mockCreateInitiative).toHaveBeenCalledWith({
+      name: "NewCorp - Cloud Migration",
+      partner_name: "NewCorp",
+      summary: "NewCorp exploring cloud migration.",
+    });
+  });
+
+  it("falls back to review when auto-create fails", async () => {
+    const msg = makeMessage({ id: "msg-fail-create" });
+    mockGetUnclassifiedMessages.mockResolvedValue([msg]);
+    mockClassifyMessage.mockResolvedValue(HIGH_CONFIDENCE_NEW_RESULT);
+    mockCreateInitiative.mockRejectedValueOnce(new Error("DB error"));
+
+    const result = await processUnclassifiedMessages();
+
+    expect(result.processed).toBe(1);
+    expect(result.flaggedForReview).toBe(1);
+    expect(mockCreatePendingReview).toHaveBeenCalled();
+  });
+
   it("auto-assigns even when new events are suggested with high confidence match", async () => {
     const resultWithNewEvent: ClassificationResult = {
       ...HIGH_CONFIDENCE_RESULT,
@@ -390,7 +446,7 @@ describe("processUnclassifiedMessages", () => {
 
     const result = await processUnclassifiedMessages();
 
-    // New events no longer block auto-assign — only new initiatives/programs do
+    // New events no longer block auto-assign — only new tracks do
     expect(result.autoAssigned).toBe(1);
     expect(result.flaggedForReview).toBe(0);
   });

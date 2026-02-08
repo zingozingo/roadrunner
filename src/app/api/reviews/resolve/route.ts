@@ -331,6 +331,8 @@ async function upsertParticipants(
           updates.name = participant.name;
         if (!existing[0].organization && participant.organization)
           updates.organization = participant.organization;
+        if (!existing[0].title && participant.role && participant.role !== "forwarder")
+          updates.title = participant.role;
         if (Object.keys(updates).length > 0) {
           await db
             .from("participants")
@@ -345,6 +347,7 @@ async function upsertParticipants(
             email: participant.email,
             name: participant.name,
             organization: participant.organization,
+            title: participant.role !== "forwarder" ? participant.role : null,
           })
           .select("id")
           .maybeSingle();

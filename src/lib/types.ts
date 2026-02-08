@@ -78,6 +78,7 @@ export interface Participant {
   email: string;
   name: string | null;
   organization: string | null;
+  title: string | null;
   notes: string | null;
   created_at: string;
 }
