@@ -2,40 +2,34 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { PendingReview, PendingEventApproval, Message, Initiative } from "@/lib/types";
+import { ApprovalQueueItem, Message, Initiative } from "@/lib/types";
 import ReviewCard from "./ReviewCard";
 import EventApprovalCard from "./EventApprovalCard";
 import OrphanedMessageCard from "./OrphanedMessageCard";
 import EmptyState from "./EmptyState";
 
-type ReviewWithMessage = PendingReview & { message: Message };
-type ApprovalWithContext = PendingEventApproval & {
+type ApprovalWithContext = ApprovalQueueItem & {
   message: Message | null;
   initiative: Initiative | null;
 };
 
 export default function InboxClient({
-  initialReviews,
-  initialEventApprovals,
+  initialApprovals,
   initialOrphaned,
 }: {
-  initialReviews: ReviewWithMessage[];
-  initialEventApprovals: ApprovalWithContext[];
+  initialApprovals: ApprovalWithContext[];
   initialOrphaned: Message[];
 }) {
   const router = useRouter();
-  const [reviews, setReviews] = useState(initialReviews);
-  const [eventApprovals, setEventApprovals] = useState(initialEventApprovals);
+  const [approvals, setApprovals] = useState(initialApprovals);
 
   function handleResolved(id: string) {
-    setReviews((prev) => prev.filter((r) => r.id !== id));
+    setApprovals((prev) => prev.filter((a) => a.id !== id));
     router.refresh();
   }
 
-  function handleEventResolved(id: string) {
-    setEventApprovals((prev) => prev.filter((a) => a.id !== id));
-    router.refresh();
-  }
+  const reviews = approvals.filter((a) => a.type === "initiative_assignment");
+  const eventApprovals = approvals.filter((a) => a.type === "event_creation");
 
   return (
     <div className="space-y-8">
@@ -81,7 +75,7 @@ export default function InboxClient({
               <EventApprovalCard
                 key={approval.id}
                 approval={approval}
-                onResolved={handleEventResolved}
+                onResolved={handleResolved}
               />
             ))}
           </div>

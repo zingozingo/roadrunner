@@ -1,18 +1,16 @@
 import PageHeader from "@/components/PageHeader";
 import InboxClient from "@/components/InboxClient";
 import {
-  getUnresolvedReviewsWithMessages,
+  getUnresolvedApprovals,
   getOrphanedMessages,
-  getUnresolvedEventApprovals,
 } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
 export default async function InboxPage() {
-  const [reviews, orphaned, eventApprovals] = await Promise.all([
-    getUnresolvedReviewsWithMessages(),
+  const [approvals, orphaned] = await Promise.all([
+    getUnresolvedApprovals(),
     getOrphanedMessages(),
-    getUnresolvedEventApprovals(),
   ]);
 
   return (
@@ -22,8 +20,7 @@ export default async function InboxPage() {
         subtitle="Review AI classifications and assign messages to initiatives"
       />
       <InboxClient
-        initialReviews={reviews}
-        initialEventApprovals={eventApprovals}
+        initialApprovals={approvals}
         initialOrphaned={orphaned}
       />
     </div>

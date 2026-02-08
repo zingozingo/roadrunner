@@ -5,10 +5,9 @@ import {
   getActiveEvents,
   getActivePrograms,
   getUnclassifiedMessages,
-  createPendingReview,
+  createApproval,
   createInitiative,
   findOrCreateProgram,
-  createPendingEventApproval,
 } from "./supabase";
 import { sendClassificationPrompt } from "./sms";
 import { ClassificationResult, Message, Initiative, Event, Program } from "./types";
@@ -243,15 +242,16 @@ async function applyClassificationResult(
     for (const eventRef of result.events_referenced) {
       if (!eventRef.is_new) continue;
       try {
-        await createPendingEventApproval({
-          event_data: {
+        await createApproval({
+          type: "event_creation",
+          entity_data: {
             name: eventRef.name,
             type: eventRef.type,
             date: eventRef.date,
             date_precision: eventRef.date_precision,
             confidence: eventRef.confidence,
           },
-          source_message_id: messages[0].id,
+          message_id: messages[0].id,
           initiative_id: assignedInitiativeId,
         });
         console.log(`Pending event approval created: "${eventRef.name}"`);
@@ -272,7 +272,8 @@ async function applyClassificationResult(
         initiatives
       );
 
-      await createPendingReview({
+      await createApproval({
+        type: "initiative_assignment",
         message_id: representative.id,
         classification_result: result,
         options_sent: options,
@@ -281,7 +282,8 @@ async function applyClassificationResult(
       });
     } catch (smsError) {
       console.error("Failed to send classification SMS:", smsError);
-      await createPendingReview({
+      await createApproval({
+        type: "initiative_assignment",
         message_id: messages[0].id,
         classification_result: result,
         options_sent: [],

@@ -185,16 +185,19 @@ export interface MailgunWebhookPayload {
   signature: string;
 }
 
-export interface PendingReview {
+export interface ApprovalQueueItem {
   id: string;
-  message_id: string;
+  type: "initiative_assignment" | "event_creation";
+  message_id: string | null;
+  initiative_id: string | null;
+  classification_result: ClassificationResult | null;
+  entity_data: EventSuggestion | null;
+  options_sent: SMSOption[] | null;
   sms_sent: boolean;
   sms_sent_at: string | null;
   resolved: boolean;
   resolved_at: string | null;
   resolution: string | null;
-  classification_result: ClassificationResult;
-  options_sent: SMSOption[] | null;
   created_at: string;
 }
 
@@ -220,13 +223,3 @@ export interface EventSuggestion {
   confidence: number;
 }
 
-export interface PendingEventApproval {
-  id: string;
-  event_data: EventSuggestion;
-  source_message_id: string | null;
-  initiative_id: string | null;
-  resolved: boolean;
-  resolved_at: string | null;
-  resolution: string | null;
-  created_at: string;
-}

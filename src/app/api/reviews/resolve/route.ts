@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getSupabaseClient,
-  resolvePendingReview,
+  resolveApproval,
   createInitiative,
   updateMessageInitiative,
   updateInitiativeSummary,
   findOrCreateProgram,
   createEntityLink,
-  createPendingEventApproval,
+  createApproval,
+  findOrCreateEvent,
 } from "@/lib/supabase";
-import { PendingReview, ClassificationResult } from "@/lib/types";
+import { ApprovalQueueItem, ClassificationResult, EventSuggestion } from "@/lib/types";
 
 interface ResolveRequest {
   review_id: string;
-  action: "skip" | "select" | "new";
+  action: "skip" | "select" | "new" | "approve" | "deny";
   option_number?: number;
   initiative_name?: string;
 }
@@ -33,68 +34,74 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch the review by ID only — no resolved filter.
-    // Use .maybeSingle() so 0 rows returns null instead of throwing.
-    const { data: review, error: fetchError } = await getSupabaseClient()
-      .from("pending_reviews")
+    // Fetch the approval by ID
+    const { data: row, error: fetchError } = await getSupabaseClient()
+      .from("approval_queue")
       .select("*")
       .eq("id", review_id)
       .maybeSingle();
 
     if (fetchError) {
-      console.error("Review fetch error:", fetchError.message, fetchError.code);
+      console.error("Approval fetch error:", fetchError.message, fetchError.code);
       return NextResponse.json(
-        { error: `Database error fetching review: ${fetchError.message}` },
+        { error: `Database error fetching approval: ${fetchError.message}` },
         { status: 500 }
       );
     }
 
-    if (!review) {
-      console.error("No review found with id:", review_id);
+    if (!row) {
+      console.error("No approval found with id:", review_id);
       return NextResponse.json(
-        { error: `No review found with id ${review_id}` },
+        { error: `No approval found with id ${review_id}` },
         { status: 404 }
       );
     }
 
-    const pendingReview = review as PendingReview;
+    const approval = row as ApprovalQueueItem;
 
-    // Check resolved status in application code — clear error message
-    if (pendingReview.resolved) {
-      console.warn("Review already resolved:", review_id, pendingReview.resolution);
+    if (approval.resolved) {
+      console.warn("Approval already resolved:", review_id, approval.resolution);
       return NextResponse.json(
-        { error: "This review has already been resolved" },
+        { error: "This approval has already been resolved" },
         { status: 409 }
       );
     }
 
-    console.log("Found review:", {
-      id: pendingReview.id,
-      message_id: pendingReview.message_id,
-      resolved: pendingReview.resolved,
-      options_count: pendingReview.options_sent?.length ?? 0,
-      options: pendingReview.options_sent,
+    // Route by approval type
+    if (approval.type === "event_creation") {
+      return handleEventApproval(approval, action);
+    }
+
+    // initiative_assignment handling below
+    const classResult = approval.classification_result!;
+
+    console.log("Found approval:", {
+      id: approval.id,
+      message_id: approval.message_id,
+      resolved: approval.resolved,
+      options_count: approval.options_sent?.length ?? 0,
+      options: approval.options_sent,
     });
 
     // Handle "skip"
     if (action === "skip") {
-      await resolvePendingReview(review_id, "skipped");
-      console.log("Review skipped:", review_id);
+      await resolveApproval(review_id, "skipped");
+      console.log("Approval skipped:", review_id);
       return NextResponse.json({ status: "skipped" });
     }
 
     // Handle "select" — pick a numbered option
     if (action === "select" && option_number != null) {
-      const option = pendingReview.options_sent?.find(
+      const option = approval.options_sent?.find(
         (o) => o.number === option_number
       );
       if (!option) {
         console.error("Invalid option:", {
           option_number,
-          available: pendingReview.options_sent?.map((o) => o.number),
+          available: approval.options_sent?.map((o) => o.number),
         });
         return NextResponse.json(
-          { error: `Invalid option number ${option_number}. Available: ${pendingReview.options_sent?.map((o) => o.number).join(", ") ?? "none"}` },
+          { error: `Invalid option number ${option_number}. Available: ${approval.options_sent?.map((o) => o.number).join(", ") ?? "none"}` },
           { status: 400 }
         );
       }
@@ -105,23 +112,17 @@ export async function POST(request: NextRequest) {
         // Create new initiative from the AI suggestion
         const initiative = await createInitiative({
           name: option.label,
-          partner_name:
-            pendingReview.classification_result.initiative_match.partner_name,
-          summary: pendingReview.classification_result.summary_update,
+          partner_name: classResult.initiative_match.partner_name,
+          summary: classResult.summary_update,
         });
         console.log("Created initiative:", initiative.id, initiative.name);
 
-        await updateMessageInitiative(pendingReview.message_id, initiative.id);
-        console.log("Message assigned:", pendingReview.message_id, "->", initiative.id);
+        await updateMessageInitiative(approval.message_id!, initiative.id);
+        console.log("Message assigned:", approval.message_id, "->", initiative.id);
 
-        // Persist events, programs, and entity links from classification
-        // Errors here should NOT block resolve completion
-        await persistClassificationEntities(
-          pendingReview.classification_result,
-          initiative.id
-        );
+        await persistClassificationEntities(classResult, initiative.id);
 
-        await resolvePendingReview(
+        await resolveApproval(
           review_id,
           `created:${initiative.id}:${initiative.name}`
         );
@@ -136,23 +137,19 @@ export async function POST(request: NextRequest) {
       if (option.initiative_id) {
         // Assign to existing initiative
         await updateMessageInitiative(
-          pendingReview.message_id,
+          approval.message_id!,
           option.initiative_id
         );
-        if (pendingReview.classification_result.summary_update) {
+        if (classResult.summary_update) {
           await updateInitiativeSummary(
             option.initiative_id,
-            pendingReview.classification_result.summary_update
+            classResult.summary_update
           );
         }
 
-        // Persist events, programs, and entity links from classification
-        await persistClassificationEntities(
-          pendingReview.classification_result,
-          option.initiative_id
-        );
+        await persistClassificationEntities(classResult, option.initiative_id);
 
-        await resolvePendingReview(
+        await resolveApproval(
           review_id,
           `assigned:${option.initiative_id}:${option.label}`
         );
@@ -184,20 +181,15 @@ export async function POST(request: NextRequest) {
 
       const initiative = await createInitiative({
         name,
-        partner_name:
-          pendingReview.classification_result.initiative_match.partner_name,
-        summary: pendingReview.classification_result.summary_update,
+        partner_name: classResult.initiative_match.partner_name,
+        summary: classResult.summary_update,
       });
 
-      await updateMessageInitiative(pendingReview.message_id, initiative.id);
+      await updateMessageInitiative(approval.message_id!, initiative.id);
 
-      // Persist events, programs, and entity links from classification
-      await persistClassificationEntities(
-        pendingReview.classification_result,
-        initiative.id
-      );
+      await persistClassificationEntities(classResult, initiative.id);
 
-      await resolvePendingReview(
+      await resolveApproval(
         review_id,
         `created:${initiative.id}:${initiative.name}`
       );
@@ -218,10 +210,55 @@ export async function POST(request: NextRequest) {
     const stack = error instanceof Error ? error.stack : "";
     console.error("=== RESOLVE FAILED ===", message, stack);
     return NextResponse.json(
-      { error: `Failed to resolve review: ${message}` },
+      { error: `Failed to resolve approval: ${message}` },
       { status: 500 }
     );
   }
+}
+
+/**
+ * Handle event_creation approval (approve/deny).
+ */
+async function handleEventApproval(
+  approval: ApprovalQueueItem,
+  action: string
+): Promise<NextResponse> {
+  if (action !== "approve" && action !== "deny") {
+    return NextResponse.json(
+      { error: "action must be 'approve' or 'deny' for event approvals" },
+      { status: 400 }
+    );
+  }
+
+  if (action === "deny") {
+    await resolveApproval(approval.id, "denied");
+    return NextResponse.json({ status: "denied" });
+  }
+
+  // Approve: create event and link to initiative
+  const eventData = approval.entity_data as EventSuggestion;
+  const event = await findOrCreateEvent({
+    name: eventData.name,
+    type: eventData.type,
+    start_date: eventData.date,
+    date_precision: eventData.date_precision,
+  });
+
+  // Link to initiative if one exists
+  if (approval.initiative_id) {
+    await createEntityLink({
+      source_type: "initiative",
+      source_id: approval.initiative_id,
+      target_type: "event",
+      target_id: event.id,
+      relationship: "relevant_to",
+      context: `Event approved from email classification`,
+    });
+  }
+
+  await resolveApproval(approval.id, `approved:${event.id}:${event.name}`);
+
+  return NextResponse.json({ status: "approved", event });
 }
 
 /**
@@ -247,15 +284,16 @@ async function persistClassificationEntities(
     for (const eventRef of result.events_referenced) {
       if (eventRef.is_new || !eventRef.id) {
         try {
-          await createPendingEventApproval({
-            event_data: {
+          await createApproval({
+            type: "event_creation",
+            entity_data: {
               name: eventRef.name,
               type: eventRef.type,
               date: eventRef.date,
               date_precision: eventRef.date_precision,
               confidence: eventRef.confidence,
             },
-            source_message_id: null,
+            message_id: null,
             initiative_id: initiativeId,
           });
           console.log(`Pending event approval created: "${eventRef.name}"`);

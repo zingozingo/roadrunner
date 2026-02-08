@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { PendingEventApproval, Message, Initiative } from "@/lib/types";
+import { ApprovalQueueItem, Message, Initiative } from "@/lib/types";
 import ConfidenceBar from "./ConfidenceBar";
 
-type ApprovalWithContext = PendingEventApproval & {
+type ApprovalWithContext = ApprovalQueueItem & {
   message: Message | null;
   initiative: Initiative | null;
 };
@@ -30,16 +30,16 @@ export default function EventApprovalCard({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const event = approval.event_data;
+  const event = approval.entity_data!;
 
   async function handleAction(action: "approve" | "deny") {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/events", {
+      const res = await fetch("/api/reviews/resolve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ approval_id: approval.id, action }),
+        body: JSON.stringify({ review_id: approval.id, action }),
       });
 
       if (!res.ok) {

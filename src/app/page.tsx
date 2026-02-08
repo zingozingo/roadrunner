@@ -2,14 +2,14 @@ import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import StatusBadge from "@/components/StatusBadge";
 import {
-  getUnresolvedReviewCount,
+  getUnresolvedApprovalCount,
   getAllInitiatives,
   getAllEventsWithCounts,
 } from "@/lib/supabase";
 
 export default async function DashboardPage() {
   const [reviewCount, initiatives, events] = await Promise.all([
-    getUnresolvedReviewCount(),
+    getUnresolvedApprovalCount(),
     getAllInitiatives(),
     getAllEventsWithCounts(),
   ]);

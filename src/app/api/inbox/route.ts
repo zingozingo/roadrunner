@@ -1,19 +1,17 @@
 import { NextResponse } from "next/server";
 import {
-  getUnresolvedReviewsWithMessages,
+  getUnresolvedApprovals,
   getOrphanedMessages,
-  getUnresolvedEventApprovals,
 } from "@/lib/supabase";
 
 export async function GET() {
   try {
-    const [reviews, orphaned, eventApprovals] = await Promise.all([
-      getUnresolvedReviewsWithMessages(),
+    const [approvals, orphaned] = await Promise.all([
+      getUnresolvedApprovals(),
       getOrphanedMessages(),
-      getUnresolvedEventApprovals(),
     ]);
 
-    return NextResponse.json({ reviews, orphaned, eventApprovals });
+    return NextResponse.json({ approvals, orphaned });
   } catch (error) {
     console.error("GET /api/inbox error:", error);
     return NextResponse.json(

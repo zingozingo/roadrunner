@@ -1,28 +1,31 @@
 "use client";
 
 import { useState } from "react";
-import { PendingReview, Message } from "@/lib/types";
+import { ApprovalQueueItem, Message, Initiative } from "@/lib/types";
 import ConfidenceBar from "./ConfidenceBar";
 
-type ReviewWithMessage = PendingReview & { message: Message };
+type ReviewApproval = ApprovalQueueItem & {
+  message: Message | null;
+  initiative: Initiative | null;
+};
 
 export default function ReviewCard({
   review,
   onResolved,
 }: {
-  review: ReviewWithMessage;
+  review: ReviewApproval;
   onResolved: (id: string) => void;
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showNewInput, setShowNewInput] = useState(false);
   const [newName, setNewName] = useState(
-    review.classification_result.initiative_match.name || ""
+    review.classification_result!.initiative_match.name || ""
   );
 
   const msg = review.message;
-  const match = review.classification_result.initiative_match;
-  const bodyPreview = msg.body_text?.slice(0, 150) || "";
+  const match = review.classification_result!.initiative_match;
+  const bodyPreview = msg?.body_text?.slice(0, 150) || "";
 
   async function resolve(
     action: "skip" | "select" | "new",
@@ -74,19 +77,19 @@ export default function ReviewCard({
         <div className="flex items-start justify-between">
           <div>
             <p className="font-medium text-foreground">
-              {msg.sender_name || msg.sender_email || "Unknown sender"}
+              {msg?.sender_name || msg?.sender_email || "Unknown sender"}
             </p>
-            {msg.sender_name && msg.sender_email && (
+            {msg?.sender_name && msg?.sender_email && (
               <p className="text-sm text-muted">{msg.sender_email}</p>
             )}
           </div>
           <time className="text-xs text-muted">
-            {msg.sent_at
+            {msg?.sent_at
               ? new Date(msg.sent_at).toLocaleDateString()
               : "No date"}
           </time>
         </div>
-        {msg.subject && (
+        {msg?.subject && (
           <p className="mt-1 text-sm font-medium text-foreground/80">
             {msg.subject}
           </p>
@@ -94,7 +97,7 @@ export default function ReviewCard({
         {bodyPreview && (
           <p className="mt-1 text-sm text-muted">
             {bodyPreview}
-            {(msg.body_text?.length ?? 0) > 150 ? "..." : ""}
+            {(msg?.body_text?.length ?? 0) > 150 ? "..." : ""}
           </p>
         )}
       </div>

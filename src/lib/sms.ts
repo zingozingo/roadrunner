@@ -33,7 +33,7 @@ export async function sendSMS(to: string, body: string): Promise<string> {
 
 /**
  * Build SMS options from a classification result.
- * Returns the numbered options list used in the SMS and stored in pending_reviews.
+ * Returns the numbered options list used in the SMS and stored in approval_queue.
  */
 export function buildSMSOptions(
   result: ClassificationResult,

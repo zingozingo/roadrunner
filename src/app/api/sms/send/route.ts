@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseClient } from "@/lib/supabase";
 import { sendClassificationPrompt } from "@/lib/sms";
 import { getActiveInitiatives } from "@/lib/supabase";
-import type { Message, PendingReview } from "@/lib/types";
+import type { Message, ApprovalQueueItem } from "@/lib/types";
 
 /**
  * POST /api/sms/send
- * Manually trigger or resend an SMS for a pending review.
+ * Manually trigger or resend an SMS for a pending approval.
  * Body: { review_id: string }
  */
 export async function POST(request: NextRequest) {
@@ -22,25 +22,26 @@ export async function POST(request: NextRequest) {
 
     const db = getSupabaseClient();
 
-    // Fetch the pending review
-    const { data: review, error: reviewError } = await db
-      .from("pending_reviews")
+    // Fetch the approval
+    const { data: row, error: reviewError } = await db
+      .from("approval_queue")
       .select("*")
       .eq("id", review_id)
+      .eq("type", "initiative_assignment")
       .single();
 
-    if (reviewError || !review) {
+    if (reviewError || !row) {
       return NextResponse.json(
-        { error: "Pending review not found" },
+        { error: "Pending approval not found" },
         { status: 404 }
       );
     }
 
-    const pendingReview = review as PendingReview;
+    const approval = row as ApprovalQueueItem;
 
-    if (pendingReview.resolved) {
+    if (approval.resolved) {
       return NextResponse.json(
-        { error: "Review is already resolved" },
+        { error: "Approval is already resolved" },
         { status: 400 }
       );
     }
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
     const { data: message, error: msgError } = await db
       .from("messages")
       .select("*")
-      .eq("id", pendingReview.message_id)
+      .eq("id", approval.message_id!)
       .single();
 
     if (msgError || !message) {
@@ -63,13 +64,13 @@ export async function POST(request: NextRequest) {
 
     const { sid, options } = await sendClassificationPrompt(
       message as Message,
-      pendingReview.classification_result,
+      approval.classification_result!,
       initiatives
     );
 
-    // Update the review with SMS info
+    // Update the approval with SMS info
     await db
-      .from("pending_reviews")
+      .from("approval_queue")
       .update({
         sms_sent: true,
         sms_sent_at: new Date().toISOString(),

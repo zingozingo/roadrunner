@@ -5,8 +5,7 @@ import {
   Program,
   Message,
   ParsedMessage,
-  PendingReview,
-  PendingEventApproval,
+  ApprovalQueueItem,
   EventSuggestion,
   Participant,
   EntityLink,
@@ -117,44 +116,70 @@ export async function getUnclassifiedMessages(): Promise<Message[]> {
 }
 
 // ============================================================
-// Pending reviews
+// Unified approval queue
 // ============================================================
 
-export async function createPendingReview(data: {
-  message_id: string;
-  classification_result: ClassificationResult;
-  options_sent: SMSOption[];
-  sms_sent: boolean;
-  sms_sent_at: string | null;
-}): Promise<PendingReview> {
-  const { data: review, error } = await getSupabaseClient()
-    .from("pending_reviews")
-    .insert(data)
+export async function createApproval(data: {
+  type: ApprovalQueueItem["type"];
+  message_id?: string | null;
+  initiative_id?: string | null;
+  classification_result?: ClassificationResult | null;
+  entity_data?: EventSuggestion | null;
+  options_sent?: SMSOption[] | null;
+  sms_sent?: boolean;
+  sms_sent_at?: string | null;
+}): Promise<ApprovalQueueItem> {
+  const { data: row, error } = await getSupabaseClient()
+    .from("approval_queue")
+    .insert({
+      type: data.type,
+      message_id: data.message_id ?? null,
+      initiative_id: data.initiative_id ?? null,
+      classification_result: data.classification_result ?? null,
+      entity_data: data.entity_data ?? null,
+      options_sent: data.options_sent ?? null,
+      sms_sent: data.sms_sent ?? false,
+      sms_sent_at: data.sms_sent_at ?? null,
+    })
     .select()
     .single();
 
-  if (error) throw new Error(`Failed to create pending review: ${error.message}`);
-  return review as PendingReview;
+  if (error) throw new Error(`Failed to create approval: ${error.message}`);
+  return row as ApprovalQueueItem;
 }
 
-export async function getLatestUnresolvedReview(): Promise<PendingReview | null> {
+export async function getUnresolvedApprovals(): Promise<
+  (ApprovalQueueItem & { message: Message | null; initiative: Initiative | null })[]
+> {
   const { data, error } = await getSupabaseClient()
-    .from("pending_reviews")
-    .select("*")
+    .from("approval_queue")
+    .select("*, message:messages(*), initiative:initiatives(*)")
     .eq("resolved", false)
-    .order("created_at", { ascending: false })
-    .limit(1);
+    .order("created_at", { ascending: false });
 
-  if (error) throw new Error(`Failed to fetch pending review: ${error.message}`);
-  return data && data.length > 0 ? (data[0] as PendingReview) : null;
+  if (error) throw new Error(`Failed to fetch approvals: ${error.message}`);
+  return (data ?? []) as (ApprovalQueueItem & {
+    message: Message | null;
+    initiative: Initiative | null;
+  })[];
 }
 
-export async function resolvePendingReview(
+export async function getUnresolvedApprovalCount(): Promise<number> {
+  const { count, error } = await getSupabaseClient()
+    .from("approval_queue")
+    .select("*", { count: "exact", head: true })
+    .eq("resolved", false);
+
+  if (error) throw new Error(`Failed to count approvals: ${error.message}`);
+  return count ?? 0;
+}
+
+export async function resolveApproval(
   id: string,
   resolution: string
 ): Promise<void> {
   const { error } = await getSupabaseClient()
-    .from("pending_reviews")
+    .from("approval_queue")
     .update({
       resolved: true,
       resolved_at: new Date().toISOString(),
@@ -162,7 +187,20 @@ export async function resolvePendingReview(
     })
     .eq("id", id);
 
-  if (error) throw new Error(`Failed to resolve pending review: ${error.message}`);
+  if (error) throw new Error(`Failed to resolve approval: ${error.message}`);
+}
+
+export async function getLatestUnresolvedInitiativeApproval(): Promise<ApprovalQueueItem | null> {
+  const { data, error } = await getSupabaseClient()
+    .from("approval_queue")
+    .select("*")
+    .eq("resolved", false)
+    .eq("type", "initiative_assignment")
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (error) throw new Error(`Failed to fetch pending approval: ${error.message}`);
+  return data && data.length > 0 ? (data[0] as ApprovalQueueItem) : null;
 }
 
 // ============================================================
@@ -289,7 +327,15 @@ export async function deleteInitiative(id: string): Promise<void> {
     .eq("entity_id", id);
   if (plinkErr) throw new Error(`Failed to delete participant links: ${plinkErr.message}`);
 
-  // 5. Delete the initiative
+  // 5. Delete unresolved approvals referencing this initiative
+  const { error: approvalErr } = await db
+    .from("approval_queue")
+    .delete()
+    .eq("initiative_id", id)
+    .eq("resolved", false);
+  if (approvalErr) throw new Error(`Failed to delete approvals: ${approvalErr.message}`);
+
+  // 6. Delete the initiative
   const { error: initErr } = await db
     .from("initiatives")
     .delete()
@@ -301,28 +347,6 @@ export async function deleteInitiative(id: string): Promise<void> {
 // Dashboard query helpers
 // ============================================================
 
-export async function getUnresolvedReviewCount(): Promise<number> {
-  const { count, error } = await getSupabaseClient()
-    .from("pending_reviews")
-    .select("*", { count: "exact", head: true })
-    .eq("resolved", false);
-
-  if (error) throw new Error(`Failed to count reviews: ${error.message}`);
-  return count ?? 0;
-}
-
-export async function getUnresolvedReviewsWithMessages(): Promise<
-  (PendingReview & { message: Message })[]
-> {
-  const { data, error } = await getSupabaseClient()
-    .from("pending_reviews")
-    .select("*, message:messages(*)")
-    .eq("resolved", false)
-    .order("created_at", { ascending: false });
-
-  if (error) throw new Error(`Failed to fetch reviews: ${error.message}`);
-  return (data ?? []) as (PendingReview & { message: Message })[];
-}
 
 export async function getOrphanedMessages(): Promise<Message[]> {
   const { data, error } = await getSupabaseClient()
@@ -669,79 +693,3 @@ export async function getInitiativesWithMessageCounts(): Promise<
   );
 }
 
-// ============================================================
-// Pending event approvals
-// ============================================================
-
-export async function createPendingEventApproval(data: {
-  event_data: EventSuggestion;
-  source_message_id: string | null;
-  initiative_id: string | null;
-}): Promise<PendingEventApproval> {
-  const { data: row, error } = await getSupabaseClient()
-    .from("pending_event_approvals")
-    .insert(data)
-    .select()
-    .single();
-
-  if (error) throw new Error(`Failed to create pending event approval: ${error.message}`);
-  return row as PendingEventApproval;
-}
-
-export async function getUnresolvedEventApprovals(): Promise<
-  (PendingEventApproval & {
-    message: Message | null;
-    initiative: Initiative | null;
-  })[]
-> {
-  const { data, error } = await getSupabaseClient()
-    .from("pending_event_approvals")
-    .select("*, message:messages(*), initiative:initiatives(*)")
-    .eq("resolved", false)
-    .order("created_at", { ascending: false });
-
-  if (error) throw new Error(`Failed to fetch event approvals: ${error.message}`);
-  return (data ?? []) as (PendingEventApproval & {
-    message: Message | null;
-    initiative: Initiative | null;
-  })[];
-}
-
-export async function getUnresolvedEventApprovalCount(): Promise<number> {
-  const { count, error } = await getSupabaseClient()
-    .from("pending_event_approvals")
-    .select("*", { count: "exact", head: true })
-    .eq("resolved", false);
-
-  if (error) throw new Error(`Failed to count event approvals: ${error.message}`);
-  return count ?? 0;
-}
-
-export async function resolveEventApproval(
-  id: string,
-  resolution: string
-): Promise<void> {
-  const { error } = await getSupabaseClient()
-    .from("pending_event_approvals")
-    .update({
-      resolved: true,
-      resolved_at: new Date().toISOString(),
-      resolution,
-    })
-    .eq("id", id);
-
-  if (error) throw new Error(`Failed to resolve event approval: ${error.message}`);
-}
-
-export async function getEventApprovalById(
-  id: string
-): Promise<PendingEventApproval | null> {
-  const { data, error } = await getSupabaseClient()
-    .from("pending_event_approvals")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (error) throw new Error(`Failed to fetch event approval: ${error.message}`);
-  return data as PendingEventApproval | null;
-}

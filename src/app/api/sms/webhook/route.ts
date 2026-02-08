@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  getLatestUnresolvedReview,
-  resolvePendingReview,
+  getLatestUnresolvedInitiativeApproval,
+  resolveApproval,
   createInitiative,
   updateMessageInitiative,
   updateInitiativeSummary,
@@ -28,8 +28,8 @@ export async function POST(request: NextRequest) {
 
   const reply = body.trim().toLowerCase();
 
-  // Find the most recent unresolved review
-  const review = await getLatestUnresolvedReview();
+  // Find the most recent unresolved initiative assignment approval
+  const review = await getLatestUnresolvedInitiativeApproval();
 
   if (!review) {
     await sendSMS(userPhone, "No pending reviews right now.");
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
   try {
     // Handle "skip"
     if (reply === "skip") {
-      await resolvePendingReview(review.id, "skipped");
+      await resolveApproval(review.id, "skipped");
       await sendSMS(userPhone, "Skipped. Message stays in inbox.");
       return twimlResponse("");
     }
@@ -53,22 +53,22 @@ export async function POST(request: NextRequest) {
           // Create new initiative with the suggested name
           const initiative = await createInitiative({
             name: option.label === "New initiative" ? `Untitled - ${new Date().toLocaleDateString()}` : option.label,
-            partner_name: review.classification_result.initiative_match.partner_name,
-            summary: review.classification_result.summary_update,
+            partner_name: review.classification_result!.initiative_match.partner_name,
+            summary: review.classification_result!.summary_update,
           });
-          await updateMessageInitiative(review.message_id, initiative.id);
-          await resolvePendingReview(review.id, `created:${initiative.id}:${initiative.name}`);
+          await updateMessageInitiative(review.message_id!, initiative.id);
+          await resolveApproval(review.id, `created:${initiative.id}:${initiative.name}`);
           await sendSMS(userPhone, `Created: ${initiative.name}`);
         } else if (option.initiative_id) {
           // Assign to existing initiative
-          await updateMessageInitiative(review.message_id, option.initiative_id);
-          if (review.classification_result.summary_update) {
+          await updateMessageInitiative(review.message_id!, option.initiative_id);
+          if (review.classification_result!.summary_update) {
             await updateInitiativeSummary(
               option.initiative_id,
-              review.classification_result.summary_update
+              review.classification_result!.summary_update
             );
           }
-          await resolvePendingReview(review.id, `assigned:${option.initiative_id}:${option.label}`);
+          await resolveApproval(review.id, `assigned:${option.initiative_id}:${option.label}`);
           await sendSMS(userPhone, `Assigned to: ${option.label}`);
         }
         return twimlResponse("");
@@ -89,11 +89,11 @@ export async function POST(request: NextRequest) {
 
       const initiative = await createInitiative({
         name,
-        partner_name: review.classification_result.initiative_match.partner_name,
-        summary: review.classification_result.summary_update,
+        partner_name: review.classification_result!.initiative_match.partner_name,
+        summary: review.classification_result!.summary_update,
       });
-      await updateMessageInitiative(review.message_id, initiative.id);
-      await resolvePendingReview(review.id, `created:${initiative.id}:${initiative.name}`);
+      await updateMessageInitiative(review.message_id!, initiative.id);
+      await resolveApproval(review.id, `created:${initiative.id}:${initiative.name}`);
       await sendSMS(userPhone, `Created: ${initiative.name}`);
       return twimlResponse("");
     }
