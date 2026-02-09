@@ -53,17 +53,18 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, partner_name, status, summary } = body;
+    const { name, partner_name, status, summary, open_items } = body;
 
     // Validate: at least one field must be provided
     if (
       name === undefined &&
       partner_name === undefined &&
       status === undefined &&
-      summary === undefined
+      summary === undefined &&
+      open_items === undefined
     ) {
       return NextResponse.json(
-        { error: "At least one field (name, partner_name, status, summary) is required" },
+        { error: "At least one field is required" },
         { status: 400 }
       );
     }
@@ -96,6 +97,7 @@ export async function PUT(
       partner_name,
       status,
       summary,
+      open_items,
     });
 
     return NextResponse.json({ initiative: updated });

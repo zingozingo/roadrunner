@@ -2,11 +2,20 @@
 // Database row types
 // ============================================================
 
+export interface OpenItem {
+  description: string;
+  assignee: string | null;
+  due_date: string | null;
+  resolved?: boolean;
+}
+
 export interface Initiative {
   id: string;
   name: string;
   status: "active" | "paused" | "closed";
   summary: string | null;
+  current_state: string | null;
+  open_items: OpenItem[];
   partner_name: string | null;
   created_at: string;
   updated_at: string;
@@ -75,7 +84,7 @@ export interface Message {
 
 export interface Participant {
   id: string;
-  email: string;
+  email: string | null;
   name: string | null;
   organization: string | null;
   title: string | null;
@@ -147,18 +156,12 @@ export interface ClassificationResult {
     organization: string | null;
     role: string | null;
   }[];
-  temporal_references: {
-    date: string;
-    precision: "exact" | "week" | "month" | "quarter";
+  current_state: string | null;
+  open_items: {
     description: string;
-    type: "meeting" | "deadline" | "event" | "milestone" | "reference";
-  }[];
-  action_items: {
-    owner: string;
-    description: string;
+    assignee: string | null;
     due_date: string | null;
   }[];
-  summary_update: string | null;
 }
 
 /** The shape of a parsed message before it's inserted into the DB */

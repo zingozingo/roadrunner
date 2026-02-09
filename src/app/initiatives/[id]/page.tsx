@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import StatusBadge from "@/components/StatusBadge";
-import SummaryCard from "@/components/SummaryCard";
+import CurrentStateCard from "@/components/CurrentStateCard";
+import OpenItemsCard from "@/components/OpenItemsCard";
 import CollapsibleEmails from "@/components/CollapsibleEmails";
 import EntityLinkChip from "@/components/EntityLink";
 import InitiativeActions from "@/components/InitiativeActions";
@@ -32,6 +33,9 @@ export default async function InitiativeDetailPage({
   // Resolve entity link target names
   const nameMap = await resolveEntityLinkNames(entityLinks);
 
+  // Use current_state if available, fall back to summary for backward compat
+  const displayState = initiative.current_state ?? initiative.summary;
+
   return (
     <div className="p-6 lg:p-8">
       <Link
@@ -59,18 +63,22 @@ export default async function InitiativeDetailPage({
         </div>
       </div>
 
-      {initiative.summary && (
-        <div className="mb-6">
-          <SummaryCard summary={initiative.summary} />
-        </div>
-      )}
+      <div className="lg:grid lg:grid-cols-3 lg:gap-6">
+        {/* Left column: state, timeline, open items, emails, entity links */}
+        <div className="lg:col-span-2 space-y-6">
+          {displayState && (
+            <CurrentStateCard text={displayState} />
+          )}
 
-      <div className="mb-6">
-        <CollapsibleEmails messages={messages} />
-      </div>
+          {/* TODO: Phase 4 — TimelineCard removed (timeline_entries eliminated from data model) */}
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-4">
+          <OpenItemsCard
+            items={initiative.open_items ?? []}
+            initiativeId={id}
+          />
+
+          <CollapsibleEmails messages={messages} />
+
           {/* Entity links */}
           {entityLinks.length > 0 && (
             <div className="rounded-xl border border-border bg-surface p-4">
@@ -79,7 +87,6 @@ export default async function InitiativeDetailPage({
               </h2>
               <div className="flex flex-wrap gap-2">
                 {entityLinks.map((link) => {
-                  // Determine the "other" entity (not this initiative)
                   const isSource = link.source_id === id;
                   const otherId = isSource ? link.target_id : link.source_id;
                   const otherName = nameMap.get(otherId);
@@ -98,8 +105,8 @@ export default async function InitiativeDetailPage({
           )}
         </div>
 
-        {/* Sidebar: participants + metadata */}
-        <div className="space-y-4">
+        {/* Right column: participants + metadata (sticky sidebar) */}
+        <div className="mt-6 lg:mt-0 space-y-4 lg:sticky lg:top-6 lg:self-start">
           {/* Participants */}
           <div className="rounded-xl border border-border bg-surface p-4">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
@@ -112,13 +119,19 @@ export default async function InitiativeDetailPage({
                 {participants.map((p) => (
                   <li key={p.id} className="text-sm">
                     <p className="font-medium text-foreground">
-                      {p.name || p.email}
+                      {p.name || p.email || "Unknown"}
                     </p>
                     {p.organization && (
                       <p className="text-xs text-muted">{p.organization}</p>
                     )}
-                    {p.role && (
+                    {p.role && p.role !== "forwarder" && (
                       <p className="text-xs text-accent">{p.role}</p>
+                    )}
+                    {p.role === "forwarder" && (
+                      <p className="text-xs text-muted italic">You</p>
+                    )}
+                    {!p.email && (
+                      <p className="text-xs text-muted/50">No email</p>
                     )}
                   </li>
                 ))}

@@ -31,6 +31,8 @@ const EXISTING_INITIATIVE: Initiative = {
   name: "CyberShield - Security Review",
   status: "active",
   summary: null,
+  current_state: null,
+  open_items: [],
   partner_name: "CyberShield",
   created_at: "2025-01-15T00:00:00Z",
   updated_at: "2025-02-01T00:00:00Z",
@@ -51,9 +53,8 @@ function makeResult(overrides: Partial<ClassificationResult> = {}): Classificati
     programs_referenced: [],
     entity_links: [],
     participants: [],
-    temporal_references: [],
-    action_items: [],
-    summary_update: null,
+    current_state: null,
+    open_items: [],
     ...overrides,
   };
 }

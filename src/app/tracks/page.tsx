@@ -1,3 +1,4 @@
+import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import EmptyState from "@/components/EmptyState";
 import StatusBadge from "@/components/StatusBadge";
@@ -21,9 +22,10 @@ export default async function TracksPage() {
       ) : (
         <div className="space-y-3">
           {tracks.map((track) => (
-            <div
+            <Link
               key={track.id}
-              className="rounded-xl border border-border bg-surface p-4"
+              href={`/tracks/${track.id}`}
+              className="block rounded-xl border border-border bg-surface p-4 transition-colors hover:border-accent/40"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
@@ -50,17 +52,12 @@ export default async function TracksPage() {
                   <span>Eligibility: {track.eligibility}</span>
                 )}
                 {track.url && (
-                  <a
-                    href={track.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-accent hover:underline"
-                  >
-                    Learn more
-                  </a>
+                  <span className="text-accent">
+                    Has external link
+                  </span>
                 )}
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}

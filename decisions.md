@@ -83,3 +83,103 @@ Next.js 14 App Router + TypeScript + Tailwind. Supabase Postgres for data. Singl
 **Rationale:** Standard workflow. One deployment source of truth.
 
 **Impact:** All future deploys via git push. CLI deploy only as fallback.
+
+## 2026-02-09: Events vs Meetings — Structural Distinction
+
+**Decision:** Events are only real-world gatherings (conferences, summits, workshops, kickoffs, trade shows, training, deadlines, review cycles). Meetings (calls, demos, cadence calls, 1:1s) are NEVER events. Meetings only enter the system via .ics calendar attachments (future feature), not from prose mentions in email bodies.
+
+**Context:** System was over-creating events from casual meeting mentions. "Let's set up a cadence call for March" was incorrectly becoming an Event entity.
+
+**Rationale:** Events must pass the test "Would multiple initiatives care about this?" A cadence call is initiative-specific workflow. A conference is a shared calendar anchor.
+
+**Impact:** Classification prompt event rules, event type enum (meeting_series removed), future .ics parsing feature design, event approval flow.
+
+## 2026-02-09: New Events Always Require User Approval
+
+**Decision:** Claude identifies new events (is_new: true in events_referenced) but the system never auto-creates them. They surface in the inbox as event approval cards. User explicitly approves or denies.
+
+**Context:** Events were being silently created as side effects during initiative approval via persistClassificationEntities(). User approved one thing, got three things created.
+
+**Rationale:** Event creation has broad impact — multiple initiatives reference the same event. Worth the friction of manual approval to prevent event pollution.
+
+**Impact:** EventApprovalCard in inbox, approval_queue with type='event_creation', classifier skips new event creation.
+
+## 2026-02-09: Initiative Auto-Assign Decoupled from Event Creation
+
+**Decision:** New event suggestions in events_referenced do NOT block initiative auto-assignment. A 0.95 confidence initiative match auto-assigns even if Claude also suggests a new event.
+
+**Context:** hasNewEntitySuggestions checked events_referenced, blocking auto-assign when Claude happened to notice a conference mentioned in the email.
+
+**Rationale:** Initiative routing and event creation are independent decisions. Renamed to hasNewTrackSuggestions — only new initiatives and new tracks/programs block auto-assign.
+
+**Impact:** classifier.ts orchestration logic, auto-assign throughput.
+
+## 2026-02-09: Auto-Create New Initiatives at ≥0.85 Confidence
+
+**Decision:** When Claude suggests a new initiative with confidence >= 0.85, create it automatically without inbox review. Below 0.85 routes to inbox.
+
+**Context:** Every new initiative required manual approval even at 95% confidence. Unnecessary friction for obvious new partner discussions.
+
+**Rationale:** At 0.85+ Claude is confident enough. User can edit/delete via CRUD. Falls back to review on creation failure.
+
+**Impact:** classifier.ts hasHighConfidenceNew path, createInitiative called during classification.
+
+## 2026-02-09: Unified Approval Queue
+
+**Decision:** Single approval_queue table with type discriminator ('initiative_assignment' | 'event_creation') replaces separate pending_reviews and pending_event_approvals tables.
+
+**Context:** Two tables doing the same lifecycle (create → review → resolve) caused FK cascade failures on initiative deletion, duplicated query logic, duplicated resolution handlers, inconsistent inbox UX.
+
+**Rationale:** One table, one inbox query, one resolution endpoint, one count query. initiative_id FK uses ON DELETE SET NULL to prevent cascade failures.
+
+**Impact:** Migration 006 (data migration + table drops), 17 files changed, all inbox/classification/SMS code updated.
+
+## 2026-02-09: Application-Level Cascade Deletes
+
+**Decision:** No DB-level ON DELETE CASCADE. Delete functions explicitly handle cleanup in order: orphan messages (set initiative_id = null), delete notes, delete entity_links (both directions), delete participant_links, delete approval_queue entries, then delete entity.
+
+**Context:** DB cascades are invisible — one accidental delete silently wipes all related data with no logging.
+
+**Rationale:** Application code is more verbose but explicit, loggable, and controllable. Messages are deliberately orphaned (preserved for potential reassignment) rather than destroyed.
+
+**Impact:** deleteInitiative(), deleteEvent(), deleteTrack() in supabase.ts.
+
+## 2026-02-09: Programs → Tracks Rename (UI Only)
+
+**Decision:** "Programs" renamed to "Tracks" in all user-facing UI and prompt language. Database table stays "programs". JSON field stays "programs_referenced".
+
+**Context:** "Programs" was too narrow. The system tracks formal AWS programs, GTM motions, technical milestones, certifications, and strategic relationships — "Tracks" is a broader container.
+
+**Rationale:** UI rename is instant. DB rename would require migrating all existing data, updating all queries, for zero functional benefit.
+
+**Impact:** Sidebar, page titles, URL (/tracks), prompt text, EntityLink labels. /programs redirects to /tracks.
+
+## 2026-02-09: Participants Can Have Partial Data
+
+**Decision:** Participants can be created with name only (email nullable). Missing fields displayed as placeholders in the UI.
+
+**Context:** Claude extracts participants by name from email body text, but most don't have email addresses. The NOT NULL constraint on email was silently dropping 4 of 5 extracted participants.
+
+**Rationale:** Partial data is better than no data. Users can fill in email/title later via CRUD (to be built) or as more emails arrive with additional context.
+
+**Impact:** Migration 007 (email DROP NOT NULL), upsertParticipants name-only path, UI placeholders. NOTE: Participant insert had additional bug (.single() → .maybeSingle()) that may still not be fully working — needs verification next session.
+
+## 2026-02-09: Structured Data Over Free-Text Parsing (IN PROGRESS)
+
+**Decision:** Initiative detail page should render from structured JSON fields (current_state, timeline_entries, open_items) stored as JSONB columns on initiatives table, not from parsing Claude's free-text summary string.
+
+**Context:** Claude inconsistently formats free-text summaries. ISO dates leak into prose, specific dates fabricated from vague timeframes, regex section parsing is brittle. Multiple attempts to fix via prompt refinement failed.
+
+**Rationale:** Structured JSON arrays are deterministic to render. Each section becomes its own purpose-built UI component. The classification prompt outputs structured fields alongside the text summary.
+
+**Impact:** Migration 008 (adds current_state text, timeline_entries jsonb, open_items jsonb to initiatives). SummaryCard deleted, replaced with CurrentStateCard, TimelineCard, OpenItemsCard. INCOMPLETE — Claude is outputting old-format text (with **Participants:**, **Timeline:** headers) into current_state field instead of clean narrative. The prompt, classifier extraction, and/or initiative update logic need debugging. This is the #1 priority for next session.
+
+## 2026-02-09: No Hardcoded Entity Links
+
+**Decision:** Claude's entity_links array is the sole source of semantic relationships between entities. Code no longer auto-generates "relevant_to" links in persistClassificationEntities().
+
+**Context:** Code was creating a hardcoded "relevant_to" link for every event and program mentioned, then ALSO processing Claude's semantic entity_links. This caused duplicate links (relevant_to + preparation_for for the same pair).
+
+**Rationale:** Claude provides more specific relationship types (preparation_for, qualifies_for, deadline, etc.). Generic relevant_to adds noise and duplicates.
+
+**Impact:** persistClassificationEntities in reviews/resolve/route.ts, classifier.ts.

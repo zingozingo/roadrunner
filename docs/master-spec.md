@@ -2,7 +2,7 @@
 
 **Project Codename:** Roadrunner
 **Owner:** Steven
-**Last Updated:** 2026-02-07
+**Last Updated:** 2026-02-09
 
 ---
 
@@ -110,7 +110,7 @@ Shared anchor points on the calendar that exist independently of any single init
 
 Initiative-specific meetings and calls are captured in the **initiative's timeline** (within its summary), not as Event entities. The distinction: if only one initiative cares about it, it's a timeline entry. If multiple initiatives orbit around it, it's an Event.
 
-Events have types: `conference`, `summit`, `deadline`, `review_cycle`, `meeting_series`
+Events have types: `conference`, `summit`, `deadline`, `review_cycle`
 
 Events have date precision: `exact`, `week`, `month`, `quarter` — never display false precision.
 
@@ -257,9 +257,9 @@ The prompt receives the full current state (all active initiatives with summarie
 - Update an event's details (e.g., date confirmed in a later email)
 
 **Ask via SMS (needs user approval):**
-- Create a new initiative
-- Create a new event
-- Create a new program
+- Create a new initiative (only when confidence < 0.85; auto-created at ≥ 0.85)
+- Create a new event (always requires approval — surfaces in inbox)
+- Create a new program/track
 - Assign an email when confidence < 0.85
 - Merge two initiatives that seem to be the same thing
 
@@ -389,11 +389,13 @@ SMS messages are kept under 320 characters (2 segments max). Resolution requires
 | role | text | Nullable |
 | created_at | timestamptz | |
 
-### Pending Reviews
+### Approval Queue (replaces Pending Reviews)
 | Field | Type | Notes |
 |-------|------|-------|
 | id | uuid | PK |
-| message_id | uuid | FK to messages |
+| type | text | `initiative_assignment` or `event_creation` |
+| message_id | uuid | FK to messages (nullable for event approvals) |
+| initiative_id | uuid | FK to initiatives, ON DELETE SET NULL |
 | sms_sent | boolean | Default false |
 | sms_sent_at | timestamptz | Nullable |
 | resolved | boolean | Default false |
@@ -484,7 +486,7 @@ You (Outlook) ──forward──→ inbox@relay.stevenromero.dev
 - [x] Dashboard: inbox review resolution (button click → initiative created → entities linked → review resolved)
 - [x] Message deduplication on inbound webhook
 - [x] End-to-end wiring + testing with real emails (Mailgun → parse → classify → review → resolve tested in production)
-- [ ] Dashboard: edit/CRUD operations (rename initiatives, close, reassign messages, manual notes)
+- [x] Dashboard: edit/CRUD operations (inline editing, cascade delete for initiatives, events, tracks)
 
 ### v0.2 — The Polish
 - [ ] Daily digest email

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import EmptyState from "@/components/EmptyState";
 import StatusBadge from "@/components/StatusBadge";
@@ -41,9 +42,10 @@ export default async function EventsPage() {
       ) : (
         <div className="space-y-3">
           {events.map((event) => (
-            <div
+            <Link
               key={event.id}
-              className="rounded-xl border border-border bg-surface p-4"
+              href={`/events/${event.id}`}
+              className="block rounded-xl border border-border bg-surface p-4 transition-colors hover:border-accent/40"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
@@ -78,7 +80,7 @@ export default async function EventsPage() {
                   {event.description}
                 </p>
               )}
-            </div>
+            </Link>
           ))}
         </div>
       )}

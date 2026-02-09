@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
           const initiative = await createInitiative({
             name: option.label === "New initiative" ? `Untitled - ${new Date().toLocaleDateString()}` : option.label,
             partner_name: review.classification_result!.initiative_match.partner_name,
-            summary: review.classification_result!.summary_update,
+            summary: review.classification_result!.current_state,
           });
           await updateMessageInitiative(review.message_id!, initiative.id);
           await resolveApproval(review.id, `created:${initiative.id}:${initiative.name}`);
@@ -62,10 +62,10 @@ export async function POST(request: NextRequest) {
         } else if (option.initiative_id) {
           // Assign to existing initiative
           await updateMessageInitiative(review.message_id!, option.initiative_id);
-          if (review.classification_result!.summary_update) {
+          if (review.classification_result!.current_state) {
             await updateInitiativeSummary(
               option.initiative_id,
-              review.classification_result!.summary_update
+              review.classification_result!.current_state
             );
           }
           await resolveApproval(review.id, `assigned:${option.initiative_id}:${option.label}`);
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
       const initiative = await createInitiative({
         name,
         partner_name: review.classification_result!.initiative_match.partner_name,
-        summary: review.classification_result!.summary_update,
+        summary: review.classification_result!.current_state,
       });
       await updateMessageInitiative(review.message_id!, initiative.id);
       await resolveApproval(review.id, `created:${initiative.id}:${initiative.name}`);

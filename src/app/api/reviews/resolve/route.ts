@@ -113,7 +113,9 @@ export async function POST(request: NextRequest) {
         const initiative = await createInitiative({
           name: option.label,
           partner_name: classResult.initiative_match.partner_name,
-          summary: classResult.summary_update,
+          summary: classResult.current_state,
+          current_state: classResult.current_state ?? null,
+          open_items: (classResult.open_items ?? []).map((i) => ({ ...i, resolved: false })),
         });
         console.log("Created initiative:", initiative.id, initiative.name);
 
@@ -140,10 +142,11 @@ export async function POST(request: NextRequest) {
           approval.message_id!,
           option.initiative_id
         );
-        if (classResult.summary_update) {
+        const currentState = classResult.current_state ?? null;
+        if (currentState) {
           await updateInitiativeSummary(
             option.initiative_id,
-            classResult.summary_update
+            currentState
           );
         }
 
@@ -182,7 +185,9 @@ export async function POST(request: NextRequest) {
       const initiative = await createInitiative({
         name,
         partner_name: classResult.initiative_match.partner_name,
-        summary: classResult.summary_update,
+        summary: classResult.current_state,
+        current_state: classResult.current_state ?? null,
+        open_items: (classResult.open_items ?? []).map((i) => ({ ...i, resolved: false })),
       });
 
       await updateMessageInitiative(approval.message_id!, initiative.id);
@@ -361,53 +366,89 @@ async function upsertParticipants(
   const pdmEmail = process.env.RELAY_EMAIL_ADDRESS?.toLowerCase();
 
   for (const participant of result.participants) {
-    if (!participant.email) continue;
+    if (!participant.email && !participant.name) continue;
 
     // PDM forwarder gets role "forwarder" instead of whatever Claude extracted
-    if (pdmEmail && participant.email.toLowerCase() === pdmEmail) {
+    if (pdmEmail && participant.email?.toLowerCase() === pdmEmail) {
       participant.role = "forwarder";
     }
 
     try {
-      const { data: existing } = await db
-        .from("participants")
-        .select("*")
-        .eq("email", participant.email)
-        .limit(1);
+      let participantId: string | null = null;
 
-      let participantId: string;
+      if (participant.email) {
+        // Email-based lookup (existing behavior)
+        const { data: existing } = await db
+          .from("participants")
+          .select("*")
+          .eq("email", participant.email)
+          .limit(1);
 
-      if (existing && existing.length > 0) {
-        participantId = existing[0].id;
-        // Update if we have better info
-        const updates: Record<string, string> = {};
-        if (!existing[0].name && participant.name)
-          updates.name = participant.name;
-        if (!existing[0].organization && participant.organization)
-          updates.organization = participant.organization;
-        if (!existing[0].title && participant.role && participant.role !== "forwarder")
-          updates.title = participant.role;
-        if (Object.keys(updates).length > 0) {
-          await db
+        if (existing && existing.length > 0) {
+          participantId = existing[0].id;
+          const updates: Record<string, string> = {};
+          if (!existing[0].name && participant.name)
+            updates.name = participant.name;
+          if (!existing[0].organization && participant.organization)
+            updates.organization = participant.organization;
+          if (!existing[0].title && participant.role && participant.role !== "forwarder")
+            updates.title = participant.role;
+          if (Object.keys(updates).length > 0) {
+            await db
+              .from("participants")
+              .update(updates)
+              .eq("id", participantId);
+          }
+        } else {
+          const { data: inserted, error: insertErr } = await db
             .from("participants")
-            .update(updates)
-            .eq("id", participantId);
+            .insert({
+              email: participant.email,
+              name: participant.name,
+              organization: participant.organization,
+              title: participant.role !== "forwarder" ? participant.role : null,
+            })
+            .select("id")
+            .maybeSingle();
+          if (insertErr) {
+            console.error(`Failed to insert participant "${participant.email}":`, insertErr.message);
+            continue;
+          }
+          if (!inserted) continue;
+          participantId = inserted.id;
         }
       } else {
-        // Use .maybeSingle() — if insert somehow returns nothing, skip gracefully
-        const { data: inserted } = await db
+        // Name-only participant — dedup by normalized name
+        const normalizedName = participant.name!.toLowerCase().trim();
+        const { data: existing } = await db
           .from("participants")
-          .insert({
-            email: participant.email,
-            name: participant.name,
-            organization: participant.organization,
-            title: participant.role !== "forwarder" ? participant.role : null,
-          })
-          .select("id")
-          .maybeSingle();
-        if (!inserted) continue;
-        participantId = inserted.id;
+          .select("*")
+          .ilike("name", normalizedName)
+          .limit(1);
+
+        if (existing && existing.length > 0) {
+          participantId = existing[0].id;
+        } else {
+          const { data: inserted, error: insertErr } = await db
+            .from("participants")
+            .insert({
+              email: null,
+              name: participant.name,
+              organization: participant.organization,
+              title: participant.role || null,
+            })
+            .select("id")
+            .maybeSingle();
+          if (insertErr) {
+            console.error(`Failed to insert participant "${participant.name}":`, insertErr.message);
+            continue;
+          }
+          if (!inserted) continue;
+          participantId = inserted.id;
+        }
       }
+
+      if (!participantId) continue;
 
       // Link to initiative (deduped)
       const { data: existingLink } = await db
@@ -428,7 +469,7 @@ async function upsertParticipants(
       }
     } catch (err) {
       console.error(
-        `Failed to upsert participant "${participant.email}":`,
+        `Failed to upsert participant "${participant.email || participant.name}":`,
         err
       );
     }

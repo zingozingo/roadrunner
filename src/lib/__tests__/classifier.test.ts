@@ -149,6 +149,8 @@ const INITIATIVE_FALCON: Initiative = {
   name: "CyberShield - Security Review",
   status: "active",
   summary: "CyberShield is pursuing AWS Security Competency.",
+  current_state: null,
+  open_items: [],
   partner_name: "CyberShield",
   created_at: "2025-01-15T00:00:00Z",
   updated_at: "2025-02-01T00:00:00Z",
@@ -225,9 +227,8 @@ const HIGH_CONFIDENCE_RESULT: ClassificationResult = {
   participants: [
     { name: "Alice Chen", email: "alice@cybershield.com", organization: "CyberShield", role: "Technical Lead" },
   ],
-  temporal_references: [],
-  action_items: [],
-  summary_update: "CyberShield continues to pursue AWS Security Competency.",
+  current_state: "CyberShield continues to pursue AWS Security Competency.",
+  open_items: [],
 };
 
 const LOW_CONFIDENCE_RESULT: ClassificationResult = {
@@ -243,9 +244,8 @@ const LOW_CONFIDENCE_RESULT: ClassificationResult = {
   programs_referenced: [],
   entity_links: [],
   participants: [],
-  temporal_references: [],
-  action_items: [],
-  summary_update: null,
+  current_state: null,
+  open_items: [],
 };
 
 const HIGH_CONFIDENCE_NEW_RESULT: ClassificationResult = {
@@ -263,9 +263,8 @@ const HIGH_CONFIDENCE_NEW_RESULT: ClassificationResult = {
   participants: [
     { name: "Bob Smith", email: "bob@newcorp.com", organization: "NewCorp", role: "CTO" },
   ],
-  temporal_references: [],
-  action_items: [],
-  summary_update: "NewCorp exploring cloud migration.",
+  current_state: "NewCorp exploring cloud migration.",
+  open_items: [],
 };
 
 const NOISE_RESULT: ClassificationResult = {
@@ -281,9 +280,8 @@ const NOISE_RESULT: ClassificationResult = {
   programs_referenced: [],
   entity_links: [],
   participants: [],
-  temporal_references: [],
-  action_items: [],
-  summary_update: null,
+  current_state: null,
+  open_items: [],
 };
 
 // ============================================================
@@ -408,6 +406,8 @@ describe("processUnclassifiedMessages", () => {
       name: "NewCorp - Cloud Migration",
       partner_name: "NewCorp",
       summary: "NewCorp exploring cloud migration.",
+      current_state: "NewCorp exploring cloud migration.",
+      open_items: [],
     });
   });
 

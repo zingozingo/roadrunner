@@ -171,13 +171,22 @@ async function applyClassificationResult(
   // Track which initiative ID gets assigned to messages
   let assignedInitiativeId: string | null = null;
 
+  // Extract structured fields with fallbacks
+  const currentState = result.current_state ?? null;
+  const openItems = (result.open_items ?? []).map((item) => ({
+    ...item,
+    resolved: false,
+  }));
+
   // 1. Auto-create new initiative at high confidence
   if (hasHighConfidenceNew && !hasNewTrackSuggestions) {
     try {
       const initiative = await createInitiative({
         name: result.initiative_match.name,
         partner_name: result.initiative_match.partner_name,
-        summary: result.summary_update,
+        summary: currentState,
+        current_state: currentState,
+        open_items: openItems,
       });
       assignedInitiativeId = initiative.id;
 
@@ -219,12 +228,39 @@ async function applyClassificationResult(
 
   await db.from("messages").update(messageUpdate).in("id", messageIds);
 
-  // 4. If assigned to existing initiative, update its summary
-  if (hasHighConfidenceExisting && !hasNewTrackSuggestions && result.summary_update) {
-    await db
-      .from("initiatives")
-      .update({ summary: result.summary_update })
-      .eq("id", assignedInitiativeId!);
+  // 4. If assigned to existing initiative, update structured data
+  if (hasHighConfidenceExisting && !hasNewTrackSuggestions && assignedInitiativeId) {
+    const updates: Record<string, unknown> = {};
+
+    if (currentState) {
+      updates.summary = currentState;
+      updates.current_state = currentState;
+    }
+
+    // Merge open items: add new, keep existing unresolved
+    if (openItems.length > 0) {
+      const { data: existing } = await db
+        .from("initiatives")
+        .select("open_items")
+        .eq("id", assignedInitiativeId)
+        .maybeSingle();
+
+      const existingItems: { description: string; resolved?: boolean }[] =
+        (existing?.open_items as { description: string; resolved?: boolean }[]) ?? [];
+      const existingDescs = new Set(
+        existingItems.map((i) => i.description.toLowerCase())
+      );
+      const newItems = openItems.filter(
+        (i) => !existingDescs.has(i.description.toLowerCase())
+      );
+      if (newItems.length > 0) {
+        updates.open_items = [...existingItems, ...newItems];
+      }
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await db.from("initiatives").update(updates).eq("id", assignedInitiativeId);
+    }
   }
 
   // 5. Create entity links where both source and target already exist
@@ -403,67 +439,109 @@ async function upsertParticipants(
   const pdmEmail = process.env.RELAY_EMAIL_ADDRESS?.toLowerCase();
 
   for (const participant of result.participants) {
-    if (!participant.email) continue;
+    if (!participant.email && !participant.name) continue;
 
     // PDM forwarder gets role "forwarder" instead of whatever Claude extracted
-    if (pdmEmail && participant.email.toLowerCase() === pdmEmail) {
+    if (pdmEmail && participant.email?.toLowerCase() === pdmEmail) {
       participant.role = "forwarder";
     }
 
-    // Try to find existing participant by email
-    const { data: existing } = await db
-      .from("participants")
-      .select("*")
-      .eq("email", participant.email)
-      .limit(1);
-
     let participantId: string | null = null;
 
-    if (existing && existing.length > 0) {
-      participantId = existing[0].id;
-      // Update if we have better info (name, org, or title was null, now we have it)
-      const updates: Record<string, string> = {};
-      if (!existing[0].name && participant.name) {
-        updates.name = participant.name;
-      }
-      if (!existing[0].organization && participant.organization) {
-        updates.organization = participant.organization;
-      }
-      if (!existing[0].title && participant.role && participant.role !== "forwarder") {
-        updates.title = participant.role;
-      }
-      if (Object.keys(updates).length > 0) {
-        await db
+    try {
+      if (participant.email) {
+        // Email-based lookup
+        const { data: existing } = await db
           .from("participants")
-          .update(updates)
-          .eq("id", participantId);
-      }
-    } else {
-      // Insert new participant
-      const { data: inserted } = await db
-        .from("participants")
-        .insert({
-          email: participant.email,
-          name: participant.name,
-          organization: participant.organization,
-          title: participant.role !== "forwarder" ? participant.role : null,
-        })
-        .select("id")
-        .single();
+          .select("*")
+          .eq("email", participant.email)
+          .limit(1);
 
-      if (inserted) {
-        participantId = inserted.id;
-      }
-    }
+        if (existing && existing.length > 0) {
+          participantId = existing[0].id;
+          const updates: Record<string, string> = {};
+          if (!existing[0].name && participant.name) {
+            updates.name = participant.name;
+          }
+          if (!existing[0].organization && participant.organization) {
+            updates.organization = participant.organization;
+          }
+          if (!existing[0].title && participant.role && participant.role !== "forwarder") {
+            updates.title = participant.role;
+          }
+          if (Object.keys(updates).length > 0) {
+            await db
+              .from("participants")
+              .update(updates)
+              .eq("id", participantId);
+          }
+        } else {
+          const { data: inserted, error: insertErr } = await db
+            .from("participants")
+            .insert({
+              email: participant.email,
+              name: participant.name,
+              organization: participant.organization,
+              title: participant.role !== "forwarder" ? participant.role : null,
+            })
+            .select("id")
+            .maybeSingle();
 
-    // Link to initiative if we have an assigned initiative
-    if (participantId && assignedInitiativeId) {
-      await ensureParticipantLink(
-        db,
-        participantId,
-        "initiative",
-        assignedInitiativeId,
-        participant.role
+          if (insertErr) {
+            console.error(`Failed to insert participant "${participant.email}":`, insertErr.message);
+            continue;
+          }
+          if (inserted) {
+            participantId = inserted.id;
+          }
+        }
+      } else {
+        // Name-only participant — dedup by normalized name
+        const normalizedName = participant.name!.toLowerCase().trim();
+        const { data: existing } = await db
+          .from("participants")
+          .select("*")
+          .ilike("name", normalizedName)
+          .limit(1);
+
+        if (existing && existing.length > 0) {
+          participantId = existing[0].id;
+        } else {
+          const { data: inserted, error: insertErr } = await db
+            .from("participants")
+            .insert({
+              email: null,
+              name: participant.name,
+              organization: participant.organization,
+              title: participant.role || null,
+            })
+            .select("id")
+            .maybeSingle();
+
+          if (insertErr) {
+            console.error(`Failed to insert participant "${participant.name}":`, insertErr.message);
+            continue;
+          }
+          if (inserted) {
+            participantId = inserted.id;
+          }
+        }
+      }
+
+      // Link to initiative if we have an assigned initiative
+      if (participantId && assignedInitiativeId) {
+        await ensureParticipantLink(
+          db,
+          participantId,
+          "initiative",
+          assignedInitiativeId,
+          participant.role
+        );
+      }
+    } catch (err) {
+      console.error(
+        `Failed to upsert participant "${participant.email || participant.name}":`,
+        err
       );
     }
   }

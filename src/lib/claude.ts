@@ -46,6 +46,7 @@ Meetings are NOT events. Calls, demos, cadence calls, 1:1s, syncs, working sessi
 3. **Mixed content.** Multiple initiatives in one email → "mixed", extract all.
 4. **Multi-message threads.** Messages from the same forward = one classification unit.
 5. **PDM forwarder.** Participant whose email matches the forwarding/envelope sender → role "forwarder".
+5b. **Participants.** Extract ALL people mentioned by name, even without email. Set email to null if unavailable. Correlate names in the body with From/To/CC headers when possible.
 6. **Temporal.** Only CONFIRMED dates: scheduled dates, named conferences, explicit deadlines ("POC due March 15"). Vague intentions ("let's sync next week") → summary only.
 7. **Event threshold.** events_referenced only for: conferences, summits, workshops, kickoffs, trade shows, training, deadlines with a specific date, formal review cycles. Never meetings or calls.
 
@@ -57,19 +58,26 @@ Meetings are NOT events. Calls, demos, cadence calls, 1:1s, syncs, working sessi
 - Below 0.70: Tangential or ambiguous
 - Noise: 1.0, is_new false
 
-## Summary Format
+## Structured Output Fields
 
-Write like briefing notes, not a report. Short sentences. Concrete facts. No filler.
+### current_state
+3-5 sentences. Executive briefing style — what this initiative is about, who's involved (first names only since full details are in participants), current status/momentum, and key context.
 
-**Participants:** Name — Role. One per line.
-**Current State:** 2-3 sentences max. What is happening NOW. No history recap.
-**Timeline:** [YYYY-MM-DD] One-line entries. Facts only.
-**Open Items:** Bullet per item. Who owes what by when.
-**Key Context:** Only if there is a genuine dependency, risk, or political dynamic. Skip entirely if nothing material.
+Write concretely: "Brian and Tanya are coordinating an integration discussion" not "Teams are actively facilitating comprehensive collaboration."
 
-Omit empty sections. Null if noise or no match.
+Do NOT include:
+- Fabricated dates or timelines
+- Participant lists with titles/emails (that's what the participants field is for)
+- Bullet points or markdown formatting
+- Vague filler phrases
 
-Do NOT pad with filler. Do NOT restate participant info in Current State. Do NOT use phrases like "actively facilitating", "seeking to establish", "comprehensive collaboration", "working toward alignment". If a sentence adds no new information, delete it.
+If this is noise, return null.
+
+### open_items
+Concrete action items: who needs to do what.
+- assignee: person name or null if unclear
+- due_date: ISO date or null if no deadline mentioned
+- Only real action items, not vague intentions
 
 ## Response Format
 
@@ -121,25 +129,17 @@ Return ONLY valid JSON. No markdown code blocks, no preamble, no explanation.
       "role": "role in context, 'forwarder' for PDM, or null"
     }
   ],
-  "temporal_references": [
+  "current_state": "3-5 sentence executive briefing, or null",
+  "open_items": [
     {
-      "date": "ISO date string",
-      "precision": "exact" | "week" | "month" | "quarter",
-      "description": "what this date refers to",
-      "type": "meeting" | "deadline" | "event" | "milestone" | "reference"
-    }
-  ],
-  "action_items": [
-    {
-      "owner": "person name",
       "description": "what needs to be done",
+      "assignee": "person name or null",
       "due_date": "ISO date or null"
     }
-  ],
-  "summary_update": "Summary using format above, or null."
+  ]
 }
 
-If noise: content_type "noise", empty arrays, null initiative_match id, 1.0 confidence, is_new false, null summary_update.`;
+If noise: content_type "noise", empty arrays, null initiative_match id, 1.0 confidence, is_new false, null current_state.`;
 
 // ============================================================
 // Build the user message with current state + email content

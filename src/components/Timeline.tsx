@@ -1,4 +1,31 @@
+"use client";
+
+import { useState } from "react";
 import { Message } from "@/lib/types";
+
+const PREVIEW_LENGTH = 200;
+
+function MessageBody({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const needsTruncation = text.length > PREVIEW_LENGTH;
+
+  return (
+    <div className="mt-1">
+      <p className={`text-sm text-muted whitespace-pre-wrap ${!expanded ? "line-clamp-2" : ""}`}>
+        {expanded ? text : text.slice(0, PREVIEW_LENGTH)}
+        {!expanded && needsTruncation ? "..." : ""}
+      </p>
+      {needsTruncation && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="mt-1 text-xs text-accent hover:text-accent-hover"
+        >
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      )}
+    </div>
+  );
+}
 
 export default function Timeline({ messages }: { messages: Message[] }) {
   if (messages.length === 0) {
@@ -33,12 +60,7 @@ export default function Timeline({ messages }: { messages: Message[] }) {
                 {msg.subject}
               </p>
             )}
-            {msg.body_text && (
-              <p className="mt-1 line-clamp-2 text-sm text-muted">
-                {msg.body_text.slice(0, 200)}
-                {msg.body_text.length > 200 ? "..." : ""}
-              </p>
-            )}
+            {msg.body_text && <MessageBody text={msg.body_text} />}
           </div>
         </div>
       ))}

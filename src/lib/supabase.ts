@@ -11,6 +11,7 @@ import {
   EntityLink,
   ClassificationResult,
   SMSOption,
+  OpenItem,
 } from "./types";
 
 let client: SupabaseClient | null = null;
@@ -211,6 +212,8 @@ export async function createInitiative(data: {
   name: string;
   partner_name?: string | null;
   summary?: string | null;
+  current_state?: string | null;
+  open_items?: OpenItem[];
 }): Promise<Initiative> {
   const { data: initiative, error } = await getSupabaseClient()
     .from("initiatives")
@@ -218,6 +221,8 @@ export async function createInitiative(data: {
       name: data.name,
       partner_name: data.partner_name ?? null,
       summary: data.summary ?? null,
+      current_state: data.current_state ?? null,
+      open_items: data.open_items ?? [],
       status: "active",
     })
     .select()
@@ -258,6 +263,7 @@ export async function updateInitiative(
     partner_name?: string | null;
     status?: Initiative["status"];
     summary?: string | null;
+    open_items?: OpenItem[];
   }
 ): Promise<Initiative> {
   const row: Record<string, unknown> = {};
@@ -265,6 +271,7 @@ export async function updateInitiative(
   if (updates.name !== undefined) row.name = updates.name;
   if (updates.partner_name !== undefined) row.partner_name = updates.partner_name;
   if (updates.summary !== undefined) row.summary = updates.summary;
+  if (updates.open_items !== undefined) row.open_items = updates.open_items;
 
   if (updates.status !== undefined) {
     row.status = updates.status;
@@ -671,6 +678,180 @@ export async function resolveEntityLinkNames(
   );
 
   return nameMap;
+}
+
+// ============================================================
+// Event CRUD
+// ============================================================
+
+export async function getEventById(id: string): Promise<Event | null> {
+  const { data, error } = await getSupabaseClient()
+    .from("events")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw new Error(`Failed to fetch event: ${error.message}`);
+  return data as Event | null;
+}
+
+export async function getLinkedInitiativesForEntity(
+  entityType: "event" | "program",
+  entityId: string
+): Promise<Initiative[]> {
+  const db = getSupabaseClient();
+
+  // Find initiatives linked in either direction
+  const [asSource, asTarget] = await Promise.all([
+    db
+      .from("entity_links")
+      .select("target_id")
+      .eq("source_type", entityType)
+      .eq("source_id", entityId)
+      .eq("target_type", "initiative"),
+    db
+      .from("entity_links")
+      .select("source_id")
+      .eq("target_type", entityType)
+      .eq("target_id", entityId)
+      .eq("source_type", "initiative"),
+  ]);
+
+  const ids = new Set<string>();
+  for (const row of asSource.data ?? []) ids.add((row as { target_id: string }).target_id);
+  for (const row of asTarget.data ?? []) ids.add((row as { source_id: string }).source_id);
+
+  if (ids.size === 0) return [];
+
+  const { data, error } = await db
+    .from("initiatives")
+    .select("*")
+    .in("id", [...ids])
+    .order("status", { ascending: true })
+    .order("updated_at", { ascending: false });
+
+  if (error) throw new Error(`Failed to fetch linked initiatives: ${error.message}`);
+  return (data ?? []) as Initiative[];
+}
+
+export async function updateEvent(
+  id: string,
+  updates: {
+    name?: string;
+    type?: Event["type"];
+    start_date?: string | null;
+    end_date?: string | null;
+    date_precision?: Event["date_precision"];
+    location?: string | null;
+    description?: string | null;
+    verified?: boolean;
+  }
+): Promise<Event> {
+  const { data, error } = await getSupabaseClient()
+    .from("events")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to update event: ${error.message}`);
+  return data as Event;
+}
+
+export async function deleteEvent(id: string): Promise<void> {
+  const db = getSupabaseClient();
+
+  // 1. Delete entity links (both directions)
+  const { error: linkSrcErr } = await db
+    .from("entity_links")
+    .delete()
+    .eq("source_type", "event")
+    .eq("source_id", id);
+  if (linkSrcErr) throw new Error(`Failed to delete entity links (source): ${linkSrcErr.message}`);
+
+  const { error: linkTgtErr } = await db
+    .from("entity_links")
+    .delete()
+    .eq("target_type", "event")
+    .eq("target_id", id);
+  if (linkTgtErr) throw new Error(`Failed to delete entity links (target): ${linkTgtErr.message}`);
+
+  // 2. Delete participant links
+  const { error: plinkErr } = await db
+    .from("participant_links")
+    .delete()
+    .eq("entity_type", "event")
+    .eq("entity_id", id);
+  if (plinkErr) throw new Error(`Failed to delete participant links: ${plinkErr.message}`);
+
+  // 3. Delete the event
+  const { error: evtErr } = await db
+    .from("events")
+    .delete()
+    .eq("id", id);
+  if (evtErr) throw new Error(`Failed to delete event: ${evtErr.message}`);
+}
+
+// ============================================================
+// Track (program) CRUD
+// ============================================================
+
+export async function getTrackById(id: string): Promise<Program | null> {
+  const { data, error } = await getSupabaseClient()
+    .from("programs")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw new Error(`Failed to fetch track: ${error.message}`);
+  return data as Program | null;
+}
+
+export async function updateTrack(
+  id: string,
+  updates: {
+    name?: string;
+    description?: string | null;
+    eligibility?: string | null;
+    url?: string | null;
+    status?: Program["status"];
+  }
+): Promise<Program> {
+  const { data, error } = await getSupabaseClient()
+    .from("programs")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to update track: ${error.message}`);
+  return data as Program;
+}
+
+export async function deleteTrack(id: string): Promise<void> {
+  const db = getSupabaseClient();
+
+  // 1. Delete entity links (both directions)
+  const { error: linkSrcErr } = await db
+    .from("entity_links")
+    .delete()
+    .eq("source_type", "program")
+    .eq("source_id", id);
+  if (linkSrcErr) throw new Error(`Failed to delete entity links (source): ${linkSrcErr.message}`);
+
+  const { error: linkTgtErr } = await db
+    .from("entity_links")
+    .delete()
+    .eq("target_type", "program")
+    .eq("target_id", id);
+  if (linkTgtErr) throw new Error(`Failed to delete entity links (target): ${linkTgtErr.message}`);
+
+  // 2. Delete the track
+  const { error: progErr } = await db
+    .from("programs")
+    .delete()
+    .eq("id", id);
+  if (progErr) throw new Error(`Failed to delete track: ${progErr.message}`);
 }
 
 export async function getInitiativesWithMessageCounts(): Promise<
