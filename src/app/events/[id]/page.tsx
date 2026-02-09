@@ -7,7 +7,6 @@ import EntityLinkChip from "@/components/EntityLink";
 import EventActions from "@/components/EventActions";
 import {
   getEventById,
-  getLinkedInitiativesForEntity,
   getEntityLinksForEntity,
   resolveEntityLinkNames,
 } from "@/lib/supabase";
@@ -60,10 +59,7 @@ export default async function EventDetailPage({
   const event = await getEventById(id);
   if (!event) notFound();
 
-  const [linkedInitiatives, entityLinks] = await Promise.all([
-    getLinkedInitiativesForEntity("event", id),
-    getEntityLinksForEntity("event", id),
-  ]);
+  const entityLinks = await getEntityLinksForEntity("event", id);
 
   const nameMap = await resolveEntityLinkNames(entityLinks);
 
@@ -144,29 +140,6 @@ export default async function EventDetailPage({
             </div>
           )}
 
-          {/* Linked initiatives */}
-          {linkedInitiatives.length > 0 && (
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-                Linked Initiatives ({linkedInitiatives.length})
-              </h2>
-              <ul className="space-y-2">
-                {linkedInitiatives.map((init) => (
-                  <li key={init.id}>
-                    <Link
-                      href={`/initiatives/${init.id}`}
-                      className="group flex items-center justify-between rounded-lg px-3 py-2 transition-colors hover:bg-background"
-                    >
-                      <span className="text-sm font-medium text-foreground group-hover:text-accent">
-                        {init.name}
-                      </span>
-                      <StatusBadge status={init.status} />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
         </div>
 
         {/* Sidebar: metadata */}
