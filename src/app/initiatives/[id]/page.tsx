@@ -90,6 +90,7 @@ export default async function InitiativeDetailPage({
                 {entityLinks.map((link) => {
                   const isSource = link.source_id === id;
                   const otherId = isSource ? link.target_id : link.source_id;
+                  const otherType = isSource ? link.target_type : link.source_type;
                   const otherName = nameMap.get(otherId);
 
                   // Skip orphaned links (target entity was deleted)
@@ -101,6 +102,7 @@ export default async function InitiativeDetailPage({
                       link={link}
                       entityName={otherName}
                       entityId={otherId}
+                      entityType={otherType}
                     />
                   );
                 })}

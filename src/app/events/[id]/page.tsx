@@ -125,6 +125,7 @@ export default async function EventDetailPage({
                 {entityLinks.map((link) => {
                   const isSource = link.source_id === id;
                   const otherId = isSource ? link.target_id : link.source_id;
+                  const otherType = isSource ? link.target_type : link.source_type;
                   const otherName = nameMap.get(otherId);
 
                   if (!otherName) return null;
@@ -135,6 +136,7 @@ export default async function EventDetailPage({
                       link={link}
                       entityName={otherName}
                       entityId={otherId}
+                      entityType={otherType}
                     />
                   );
                 })}

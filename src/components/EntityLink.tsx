@@ -30,14 +30,17 @@ export default function EntityLinkChip({
   link,
   entityName,
   entityId,
+  entityType,
 }: {
   link: EntityLinkType;
   entityName?: string;
   entityId?: string;
+  /** The other entity's type — overrides link.target_type when rendering from the target side */
+  entityType?: string;
 }) {
-  const targetType = link.target_type;
-  const colors = typeColors[targetType] ?? "bg-border text-muted";
-  const label = entityTypeLabel(targetType);
+  const resolvedType = entityType ?? link.target_type;
+  const colors = typeColors[resolvedType] ?? "bg-border text-muted";
+  const label = entityTypeLabel(resolvedType);
   const rel = formatRelationship(link.relationship);
 
   const content = (
@@ -52,7 +55,7 @@ export default function EntityLinkChip({
 
   if (entityId) {
     return (
-      <Link href={entityHref(targetType, entityId)}>
+      <Link href={entityHref(resolvedType, entityId)}>
         {content}
       </Link>
     );
