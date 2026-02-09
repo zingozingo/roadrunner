@@ -64,13 +64,11 @@ export default async function InitiativeDetailPage({
       </div>
 
       <div className="lg:grid lg:grid-cols-3 lg:gap-6">
-        {/* Left column: state, timeline, open items, emails, entity links */}
+        {/* Left column: state, open items, emails, entity links */}
         <div className="lg:col-span-2 space-y-6">
           {displayState && (
             <CurrentStateCard text={displayState} />
           )}
-
-          {/* TODO: Phase 4 — TimelineCard removed (timeline_entries eliminated from data model) */}
 
           <OpenItemsCard
             items={initiative.open_items ?? []}

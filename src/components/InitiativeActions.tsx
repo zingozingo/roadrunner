@@ -23,13 +23,15 @@ export default function InitiativeActions({
   const [name, setName] = useState(initiative.name);
   const [partnerName, setPartnerName] = useState(initiative.partner_name ?? "");
   const [status, setStatus] = useState<Initiative["status"]>(initiative.status);
-  const [summary, setSummary] = useState(initiative.summary ?? "");
+  const [currentState, setCurrentState] = useState(
+    initiative.current_state ?? initiative.summary ?? ""
+  );
 
   function startEdit() {
     setName(initiative.name);
     setPartnerName(initiative.partner_name ?? "");
     setStatus(initiative.status);
-    setSummary(initiative.summary ?? "");
+    setCurrentState(initiative.current_state ?? initiative.summary ?? "");
     setError(null);
     setEditing(true);
   }
@@ -55,7 +57,8 @@ export default function InitiativeActions({
           name: name.trim(),
           partner_name: partnerName.trim() || null,
           status,
-          summary: summary.trim() || null,
+          summary: currentState.trim() || null,
+          current_state: currentState.trim() || null,
         }),
       });
 
@@ -149,16 +152,16 @@ export default function InitiativeActions({
             </div>
           </div>
 
-          {/* Summary */}
+          {/* Current State */}
           <div>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted">
-              Summary
+              Current State
             </label>
             <textarea
-              value={summary}
-              onChange={(e) => setSummary(e.target.value)}
+              value={currentState}
+              onChange={(e) => setCurrentState(e.target.value)}
               rows={8}
-              placeholder="Initiative summary..."
+              placeholder="What's happening with this initiative..."
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
             />
           </div>
