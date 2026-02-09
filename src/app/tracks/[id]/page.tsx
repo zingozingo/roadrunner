@@ -82,6 +82,8 @@ export default async function TrackDetailPage({
                   const otherId = isSource ? link.target_id : link.source_id;
                   const otherName = nameMap.get(otherId);
 
+                  if (!otherName) return null;
+
                   return (
                     <EntityLinkChip
                       key={link.id}

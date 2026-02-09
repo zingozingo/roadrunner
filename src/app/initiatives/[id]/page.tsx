@@ -92,6 +92,9 @@ export default async function InitiativeDetailPage({
                   const otherId = isSource ? link.target_id : link.source_id;
                   const otherName = nameMap.get(otherId);
 
+                  // Skip orphaned links (target entity was deleted)
+                  if (!otherName) return null;
+
                   return (
                     <EntityLinkChip
                       key={link.id}
