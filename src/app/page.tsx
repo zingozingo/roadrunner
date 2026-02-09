@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import StatusBadge from "@/components/StatusBadge";

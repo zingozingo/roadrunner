@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import PageHeader from "@/components/PageHeader";
 import InitiativeCard from "@/components/InitiativeCard";
 import EmptyState from "@/components/EmptyState";
