@@ -15,6 +15,8 @@ const {
   mockCreateInitiative,
   mockFindOrCreateProgram,
   mockSendClassificationPrompt,
+  mockUpsertParticipants,
+  mockAppendOpenItems,
   mockFrom,
 } = vi.hoisted(() => {
   const mockUpdate = vi.fn().mockReturnValue({
@@ -110,6 +112,8 @@ const {
       sid: "SM123",
       options: [{ number: 1, label: "Test", initiative_id: null, is_new: true }],
     }),
+    mockUpsertParticipants: vi.fn().mockResolvedValue(undefined),
+    mockAppendOpenItems: vi.fn().mockResolvedValue(null),
     mockFrom,
   };
 });
@@ -131,6 +135,8 @@ vi.mock("../supabase", () => ({
   createApproval: mockCreateApproval,
   createInitiative: mockCreateInitiative,
   findOrCreateProgram: mockFindOrCreateProgram,
+  upsertParticipants: mockUpsertParticipants,
+  appendOpenItems: mockAppendOpenItems,
 }));
 
 vi.mock("../sms", () => ({

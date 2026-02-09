@@ -3,14 +3,16 @@ import {
   getSupabaseClient,
   resolveApproval,
   createInitiative,
+  updateInitiative,
   updateMessageInitiative,
-  updateInitiativeSummary,
   findOrCreateProgram,
   createEntityLink,
   createApproval,
   findOrCreateEvent,
+  upsertParticipants,
+  appendOpenItems,
 } from "@/lib/supabase";
-import { ApprovalQueueItem, ClassificationResult, EventSuggestion } from "@/lib/types";
+import { ApprovalQueueItem, ClassificationResult, EventSuggestion, OpenItem } from "@/lib/types";
 
 interface ResolveRequest {
   review_id: string;
@@ -142,12 +144,26 @@ export async function POST(request: NextRequest) {
           approval.message_id!,
           option.initiative_id
         );
+
+        // Update current_state, summary, and merge open_items
         const currentState = classResult.current_state ?? null;
+        const openItems: OpenItem[] = (classResult.open_items ?? []).map(
+          (i) => ({ ...i, resolved: false })
+        );
+
+        const updates: Parameters<typeof updateInitiative>[1] = {};
         if (currentState) {
-          await updateInitiativeSummary(
-            option.initiative_id,
-            currentState
-          );
+          updates.current_state = currentState;
+          updates.summary = currentState;
+        }
+        if (openItems.length > 0) {
+          const merged = await appendOpenItems(option.initiative_id, openItems);
+          if (merged) {
+            updates.open_items = merged;
+          }
+        }
+        if (Object.keys(updates).length > 0) {
+          await updateInitiative(option.initiative_id, updates);
         }
 
         await persistClassificationEntities(classResult, option.initiative_id);
@@ -348,130 +364,10 @@ async function persistClassificationEntities(
     }
 
     // 4. Upsert participants and link to initiative
-    await upsertParticipants(result, initiativeId);
+    await upsertParticipants(result.participants, initiativeId);
   } catch (err) {
     // Catch-all: entity creation must never break the resolve flow
     console.error("persistClassificationEntities error:", err);
   }
 }
 
-async function upsertParticipants(
-  result: ClassificationResult,
-  initiativeId: string
-): Promise<void> {
-  if (result.participants.length === 0) return;
-
-  const db = getSupabaseClient();
-
-  const pdmEmail = process.env.RELAY_EMAIL_ADDRESS?.toLowerCase();
-
-  for (const participant of result.participants) {
-    if (!participant.email && !participant.name) continue;
-
-    // PDM forwarder gets role "forwarder" instead of whatever Claude extracted
-    if (pdmEmail && participant.email?.toLowerCase() === pdmEmail) {
-      participant.role = "forwarder";
-    }
-
-    try {
-      let participantId: string | null = null;
-
-      if (participant.email) {
-        // Email-based lookup (existing behavior)
-        const { data: existing } = await db
-          .from("participants")
-          .select("*")
-          .eq("email", participant.email)
-          .limit(1);
-
-        if (existing && existing.length > 0) {
-          participantId = existing[0].id;
-          const updates: Record<string, string> = {};
-          if (!existing[0].name && participant.name)
-            updates.name = participant.name;
-          if (!existing[0].organization && participant.organization)
-            updates.organization = participant.organization;
-          if (!existing[0].title && participant.role && participant.role !== "forwarder")
-            updates.title = participant.role;
-          if (Object.keys(updates).length > 0) {
-            await db
-              .from("participants")
-              .update(updates)
-              .eq("id", participantId);
-          }
-        } else {
-          const { data: inserted, error: insertErr } = await db
-            .from("participants")
-            .insert({
-              email: participant.email,
-              name: participant.name,
-              organization: participant.organization,
-              title: participant.role !== "forwarder" ? participant.role : null,
-            })
-            .select("id")
-            .maybeSingle();
-          if (insertErr) {
-            console.error(`Failed to insert participant "${participant.email}":`, insertErr.message);
-            continue;
-          }
-          if (!inserted) continue;
-          participantId = inserted.id;
-        }
-      } else {
-        // Name-only participant — dedup by normalized name
-        const normalizedName = participant.name!.toLowerCase().trim();
-        const { data: existing } = await db
-          .from("participants")
-          .select("*")
-          .ilike("name", normalizedName)
-          .limit(1);
-
-        if (existing && existing.length > 0) {
-          participantId = existing[0].id;
-        } else {
-          const { data: inserted, error: insertErr } = await db
-            .from("participants")
-            .insert({
-              email: null,
-              name: participant.name,
-              organization: participant.organization,
-              title: participant.role || null,
-            })
-            .select("id")
-            .maybeSingle();
-          if (insertErr) {
-            console.error(`Failed to insert participant "${participant.name}":`, insertErr.message);
-            continue;
-          }
-          if (!inserted) continue;
-          participantId = inserted.id;
-        }
-      }
-
-      if (!participantId) continue;
-
-      // Link to initiative (deduped)
-      const { data: existingLink } = await db
-        .from("participant_links")
-        .select("id")
-        .eq("participant_id", participantId)
-        .eq("entity_type", "initiative")
-        .eq("entity_id", initiativeId)
-        .limit(1);
-
-      if (!existingLink || existingLink.length === 0) {
-        await db.from("participant_links").insert({
-          participant_id: participantId,
-          entity_type: "initiative",
-          entity_id: initiativeId,
-          role: participant.role,
-        });
-      }
-    } catch (err) {
-      console.error(
-        `Failed to upsert participant "${participant.email || participant.name}":`,
-        err
-      );
-    }
-  }
-}

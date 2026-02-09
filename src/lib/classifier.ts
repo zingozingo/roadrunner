@@ -8,9 +8,11 @@ import {
   createApproval,
   createInitiative,
   findOrCreateProgram,
+  upsertParticipants,
+  appendOpenItems,
 } from "./supabase";
 import { sendClassificationPrompt } from "./sms";
-import { ClassificationResult, Message, Initiative, Event, Program } from "./types";
+import { ClassificationResult, Message } from "./types";
 
 const AUTO_ASSIGN_THRESHOLD = 0.85;
 
@@ -239,22 +241,9 @@ async function applyClassificationResult(
 
     // Merge open items: add new, keep existing unresolved
     if (openItems.length > 0) {
-      const { data: existing } = await db
-        .from("initiatives")
-        .select("open_items")
-        .eq("id", assignedInitiativeId)
-        .maybeSingle();
-
-      const existingItems: { description: string; resolved?: boolean }[] =
-        (existing?.open_items as { description: string; resolved?: boolean }[]) ?? [];
-      const existingDescs = new Set(
-        existingItems.map((i) => i.description.toLowerCase())
-      );
-      const newItems = openItems.filter(
-        (i) => !existingDescs.has(i.description.toLowerCase())
-      );
-      if (newItems.length > 0) {
-        updates.open_items = [...existingItems, ...newItems];
+      const merged = await appendOpenItems(assignedInitiativeId, openItems);
+      if (merged) {
+        updates.open_items = merged;
       }
     }
 
@@ -270,7 +259,7 @@ async function applyClassificationResult(
 
   // 6. Upsert participants — link to assigned initiative if available
   if (!isNoise && result.participants.length > 0) {
-    await upsertParticipants(result, messages, context, assignedInitiativeId);
+    await upsertParticipants(result.participants, assignedInitiativeId);
   }
 
   // 6b. Store pending event approvals for new events
@@ -425,149 +414,3 @@ function normalizeEntityName(name: string): string {
   return name.toLowerCase().trim().replace(/\s+/g, " ");
 }
 
-// ============================================================
-// Upsert participants (insert new, update existing if better info)
-// ============================================================
-
-async function upsertParticipants(
-  result: ClassificationResult,
-  messages: Message[],
-  context: ClassifyContext,
-  assignedInitiativeId: string | null
-): Promise<void> {
-  const db = getSupabaseClient();
-  const pdmEmail = process.env.RELAY_EMAIL_ADDRESS?.toLowerCase();
-
-  for (const participant of result.participants) {
-    if (!participant.email && !participant.name) continue;
-
-    // PDM forwarder gets role "forwarder" instead of whatever Claude extracted
-    if (pdmEmail && participant.email?.toLowerCase() === pdmEmail) {
-      participant.role = "forwarder";
-    }
-
-    let participantId: string | null = null;
-
-    try {
-      if (participant.email) {
-        // Email-based lookup
-        const { data: existing } = await db
-          .from("participants")
-          .select("*")
-          .eq("email", participant.email)
-          .limit(1);
-
-        if (existing && existing.length > 0) {
-          participantId = existing[0].id;
-          const updates: Record<string, string> = {};
-          if (!existing[0].name && participant.name) {
-            updates.name = participant.name;
-          }
-          if (!existing[0].organization && participant.organization) {
-            updates.organization = participant.organization;
-          }
-          if (!existing[0].title && participant.role && participant.role !== "forwarder") {
-            updates.title = participant.role;
-          }
-          if (Object.keys(updates).length > 0) {
-            await db
-              .from("participants")
-              .update(updates)
-              .eq("id", participantId);
-          }
-        } else {
-          const { data: inserted, error: insertErr } = await db
-            .from("participants")
-            .insert({
-              email: participant.email,
-              name: participant.name,
-              organization: participant.organization,
-              title: participant.role !== "forwarder" ? participant.role : null,
-            })
-            .select("id")
-            .maybeSingle();
-
-          if (insertErr) {
-            console.error(`Failed to insert participant "${participant.email}":`, insertErr.message);
-            continue;
-          }
-          if (inserted) {
-            participantId = inserted.id;
-          }
-        }
-      } else {
-        // Name-only participant — dedup by normalized name
-        const normalizedName = participant.name!.toLowerCase().trim();
-        const { data: existing } = await db
-          .from("participants")
-          .select("*")
-          .ilike("name", normalizedName)
-          .limit(1);
-
-        if (existing && existing.length > 0) {
-          participantId = existing[0].id;
-        } else {
-          const { data: inserted, error: insertErr } = await db
-            .from("participants")
-            .insert({
-              email: null,
-              name: participant.name,
-              organization: participant.organization,
-              title: participant.role || null,
-            })
-            .select("id")
-            .maybeSingle();
-
-          if (insertErr) {
-            console.error(`Failed to insert participant "${participant.name}":`, insertErr.message);
-            continue;
-          }
-          if (inserted) {
-            participantId = inserted.id;
-          }
-        }
-      }
-
-      // Link to initiative if we have an assigned initiative
-      if (participantId && assignedInitiativeId) {
-        await ensureParticipantLink(
-          db,
-          participantId,
-          "initiative",
-          assignedInitiativeId,
-          participant.role
-        );
-      }
-    } catch (err) {
-      console.error(
-        `Failed to upsert participant "${participant.email || participant.name}":`,
-        err
-      );
-    }
-  }
-}
-
-async function ensureParticipantLink(
-  db: ReturnType<typeof getSupabaseClient>,
-  participantId: string,
-  entityType: string,
-  entityId: string,
-  role: string | null
-): Promise<void> {
-  const { data: existing } = await db
-    .from("participant_links")
-    .select("id")
-    .eq("participant_id", participantId)
-    .eq("entity_type", entityType)
-    .eq("entity_id", entityId)
-    .limit(1);
-
-  if (!existing || existing.length === 0) {
-    await db.from("participant_links").insert({
-      participant_id: participantId,
-      entity_type: entityType,
-      entity_id: entityId,
-      role,
-    });
-  }
-}
