@@ -405,17 +405,17 @@ export async function getMessagesByInitiative(id: string): Promise<Message[]> {
 
 export async function getParticipantsByInitiative(
   initiativeId: string
-): Promise<(Participant & { role: string | null })[]> {
+): Promise<(Participant & { role: string | null; linkId: string })[]> {
   const { data, error } = await getSupabaseClient()
     .from("participant_links")
-    .select("role, participant:participants(*)")
+    .select("id, role, participant:participants(*)")
     .eq("entity_type", "initiative")
     .eq("entity_id", initiativeId);
 
   if (error) throw new Error(`Failed to fetch participants: ${error.message}`);
 
-  return ((data ?? []) as unknown as { role: string | null; participant: Participant }[]).map(
-    (row) => ({ ...row.participant, role: row.role })
+  return ((data ?? []) as unknown as { id: string; role: string | null; participant: Participant }[]).map(
+    (row) => ({ ...row.participant, role: row.role, linkId: row.id })
   );
 }
 
@@ -854,6 +854,140 @@ export async function deleteTrack(id: string): Promise<void> {
     .delete()
     .eq("id", id);
   if (progErr) throw new Error(`Failed to delete track: ${progErr.message}`);
+}
+
+// ============================================================
+// Participant CRUD
+// ============================================================
+
+export async function getParticipantById(id: string): Promise<Participant | null> {
+  const { data, error } = await getSupabaseClient()
+    .from("participants")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw new Error(`Failed to fetch participant: ${error.message}`);
+  return data as Participant | null;
+}
+
+export async function updateParticipant(
+  id: string,
+  updates: {
+    name?: string | null;
+    email?: string | null;
+    title?: string | null;
+    organization?: string | null;
+  }
+): Promise<Participant> {
+  const row: Record<string, unknown> = {};
+  if (updates.name !== undefined) row.name = updates.name;
+  if (updates.email !== undefined) row.email = updates.email;
+  if (updates.title !== undefined) row.title = updates.title;
+  if (updates.organization !== undefined) row.organization = updates.organization;
+
+  const { data, error } = await getSupabaseClient()
+    .from("participants")
+    .update(row)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to update participant: ${error.message}`);
+  return data as Participant;
+}
+
+export async function deleteParticipantLink(linkId: string): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .from("participant_links")
+    .delete()
+    .eq("id", linkId);
+
+  if (error) throw new Error(`Failed to delete participant link: ${error.message}`);
+}
+
+/**
+ * Find or create a participant, then link to an initiative.
+ * If email is provided, deduplicates by email.
+ */
+export async function createParticipantWithLink(
+  participant: {
+    name: string;
+    email?: string | null;
+    title?: string | null;
+    organization?: string | null;
+  },
+  initiativeId: string,
+  role: string | null
+): Promise<Participant & { role: string | null; linkId: string }> {
+  const db = getSupabaseClient();
+  let participantId: string;
+  let participantRecord: Participant;
+
+  // Try to find existing by email
+  if (participant.email) {
+    const { data: existing } = await db
+      .from("participants")
+      .select("*")
+      .eq("email", participant.email)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      participantRecord = existing[0] as Participant;
+      participantId = participantRecord.id;
+    } else {
+      const { data: created, error } = await db
+        .from("participants")
+        .insert({
+          name: participant.name,
+          email: participant.email,
+          title: participant.title ?? null,
+          organization: participant.organization ?? null,
+        })
+        .select()
+        .single();
+
+      if (error) throw new Error(`Failed to create participant: ${error.message}`);
+      participantRecord = created as Participant;
+      participantId = participantRecord.id;
+    }
+  } else {
+    // No email — always create (no reliable dedup key)
+    const { data: created, error } = await db
+      .from("participants")
+      .insert({
+        name: participant.name,
+        email: null,
+        title: participant.title ?? null,
+        organization: participant.organization ?? null,
+      })
+      .select()
+      .single();
+
+    if (error) throw new Error(`Failed to create participant: ${error.message}`);
+    participantRecord = created as Participant;
+    participantId = participantRecord.id;
+  }
+
+  // Create the link
+  const { data: link, error: linkErr } = await db
+    .from("participant_links")
+    .insert({
+      participant_id: participantId,
+      entity_type: "initiative",
+      entity_id: initiativeId,
+      role,
+    })
+    .select("id")
+    .single();
+
+  if (linkErr) throw new Error(`Failed to link participant: ${linkErr.message}`);
+
+  return {
+    ...participantRecord,
+    role,
+    linkId: (link as { id: string }).id,
+  };
 }
 
 // ============================================================

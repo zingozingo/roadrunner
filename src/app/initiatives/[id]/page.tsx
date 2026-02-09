@@ -6,6 +6,7 @@ import OpenItemsCard from "@/components/OpenItemsCard";
 import CollapsibleEmails from "@/components/CollapsibleEmails";
 import EntityLinkChip from "@/components/EntityLink";
 import InitiativeActions from "@/components/InitiativeActions";
+import ParticipantList from "@/components/ParticipantList";
 import {
   getInitiativeById,
   getMessagesByInitiative,
@@ -105,37 +106,7 @@ export default async function InitiativeDetailPage({
 
         {/* Right column: participants + metadata (sticky sidebar) */}
         <div className="mt-6 lg:mt-0 space-y-4 lg:sticky lg:top-6 lg:self-start">
-          {/* Participants */}
-          <div className="rounded-xl border border-border bg-surface p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-              Participants ({participants.length})
-            </h2>
-            {participants.length === 0 ? (
-              <p className="text-sm text-muted">None yet</p>
-            ) : (
-              <ul className="space-y-2">
-                {participants.map((p) => (
-                  <li key={p.id} className="text-sm">
-                    <p className="font-medium text-foreground">
-                      {p.name || p.email || "Unknown"}
-                    </p>
-                    {p.organization && (
-                      <p className="text-xs text-muted">{p.organization}</p>
-                    )}
-                    {p.role && p.role !== "forwarder" && (
-                      <p className="text-xs text-accent">{p.role}</p>
-                    )}
-                    {p.role === "forwarder" && (
-                      <p className="text-xs text-muted italic">You</p>
-                    )}
-                    {!p.email && (
-                      <p className="text-xs text-muted/50">No email</p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          <ParticipantList participants={participants} initiativeId={id} />
 
           {/* Metadata */}
           <div className="rounded-xl border border-border bg-surface p-4">
