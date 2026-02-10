@@ -306,7 +306,9 @@ SMS messages are kept under 320 characters (2 segments max). Resolution requires
 | id | uuid | PK |
 | name | text | User-editable, AI-suggested on creation |
 | status | enum | `active`, `paused`, `closed` |
-| summary | text | AI-generated, user-editable |
+| summary | text | Legacy narrative field (kept for backward compat) |
+| current_state | text | 3-5 sentence executive briefing, source of truth for narrative |
+| open_items | jsonb | Array of `{description, assignee, due_date, resolved}` |
 | partner_name | text | Primary partner involved |
 | created_at | timestamptz | |
 | updated_at | timestamptz | Auto-updated via trigger |
@@ -317,7 +319,7 @@ SMS messages are kept under 320 characters (2 segments max). Resolution requires
 |-------|------|-------|
 | id | uuid | PK |
 | name | text | "AWS re:Invent 2025" |
-| type | enum | `conference`, `summit`, `deadline`, `review_cycle`, `meeting_series` |
+| type | enum | `conference`, `summit`, `workshop`, `kickoff`, `trade_show`, `deadline`, `review_cycle`, `training` |
 | start_date | date | Nullable if unknown |
 | end_date | date | Nullable |
 | date_precision | enum | `exact`, `week`, `month`, `quarter` |
@@ -373,9 +375,10 @@ SMS messages are kept under 320 characters (2 segments max). Resolution requires
 | Field | Type | Notes |
 |-------|------|-------|
 | id | uuid | PK |
-| email | text | Unique |
-| name | text | |
+| email | text | Unique, nullable (name-only participants allowed) |
+| name | text | Nullable |
 | organization | text | Nullable |
+| title | text | Nullable |
 | notes | text | Nullable |
 | created_at | timestamptz | |
 
@@ -388,6 +391,8 @@ SMS messages are kept under 320 characters (2 segments max). Resolution requires
 | entity_id | uuid | |
 | role | text | Nullable |
 | created_at | timestamptz | |
+
+*UNIQUE INDEX on (participant_id, entity_type, entity_id) prevents duplicate links.*
 
 ### Approval Queue (replaces Pending Reviews)
 | Field | Type | Notes |
