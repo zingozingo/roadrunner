@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getSupabaseClient,
   resolveApproval,
-  createInitiative,
-  updateInitiative,
-  updateMessageInitiative,
+  createEngagement,
+  updateEngagement,
+  updateMessageEngagement,
   findOrCreateProgram,
   createEntityLink,
   createApproval,
@@ -18,13 +18,13 @@ interface ResolveRequest {
   review_id: string;
   action: "skip" | "select" | "new" | "approve" | "deny";
   option_number?: number;
-  initiative_name?: string;
+  engagement_name?: string;
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as ResolveRequest;
-    const { review_id, action, option_number, initiative_name } = body;
+    const { review_id, action, option_number, engagement_name } = body;
 
     console.log("=== RESOLVE START ===");
     console.log("Request body:", JSON.stringify(body));
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       return handleEventApproval(approval, action);
     }
 
-    // initiative_assignment handling below
+    // engagement_assignment handling below
     const classResult = approval.classification_result!;
 
     console.log("Found approval:", {
@@ -111,38 +111,38 @@ export async function POST(request: NextRequest) {
       console.log("Selected option:", JSON.stringify(option));
 
       if (option.is_new) {
-        // Create new initiative from the AI suggestion
-        const initiative = await createInitiative({
+        // Create new engagement from the AI suggestion
+        const engagement = await createEngagement({
           name: option.label,
-          partner_name: classResult.initiative_match.partner_name,
+          partner_name: classResult.engagement_match.partner_name,
           summary: classResult.current_state,
           current_state: classResult.current_state ?? null,
           open_items: (classResult.open_items ?? []).map((i) => ({ ...i, resolved: false })),
         });
-        console.log("Created initiative:", initiative.id, initiative.name);
+        console.log("Created engagement:", engagement.id, engagement.name);
 
-        await updateMessageInitiative(approval.message_id!, initiative.id);
-        console.log("Message assigned:", approval.message_id, "->", initiative.id);
+        await updateMessageEngagement(approval.message_id!, engagement.id);
+        console.log("Message assigned:", approval.message_id, "->", engagement.id);
 
-        await persistClassificationEntities(classResult, initiative.id);
+        await persistClassificationEntities(classResult, engagement.id);
 
         await resolveApproval(
           review_id,
-          `created:${initiative.id}:${initiative.name}`
+          `created:${engagement.id}:${engagement.name}`
         );
 
         console.log("=== RESOLVE DONE (created) ===");
         return NextResponse.json({
           status: "created",
-          initiative: initiative,
+          engagement: engagement,
         });
       }
 
-      if (option.initiative_id) {
-        // Assign to existing initiative
-        await updateMessageInitiative(
+      if (option.engagement_id) {
+        // Assign to existing engagement
+        await updateMessageEngagement(
           approval.message_id!,
-          option.initiative_id
+          option.engagement_id
         );
 
         // Update current_state, summary, and merge open_items
@@ -151,74 +151,74 @@ export async function POST(request: NextRequest) {
           (i) => ({ ...i, resolved: false })
         );
 
-        const updates: Parameters<typeof updateInitiative>[1] = {};
+        const updates: Parameters<typeof updateEngagement>[1] = {};
         if (currentState) {
           updates.current_state = currentState;
           updates.summary = currentState;
         }
         if (openItems.length > 0) {
-          const merged = await appendOpenItems(option.initiative_id, openItems);
+          const merged = await appendOpenItems(option.engagement_id, openItems);
           if (merged) {
             updates.open_items = merged;
           }
         }
         if (Object.keys(updates).length > 0) {
-          await updateInitiative(option.initiative_id, updates);
+          await updateEngagement(option.engagement_id, updates);
         }
 
-        await persistClassificationEntities(classResult, option.initiative_id);
+        await persistClassificationEntities(classResult, option.engagement_id);
 
         await resolveApproval(
           review_id,
-          `assigned:${option.initiative_id}:${option.label}`
+          `assigned:${option.engagement_id}:${option.label}`
         );
 
         console.log("=== RESOLVE DONE (assigned) ===");
         return NextResponse.json({
           status: "assigned",
-          initiative_id: option.initiative_id,
+          engagement_id: option.engagement_id,
         });
       }
 
-      // Edge case: option exists but is_new=false and initiative_id=null
-      console.error("Option has no initiative_id and is not new:", option);
+      // Edge case: option exists but is_new=false and engagement_id=null
+      console.error("Option has no engagement_id and is not new:", option);
       return NextResponse.json(
-        { error: "Option has no target initiative" },
+        { error: "Option has no target engagement" },
         { status: 400 }
       );
     }
 
-    // Handle "new" — create initiative with user-provided name
+    // Handle "new" — create engagement with user-provided name
     if (action === "new") {
-      const name = initiative_name?.trim();
+      const name = engagement_name?.trim();
       if (!name) {
         return NextResponse.json(
-          { error: "initiative_name is required for action 'new'" },
+          { error: "engagement_name is required for action 'new'" },
           { status: 400 }
         );
       }
 
-      const initiative = await createInitiative({
+      const engagement = await createEngagement({
         name,
-        partner_name: classResult.initiative_match.partner_name,
+        partner_name: classResult.engagement_match.partner_name,
         summary: classResult.current_state,
         current_state: classResult.current_state ?? null,
         open_items: (classResult.open_items ?? []).map((i) => ({ ...i, resolved: false })),
       });
 
-      await updateMessageInitiative(approval.message_id!, initiative.id);
+      await updateMessageEngagement(approval.message_id!, engagement.id);
 
-      await persistClassificationEntities(classResult, initiative.id);
+      await persistClassificationEntities(classResult, engagement.id);
 
       await resolveApproval(
         review_id,
-        `created:${initiative.id}:${initiative.name}`
+        `created:${engagement.id}:${engagement.name}`
       );
 
       console.log("=== RESOLVE DONE (new) ===");
       return NextResponse.json({
         status: "created",
-        initiative: initiative,
+        engagement: engagement,
       });
     }
 
@@ -256,7 +256,7 @@ async function handleEventApproval(
     return NextResponse.json({ status: "denied" });
   }
 
-  // Approve: create event and link to initiative
+  // Approve: create event and link to engagement
   const eventData = approval.entity_data as EventSuggestion;
   const event = await findOrCreateEvent({
     name: eventData.name,
@@ -265,11 +265,11 @@ async function handleEventApproval(
     date_precision: eventData.date_precision,
   });
 
-  // Link to initiative if one exists
-  if (approval.initiative_id) {
+  // Link to engagement if one exists
+  if (approval.engagement_id) {
     await createEntityLink({
-      source_type: "initiative",
-      source_id: approval.initiative_id,
+      source_type: "engagement",
+      source_id: approval.engagement_id,
       target_type: "event",
       target_id: event.id,
       relationship: "relevant_to",
@@ -291,14 +291,14 @@ async function handleEventApproval(
  */
 async function persistClassificationEntities(
   result: ClassificationResult,
-  initiativeId: string
+  engagementId: string
 ): Promise<void> {
   try {
     // Track created entity IDs for linking
     const entityIdMap = new Map<string, { type: string; id: string }>();
     entityIdMap.set(
-      result.initiative_match.name.toLowerCase().trim(),
-      { type: "initiative", id: initiativeId }
+      result.engagement_match.name.toLowerCase().trim(),
+      { type: "engagement", id: engagementId }
     );
 
     // 1. Register existing events / create pending approvals for new ones
@@ -315,7 +315,7 @@ async function persistClassificationEntities(
               confidence: eventRef.confidence,
             },
             message_id: null,
-            initiative_id: initiativeId,
+            engagement_id: engagementId,
           });
           console.log(`Pending event approval created: "${eventRef.name}"`);
         } catch (err) {
@@ -363,8 +363,8 @@ async function persistClassificationEntities(
       }
     }
 
-    // 4. Upsert participants and link to initiative
-    await upsertParticipants(result.participants, initiativeId);
+    // 4. Upsert participants and link to engagement
+    await upsertParticipants(result.participants, engagementId);
   } catch (err) {
     // Catch-all: entity creation must never break the resolve flow
     console.error("persistClassificationEntities error:", err);

@@ -5,18 +5,18 @@ import PageHeader from "@/components/PageHeader";
 import StatusBadge from "@/components/StatusBadge";
 import {
   getUnresolvedApprovalCount,
-  getAllInitiatives,
+  getAllEngagements,
   getAllEventsWithCounts,
 } from "@/lib/supabase";
 
 export default async function DashboardPage() {
-  const [reviewCount, initiatives, events] = await Promise.all([
+  const [reviewCount, engagements, events] = await Promise.all([
     getUnresolvedApprovalCount(),
-    getAllInitiatives(),
+    getAllEngagements(),
     getAllEventsWithCounts(),
   ]);
 
-  const activeCount = initiatives.filter((i) => i.status === "active").length;
+  const activeCount = engagements.filter((i) => i.status === "active").length;
 
   // Upcoming events (events with a future start_date)
   const now = new Date().toISOString();
@@ -28,7 +28,7 @@ export default async function DashboardPage() {
     <div className="p-6 lg:p-8">
       <PageHeader
         title="Dashboard"
-        subtitle="Relay — AI-powered initiative tracker"
+        subtitle="Relay — AI-powered engagement tracker"
       />
 
       {/* Summary cards */}
@@ -49,15 +49,15 @@ export default async function DashboardPage() {
         </Link>
 
         <Link
-          href="/initiatives"
+          href="/engagements"
           className="rounded-xl border border-border bg-surface p-5 transition-colors hover:border-accent/40"
         >
-          <p className="text-sm font-medium text-muted">Active Initiatives</p>
+          <p className="text-sm font-medium text-muted">Active Engagements</p>
           <p className="mt-1 text-3xl font-bold text-foreground">
             {activeCount}
           </p>
           <p className="mt-2 text-xs text-muted">
-            {initiatives.length} total
+            {engagements.length} total
           </p>
         </Link>
 
@@ -106,28 +106,28 @@ export default async function DashboardPage() {
         </section>
       )}
 
-      {/* Recent initiatives */}
-      {initiatives.length > 0 && (
+      {/* Recent engagements */}
+      {engagements.length > 0 && (
         <section>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-            Recent Initiatives
+            Recent Engagements
           </h2>
           <div className="space-y-2">
-            {initiatives.slice(0, 5).map((init) => (
+            {engagements.slice(0, 5).map((eng) => (
               <Link
-                key={init.id}
-                href={`/initiatives/${init.id}`}
+                key={eng.id}
+                href={`/engagements/${eng.id}`}
                 className="flex items-center justify-between rounded-lg border border-border bg-surface px-4 py-3 transition-colors hover:border-accent/40"
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-foreground">
-                    {init.name}
+                    {eng.name}
                   </p>
-                  {init.partner_name && (
-                    <p className="text-xs text-muted">{init.partner_name}</p>
+                  {eng.partner_name && (
+                    <p className="text-xs text-muted">{eng.partner_name}</p>
                   )}
                 </div>
-                <StatusBadge status={init.status} />
+                <StatusBadge status={eng.status} />
               </Link>
             ))}
           </div>

@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { buildUserMessage, parseClassificationResponse } from "../claude";
-import type { Message, Initiative, Event, Program } from "../types";
+import type { Message, Engagement, Event, Program } from "../types";
 
 function makeMessage(overrides: Partial<Message> = {}): Message {
   return {
     id: "msg-001",
-    initiative_id: null,
+    engagement_id: null,
     sender_name: "Alice Chen",
     sender_email: "alice@cybershield.com",
     sent_at: "2025-02-03T15:30:00Z",
@@ -22,7 +22,7 @@ function makeMessage(overrides: Partial<Message> = {}): Message {
   };
 }
 
-const INITIATIVE: Initiative = {
+const ENGAGEMENT: Engagement = {
   id: "init-001",
   name: "CyberShield - Security Review",
   status: "active",
@@ -30,6 +30,7 @@ const INITIATIVE: Initiative = {
   current_state: null,
   open_items: [],
   partner_name: "CyberShield",
+  tags: [],
   created_at: "2025-01-15T00:00:00Z",
   updated_at: "2025-02-01T00:00:00Z",
   closed_at: null,
@@ -60,8 +61,8 @@ const PROGRAM: Program = {
 };
 
 describe("buildUserMessage", () => {
-  it("includes initiative names, ids, and summaries", () => {
-    const result = buildUserMessage([makeMessage()], [INITIATIVE], [], []);
+  it("includes engagement names, ids, and summaries", () => {
+    const result = buildUserMessage([makeMessage()], [ENGAGEMENT], [], []);
     expect(result).toContain("CyberShield - Security Review");
     expect(result).toContain("init-001");
     expect(result).toContain("Pursuing Security Competency.");
@@ -108,8 +109,8 @@ describe("buildUserMessage", () => {
 
 describe("parseClassificationResponse", () => {
   const validJson = JSON.stringify({
-    content_type: "initiative_email",
-    initiative_match: { id: "init-001", name: "Test", confidence: 0.95, is_new: false, partner_name: null },
+    content_type: "engagement_email",
+    engagement_match: { id: "init-001", name: "Test", confidence: 0.95, is_new: false, partner_name: null },
     events_referenced: [],
     programs_referenced: [],
     entity_links: [],
@@ -118,20 +119,20 @@ describe("parseClassificationResponse", () => {
 
   it("parses raw JSON", () => {
     const result = parseClassificationResponse(validJson);
-    expect(result.content_type).toBe("initiative_email");
-    expect(result.initiative_match.confidence).toBe(0.95);
+    expect(result.content_type).toBe("engagement_email");
+    expect(result.engagement_match.confidence).toBe(0.95);
   });
 
   it("strips ```json ... ``` wrapping", () => {
     const wrapped = "```json\n" + validJson + "\n```";
     const result = parseClassificationResponse(wrapped);
-    expect(result.content_type).toBe("initiative_email");
+    expect(result.content_type).toBe("engagement_email");
   });
 
   it("strips bare ``` wrapping", () => {
     const wrapped = "```\n" + validJson + "\n```";
     const result = parseClassificationResponse(wrapped);
-    expect(result.content_type).toBe("initiative_email");
+    expect(result.content_type).toBe("engagement_email");
   });
 
   it("throws on invalid JSON", () => {
@@ -141,6 +142,6 @@ describe("parseClassificationResponse", () => {
   it("handles leading/trailing whitespace", () => {
     const padded = "\n  " + validJson + "  \n";
     const result = parseClassificationResponse(padded);
-    expect(result.content_type).toBe("initiative_email");
+    expect(result.content_type).toBe("engagement_email");
   });
 });

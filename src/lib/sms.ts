@@ -2,7 +2,7 @@ import twilio from "twilio";
 import {
   ClassificationResult,
   Message,
-  Initiative,
+  Engagement,
   SMSOption,
 } from "./types";
 
@@ -37,59 +37,59 @@ export async function sendSMS(to: string, body: string): Promise<string> {
  */
 export function buildSMSOptions(
   result: ClassificationResult,
-  existingInitiatives: Initiative[]
+  existingEngagements: Engagement[]
 ): SMSOption[] {
   const options: SMSOption[] = [];
   let num = 1;
 
-  // If Claude suggested a new initiative with decent confidence, offer it first
+  // If Claude suggested a new engagement with decent confidence, offer it first
   if (
-    result.initiative_match.is_new &&
-    result.initiative_match.confidence >= 0.5
+    result.engagement_match.is_new &&
+    result.engagement_match.confidence >= 0.5
   ) {
     options.push({
       number: num++,
-      label: result.initiative_match.name,
-      initiative_id: null,
+      label: result.engagement_match.name,
+      engagement_id: null,
       is_new: true,
     });
   }
 
-  // Add existing initiative matches with confidence >= 0.5
+  // Add existing engagement matches with confidence >= 0.5
   // If the primary match is existing and decent confidence, include it
   if (
-    !result.initiative_match.is_new &&
-    result.initiative_match.id &&
-    result.initiative_match.confidence >= 0.5
+    !result.engagement_match.is_new &&
+    result.engagement_match.id &&
+    result.engagement_match.confidence >= 0.5
   ) {
     options.push({
       number: num++,
-      label: result.initiative_match.name,
-      initiative_id: result.initiative_match.id,
+      label: result.engagement_match.name,
+      engagement_id: result.engagement_match.id,
       is_new: false,
     });
   }
 
-  // Pad with other active initiatives if we have room (max 3 total options before "New")
+  // Pad with other active engagements if we have room (max 3 total options before "New")
   // Only add if the primary match didn't fill all slots
   if (options.length < 3) {
     const usedIds = new Set(
-      options.filter((o) => o.initiative_id).map((o) => o.initiative_id)
+      options.filter((o) => o.engagement_id).map((o) => o.engagement_id)
     );
-    for (const init of existingInitiatives) {
+    for (const init of existingEngagements) {
       if (usedIds.has(init.id)) continue;
       if (options.length >= 3) break;
-      // Only add recent/relevant initiatives — skip for now to keep SMS short
-      // The AI match is the best we have; padding with unrelated initiatives confuses more than helps
+      // Only add recent/relevant engagements — skip for now to keep SMS short
+      // The AI match is the best we have; padding with unrelated engagements confuses more than helps
     }
   }
 
-  // Always add "New initiative" as last numbered option
+  // Always add "New engagement" as last numbered option
   if (!options.some((o) => o.is_new)) {
     options.push({
       number: num++,
-      label: "New initiative",
-      initiative_id: null,
+      label: "New engagement",
+      engagement_id: null,
       is_new: true,
     });
   }
@@ -119,10 +119,10 @@ export function buildClassificationSMS(
 
   for (const opt of options) {
     const conf =
-      opt.initiative_id || opt.is_new
+      opt.engagement_id || opt.is_new
         ? ""
         : "";
-    // Show confidence only for AI-matched options (not the generic "New initiative" fallback)
+    // Show confidence only for AI-matched options (not the generic "New engagement" fallback)
     lines.push(`${opt.number}. ${opt.label}${conf}`);
   }
 
@@ -138,12 +138,12 @@ export function buildClassificationSMS(
 export async function sendClassificationPrompt(
   message: Message,
   result: ClassificationResult,
-  existingInitiatives: Initiative[]
+  existingEngagements: Engagement[]
 ): Promise<{ sid: string; options: SMSOption[] }> {
   const userPhone = process.env.USER_PHONE_NUMBER;
   if (!userPhone) throw new Error("Missing USER_PHONE_NUMBER");
 
-  const options = buildSMSOptions(result, existingInitiatives);
+  const options = buildSMSOptions(result, existingEngagements);
   const body = buildClassificationSMS(message, options);
 
   const sid = await sendSMS(userPhone, body);

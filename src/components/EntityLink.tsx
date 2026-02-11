@@ -2,7 +2,7 @@ import Link from "next/link";
 import { EntityLink as EntityLinkType } from "@/lib/types";
 
 const typeColors: Record<string, string> = {
-  initiative: "bg-accent/20 text-accent",
+  engagement: "bg-accent/20 text-accent",
   event: "bg-[var(--event-conference)]/20 text-[var(--event-conference)]",
   program: "bg-status-active/20 text-status-active",
 };
@@ -10,6 +10,7 @@ const typeColors: Record<string, string> = {
 /** Map entity_type to user-facing label */
 function entityTypeLabel(type: string): string {
   if (type === "program") return "Track";
+  if (type === "engagement") return "Engagement";
   return type.charAt(0).toUpperCase() + type.slice(1);
 }
 
@@ -23,7 +24,7 @@ function formatRelationship(rel: string): string {
 function entityHref(type: string, id: string): string {
   if (type === "event") return `/events/${id}`;
   if (type === "program") return `/tracks/${id}`;
-  return `/initiatives/${id}`;
+  return `/engagements/${id}`;
 }
 
 export default function EntityLinkChip({

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  getLatestUnresolvedInitiativeApproval,
+  getLatestUnresolvedEngagementApproval,
   resolveApproval,
-  createInitiative,
-  updateMessageInitiative,
-  updateInitiativeSummary,
+  createEngagement,
+  updateMessageEngagement,
+  updateEngagementSummary,
 } from "@/lib/supabase";
 import { sendSMS } from "@/lib/sms";
 
@@ -28,8 +28,8 @@ export async function POST(request: NextRequest) {
 
   const reply = body.trim().toLowerCase();
 
-  // Find the most recent unresolved initiative assignment approval
-  const review = await getLatestUnresolvedInitiativeApproval();
+  // Find the most recent unresolved engagement assignment approval
+  const review = await getLatestUnresolvedEngagementApproval();
 
   if (!review) {
     await sendSMS(userPhone, "No pending reviews right now.");
@@ -50,32 +50,32 @@ export async function POST(request: NextRequest) {
       const option = review.options_sent.find((o) => o.number === num);
       if (option) {
         if (option.is_new) {
-          // Create new initiative with the suggested name
-          const initiative = await createInitiative({
-            name: option.label === "New initiative" ? `Untitled - ${new Date().toLocaleDateString()}` : option.label,
-            partner_name: review.classification_result!.initiative_match.partner_name,
+          // Create new engagement with the suggested name
+          const engagement = await createEngagement({
+            name: option.label === "New engagement" ? `Untitled - ${new Date().toLocaleDateString()}` : option.label,
+            partner_name: review.classification_result!.engagement_match.partner_name,
             summary: review.classification_result!.current_state,
           });
-          await updateMessageInitiative(review.message_id!, initiative.id);
-          await resolveApproval(review.id, `created:${initiative.id}:${initiative.name}`);
-          await sendSMS(userPhone, `Created: ${initiative.name}`);
-        } else if (option.initiative_id) {
-          // Assign to existing initiative
-          await updateMessageInitiative(review.message_id!, option.initiative_id);
+          await updateMessageEngagement(review.message_id!, engagement.id);
+          await resolveApproval(review.id, `created:${engagement.id}:${engagement.name}`);
+          await sendSMS(userPhone, `Created: ${engagement.name}`);
+        } else if (option.engagement_id) {
+          // Assign to existing engagement
+          await updateMessageEngagement(review.message_id!, option.engagement_id);
           if (review.classification_result!.current_state) {
-            await updateInitiativeSummary(
-              option.initiative_id,
+            await updateEngagementSummary(
+              option.engagement_id,
               review.classification_result!.current_state
             );
           }
-          await resolveApproval(review.id, `assigned:${option.initiative_id}:${option.label}`);
+          await resolveApproval(review.id, `assigned:${option.engagement_id}:${option.label}`);
           await sendSMS(userPhone, `Assigned to: ${option.label}`);
         }
         return twimlResponse("");
       }
     }
 
-    // Handle free-text reply — create a new initiative with that name
+    // Handle free-text reply — create a new engagement with that name
     if (reply.length > 0) {
       // Strip "new:" prefix if present
       const name = reply.startsWith("new:")
@@ -87,14 +87,14 @@ export async function POST(request: NextRequest) {
         return twimlResponse("");
       }
 
-      const initiative = await createInitiative({
+      const engagement = await createEngagement({
         name,
-        partner_name: review.classification_result!.initiative_match.partner_name,
+        partner_name: review.classification_result!.engagement_match.partner_name,
         summary: review.classification_result!.current_state,
       });
-      await updateMessageInitiative(review.message_id!, initiative.id);
-      await resolveApproval(review.id, `created:${initiative.id}:${initiative.name}`);
-      await sendSMS(userPhone, `Created: ${initiative.name}`);
+      await updateMessageEngagement(review.message_id!, engagement.id);
+      await resolveApproval(review.id, `created:${engagement.id}:${engagement.name}`);
+      await sendSMS(userPhone, `Created: ${engagement.name}`);
       return twimlResponse("");
     }
 

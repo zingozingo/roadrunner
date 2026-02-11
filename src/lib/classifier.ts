@@ -1,12 +1,12 @@
 import { classifyMessage, ClassifyContext } from "./claude";
 import {
   getSupabaseClient,
-  getActiveInitiatives,
+  getActiveEngagements,
   getActiveEvents,
   getActivePrograms,
   getUnclassifiedMessages,
   createApproval,
-  createInitiative,
+  createEngagement,
   findOrCreateProgram,
   upsertParticipants,
   appendOpenItems,
@@ -29,16 +29,16 @@ export async function processUnclassifiedMessages(): Promise<{
   const stats = { processed: 0, autoAssigned: 0, flaggedForReview: 0, errors: 0 };
 
   // Load current state once for the batch
-  const [messages, initiatives, events, programs] = await Promise.all([
+  const [messages, engagements, events, programs] = await Promise.all([
     getUnclassifiedMessages(),
-    getActiveInitiatives(),
+    getActiveEngagements(),
     getActiveEvents(),
     getActivePrograms(),
   ]);
 
   if (messages.length === 0) return stats;
 
-  const context: ClassifyContext = { initiatives, events, programs };
+  const context: ClassifyContext = { engagements, events, programs };
 
   // Group messages by forwarded_at timestamp (within 5s = same forwarded email)
   const groups = groupByForwardedAt(messages);
@@ -90,13 +90,13 @@ export async function processSingleMessage(
   }
 
   // Load current state
-  const [initiatives, events, programs] = await Promise.all([
-    getActiveInitiatives(),
+  const [engagements, events, programs] = await Promise.all([
+    getActiveEngagements(),
     getActiveEvents(),
     getActivePrograms(),
   ]);
 
-  const context: ClassifyContext = { initiatives, events, programs };
+  const context: ClassifyContext = { engagements, events, programs };
 
   try {
     const result = await classifyMessage(messages as Message[], context);
@@ -157,21 +157,21 @@ async function applyClassificationResult(
   const isNoise = result.content_type === "noise";
   const isHighConfidence =
     !isNoise &&
-    result.initiative_match.confidence >= AUTO_ASSIGN_THRESHOLD;
+    result.engagement_match.confidence >= AUTO_ASSIGN_THRESHOLD;
   const hasHighConfidenceExisting =
-    isHighConfidence && !result.initiative_match.is_new && result.initiative_match.id;
+    isHighConfidence && !result.engagement_match.is_new && result.engagement_match.id;
   const hasHighConfidenceNew =
-    isHighConfidence && result.initiative_match.is_new;
+    isHighConfidence && result.engagement_match.is_new;
   const hasNewTrackSuggestions =
     result.programs_referenced.some((p) => p.is_new);
 
   // Review needed when: low confidence, OR new tracks suggested
-  // NOT needed for high-confidence new initiatives — those auto-create
+  // NOT needed for high-confidence new engagements — those auto-create
   let needsReview =
     !isNoise && (!isHighConfidence || hasNewTrackSuggestions);
 
-  // Track which initiative ID gets assigned to messages
-  let assignedInitiativeId: string | null = null;
+  // Track which engagement ID gets assigned to messages
+  let assignedEngagementId: string | null = null;
 
   // Extract structured fields with fallbacks
   const currentState = result.current_state ?? null;
@@ -180,17 +180,17 @@ async function applyClassificationResult(
     resolved: false,
   }));
 
-  // 1. Auto-create new initiative at high confidence
+  // 1. Auto-create new engagement at high confidence
   if (hasHighConfidenceNew && !hasNewTrackSuggestions) {
     try {
-      const initiative = await createInitiative({
-        name: result.initiative_match.name,
-        partner_name: result.initiative_match.partner_name,
+      const engagement = await createEngagement({
+        name: result.engagement_match.name,
+        partner_name: result.engagement_match.partner_name,
         summary: currentState,
         current_state: currentState,
         open_items: openItems,
       });
-      assignedInitiativeId = initiative.id;
+      assignedEngagementId = engagement.id;
 
       // Find or create referenced tracks (programs)
       for (const prog of result.programs_referenced) {
@@ -202,36 +202,36 @@ async function applyClassificationResult(
       }
 
       console.log(
-        `Auto-created initiative: ${initiative.name} (${initiative.id}) from ${messageIds.length} message(s)`
+        `Auto-created engagement: ${engagement.name} (${engagement.id}) from ${messageIds.length} message(s)`
       );
     } catch (err) {
       // Auto-create failed — fall back to review
-      console.error("Auto-create initiative failed, falling back to review:", err);
+      console.error("Auto-create engagement failed, falling back to review:", err);
       needsReview = true;
     }
   }
 
-  // 2. Auto-assign to existing initiative at high confidence
+  // 2. Auto-assign to existing engagement at high confidence
   if (hasHighConfidenceExisting && !hasNewTrackSuggestions) {
-    assignedInitiativeId = result.initiative_match.id!;
+    assignedEngagementId = result.engagement_match.id!;
   }
 
   // 3. Update messages with classification result
   const messageUpdate: Record<string, unknown> = {
     content_type: result.content_type,
-    classification_confidence: result.initiative_match.confidence,
+    classification_confidence: result.engagement_match.confidence,
     classification_result: result,
     pending_review: needsReview,
   };
 
-  if (assignedInitiativeId) {
-    messageUpdate.initiative_id = assignedInitiativeId;
+  if (assignedEngagementId) {
+    messageUpdate.engagement_id = assignedEngagementId;
   }
 
   await db.from("messages").update(messageUpdate).in("id", messageIds);
 
-  // 4. If assigned to existing initiative, update structured data
-  if (hasHighConfidenceExisting && !hasNewTrackSuggestions && assignedInitiativeId) {
+  // 4. If assigned to existing engagement, update structured data
+  if (hasHighConfidenceExisting && !hasNewTrackSuggestions && assignedEngagementId) {
     const updates: Record<string, unknown> = {};
 
     if (currentState) {
@@ -241,14 +241,14 @@ async function applyClassificationResult(
 
     // Merge open items: add new, keep existing unresolved
     if (openItems.length > 0) {
-      const merged = await appendOpenItems(assignedInitiativeId, openItems);
+      const merged = await appendOpenItems(assignedEngagementId, openItems);
       if (merged) {
         updates.open_items = merged;
       }
     }
 
     if (Object.keys(updates).length > 0) {
-      await db.from("initiatives").update(updates).eq("id", assignedInitiativeId);
+      await db.from("engagements").update(updates).eq("id", assignedEngagementId);
     }
   }
 
@@ -257,9 +257,9 @@ async function applyClassificationResult(
     await createEntityLinks(result, context);
   }
 
-  // 6. Upsert participants — link to assigned initiative if available
+  // 6. Upsert participants — link to assigned engagement if available
   if (!isNoise && result.participants.length > 0) {
-    await upsertParticipants(result.participants, assignedInitiativeId);
+    await upsertParticipants(result.participants, assignedEngagementId);
   }
 
   // 6b. Store pending event approvals for new events
@@ -277,7 +277,7 @@ async function applyClassificationResult(
             confidence: eventRef.confidence,
           },
           message_id: messages[0].id,
-          initiative_id: assignedInitiativeId,
+          engagement_id: assignedEngagementId,
         });
         console.log(`Pending event approval created: "${eventRef.name}"`);
       } catch (err) {
@@ -289,16 +289,16 @@ async function applyClassificationResult(
   // 7. If flagged for review, create pending review and send SMS
   if (needsReview) {
     try {
-      const initiatives = context.initiatives;
+      const engagements = context.engagements;
       const representative = messages[0];
       const { options } = await sendClassificationPrompt(
         representative,
         result,
-        initiatives
+        engagements
       );
 
       await createApproval({
-        type: "initiative_assignment",
+        type: "engagement_assignment",
         message_id: representative.id,
         classification_result: result,
         options_sent: options,
@@ -308,7 +308,7 @@ async function applyClassificationResult(
     } catch (smsError) {
       console.error("Failed to send classification SMS:", smsError);
       await createApproval({
-        type: "initiative_assignment",
+        type: "engagement_assignment",
         message_id: messages[0].id,
         classification_result: result,
         options_sent: [],
@@ -320,8 +320,8 @@ async function applyClassificationResult(
 
   console.log(
     `Classified ${messageIds.length} message(s): type=${result.content_type}, ` +
-      `confidence=${result.initiative_match.confidence}, ` +
-      `review=${needsReview}, initiative=${result.initiative_match.name}`
+      `confidence=${result.engagement_match.confidence}, ` +
+      `review=${needsReview}, engagement=${result.engagement_match.name}`
   );
 
   return { needsReview };
@@ -341,9 +341,9 @@ async function createEntityLinks(
   // Build a name->id lookup for all known entities
   const entityMap = new Map<string, { type: string; id: string }>();
 
-  for (const init of context.initiatives) {
+  for (const init of context.engagements) {
     entityMap.set(normalizeEntityName(init.name), {
-      type: "initiative",
+      type: "engagement",
       id: init.id,
     });
   }

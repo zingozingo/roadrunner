@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getEventById,
-  getLinkedInitiativesForEntity,
+  getLinkedEngagementsForEntity,
   updateEvent,
   deleteEvent,
 } from "@/lib/supabase";
@@ -31,9 +31,9 @@ export async function GET(
       );
     }
 
-    const linkedInitiatives = await getLinkedInitiativesForEntity("event", id);
+    const linkedEngagements = await getLinkedEngagementsForEntity("event", id);
 
-    return NextResponse.json({ event, linkedInitiatives });
+    return NextResponse.json({ event, linkedEngagements });
   } catch (error) {
     console.error("GET /api/events/[id] error:", error);
     return NextResponse.json(

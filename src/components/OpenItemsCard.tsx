@@ -6,10 +6,10 @@ import { OpenItem } from "@/lib/types";
 
 export default function OpenItemsCard({
   items,
-  initiativeId,
+  engagementId,
 }: {
   items: OpenItem[];
-  initiativeId: string;
+  engagementId: string;
 }) {
   const router = useRouter();
   const [resolving, setResolving] = useState<number | null>(null);
@@ -22,12 +22,12 @@ export default function OpenItemsCard({
   async function handleResolve(index: number) {
     setResolving(index);
     try {
-      // Mark the item resolved by updating the initiative's open_items array
+      // Mark the item resolved by updating the engagement's open_items array
       const updatedItems = items.map((item, i) =>
         i === index ? { ...item, resolved: true } : item
       );
 
-      await fetch(`/api/initiatives/${initiativeId}`, {
+      await fetch(`/api/engagements/${engagementId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ open_items: updatedItems }),

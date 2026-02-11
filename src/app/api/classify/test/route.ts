@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { classifyMessage, ClassifyContext } from "@/lib/claude";
 import {
-  getActiveInitiatives,
+  getActiveEngagements,
   getActiveEvents,
   getActivePrograms,
   getSupabaseClient,
@@ -20,7 +20,7 @@ import { Message } from "@/lib/types";
 //   Mode B (existing msg):  { messageId }
 //
 // Both modes accept optional context override:
-//   { context: { initiatives, events, programs } }
+//   { context: { engagements, events, programs } }
 //
 // If context is omitted, live DB context is fetched (read-only).
 // ============================================================
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       messages = [
         {
           id: "test-00000000-0000-0000-0000-000000000000",
-          initiative_id: null,
+          engagement_id: null,
           sender_name: (sender as string) ?? null,
           sender_email: null,
           sent_at: new Date().toISOString(),
@@ -113,17 +113,17 @@ export async function POST(request: NextRequest) {
 
     if (contextOverride) {
       context = {
-        initiatives: contextOverride.initiatives ?? [],
+        engagements: contextOverride.engagements ?? [],
         events: contextOverride.events ?? [],
         programs: contextOverride.programs ?? [],
       };
     } else {
-      const [initiatives, events, programs] = await Promise.all([
-        getActiveInitiatives(),
+      const [engagements, events, programs] = await Promise.all([
+        getActiveEngagements(),
         getActiveEvents(),
         getActivePrograms(),
       ]);
-      context = { initiatives, events, programs };
+      context = { engagements, events, programs };
     }
 
     // Run classification — pure function, no side effects
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
       meta: {
         mode,
         contextStats: {
-          initiatives: context.initiatives.length,
+          engagements: context.engagements.length,
           events: context.events.length,
           programs: context.programs.length,
         },

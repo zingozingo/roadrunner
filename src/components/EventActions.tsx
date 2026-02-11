@@ -308,7 +308,7 @@ export default function EventActions({ event }: { event: Event }) {
         onConfirm={handleDelete}
         onCancel={() => setShowDeleteConfirm(false)}
         title="Delete Event"
-        message="This will remove the event and unlink all associated initiatives. This action cannot be undone."
+        message="This will remove the event and unlink all associated engagements. This action cannot be undone."
         confirmLabel="Delete"
         confirmStyle="danger"
       />

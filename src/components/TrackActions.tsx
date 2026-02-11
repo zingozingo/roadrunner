@@ -241,7 +241,7 @@ export default function TrackActions({ track }: { track: Program }) {
         onConfirm={handleDelete}
         onCancel={() => setShowDeleteConfirm(false)}
         title="Delete Track"
-        message="This will remove the track and unlink all associated initiatives. This action cannot be undone."
+        message="This will remove the track and unlink all associated engagements. This action cannot be undone."
         confirmLabel="Delete"
         confirmStyle="danger"
       />

@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { ApprovalQueueItem, Message, Initiative } from "@/lib/types";
+import { ApprovalQueueItem, Message, Engagement } from "@/lib/types";
 import ConfidenceBar from "./ConfidenceBar";
 
 type ApprovalWithContext = ApprovalQueueItem & {
   message: Message | null;
-  initiative: Initiative | null;
+  engagement: Engagement | null;
 };
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
@@ -107,10 +107,10 @@ export default function EventApprovalCard({
             )}
           </p>
         )}
-        {approval.initiative && (
+        {approval.engagement && (
           <p>
             Would link to:{" "}
-            <span className="text-foreground/80">{approval.initiative.name}</span>
+            <span className="text-foreground/80">{approval.engagement.name}</span>
           </p>
         )}
       </div>

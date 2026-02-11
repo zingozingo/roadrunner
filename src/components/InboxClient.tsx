@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ApprovalQueueItem, Message, Initiative } from "@/lib/types";
+import { ApprovalQueueItem, Message, Engagement } from "@/lib/types";
 import ReviewCard from "./ReviewCard";
 import EventApprovalCard from "./EventApprovalCard";
 import OrphanedMessageCard from "./OrphanedMessageCard";
@@ -10,7 +10,7 @@ import EmptyState from "./EmptyState";
 
 type ApprovalWithContext = ApprovalQueueItem & {
   message: Message | null;
-  initiative: Initiative | null;
+  engagement: Engagement | null;
 };
 
 export default function InboxClient({
@@ -28,7 +28,7 @@ export default function InboxClient({
     router.refresh();
   }
 
-  const reviews = approvals.filter((a) => a.type === "initiative_assignment");
+  const reviews = approvals.filter((a) => a.type === "engagement_assignment");
   const eventApprovals = approvals.filter((a) => a.type === "event_creation");
 
   return (

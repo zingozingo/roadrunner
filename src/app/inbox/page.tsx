@@ -17,7 +17,7 @@ export default async function InboxPage() {
     <div className="p-6 lg:p-8">
       <PageHeader
         title="Inbox"
-        subtitle="Review AI classifications and assign messages to initiatives"
+        subtitle="Review AI classifications and assign messages to engagements"
       />
       <InboxClient
         initialApprovals={approvals}

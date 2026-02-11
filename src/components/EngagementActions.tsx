@@ -2,15 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Initiative } from "@/lib/types";
+import { Engagement } from "@/lib/types";
 import ConfirmDialog from "./ConfirmDialog";
 
-const STATUS_OPTIONS: Initiative["status"][] = ["active", "paused", "closed"];
+const STATUS_OPTIONS: Engagement["status"][] = ["active", "paused", "closed"];
 
-export default function InitiativeActions({
-  initiative,
+export default function EngagementActions({
+  engagement,
 }: {
-  initiative: Initiative;
+  engagement: Engagement;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -20,18 +20,18 @@ export default function InitiativeActions({
   const [error, setError] = useState<string | null>(null);
 
   // Edit form state
-  const [name, setName] = useState(initiative.name);
-  const [partnerName, setPartnerName] = useState(initiative.partner_name ?? "");
-  const [status, setStatus] = useState<Initiative["status"]>(initiative.status);
+  const [name, setName] = useState(engagement.name);
+  const [partnerName, setPartnerName] = useState(engagement.partner_name ?? "");
+  const [status, setStatus] = useState<Engagement["status"]>(engagement.status);
   const [currentState, setCurrentState] = useState(
-    initiative.current_state ?? initiative.summary ?? ""
+    engagement.current_state ?? engagement.summary ?? ""
   );
 
   function startEdit() {
-    setName(initiative.name);
-    setPartnerName(initiative.partner_name ?? "");
-    setStatus(initiative.status);
-    setCurrentState(initiative.current_state ?? initiative.summary ?? "");
+    setName(engagement.name);
+    setPartnerName(engagement.partner_name ?? "");
+    setStatus(engagement.status);
+    setCurrentState(engagement.current_state ?? engagement.summary ?? "");
     setError(null);
     setEditing(true);
   }
@@ -50,7 +50,7 @@ export default function InitiativeActions({
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`/api/initiatives/${initiative.id}`, {
+      const res = await fetch(`/api/engagements/${engagement.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -81,7 +81,7 @@ export default function InitiativeActions({
     setDeleting(true);
     setError(null);
     try {
-      const res = await fetch(`/api/initiatives/${initiative.id}`, {
+      const res = await fetch(`/api/engagements/${engagement.id}`, {
         method: "DELETE",
       });
 
@@ -90,7 +90,7 @@ export default function InitiativeActions({
         throw new Error(body.error || `Server returned ${res.status}`);
       }
 
-      router.push("/initiatives");
+      router.push("/engagements");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete");
@@ -161,7 +161,7 @@ export default function InitiativeActions({
               value={currentState}
               onChange={(e) => setCurrentState(e.target.value)}
               rows={8}
-              placeholder="What's happening with this initiative..."
+              placeholder="What's happening with this engagement..."
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
             />
           </div>
@@ -230,8 +230,8 @@ export default function InitiativeActions({
         isOpen={showDeleteConfirm}
         onConfirm={handleDelete}
         onCancel={() => setShowDeleteConfirm(false)}
-        title="Delete Initiative"
-        message="This will remove the initiative and unlink all associated messages. Messages will not be deleted. This action cannot be undone."
+        title="Delete Engagement"
+        message="This will remove the engagement and unlink all associated messages. Messages will not be deleted. This action cannot be undone."
         confirmLabel="Delete"
         confirmStyle="danger"
       />

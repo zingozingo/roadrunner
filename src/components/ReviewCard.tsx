@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { ApprovalQueueItem, Message, Initiative } from "@/lib/types";
+import { ApprovalQueueItem, Message, Engagement } from "@/lib/types";
 import ConfidenceBar from "./ConfidenceBar";
 
 type ReviewApproval = ApprovalQueueItem & {
   message: Message | null;
-  initiative: Initiative | null;
+  engagement: Engagement | null;
 };
 
 export default function ReviewCard({
@@ -20,17 +20,17 @@ export default function ReviewCard({
   const [error, setError] = useState<string | null>(null);
   const [showNewInput, setShowNewInput] = useState(false);
   const [newName, setNewName] = useState(
-    review.classification_result!.initiative_match.name || ""
+    review.classification_result!.engagement_match.name || ""
   );
 
   const msg = review.message;
-  const match = review.classification_result!.initiative_match;
+  const match = review.classification_result!.engagement_match;
   const bodyPreview = msg?.body_text?.slice(0, 150) || "";
 
   async function resolve(
     action: "skip" | "select" | "new",
     option_number?: number,
-    initiative_name?: string
+    engagement_name?: string
   ) {
     setLoading(true);
     setError(null);
@@ -42,7 +42,7 @@ export default function ReviewCard({
           review_id: review.id,
           action,
           option_number,
-          initiative_name,
+          engagement_name,
         }),
       });
 
@@ -138,7 +138,7 @@ export default function ReviewCard({
           onClick={() => setShowNewInput(!showNewInput)}
           className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-accent transition-colors hover:border-accent disabled:opacity-50"
         >
-          + New Initiative
+          + New Engagement
         </button>
 
         <button
@@ -150,14 +150,14 @@ export default function ReviewCard({
         </button>
       </div>
 
-      {/* New initiative input */}
+      {/* New engagement input */}
       {showNewInput && (
         <div className="mt-3 flex gap-2">
           <input
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            placeholder="Initiative name..."
+            placeholder="Engagement name..."
             className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
           />
           <button

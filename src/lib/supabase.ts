@@ -1,6 +1,6 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import {
-  Initiative,
+  Engagement,
   Event,
   Program,
   Message,
@@ -39,7 +39,7 @@ export const supabase = new Proxy({} as SupabaseClient, {
 
 /**
  * Bulk insert parsed messages into the messages table.
- * Messages are stored as unclassified (initiative_id = null).
+ * Messages are stored as unclassified (engagement_id = null).
  */
 export async function storeMessages(
   messages: ParsedMessage[]
@@ -53,7 +53,7 @@ export async function storeMessages(
     subject: m.subject,
     body_text: m.body_text,
     body_raw: m.body_raw,
-    initiative_id: null,
+    engagement_id: null,
     content_type: null,
     classification_confidence: null,
     linked_entities: [],
@@ -71,16 +71,19 @@ export async function storeMessages(
   return data as Message[];
 }
 
-export async function getActiveInitiatives(): Promise<Initiative[]> {
+export async function getActiveEngagements(): Promise<Engagement[]> {
   const { data, error } = await getSupabaseClient()
-    .from("initiatives")
+    .from("engagements")
     .select("*")
     .eq("status", "active")
     .order("created_at", { ascending: false });
 
-  if (error) throw new Error(`Failed to fetch initiatives: ${error.message}`);
-  return data as Initiative[];
+  if (error) throw new Error(`Failed to fetch engagements: ${error.message}`);
+  return data as Engagement[];
 }
+
+/** @deprecated Use getActiveEngagements instead */
+export const getActiveInitiatives = getActiveEngagements;
 
 export async function getActiveEvents(): Promise<Event[]> {
   const { data, error } = await getSupabaseClient()
@@ -107,7 +110,7 @@ export async function getUnclassifiedMessages(): Promise<Message[]> {
   const { data, error } = await getSupabaseClient()
     .from("messages")
     .select("*")
-    .is("initiative_id", null)
+    .is("engagement_id", null)
     .is("classification_result", null)
     .order("forwarded_at", { ascending: false });
 
@@ -123,7 +126,7 @@ export async function getUnclassifiedMessages(): Promise<Message[]> {
 export async function createApproval(data: {
   type: ApprovalQueueItem["type"];
   message_id?: string | null;
-  initiative_id?: string | null;
+  engagement_id?: string | null;
   classification_result?: ClassificationResult | null;
   entity_data?: EventSuggestion | null;
   options_sent?: SMSOption[] | null;
@@ -135,7 +138,7 @@ export async function createApproval(data: {
     .insert({
       type: data.type,
       message_id: data.message_id ?? null,
-      initiative_id: data.initiative_id ?? null,
+      engagement_id: data.engagement_id ?? null,
       classification_result: data.classification_result ?? null,
       entity_data: data.entity_data ?? null,
       options_sent: data.options_sent ?? null,
@@ -150,18 +153,18 @@ export async function createApproval(data: {
 }
 
 export async function getUnresolvedApprovals(): Promise<
-  (ApprovalQueueItem & { message: Message | null; initiative: Initiative | null })[]
+  (ApprovalQueueItem & { message: Message | null; engagement: Engagement | null })[]
 > {
   const { data, error } = await getSupabaseClient()
     .from("approval_queue")
-    .select("*, message:messages(*), initiative:initiatives(*)")
+    .select("*, message:messages(*), engagement:engagements(*)")
     .eq("resolved", false)
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(`Failed to fetch approvals: ${error.message}`);
   return (data ?? []) as (ApprovalQueueItem & {
     message: Message | null;
-    initiative: Initiative | null;
+    engagement: Engagement | null;
   })[];
 }
 
@@ -191,12 +194,12 @@ export async function resolveApproval(
   if (error) throw new Error(`Failed to resolve approval: ${error.message}`);
 }
 
-export async function getLatestUnresolvedInitiativeApproval(): Promise<ApprovalQueueItem | null> {
+export async function getLatestUnresolvedEngagementApproval(): Promise<ApprovalQueueItem | null> {
   const { data, error } = await getSupabaseClient()
     .from("approval_queue")
     .select("*")
     .eq("resolved", false)
-    .eq("type", "initiative_assignment")
+    .eq("type", "engagement_assignment")
     .order("created_at", { ascending: false })
     .limit(1);
 
@@ -204,69 +207,84 @@ export async function getLatestUnresolvedInitiativeApproval(): Promise<ApprovalQ
   return data && data.length > 0 ? (data[0] as ApprovalQueueItem) : null;
 }
 
+/** @deprecated Use getLatestUnresolvedEngagementApproval instead */
+export const getLatestUnresolvedInitiativeApproval = getLatestUnresolvedEngagementApproval;
+
 // ============================================================
-// Initiative CRUD
+// Engagement CRUD
 // ============================================================
 
-export async function createInitiative(data: {
+export async function createEngagement(data: {
   name: string;
   partner_name?: string | null;
   summary?: string | null;
   current_state?: string | null;
   open_items?: OpenItem[];
-}): Promise<Initiative> {
-  const { data: initiative, error } = await getSupabaseClient()
-    .from("initiatives")
+  tags?: string[];
+}): Promise<Engagement> {
+  const { data: engagement, error } = await getSupabaseClient()
+    .from("engagements")
     .insert({
       name: data.name,
       partner_name: data.partner_name ?? null,
       summary: data.summary ?? null,
       current_state: data.current_state ?? null,
       open_items: data.open_items ?? [],
+      tags: data.tags ?? [],
       status: "active",
     })
     .select()
     .single();
 
-  if (error) throw new Error(`Failed to create initiative: ${error.message}`);
-  return initiative as Initiative;
+  if (error) throw new Error(`Failed to create engagement: ${error.message}`);
+  return engagement as Engagement;
 }
 
-export async function updateMessageInitiative(
+/** @deprecated Use createEngagement instead */
+export const createInitiative = createEngagement;
+
+export async function updateMessageEngagement(
   messageId: string,
-  initiativeId: string
+  engagementId: string
 ): Promise<void> {
   const { error } = await getSupabaseClient()
     .from("messages")
-    .update({ initiative_id: initiativeId, pending_review: false })
+    .update({ engagement_id: engagementId, pending_review: false })
     .eq("id", messageId);
 
-  if (error) throw new Error(`Failed to update message initiative: ${error.message}`);
+  if (error) throw new Error(`Failed to update message engagement: ${error.message}`);
 }
 
-export async function updateInitiativeSummary(
+/** @deprecated Use updateMessageEngagement instead */
+export const updateMessageInitiative = updateMessageEngagement;
+
+export async function updateEngagementSummary(
   id: string,
   summary: string
 ): Promise<void> {
   const { error } = await getSupabaseClient()
-    .from("initiatives")
+    .from("engagements")
     .update({ summary })
     .eq("id", id);
 
-  if (error) throw new Error(`Failed to update initiative summary: ${error.message}`);
+  if (error) throw new Error(`Failed to update engagement summary: ${error.message}`);
 }
 
-export async function updateInitiative(
+/** @deprecated Use updateEngagementSummary instead */
+export const updateInitiativeSummary = updateEngagementSummary;
+
+export async function updateEngagement(
   id: string,
   updates: {
     name?: string;
     partner_name?: string | null;
-    status?: Initiative["status"];
+    status?: Engagement["status"];
     summary?: string | null;
     current_state?: string | null;
     open_items?: OpenItem[];
+    tags?: string[];
   }
-): Promise<Initiative> {
+): Promise<Engagement> {
   const row: Record<string, unknown> = {};
 
   if (updates.name !== undefined) row.name = updates.name;
@@ -274,6 +292,7 @@ export async function updateInitiative(
   if (updates.summary !== undefined) row.summary = updates.summary;
   if (updates.current_state !== undefined) row.current_state = updates.current_state;
   if (updates.open_items !== undefined) row.open_items = updates.open_items;
+  if (updates.tags !== undefined) row.tags = updates.tags;
 
   if (updates.status !== undefined) {
     row.status = updates.status;
@@ -285,46 +304,49 @@ export async function updateInitiative(
   }
 
   const { data, error } = await getSupabaseClient()
-    .from("initiatives")
+    .from("engagements")
     .update(row)
     .eq("id", id)
     .select()
     .single();
 
-  if (error) throw new Error(`Failed to update initiative: ${error.message}`);
-  return data as Initiative;
+  if (error) throw new Error(`Failed to update engagement: ${error.message}`);
+  return data as Engagement;
 }
 
-export async function deleteInitiative(id: string): Promise<void> {
+/** @deprecated Use updateEngagement instead */
+export const updateInitiative = updateEngagement;
+
+export async function deleteEngagement(id: string): Promise<void> {
   const db = getSupabaseClient();
 
   // Application-level cascade — order matters:
-  // 1. Orphan messages (set initiative_id = null, don't delete)
+  // 1. Orphan messages (set engagement_id = null, don't delete)
   const { error: msgErr } = await db
     .from("messages")
-    .update({ initiative_id: null })
-    .eq("initiative_id", id);
+    .update({ engagement_id: null })
+    .eq("engagement_id", id);
   if (msgErr) throw new Error(`Failed to orphan messages: ${msgErr.message}`);
 
   // 2. Delete notes
   const { error: noteErr } = await db
     .from("notes")
     .delete()
-    .eq("initiative_id", id);
+    .eq("engagement_id", id);
   if (noteErr) throw new Error(`Failed to delete notes: ${noteErr.message}`);
 
   // 3. Delete entity links (both directions)
   const { error: linkSrcErr } = await db
     .from("entity_links")
     .delete()
-    .eq("source_type", "initiative")
+    .eq("source_type", "engagement")
     .eq("source_id", id);
   if (linkSrcErr) throw new Error(`Failed to delete entity links (source): ${linkSrcErr.message}`);
 
   const { error: linkTgtErr } = await db
     .from("entity_links")
     .delete()
-    .eq("target_type", "initiative")
+    .eq("target_type", "engagement")
     .eq("target_id", id);
   if (linkTgtErr) throw new Error(`Failed to delete entity links (target): ${linkTgtErr.message}`);
 
@@ -332,25 +354,28 @@ export async function deleteInitiative(id: string): Promise<void> {
   const { error: plinkErr } = await db
     .from("participant_links")
     .delete()
-    .eq("entity_type", "initiative")
+    .eq("entity_type", "engagement")
     .eq("entity_id", id);
   if (plinkErr) throw new Error(`Failed to delete participant links: ${plinkErr.message}`);
 
-  // 5. Delete unresolved approvals referencing this initiative
+  // 5. Delete unresolved approvals referencing this engagement
   const { error: approvalErr } = await db
     .from("approval_queue")
     .delete()
-    .eq("initiative_id", id)
+    .eq("engagement_id", id)
     .eq("resolved", false);
   if (approvalErr) throw new Error(`Failed to delete approvals: ${approvalErr.message}`);
 
-  // 6. Delete the initiative
-  const { error: initErr } = await db
-    .from("initiatives")
+  // 6. Delete the engagement
+  const { error: engErr } = await db
+    .from("engagements")
     .delete()
     .eq("id", id);
-  if (initErr) throw new Error(`Failed to delete initiative: ${initErr.message}`);
+  if (engErr) throw new Error(`Failed to delete engagement: ${engErr.message}`);
 }
+
+/** @deprecated Use deleteEngagement instead */
+export const deleteInitiative = deleteEngagement;
 
 // ============================================================
 // Dashboard query helpers
@@ -361,7 +386,7 @@ export async function getOrphanedMessages(): Promise<Message[]> {
   const { data, error } = await getSupabaseClient()
     .from("messages")
     .select("*")
-    .is("initiative_id", null)
+    .is("engagement_id", null)
     .eq("pending_review", false)
     .neq("content_type", "noise")
     .order("forwarded_at", { ascending: false });
@@ -370,47 +395,56 @@ export async function getOrphanedMessages(): Promise<Message[]> {
   return (data ?? []) as Message[];
 }
 
-export async function getAllInitiatives(): Promise<Initiative[]> {
+export async function getAllEngagements(): Promise<Engagement[]> {
   const { data, error } = await getSupabaseClient()
-    .from("initiatives")
+    .from("engagements")
     .select("*")
     .order("status", { ascending: true })
     .order("updated_at", { ascending: false });
 
-  if (error) throw new Error(`Failed to fetch initiatives: ${error.message}`);
-  return (data ?? []) as Initiative[];
+  if (error) throw new Error(`Failed to fetch engagements: ${error.message}`);
+  return (data ?? []) as Engagement[];
 }
 
-export async function getInitiativeById(id: string): Promise<Initiative | null> {
+/** @deprecated Use getAllEngagements instead */
+export const getAllInitiatives = getAllEngagements;
+
+export async function getEngagementById(id: string): Promise<Engagement | null> {
   const { data, error } = await getSupabaseClient()
-    .from("initiatives")
+    .from("engagements")
     .select("*")
     .eq("id", id)
     .maybeSingle();
 
-  if (error) throw new Error(`Failed to fetch initiative: ${error.message}`);
-  return data as Initiative | null;
+  if (error) throw new Error(`Failed to fetch engagement: ${error.message}`);
+  return data as Engagement | null;
 }
 
-export async function getMessagesByInitiative(id: string): Promise<Message[]> {
+/** @deprecated Use getEngagementById instead */
+export const getInitiativeById = getEngagementById;
+
+export async function getMessagesByEngagement(id: string): Promise<Message[]> {
   const { data, error } = await getSupabaseClient()
     .from("messages")
     .select("*")
-    .eq("initiative_id", id)
+    .eq("engagement_id", id)
     .order("sent_at", { ascending: false });
 
   if (error) throw new Error(`Failed to fetch messages: ${error.message}`);
   return (data ?? []) as Message[];
 }
 
-export async function getParticipantsByInitiative(
-  initiativeId: string
+/** @deprecated Use getMessagesByEngagement instead */
+export const getMessagesByInitiative = getMessagesByEngagement;
+
+export async function getParticipantsByEngagement(
+  engagementId: string
 ): Promise<(Participant & { role: string | null; linkId: string })[]> {
   const { data, error } = await getSupabaseClient()
     .from("participant_links")
     .select("id, role, participant:participants(*)")
-    .eq("entity_type", "initiative")
-    .eq("entity_id", initiativeId);
+    .eq("entity_type", "engagement")
+    .eq("entity_id", engagementId);
 
   if (error) throw new Error(`Failed to fetch participants: ${error.message}`);
 
@@ -418,6 +452,9 @@ export async function getParticipantsByInitiative(
     (row) => ({ ...row.participant, role: row.role, linkId: row.id })
   );
 }
+
+/** @deprecated Use getParticipantsByEngagement instead */
+export const getParticipantsByInitiative = getParticipantsByEngagement;
 
 export async function getEntityLinksForEntity(
   type: EntityLink["source_type"],
@@ -651,7 +688,7 @@ export async function resolveEntityLinkNames(
 
   // Collect unique IDs by type (both source and target)
   const idsByType: Record<string, Set<string>> = {
-    initiative: new Set(),
+    engagement: new Set(),
     event: new Set(),
     program: new Set(),
   };
@@ -661,7 +698,7 @@ export async function resolveEntityLinkNames(
   }
 
   const tableMap: Record<string, string> = {
-    initiative: "initiatives",
+    engagement: "engagements",
     event: "events",
     program: "programs",
   };
@@ -697,26 +734,26 @@ export async function getEventById(id: string): Promise<Event | null> {
   return data as Event | null;
 }
 
-export async function getLinkedInitiativesForEntity(
+export async function getLinkedEngagementsForEntity(
   entityType: "event" | "program",
   entityId: string
-): Promise<Initiative[]> {
+): Promise<Engagement[]> {
   const db = getSupabaseClient();
 
-  // Find initiatives linked in either direction
+  // Find engagements linked in either direction
   const [asSource, asTarget] = await Promise.all([
     db
       .from("entity_links")
       .select("target_id")
       .eq("source_type", entityType)
       .eq("source_id", entityId)
-      .eq("target_type", "initiative"),
+      .eq("target_type", "engagement"),
     db
       .from("entity_links")
       .select("source_id")
       .eq("target_type", entityType)
       .eq("target_id", entityId)
-      .eq("source_type", "initiative"),
+      .eq("source_type", "engagement"),
   ]);
 
   const ids = new Set<string>();
@@ -726,15 +763,18 @@ export async function getLinkedInitiativesForEntity(
   if (ids.size === 0) return [];
 
   const { data, error } = await db
-    .from("initiatives")
+    .from("engagements")
     .select("*")
     .in("id", [...ids])
     .order("status", { ascending: true })
     .order("updated_at", { ascending: false });
 
-  if (error) throw new Error(`Failed to fetch linked initiatives: ${error.message}`);
-  return (data ?? []) as Initiative[];
+  if (error) throw new Error(`Failed to fetch linked engagements: ${error.message}`);
+  return (data ?? []) as Engagement[];
 }
+
+/** @deprecated Use getLinkedEngagementsForEntity instead */
+export const getLinkedInitiativesForEntity = getLinkedEngagementsForEntity;
 
 export async function updateEvent(
   id: string,
@@ -907,7 +947,7 @@ export async function deleteParticipantLink(linkId: string): Promise<void> {
 }
 
 /**
- * Find or create a participant, then link to an initiative.
+ * Find or create a participant, then link to an engagement.
  * If email is provided, deduplicates by email.
  */
 export async function createParticipantWithLink(
@@ -917,7 +957,7 @@ export async function createParticipantWithLink(
     title?: string | null;
     organization?: string | null;
   },
-  initiativeId: string,
+  engagementId: string,
   role: string | null
 ): Promise<Participant & { role: string | null; linkId: string }> {
   const db = getSupabaseClient();
@@ -974,8 +1014,8 @@ export async function createParticipantWithLink(
     .from("participant_links")
     .insert({
       participant_id: participantId,
-      entity_type: "initiative",
-      entity_id: initiativeId,
+      entity_type: "engagement",
+      entity_id: engagementId,
       role,
     })
     .select("id")
@@ -997,11 +1037,11 @@ export async function createParticipantWithLink(
 /**
  * Upsert participants from classification results.
  * Creates new participants or updates existing ones with richer info.
- * Optionally links each participant to an initiative.
+ * Optionally links each participant to an engagement.
  */
 export async function upsertParticipants(
   participants: ClassificationResult["participants"],
-  initiativeId: string | null
+  engagementId: string | null
 ): Promise<void> {
   if (participants.length === 0) return;
 
@@ -1098,12 +1138,12 @@ export async function upsertParticipants(
         }
       }
 
-      // Link to initiative if we have one
-      if (participantId && initiativeId) {
+      // Link to engagement if we have one
+      if (participantId && engagementId) {
         await ensureParticipantLink(
           participantId,
-          "initiative",
-          initiativeId,
+          "engagement",
+          engagementId,
           participant.role
         );
       }
@@ -1149,20 +1189,20 @@ export async function ensureParticipantLink(
 // ============================================================
 
 /**
- * Append new open items to an initiative, deduplicating by description.
+ * Append new open items to an engagement, deduplicating by description.
  * Returns the merged array (existing + new), or null if nothing to add.
  */
 export async function appendOpenItems(
-  initiativeId: string,
+  engagementId: string,
   newItems: OpenItem[]
 ): Promise<OpenItem[] | null> {
   if (newItems.length === 0) return null;
 
   const db = getSupabaseClient();
   const { data: existing } = await db
-    .from("initiatives")
+    .from("engagements")
     .select("open_items")
-    .eq("id", initiativeId)
+    .eq("id", engagementId)
     .maybeSingle();
 
   const existingItems: (OpenItem & { resolved?: boolean })[] =
@@ -1182,18 +1222,18 @@ export async function appendOpenItems(
 // Dashboard query helpers (continued)
 // ============================================================
 
-export async function getInitiativesWithMessageCounts(): Promise<
-  (Initiative & { message_count: number })[]
+export async function getEngagementsWithMessageCounts(): Promise<
+  (Engagement & { message_count: number })[]
 > {
   const { data, error } = await getSupabaseClient()
-    .from("initiatives")
+    .from("engagements")
     .select("*, messages(count)")
     .order("status", { ascending: true })
     .order("updated_at", { ascending: false });
 
-  if (error) throw new Error(`Failed to fetch initiatives: ${error.message}`);
+  if (error) throw new Error(`Failed to fetch engagements: ${error.message}`);
 
-  return ((data ?? []) as (Initiative & { messages: { count: number }[] })[]).map(
+  return ((data ?? []) as (Engagement & { messages: { count: number }[] })[]).map(
     (row) => ({
       ...row,
       message_count: row.messages?.[0]?.count ?? 0,
@@ -1202,3 +1242,5 @@ export async function getInitiativesWithMessageCounts(): Promise<
   );
 }
 
+/** @deprecated Use getEngagementsWithMessageCounts instead */
+export const getInitiativesWithMessageCounts = getEngagementsWithMessageCounts;

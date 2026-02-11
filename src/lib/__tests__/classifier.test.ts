@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { ClassificationResult, Message, Initiative, Event, Program } from "../types";
+import type { ClassificationResult, Message, Engagement, Event, Program } from "../types";
 
 // ============================================================
 // Hoisted mocks — vi.hoisted runs before vi.mock factories
@@ -7,12 +7,12 @@ import type { ClassificationResult, Message, Initiative, Event, Program } from "
 
 const {
   mockClassifyMessage,
-  mockGetActiveInitiatives,
+  mockGetActiveEngagements,
   mockGetActiveEvents,
   mockGetActivePrograms,
   mockGetUnclassifiedMessages,
   mockCreateApproval,
-  mockCreateInitiative,
+  mockCreateEngagement,
   mockFindOrCreateProgram,
   mockSendClassificationPrompt,
   mockUpsertParticipants,
@@ -55,7 +55,7 @@ const {
         insert: vi.fn().mockResolvedValue({ error: null }),
       };
     }
-    if (table === "initiatives") {
+    if (table === "engagements") {
       return {
         update: vi.fn().mockReturnValue({
           eq: vi.fn().mockResolvedValue({ error: null }),
@@ -101,16 +101,16 @@ const {
 
   return {
     mockClassifyMessage: vi.fn(),
-    mockGetActiveInitiatives: vi.fn(),
+    mockGetActiveEngagements: vi.fn(),
     mockGetActiveEvents: vi.fn(),
     mockGetActivePrograms: vi.fn(),
     mockGetUnclassifiedMessages: vi.fn(),
     mockCreateApproval: vi.fn().mockResolvedValue({ id: "approval-001" }),
-    mockCreateInitiative: vi.fn().mockResolvedValue({ id: "init-auto", name: "Auto-Created", status: "active", summary: null, partner_name: null, created_at: "", updated_at: "", closed_at: null }),
+    mockCreateEngagement: vi.fn().mockResolvedValue({ id: "init-auto", name: "Auto-Created", status: "active", summary: null, partner_name: null, created_at: "", updated_at: "", closed_at: null }),
     mockFindOrCreateProgram: vi.fn().mockResolvedValue({ id: "prog-auto", name: "Auto-Program", description: null, eligibility: null, url: null, status: "active", created_at: "" }),
     mockSendClassificationPrompt: vi.fn().mockResolvedValue({
       sid: "SM123",
-      options: [{ number: 1, label: "Test", initiative_id: null, is_new: true }],
+      options: [{ number: 1, label: "Test", engagement_id: null, is_new: true }],
     }),
     mockUpsertParticipants: vi.fn().mockResolvedValue(undefined),
     mockAppendOpenItems: vi.fn().mockResolvedValue(null),
@@ -128,12 +128,12 @@ vi.mock("../claude", () => ({
 
 vi.mock("../supabase", () => ({
   getSupabaseClient: vi.fn().mockReturnValue({ from: mockFrom }),
-  getActiveInitiatives: mockGetActiveInitiatives,
+  getActiveEngagements: mockGetActiveEngagements,
   getActiveEvents: mockGetActiveEvents,
   getActivePrograms: mockGetActivePrograms,
   getUnclassifiedMessages: mockGetUnclassifiedMessages,
   createApproval: mockCreateApproval,
-  createInitiative: mockCreateInitiative,
+  createEngagement: mockCreateEngagement,
   findOrCreateProgram: mockFindOrCreateProgram,
   upsertParticipants: mockUpsertParticipants,
   appendOpenItems: mockAppendOpenItems,
@@ -150,7 +150,7 @@ import { processUnclassifiedMessages } from "../classifier";
 // Test fixtures
 // ============================================================
 
-const INITIATIVE_FALCON: Initiative = {
+const ENGAGEMENT_FALCON: Engagement = {
   id: "init-001",
   name: "CyberShield - Security Review",
   status: "active",
@@ -158,6 +158,7 @@ const INITIATIVE_FALCON: Initiative = {
   current_state: null,
   open_items: [],
   partner_name: "CyberShield",
+  tags: [],
   created_at: "2025-01-15T00:00:00Z",
   updated_at: "2025-02-01T00:00:00Z",
   closed_at: null,
@@ -190,7 +191,7 @@ const PROGRAM_COMPETENCY: Program = {
 function makeMessage(overrides: Partial<Message> = {}): Message {
   return {
     id: "msg-001",
-    initiative_id: null,
+    engagement_id: null,
     sender_name: "Alice Chen",
     sender_email: "alice@cybershield.com",
     sent_at: "2025-02-03T15:30:00Z",
@@ -208,8 +209,8 @@ function makeMessage(overrides: Partial<Message> = {}): Message {
 }
 
 const HIGH_CONFIDENCE_RESULT: ClassificationResult = {
-  content_type: "initiative_email",
-  initiative_match: {
+  content_type: "engagement_email",
+  engagement_match: {
     id: "init-001",
     name: "CyberShield - Security Review",
     confidence: 0.95,
@@ -222,7 +223,7 @@ const HIGH_CONFIDENCE_RESULT: ClassificationResult = {
   ],
   entity_links: [
     {
-      source_type: "initiative",
+      source_type: "engagement",
       source_name: "CyberShield - Security Review",
       target_type: "program",
       target_name: "AWS Security Competency",
@@ -238,8 +239,8 @@ const HIGH_CONFIDENCE_RESULT: ClassificationResult = {
 };
 
 const LOW_CONFIDENCE_RESULT: ClassificationResult = {
-  content_type: "initiative_email",
-  initiative_match: {
+  content_type: "engagement_email",
+  engagement_match: {
     id: null,
     name: "Unknown Partner - Marketplace Discussion",
     confidence: 0.55,
@@ -255,8 +256,8 @@ const LOW_CONFIDENCE_RESULT: ClassificationResult = {
 };
 
 const HIGH_CONFIDENCE_NEW_RESULT: ClassificationResult = {
-  content_type: "initiative_email",
-  initiative_match: {
+  content_type: "engagement_email",
+  engagement_match: {
     id: null,
     name: "NewCorp - Cloud Migration",
     confidence: 0.92,
@@ -275,7 +276,7 @@ const HIGH_CONFIDENCE_NEW_RESULT: ClassificationResult = {
 
 const NOISE_RESULT: ClassificationResult = {
   content_type: "noise",
-  initiative_match: {
+  engagement_match: {
     id: null,
     name: "",
     confidence: 1.0,
@@ -297,7 +298,7 @@ const NOISE_RESULT: ClassificationResult = {
 describe("processUnclassifiedMessages", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetActiveInitiatives.mockResolvedValue([INITIATIVE_FALCON]);
+    mockGetActiveEngagements.mockResolvedValue([ENGAGEMENT_FALCON]);
     mockGetActiveEvents.mockResolvedValue([EVENT_REINVENT]);
     mockGetActivePrograms.mockResolvedValue([PROGRAM_COMPETENCY]);
   });
@@ -328,7 +329,7 @@ describe("processUnclassifiedMessages", () => {
     expect(mockClassifyMessage).toHaveBeenCalledWith(
       [msg],
       {
-        initiatives: [INITIATIVE_FALCON],
+        engagements: [ENGAGEMENT_FALCON],
         events: [EVENT_REINVENT],
         programs: [PROGRAM_COMPETENCY],
       }
@@ -398,7 +399,7 @@ describe("processUnclassifiedMessages", () => {
     expect(mockClassifyMessage).toHaveBeenCalledTimes(2);
   });
 
-  it("auto-creates new initiative at high confidence", async () => {
+  it("auto-creates new engagement at high confidence", async () => {
     const msg = makeMessage({ id: "msg-new" });
     mockGetUnclassifiedMessages.mockResolvedValue([msg]);
     mockClassifyMessage.mockResolvedValue(HIGH_CONFIDENCE_NEW_RESULT);
@@ -408,7 +409,7 @@ describe("processUnclassifiedMessages", () => {
     expect(result.processed).toBe(1);
     expect(result.autoAssigned).toBe(1);
     expect(result.flaggedForReview).toBe(0);
-    expect(mockCreateInitiative).toHaveBeenCalledWith({
+    expect(mockCreateEngagement).toHaveBeenCalledWith({
       name: "NewCorp - Cloud Migration",
       partner_name: "NewCorp",
       summary: "NewCorp exploring cloud migration.",
@@ -421,7 +422,7 @@ describe("processUnclassifiedMessages", () => {
     const msg = makeMessage({ id: "msg-fail-create" });
     mockGetUnclassifiedMessages.mockResolvedValue([msg]);
     mockClassifyMessage.mockResolvedValue(HIGH_CONFIDENCE_NEW_RESULT);
-    mockCreateInitiative.mockRejectedValueOnce(new Error("DB error"));
+    mockCreateEngagement.mockRejectedValueOnce(new Error("DB error"));
 
     const result = await processUnclassifiedMessages();
 

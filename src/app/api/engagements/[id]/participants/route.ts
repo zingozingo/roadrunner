@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getInitiativeById, createParticipantWithLink } from "@/lib/supabase";
+import { getEngagementById, createParticipantWithLink } from "@/lib/supabase";
 
 export async function POST(
   request: NextRequest,
@@ -17,11 +17,11 @@ export async function POST(
       );
     }
 
-    // Verify initiative exists
-    const initiative = await getInitiativeById(id);
-    if (!initiative) {
+    // Verify engagement exists
+    const engagement = await getEngagementById(id);
+    if (!engagement) {
       return NextResponse.json(
-        { error: "Initiative not found" },
+        { error: "Engagement not found" },
         { status: 404 }
       );
     }
@@ -40,7 +40,7 @@ export async function POST(
     return NextResponse.json({ participant }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("POST /api/initiatives/[id]/participants error:", message);
+    console.error("POST /api/engagements/[id]/participants error:", message);
     return NextResponse.json(
       { error: `Failed to add participant: ${message}` },
       { status: 500 }

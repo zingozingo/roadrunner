@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  getInitiativeById,
-  getMessagesByInitiative,
-  getParticipantsByInitiative,
+  getEngagementById,
+  getMessagesByEngagement,
+  getParticipantsByEngagement,
   getEntityLinksForEntity,
-  updateInitiative,
-  deleteInitiative,
+  updateEngagement,
+  deleteEngagement,
 } from "@/lib/supabase";
 
 export async function GET(
@@ -14,31 +14,31 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const initiative = await getInitiativeById(id);
+    const engagement = await getEngagementById(id);
 
-    if (!initiative) {
+    if (!engagement) {
       return NextResponse.json(
-        { error: "Initiative not found" },
+        { error: "Engagement not found" },
         { status: 404 }
       );
     }
 
     const [messages, participants, entityLinks] = await Promise.all([
-      getMessagesByInitiative(id),
-      getParticipantsByInitiative(id),
-      getEntityLinksForEntity("initiative", id),
+      getMessagesByEngagement(id),
+      getParticipantsByEngagement(id),
+      getEntityLinksForEntity("engagement", id),
     ]);
 
     return NextResponse.json({
-      initiative,
+      engagement,
       messages,
       participants,
       entityLinks,
     });
   } catch (error) {
-    console.error("GET /api/initiatives/[id] error:", error);
+    console.error("GET /api/engagements/[id] error:", error);
     return NextResponse.json(
-      { error: "Failed to fetch initiative" },
+      { error: "Failed to fetch engagement" },
       { status: 500 }
     );
   }
@@ -84,16 +84,16 @@ export async function PUT(
       );
     }
 
-    // Verify initiative exists
-    const existing = await getInitiativeById(id);
+    // Verify engagement exists
+    const existing = await getEngagementById(id);
     if (!existing) {
       return NextResponse.json(
-        { error: "Initiative not found" },
+        { error: "Engagement not found" },
         { status: 404 }
       );
     }
 
-    const updated = await updateInitiative(id, {
+    const updated = await updateEngagement(id, {
       name: name?.trim(),
       partner_name,
       status,
@@ -102,12 +102,12 @@ export async function PUT(
       open_items,
     });
 
-    return NextResponse.json({ initiative: updated });
+    return NextResponse.json({ engagement: updated });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("PUT /api/initiatives/[id] error:", message);
+    console.error("PUT /api/engagements/[id] error:", message);
     return NextResponse.json(
-      { error: `Failed to update initiative: ${message}` },
+      { error: `Failed to update engagement: ${message}` },
       { status: 500 }
     );
   }
@@ -120,23 +120,23 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    // Verify initiative exists
-    const existing = await getInitiativeById(id);
+    // Verify engagement exists
+    const existing = await getEngagementById(id);
     if (!existing) {
       return NextResponse.json(
-        { error: "Initiative not found" },
+        { error: "Engagement not found" },
         { status: 404 }
       );
     }
 
-    await deleteInitiative(id);
+    await deleteEngagement(id);
 
     return NextResponse.json({ status: "deleted" });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("DELETE /api/initiatives/[id] error:", message);
+    console.error("DELETE /api/engagements/[id] error:", message);
     return NextResponse.json(
-      { error: `Failed to delete initiative: ${message}` },
+      { error: `Failed to delete engagement: ${message}` },
       { status: 500 }
     );
   }

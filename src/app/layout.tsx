@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Relay — Initiative Tracker",
-  description: "AI-powered initiative tracker for AWS Partner Development",
+  title: "Relay — Engagement Tracker",
+  description: "AI-powered engagement tracker for AWS Partner Development",
 };
 
 export default async function RootLayout({

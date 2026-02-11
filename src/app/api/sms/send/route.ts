@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseClient } from "@/lib/supabase";
 import { sendClassificationPrompt } from "@/lib/sms";
-import { getActiveInitiatives } from "@/lib/supabase";
+import { getActiveEngagements } from "@/lib/supabase";
 import type { Message, ApprovalQueueItem } from "@/lib/types";
 
 /**
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       .from("approval_queue")
       .select("*")
       .eq("id", review_id)
-      .eq("type", "initiative_assignment")
+      .eq("type", "engagement_assignment")
       .single();
 
     if (reviewError || !row) {
@@ -60,12 +60,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const initiatives = await getActiveInitiatives();
+    const engagements = await getActiveEngagements();
 
     const { sid, options } = await sendClassificationPrompt(
       message as Message,
       approval.classification_result!,
-      initiatives
+      engagements
     );
 
     // Update the approval with SMS info

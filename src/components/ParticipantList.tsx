@@ -38,10 +38,10 @@ function EditField({
 // ── Single participant row ─────────────────────────────────────
 function ParticipantRow({
   participant,
-  initiativeId,
+  engagementId,
 }: {
   participant: ParticipantWithLink;
-  initiativeId: string;
+  engagementId: string;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -167,7 +167,7 @@ function ParticipantRow({
             onClick={() => setShowRemoveConfirm(true)}
             disabled={removing}
             className="rounded p-0.5 text-muted hover:text-red-400 disabled:opacity-50"
-            title="Remove from initiative"
+            title="Remove from engagement"
           >
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M4 4l8 8M12 4l-8 8" />
@@ -180,7 +180,7 @@ function ParticipantRow({
         onConfirm={handleRemove}
         onCancel={() => setShowRemoveConfirm(false)}
         title="Remove Participant"
-        message={`Remove ${participant.name || "this participant"} from this initiative? They won't be deleted — just unlinked.`}
+        message={`Remove ${participant.name || "this participant"} from this engagement? They won't be deleted — just unlinked.`}
         confirmLabel="Remove"
         confirmStyle="danger"
       />
@@ -190,10 +190,10 @@ function ParticipantRow({
 
 // ── Add participant form ───────────────────────────────────────
 function AddParticipantForm({
-  initiativeId,
+  engagementId,
   onDone,
 }: {
-  initiativeId: string;
+  engagementId: string;
   onDone: () => void;
 }) {
   const router = useRouter();
@@ -208,7 +208,7 @@ function AddParticipantForm({
     if (!name.trim()) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/initiatives/${initiativeId}/participants`, {
+      const res = await fetch(`/api/engagements/${engagementId}/participants`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -259,10 +259,10 @@ function AddParticipantForm({
 // ── Main component ─────────────────────────────────────────────
 export default function ParticipantList({
   participants,
-  initiativeId,
+  engagementId,
 }: {
   participants: ParticipantWithLink[];
-  initiativeId: string;
+  engagementId: string;
 }) {
   const [adding, setAdding] = useState(false);
 
@@ -279,7 +279,7 @@ export default function ParticipantList({
             <ParticipantRow
               key={p.linkId}
               participant={p}
-              initiativeId={initiativeId}
+              engagementId={engagementId}
             />
           ))}
         </ul>
@@ -287,7 +287,7 @@ export default function ParticipantList({
       {adding ? (
         <div className={participants.length > 0 ? "mt-2" : ""}>
           <AddParticipantForm
-            initiativeId={initiativeId}
+            engagementId={engagementId}
             onDone={() => setAdding(false)}
           />
         </div>

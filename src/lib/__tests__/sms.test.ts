@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildSMSOptions, buildClassificationSMS } from "../sms";
-import type { ClassificationResult, Message, Initiative } from "../types";
+import type { ClassificationResult, Message, Engagement } from "../types";
 
 // ============================================================
 // Fixtures
@@ -9,7 +9,7 @@ import type { ClassificationResult, Message, Initiative } from "../types";
 function makeMessage(overrides: Partial<Message> = {}): Message {
   return {
     id: "msg-001",
-    initiative_id: null,
+    engagement_id: null,
     sender_name: "Alice Chen",
     sender_email: "alice@cybershield.com",
     sent_at: "2025-02-03T15:30:00Z",
@@ -26,7 +26,7 @@ function makeMessage(overrides: Partial<Message> = {}): Message {
   };
 }
 
-const EXISTING_INITIATIVE: Initiative = {
+const EXISTING_ENGAGEMENT: Engagement = {
   id: "init-001",
   name: "CyberShield - Security Review",
   status: "active",
@@ -34,6 +34,7 @@ const EXISTING_INITIATIVE: Initiative = {
   current_state: null,
   open_items: [],
   partner_name: "CyberShield",
+  tags: [],
   created_at: "2025-01-15T00:00:00Z",
   updated_at: "2025-02-01T00:00:00Z",
   closed_at: null,
@@ -41,8 +42,8 @@ const EXISTING_INITIATIVE: Initiative = {
 
 function makeResult(overrides: Partial<ClassificationResult> = {}): ClassificationResult {
   return {
-    content_type: "initiative_email",
-    initiative_match: {
+    content_type: "engagement_email",
+    engagement_match: {
       id: "init-001",
       name: "CyberShield - Security Review",
       confidence: 0.73,
@@ -64,29 +65,29 @@ function makeResult(overrides: Partial<ClassificationResult> = {}): Classificati
 // ============================================================
 
 describe("buildSMSOptions", () => {
-  it("includes existing initiative match with confidence >= 0.5", () => {
+  it("includes existing engagement match with confidence >= 0.5", () => {
     const result = makeResult();
-    const options = buildSMSOptions(result, [EXISTING_INITIATIVE]);
+    const options = buildSMSOptions(result, [EXISTING_ENGAGEMENT]);
 
     expect(options.length).toBe(2); // match + new
     expect(options[0].label).toBe("CyberShield - Security Review");
-    expect(options[0].initiative_id).toBe("init-001");
+    expect(options[0].engagement_id).toBe("init-001");
     expect(options[0].is_new).toBe(false);
     expect(options[0].number).toBe(1);
   });
 
-  it("includes 'New initiative' as fallback when match is existing", () => {
+  it("includes 'New engagement' as fallback when match is existing", () => {
     const result = makeResult();
-    const options = buildSMSOptions(result, [EXISTING_INITIATIVE]);
+    const options = buildSMSOptions(result, [EXISTING_ENGAGEMENT]);
 
     const newOpt = options.find((o) => o.is_new);
     expect(newOpt).toBeDefined();
-    expect(newOpt!.label).toBe("New initiative");
+    expect(newOpt!.label).toBe("New engagement");
   });
 
-  it("puts suggested new initiative first when is_new with confidence >= 0.5", () => {
+  it("puts suggested new engagement first when is_new with confidence >= 0.5", () => {
     const result = makeResult({
-      initiative_match: {
+      engagement_match: {
         id: null,
         name: "Wiz - Executive Alignment",
         confidence: 0.65,
@@ -94,18 +95,18 @@ describe("buildSMSOptions", () => {
         partner_name: "Wiz",
       },
     });
-    const options = buildSMSOptions(result, [EXISTING_INITIATIVE]);
+    const options = buildSMSOptions(result, [EXISTING_ENGAGEMENT]);
 
     expect(options[0].number).toBe(1);
     expect(options[0].label).toBe("Wiz - Executive Alignment");
     expect(options[0].is_new).toBe(true);
-    // Should NOT have a second "New initiative" since is_new is already present
+    // Should NOT have a second "New engagement" since is_new is already present
     expect(options.filter((o) => o.is_new)).toHaveLength(1);
   });
 
   it("skips match with confidence < 0.5", () => {
     const result = makeResult({
-      initiative_match: {
+      engagement_match: {
         id: "init-001",
         name: "CyberShield - Security Review",
         confidence: 0.3,
@@ -113,12 +114,12 @@ describe("buildSMSOptions", () => {
         partner_name: "CyberShield",
       },
     });
-    const options = buildSMSOptions(result, [EXISTING_INITIATIVE]);
+    const options = buildSMSOptions(result, [EXISTING_ENGAGEMENT]);
 
-    // Should only have "New initiative"
+    // Should only have "New engagement"
     expect(options.length).toBe(1);
     expect(options[0].is_new).toBe(true);
-    expect(options[0].label).toBe("New initiative");
+    expect(options[0].label).toBe("New engagement");
   });
 });
 
@@ -129,19 +130,19 @@ describe("buildSMSOptions", () => {
 describe("buildClassificationSMS", () => {
   it("builds a concise SMS with sender, subject, and options", () => {
     const msg = makeMessage();
-    const options = buildSMSOptions(makeResult(), [EXISTING_INITIATIVE]);
+    const options = buildSMSOptions(makeResult(), [EXISTING_ENGAGEMENT]);
     const sms = buildClassificationSMS(msg, options);
 
     expect(sms).toContain("Alice Chen");
     expect(sms).toContain("Security Review Next Steps");
     expect(sms).toContain("1. CyberShield - Security Review");
-    expect(sms).toContain("New initiative");
+    expect(sms).toContain("New engagement");
     expect(sms).toContain("Reply #, name, or skip");
   });
 
   it("stays under 320 characters", () => {
     const msg = makeMessage();
-    const options = buildSMSOptions(makeResult(), [EXISTING_INITIATIVE]);
+    const options = buildSMSOptions(makeResult(), [EXISTING_ENGAGEMENT]);
     const sms = buildClassificationSMS(msg, options);
 
     expect(sms.length).toBeLessThanOrEqual(320);

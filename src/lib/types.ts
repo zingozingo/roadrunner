@@ -9,7 +9,7 @@ export interface OpenItem {
   resolved?: boolean;
 }
 
-export interface Initiative {
+export interface Engagement {
   id: string;
   name: string;
   status: "active" | "paused" | "closed";
@@ -17,10 +17,14 @@ export interface Initiative {
   current_state: string | null;
   open_items: OpenItem[];
   partner_name: string | null;
+  tags: string[];
   created_at: string;
   updated_at: string;
   closed_at: string | null;
 }
+
+/** @deprecated Use Engagement instead */
+export type Initiative = Engagement;
 
 export interface Event {
   id: string;
@@ -48,9 +52,9 @@ export interface Program {
 
 export interface EntityLink {
   id: string;
-  source_type: "initiative" | "event" | "program";
+  source_type: "engagement" | "event" | "program";
   source_id: string;
-  target_type: "initiative" | "event" | "program";
+  target_type: "engagement" | "event" | "program";
   target_id: string;
   relationship: string;
   context: string | null;
@@ -60,7 +64,7 @@ export interface EntityLink {
 
 export interface Message {
   id: string;
-  initiative_id: string | null;
+  engagement_id: string | null;
   sender_name: string | null;
   sender_email: string | null;
   sent_at: string | null;
@@ -68,7 +72,7 @@ export interface Message {
   body_text: string | null;
   body_raw: string | null;
   content_type:
-    | "initiative_email"
+    | "engagement_email"
     | "event_info"
     | "program_info"
     | "meeting_invite"
@@ -95,7 +99,7 @@ export interface Participant {
 export interface ParticipantLink {
   id: string;
   participant_id: string;
-  entity_type: "initiative" | "event";
+  entity_type: "engagement" | "event";
   entity_id: string;
   role: string | null;
   created_at: string;
@@ -103,7 +107,7 @@ export interface ParticipantLink {
 
 export interface Note {
   id: string;
-  initiative_id: string;
+  engagement_id: string;
   content: string;
   created_at: string;
 }
@@ -113,14 +117,14 @@ export interface Note {
 // ============================================================
 
 export interface LinkedEntity {
-  type: "initiative" | "event" | "program";
+  type: "engagement" | "event" | "program";
   id: string;
   relationship: string;
 }
 
 export interface ClassificationResult {
   content_type: Message["content_type"];
-  initiative_match: {
+  engagement_match: {
     id: string | null;
     name: string;
     confidence: number;
@@ -162,6 +166,7 @@ export interface ClassificationResult {
     assignee: string | null;
     due_date: string | null;
   }[];
+  suggested_tags?: string[];
 }
 
 /** The shape of a parsed message before it's inserted into the DB */
@@ -190,9 +195,9 @@ export interface MailgunWebhookPayload {
 
 export interface ApprovalQueueItem {
   id: string;
-  type: "initiative_assignment" | "event_creation";
+  type: "engagement_assignment" | "event_creation";
   message_id: string | null;
-  initiative_id: string | null;
+  engagement_id: string | null;
   classification_result: ClassificationResult | null;
   entity_data: EventSuggestion | null;
   options_sent: SMSOption[] | null;
@@ -207,15 +212,15 @@ export interface ApprovalQueueItem {
 export interface SMSOption {
   number: number;
   label: string;
-  initiative_id: string | null;
+  engagement_id: string | null;
   is_new: boolean;
 }
 
 export interface SMSNotification {
   to: string;
   body: string;
-  initiative_id?: string;
-  type: "new_initiative" | "status_change" | "digest" | "alert";
+  engagement_id?: string;
+  type: "new_engagement" | "status_change" | "digest" | "alert";
 }
 
 export interface EventSuggestion {
@@ -225,4 +230,3 @@ export interface EventSuggestion {
   date_precision: "exact" | "week" | "month" | "quarter";
   confidence: number;
 }
-

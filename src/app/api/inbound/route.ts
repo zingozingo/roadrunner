@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Store in Supabase (unclassified — initiative_id = null)
+    // Store in Supabase (unclassified — engagement_id = null)
     const stored = await storeMessages(parsed);
     const storedIds = stored.map((m) => m.id);
 

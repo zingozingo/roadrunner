@@ -17,8 +17,8 @@ const navItems = [
     showBadge: true,
   },
   {
-    href: "/initiatives",
-    label: "Initiatives",
+    href: "/engagements",
+    label: "Engagements",
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
         <path d="M4 5h12M4 10h12M4 15h8" />

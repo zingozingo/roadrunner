@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getTrackById,
-  getLinkedInitiativesForEntity,
+  getLinkedEngagementsForEntity,
   updateTrack,
   deleteTrack,
 } from "@/lib/supabase";
@@ -23,9 +23,9 @@ export async function GET(
       );
     }
 
-    const linkedInitiatives = await getLinkedInitiativesForEntity("program", id);
+    const linkedEngagements = await getLinkedEngagementsForEntity("program", id);
 
-    return NextResponse.json({ track, linkedInitiatives });
+    return NextResponse.json({ track, linkedEngagements });
   } catch (error) {
     console.error("GET /api/tracks/[id] error:", error);
     return NextResponse.json(

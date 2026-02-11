@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import {
   ClassificationResult,
   Message,
-  Initiative,
+  Engagement,
   Event,
   Program,
 } from "./types";
@@ -28,22 +28,22 @@ const SYSTEM_PROMPT = `You are Relay, an AI that classifies forwarded emails for
 
 ## Entity Types
 
-**Initiatives** — Partner workstreams toward a goal (e.g., "Acme Security - FedRAMP Certification"). Have partner_name and evolving summary.
-**Events** — Real-world gatherings and milestones independent of any initiative: conferences (re:Invent, re:Inforce, RSA), summits, workshops, kickoffs, trade shows, training, deadlines, review cycles.
+**Engagements** — Partner workstreams toward a goal (e.g., "Acme Security - FedRAMP Certification"). Have partner_name and evolving summary.
+**Events** — Real-world gatherings and milestones independent of any engagement: conferences (re:Invent, re:Inforce, RSA), summits, workshops, kickoffs, trade shows, training, deadlines, review cycles.
 **Tracks** — Formal AWS programs (ISV Accelerate, Security Competency), go-to-market motions (FinServ campaign), technical milestones (certifications, integrations), or strategic relationships. Broader than "programs" — any named workstream or framework a partner engages with.
 **Entity Links** — Relationships between any two entities.
 
 ## Events vs Meetings
 
-Events are real-world gatherings or formal milestones — they exist in space and time, independent of any initiative.
+Events are real-world gatherings or formal milestones — they exist in space and time, independent of any engagement.
 
-Meetings are NOT events. Calls, demos, cadence calls, 1:1s, syncs, working sessions, check-ins are initiative workflow. Mention them in the summary only. DO NOT populate events_referenced for any meeting or call.
+Meetings are NOT events. Calls, demos, cadence calls, 1:1s, syncs, working sessions, check-ins are engagement workflow. Mention them in the summary only. DO NOT populate events_referenced for any meeting or call.
 
 ## Rules
 
 1. **Prefer existing entities.** Only suggest new when nothing matches. Fuzzy-match — "re:Invent 2025" = "AWS re:Invent".
 2. **Noise.** Auto-replies, OOO, newsletters, marketing = "noise". Empty arrays, null summary.
-3. **Mixed content.** Multiple initiatives in one email → "mixed", extract all.
+3. **Mixed content.** Multiple engagements in one email → "mixed", extract all.
 4. **Multi-message threads.** Messages from the same forward = one classification unit.
 5. **PDM forwarder.** Participant whose email matches the forwarding/envelope sender → role "forwarder".
 5b. **Participants.** Extract ALL people mentioned by name, even without email. Set email to null if unavailable. Correlate names in the body with From/To/CC headers when possible.
@@ -52,16 +52,16 @@ Meetings are NOT events. Calls, demos, cadence calls, 1:1s, syncs, working sessi
 
 ## Confidence
 
-- 0.95–1.0: Explicitly names the initiative
+- 0.95–1.0: Explicitly names the engagement
 - 0.85–0.94: Same partner + topic, clear thread continuation
-- 0.70–0.84: Related partner/topic, no direct initiative reference
+- 0.70–0.84: Related partner/topic, no direct engagement reference
 - Below 0.70: Tangential or ambiguous
 - Noise: 1.0, is_new false
 
 ## Structured Output Fields
 
 ### current_state
-3-5 sentences. Executive briefing style — what this initiative is about, who's involved (first names only since full details are in participants), current status/momentum, and key context.
+3-5 sentences. Executive briefing style — what this engagement is about, who's involved (first names only since full details are in participants), current status/momentum, and key context.
 
 Write concretely: "Brian and Tanya are coordinating an integration discussion" not "Teams are actively facilitating comprehensive collaboration."
 
@@ -84,9 +84,9 @@ Concrete action items: who needs to do what.
 Return ONLY valid JSON. No markdown code blocks, no preamble, no explanation.
 
 {
-  "content_type": "initiative_email" | "event_info" | "program_info" | "meeting_invite" | "mixed" | "noise",
-  "initiative_match": {
-    "id": "uuid of existing initiative or null if new/none",
+  "content_type": "engagement_email" | "event_info" | "program_info" | "meeting_invite" | "mixed" | "noise",
+  "engagement_match": {
+    "id": "uuid of existing engagement or null if new/none",
     "name": "existing name or suggested name if new",
     "confidence": 0.0-1.0,
     "is_new": true/false,
@@ -113,9 +113,9 @@ Return ONLY valid JSON. No markdown code blocks, no preamble, no explanation.
   ],
   "entity_links": [
     {
-      "source_type": "initiative" | "event" | "program",
+      "source_type": "engagement" | "event" | "program",
       "source_name": "name for matching",
-      "target_type": "initiative" | "event" | "program",
+      "target_type": "engagement" | "event" | "program",
       "target_name": "name for matching",
       "relationship": "descriptive label",
       "context": "brief explanation"
@@ -139,7 +139,7 @@ Return ONLY valid JSON. No markdown code blocks, no preamble, no explanation.
   ]
 }
 
-If noise: content_type "noise", empty arrays, null initiative_match id, 1.0 confidence, is_new false, null current_state.`;
+If noise: content_type "noise", empty arrays, null engagement_match id, 1.0 confidence, is_new false, null current_state.`;
 
 // ============================================================
 // Build the user message with current state + email content
@@ -147,7 +147,7 @@ If noise: content_type "noise", empty arrays, null initiative_match id, 1.0 conf
 
 function buildUserMessage(
   messages: Message[],
-  initiatives: Initiative[],
+  engagements: Engagement[],
   events: Event[],
   programs: Program[]
 ): string {
@@ -156,16 +156,16 @@ function buildUserMessage(
   // Current state context
   parts.push("## Current Tracked State\n");
 
-  if (initiatives.length > 0) {
-    parts.push("### Active Initiatives");
-    for (const init of initiatives) {
+  if (engagements.length > 0) {
+    parts.push("### Active Engagements");
+    for (const eng of engagements) {
       parts.push(
-        `- **${init.name}** (id: ${init.id})${init.partner_name ? ` — Partner: ${init.partner_name}` : ""}${init.summary ? `\n  Summary: ${init.summary}` : ""}`
+        `- **${eng.name}** (id: ${eng.id})${eng.partner_name ? ` — Partner: ${eng.partner_name}` : ""}${eng.summary ? `\n  Summary: ${eng.summary}` : ""}`
       );
     }
     parts.push("");
   } else {
-    parts.push("### Active Initiatives\nNone yet.\n");
+    parts.push("### Active Engagements\nNone yet.\n");
   }
 
   if (events.length > 0) {
@@ -234,7 +234,7 @@ function parseClassificationResponse(raw: string): ClassificationResult {
 // ============================================================
 
 export interface ClassifyContext {
-  initiatives: Initiative[];
+  engagements: Engagement[];
   events: Event[];
   programs: Program[];
 }
@@ -247,7 +247,7 @@ export async function classifyMessage(
 
   const userMessage = buildUserMessage(
     messages,
-    context.initiatives,
+    context.engagements,
     context.events,
     context.programs
   );
