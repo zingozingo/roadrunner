@@ -131,20 +131,15 @@ export interface ClassificationResult {
     is_new: boolean;
     partner_name: string | null;
   };
-  events_referenced: {
-    id: string | null;
+  /** Events matched by ID from context. Claude never creates events. */
+  matched_events: {
+    id: string;
     name: string;
-    type: Event["type"];
-    date: string | null;
-    date_precision: "exact" | "week" | "month" | "quarter";
-    is_new: boolean;
-    confidence: number;
   }[];
-  programs_referenced: {
-    id: string | null;
+  /** Programs matched by ID from context. Claude never creates programs. */
+  matched_programs: {
+    id: string;
     name: string;
-    is_new: boolean;
-    confidence: number;
   }[];
   entity_links: {
     source_type: EntityLink["source_type"];
@@ -166,7 +161,7 @@ export interface ClassificationResult {
     assignee: string | null;
     due_date: string | null;
   }[];
-  suggested_tags?: string[];
+  suggested_tags: string[];
 }
 
 /** The shape of a parsed message before it's inserted into the DB */
@@ -195,11 +190,10 @@ export interface MailgunWebhookPayload {
 
 export interface ApprovalQueueItem {
   id: string;
-  type: "engagement_assignment" | "event_creation";
+  type: "engagement_assignment";
   message_id: string | null;
   engagement_id: string | null;
   classification_result: ClassificationResult | null;
-  entity_data: EventSuggestion | null;
   options_sent: SMSOption[] | null;
   sms_sent: boolean;
   sms_sent_at: string | null;
@@ -223,10 +217,3 @@ export interface SMSNotification {
   type: "new_engagement" | "status_change" | "digest" | "alert";
 }
 
-export interface EventSuggestion {
-  name: string;
-  type: Event["type"];
-  date: string | null;
-  date_precision: "exact" | "week" | "month" | "quarter";
-  confidence: number;
-}

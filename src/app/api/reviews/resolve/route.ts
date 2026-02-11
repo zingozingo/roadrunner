@@ -3,20 +3,13 @@ import {
   getSupabaseClient,
   resolveApproval,
   createEngagement,
-  updateEngagement,
-  updateMessageEngagement,
-  findOrCreateProgram,
-  createEntityLink,
-  createApproval,
-  findOrCreateEvent,
-  upsertParticipants,
-  appendOpenItems,
 } from "@/lib/supabase";
-import { ApprovalQueueItem, ClassificationResult, EventSuggestion, OpenItem } from "@/lib/types";
+import { persistClassificationResult } from "@/lib/classifier";
+import { ApprovalQueueItem } from "@/lib/types";
 
 interface ResolveRequest {
   review_id: string;
-  action: "skip" | "select" | "new" | "approve" | "deny";
+  action: "skip" | "select" | "new";
   option_number?: number;
   engagement_name?: string;
 }
@@ -69,12 +62,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Route by approval type
-    if (approval.type === "event_creation") {
-      return handleEventApproval(approval, action);
-    }
-
-    // engagement_assignment handling below
     const classResult = approval.classification_result!;
 
     console.log("Found approval:", {
@@ -118,13 +105,16 @@ export async function POST(request: NextRequest) {
           summary: classResult.current_state,
           current_state: classResult.current_state ?? null,
           open_items: (classResult.open_items ?? []).map((i) => ({ ...i, resolved: false })),
+          tags: classResult.suggested_tags ?? [],
         });
         console.log("Created engagement:", engagement.id, engagement.name);
 
-        await updateMessageEngagement(approval.message_id!, engagement.id);
-        console.log("Message assigned:", approval.message_id, "->", engagement.id);
-
-        await persistClassificationEntities(classResult, engagement.id);
+        await persistClassificationResult(
+          classResult,
+          engagement.id,
+          approval.message_id ? [approval.message_id] : [],
+          true
+        );
 
         await resolveApproval(
           review_id,
@@ -140,33 +130,12 @@ export async function POST(request: NextRequest) {
 
       if (option.engagement_id) {
         // Assign to existing engagement
-        await updateMessageEngagement(
-          approval.message_id!,
-          option.engagement_id
+        await persistClassificationResult(
+          classResult,
+          option.engagement_id,
+          approval.message_id ? [approval.message_id] : [],
+          false
         );
-
-        // Update current_state, summary, and merge open_items
-        const currentState = classResult.current_state ?? null;
-        const openItems: OpenItem[] = (classResult.open_items ?? []).map(
-          (i) => ({ ...i, resolved: false })
-        );
-
-        const updates: Parameters<typeof updateEngagement>[1] = {};
-        if (currentState) {
-          updates.current_state = currentState;
-          updates.summary = currentState;
-        }
-        if (openItems.length > 0) {
-          const merged = await appendOpenItems(option.engagement_id, openItems);
-          if (merged) {
-            updates.open_items = merged;
-          }
-        }
-        if (Object.keys(updates).length > 0) {
-          await updateEngagement(option.engagement_id, updates);
-        }
-
-        await persistClassificationEntities(classResult, option.engagement_id);
 
         await resolveApproval(
           review_id,
@@ -204,11 +173,15 @@ export async function POST(request: NextRequest) {
         summary: classResult.current_state,
         current_state: classResult.current_state ?? null,
         open_items: (classResult.open_items ?? []).map((i) => ({ ...i, resolved: false })),
+        tags: classResult.suggested_tags ?? [],
       });
 
-      await updateMessageEngagement(approval.message_id!, engagement.id);
-
-      await persistClassificationEntities(classResult, engagement.id);
+      await persistClassificationResult(
+        classResult,
+        engagement.id,
+        approval.message_id ? [approval.message_id] : [],
+        true
+      );
 
       await resolveApproval(
         review_id,
@@ -236,138 +209,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
-/**
- * Handle event_creation approval (approve/deny).
- */
-async function handleEventApproval(
-  approval: ApprovalQueueItem,
-  action: string
-): Promise<NextResponse> {
-  if (action !== "approve" && action !== "deny") {
-    return NextResponse.json(
-      { error: "action must be 'approve' or 'deny' for event approvals" },
-      { status: 400 }
-    );
-  }
-
-  if (action === "deny") {
-    await resolveApproval(approval.id, "denied");
-    return NextResponse.json({ status: "denied" });
-  }
-
-  // Approve: create event and link to engagement
-  const eventData = approval.entity_data as EventSuggestion;
-  const event = await findOrCreateEvent({
-    name: eventData.name,
-    type: eventData.type,
-    start_date: eventData.date,
-    date_precision: eventData.date_precision,
-  });
-
-  // Link to engagement if one exists
-  if (approval.engagement_id) {
-    await createEntityLink({
-      source_type: "engagement",
-      source_id: approval.engagement_id,
-      target_type: "event",
-      target_id: event.id,
-      relationship: "relevant_to",
-      context: `Event approved from email classification`,
-    });
-  }
-
-  await resolveApproval(approval.id, `approved:${event.id}:${event.name}`);
-
-  return NextResponse.json({ status: "approved", event });
-}
-
-/**
- * After resolving a review, persist the events, programs, and entity links
- * that Claude identified in the classification_result.
- *
- * Errors here are logged but never thrown — entity creation is best-effort
- * and must not prevent the review from being resolved.
- */
-async function persistClassificationEntities(
-  result: ClassificationResult,
-  engagementId: string
-): Promise<void> {
-  try {
-    // Track created entity IDs for linking
-    const entityIdMap = new Map<string, { type: string; id: string }>();
-    entityIdMap.set(
-      result.engagement_match.name.toLowerCase().trim(),
-      { type: "engagement", id: engagementId }
-    );
-
-    // 1. Register existing events / create pending approvals for new ones
-    for (const eventRef of result.events_referenced) {
-      if (eventRef.is_new || !eventRef.id) {
-        try {
-          await createApproval({
-            type: "event_creation",
-            entity_data: {
-              name: eventRef.name,
-              type: eventRef.type,
-              date: eventRef.date,
-              date_precision: eventRef.date_precision,
-              confidence: eventRef.confidence,
-            },
-            message_id: null,
-            engagement_id: engagementId,
-          });
-          console.log(`Pending event approval created: "${eventRef.name}"`);
-        } catch (err) {
-          console.error(`Failed to create pending event approval for "${eventRef.name}":`, err);
-        }
-        continue;
-      }
-      entityIdMap.set(eventRef.name.toLowerCase().trim(), {
-        type: "event",
-        id: eventRef.id,
-      });
-    }
-
-    // 2. Find or create programs (stable entities, low-risk)
-    for (const progRef of result.programs_referenced) {
-      try {
-        const program = await findOrCreateProgram({ name: progRef.name });
-        entityIdMap.set(progRef.name.toLowerCase().trim(), {
-          type: "program",
-          id: program.id,
-        });
-      } catch (err) {
-        console.error(`Failed to find/create program "${progRef.name}":`, err);
-      }
-    }
-
-    // 3. Create explicit entity links from Claude's entity_links array
-    for (const link of result.entity_links) {
-      try {
-        const source = entityIdMap.get(link.source_name.toLowerCase().trim());
-        const target = entityIdMap.get(link.target_name.toLowerCase().trim());
-        if (!source || !target) continue;
-        if (source.id === target.id) continue;
-
-        await createEntityLink({
-          source_type: link.source_type,
-          source_id: source.id,
-          target_type: link.target_type,
-          target_id: target.id,
-          relationship: link.relationship,
-          context: link.context,
-        });
-      } catch (err) {
-        console.error("Failed to create entity link:", err);
-      }
-    }
-
-    // 4. Upsert participants and link to engagement
-    await upsertParticipants(result.participants, engagementId);
-  } catch (err) {
-    // Catch-all: entity creation must never break the resolve flow
-    console.error("persistClassificationEntities error:", err);
-  }
-}
-

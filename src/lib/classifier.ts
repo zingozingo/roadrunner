@@ -7,7 +7,7 @@ import {
   getUnclassifiedMessages,
   createApproval,
   createEngagement,
-  findOrCreateProgram,
+  createEntityLink,
   upsertParticipants,
   appendOpenItems,
 } from "./supabase";
@@ -142,6 +142,152 @@ function groupByForwardedAt(messages: Message[]): Message[][] {
 }
 
 // ============================================================
+// Shared persistence function — single source of truth for
+// both auto-assign (classifier) and manual resolve (route)
+// ============================================================
+
+/**
+ * Persist classification results to the database.
+ * Called from both the auto-assign path and the manual resolve path.
+ *
+ * Operations:
+ * 1. Update messages with classification data and engagement assignment
+ * 2. Update engagement state (current_state, open_items, tags) — skip for new engagements (already set at creation)
+ * 3. Create entity links (engagement↔event, engagement↔program) by ID
+ * 4. Upsert participants and link to engagement
+ *
+ * Idempotent — safe to call multiple times with the same data.
+ */
+export async function persistClassificationResult(
+  result: ClassificationResult,
+  engagementId: string,
+  messageIds: string[],
+  isNewEngagement: boolean
+): Promise<void> {
+  const db = getSupabaseClient();
+
+  // 1. Update messages with classification data and engagement assignment
+  await db
+    .from("messages")
+    .update({
+      engagement_id: engagementId,
+      content_type: result.content_type,
+      classification_confidence: result.engagement_match.confidence,
+      classification_result: result,
+      pending_review: false,
+    })
+    .in("id", messageIds);
+
+  // 2. Update engagement state — skip for new engagements (fields set at creation)
+  if (!isNewEngagement) {
+    const currentState = result.current_state ?? null;
+    const openItems = (result.open_items ?? []).map((item) => ({
+      ...item,
+      resolved: false,
+    }));
+
+    const updates: Record<string, unknown> = {};
+
+    if (currentState) {
+      updates.summary = currentState;
+      updates.current_state = currentState;
+    }
+
+    if (openItems.length > 0) {
+      const merged = await appendOpenItems(engagementId, openItems);
+      if (merged) {
+        updates.open_items = merged;
+      }
+    }
+
+    // Merge suggested tags (deduplicated)
+    if (result.suggested_tags && result.suggested_tags.length > 0) {
+      const { data: existing } = await db
+        .from("engagements")
+        .select("tags")
+        .eq("id", engagementId)
+        .maybeSingle();
+
+      const existingTags: string[] = (existing?.tags as string[]) ?? [];
+      const existingSet = new Set(existingTags.map((t) => t.toLowerCase()));
+      const newTags = result.suggested_tags.filter(
+        (t) => !existingSet.has(t.toLowerCase())
+      );
+      if (newTags.length > 0) {
+        updates.tags = [...existingTags, ...newTags];
+      }
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await db.from("engagements").update(updates).eq("id", engagementId);
+    }
+  }
+
+  // 3. Create entity links by ID (engagement↔event, engagement↔program)
+  for (const event of result.matched_events) {
+    try {
+      await createEntityLink({
+        source_type: "engagement",
+        source_id: engagementId,
+        target_type: "event",
+        target_id: event.id,
+        relationship: findRelationship(result, "event", event.name) ?? "related",
+        context: null,
+      });
+    } catch (err) {
+      console.error(`Failed to link engagement to event "${event.name}":`, err);
+    }
+  }
+
+  for (const program of result.matched_programs) {
+    try {
+      await createEntityLink({
+        source_type: "engagement",
+        source_id: engagementId,
+        target_type: "program",
+        target_id: program.id,
+        relationship: findRelationship(result, "program", program.name) ?? "related",
+        context: null,
+      });
+    } catch (err) {
+      console.error(`Failed to link engagement to program "${program.name}":`, err);
+    }
+  }
+
+  // 4. Upsert participants and link to engagement
+  if (result.participants.length > 0) {
+    await upsertParticipants(result.participants, engagementId);
+  }
+}
+
+/**
+ * Look up relationship from entity_links array for a matched event/program.
+ * Returns the relationship string if found, null otherwise.
+ */
+function findRelationship(
+  result: ClassificationResult,
+  targetType: string,
+  targetName: string
+): string | null {
+  const normalized = targetName.toLowerCase().trim();
+  for (const link of result.entity_links) {
+    if (
+      link.target_type === targetType &&
+      link.target_name.toLowerCase().trim() === normalized
+    ) {
+      return link.relationship;
+    }
+    if (
+      link.source_type === targetType &&
+      link.source_name.toLowerCase().trim() === normalized
+    ) {
+      return link.relationship;
+    }
+  }
+  return null;
+}
+
+// ============================================================
 // Apply classification results to the database
 // ============================================================
 
@@ -162,131 +308,66 @@ async function applyClassificationResult(
     isHighConfidence && !result.engagement_match.is_new && result.engagement_match.id;
   const hasHighConfidenceNew =
     isHighConfidence && result.engagement_match.is_new;
-  const hasNewTrackSuggestions =
-    result.programs_referenced.some((p) => p.is_new);
 
-  // Review needed when: low confidence, OR new tracks suggested
-  // NOT needed for high-confidence new engagements — those auto-create
-  let needsReview =
-    !isNoise && (!isHighConfidence || hasNewTrackSuggestions);
+  let needsReview = !isNoise && !isHighConfidence;
 
   // Track which engagement ID gets assigned to messages
   let assignedEngagementId: string | null = null;
 
-  // Extract structured fields with fallbacks
-  const currentState = result.current_state ?? null;
-  const openItems = (result.open_items ?? []).map((item) => ({
-    ...item,
-    resolved: false,
-  }));
-
   // 1. Auto-create new engagement at high confidence
-  if (hasHighConfidenceNew && !hasNewTrackSuggestions) {
+  if (hasHighConfidenceNew) {
     try {
+      const currentState = result.current_state ?? null;
+      const openItems = (result.open_items ?? []).map((item) => ({
+        ...item,
+        resolved: false,
+      }));
+
       const engagement = await createEngagement({
         name: result.engagement_match.name,
         partner_name: result.engagement_match.partner_name,
         summary: currentState,
         current_state: currentState,
         open_items: openItems,
+        tags: result.suggested_tags ?? [],
       });
       assignedEngagementId = engagement.id;
-
-      // Find or create referenced tracks (programs)
-      for (const prog of result.programs_referenced) {
-        try {
-          await findOrCreateProgram({ name: prog.name });
-        } catch (err) {
-          console.error(`Failed to find/create track "${prog.name}":`, err);
-        }
-      }
 
       console.log(
         `Auto-created engagement: ${engagement.name} (${engagement.id}) from ${messageIds.length} message(s)`
       );
     } catch (err) {
-      // Auto-create failed — fall back to review
       console.error("Auto-create engagement failed, falling back to review:", err);
       needsReview = true;
     }
   }
 
   // 2. Auto-assign to existing engagement at high confidence
-  if (hasHighConfidenceExisting && !hasNewTrackSuggestions) {
+  if (hasHighConfidenceExisting) {
     assignedEngagementId = result.engagement_match.id!;
   }
 
-  // 3. Update messages with classification result
-  const messageUpdate: Record<string, unknown> = {
-    content_type: result.content_type,
-    classification_confidence: result.engagement_match.confidence,
-    classification_result: result,
-    pending_review: needsReview,
-  };
+  // 3. Persist classification data
+  if (assignedEngagementId && !needsReview) {
+    await persistClassificationResult(
+      result,
+      assignedEngagementId,
+      messageIds,
+      !!hasHighConfidenceNew
+    );
+  } else {
+    // Not assigned — still update messages with classification data
+    const messageUpdate: Record<string, unknown> = {
+      content_type: result.content_type,
+      classification_confidence: result.engagement_match.confidence,
+      classification_result: result,
+      pending_review: needsReview,
+    };
 
-  if (assignedEngagementId) {
-    messageUpdate.engagement_id = assignedEngagementId;
+    await db.from("messages").update(messageUpdate).in("id", messageIds);
   }
 
-  await db.from("messages").update(messageUpdate).in("id", messageIds);
-
-  // 4. If assigned to existing engagement, update structured data
-  if (hasHighConfidenceExisting && !hasNewTrackSuggestions && assignedEngagementId) {
-    const updates: Record<string, unknown> = {};
-
-    if (currentState) {
-      updates.summary = currentState;
-      updates.current_state = currentState;
-    }
-
-    // Merge open items: add new, keep existing unresolved
-    if (openItems.length > 0) {
-      const merged = await appendOpenItems(assignedEngagementId, openItems);
-      if (merged) {
-        updates.open_items = merged;
-      }
-    }
-
-    if (Object.keys(updates).length > 0) {
-      await db.from("engagements").update(updates).eq("id", assignedEngagementId);
-    }
-  }
-
-  // 5. Create entity links where both source and target already exist
-  if (!isNoise) {
-    await createEntityLinks(result, context);
-  }
-
-  // 6. Upsert participants — link to assigned engagement if available
-  if (!isNoise && result.participants.length > 0) {
-    await upsertParticipants(result.participants, assignedEngagementId);
-  }
-
-  // 6b. Store pending event approvals for new events
-  if (!isNoise) {
-    for (const eventRef of result.events_referenced) {
-      if (!eventRef.is_new) continue;
-      try {
-        await createApproval({
-          type: "event_creation",
-          entity_data: {
-            name: eventRef.name,
-            type: eventRef.type,
-            date: eventRef.date,
-            date_precision: eventRef.date_precision,
-            confidence: eventRef.confidence,
-          },
-          message_id: messages[0].id,
-          engagement_id: assignedEngagementId,
-        });
-        console.log(`Pending event approval created: "${eventRef.name}"`);
-      } catch (err) {
-        console.error(`Failed to create pending event approval for "${eventRef.name}":`, err);
-      }
-    }
-  }
-
-  // 7. If flagged for review, create pending review and send SMS
+  // 4. If flagged for review, create pending review and send SMS
   if (needsReview) {
     try {
       const engagements = context.engagements;
@@ -326,91 +407,3 @@ async function applyClassificationResult(
 
   return { needsReview };
 }
-
-// ============================================================
-// Create entity links (only between existing entities)
-// ============================================================
-
-async function createEntityLinks(
-  result: ClassificationResult,
-  context: ClassifyContext
-): Promise<void> {
-  if (result.entity_links.length === 0) return;
-  const db = getSupabaseClient();
-
-  // Build a name->id lookup for all known entities
-  const entityMap = new Map<string, { type: string; id: string }>();
-
-  for (const init of context.engagements) {
-    entityMap.set(normalizeEntityName(init.name), {
-      type: "engagement",
-      id: init.id,
-    });
-  }
-  for (const evt of context.events) {
-    entityMap.set(normalizeEntityName(evt.name), {
-      type: "event",
-      id: evt.id,
-    });
-  }
-  for (const prog of context.programs) {
-    entityMap.set(normalizeEntityName(prog.name), {
-      type: "program",
-      id: prog.id,
-    });
-  }
-
-  const linksToInsert: {
-    source_type: string;
-    source_id: string;
-    target_type: string;
-    target_id: string;
-    relationship: string;
-    context: string;
-    created_by: string;
-  }[] = [];
-
-  for (const link of result.entity_links) {
-    const source = entityMap.get(normalizeEntityName(link.source_name));
-    const target = entityMap.get(normalizeEntityName(link.target_name));
-
-    // Only create links between entities that already exist
-    if (!source || !target) continue;
-    // Don't link an entity to itself
-    if (source.id === target.id) continue;
-
-    linksToInsert.push({
-      source_type: link.source_type,
-      source_id: source.id,
-      target_type: link.target_type,
-      target_id: target.id,
-      relationship: link.relationship,
-      context: link.context,
-      created_by: "ai",
-    });
-  }
-
-  if (linksToInsert.length === 0) return;
-
-  // Idempotency: check for existing links to avoid duplicates
-  for (const link of linksToInsert) {
-    const { data: existing } = await db
-      .from("entity_links")
-      .select("id")
-      .eq("source_type", link.source_type)
-      .eq("source_id", link.source_id)
-      .eq("target_type", link.target_type)
-      .eq("target_id", link.target_id)
-      .eq("relationship", link.relationship)
-      .limit(1);
-
-    if (!existing || existing.length === 0) {
-      await db.from("entity_links").insert(link);
-    }
-  }
-}
-
-function normalizeEntityName(name: string): string {
-  return name.toLowerCase().trim().replace(/\s+/g, " ");
-}
-

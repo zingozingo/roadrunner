@@ -111,8 +111,8 @@ describe("parseClassificationResponse", () => {
   const validJson = JSON.stringify({
     content_type: "engagement_email",
     engagement_match: { id: "init-001", name: "Test", confidence: 0.95, is_new: false, partner_name: null },
-    events_referenced: [],
-    programs_referenced: [],
+    matched_events: [],
+    matched_programs: [],
     entity_links: [],
     participants: [],
   });

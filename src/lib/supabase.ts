@@ -6,7 +6,6 @@ import {
   Message,
   ParsedMessage,
   ApprovalQueueItem,
-  EventSuggestion,
   Participant,
   EntityLink,
   ClassificationResult,
@@ -128,7 +127,6 @@ export async function createApproval(data: {
   message_id?: string | null;
   engagement_id?: string | null;
   classification_result?: ClassificationResult | null;
-  entity_data?: EventSuggestion | null;
   options_sent?: SMSOption[] | null;
   sms_sent?: boolean;
   sms_sent_at?: string | null;
@@ -140,7 +138,6 @@ export async function createApproval(data: {
       message_id: data.message_id ?? null,
       engagement_id: data.engagement_id ?? null,
       classification_result: data.classification_result ?? null,
-      entity_data: data.entity_data ?? null,
       options_sent: data.options_sent ?? null,
       sms_sent: data.sms_sent ?? false,
       sms_sent_at: data.sms_sent_at ?? null,
@@ -533,81 +530,6 @@ export async function getAllProgramsWithCounts(): Promise<
     ...p,
     linked_count: linkCounts.get(p.id) ?? 0,
   }));
-}
-
-// ============================================================
-// Upsert helpers for resolve flow
-// ============================================================
-
-export async function findOrCreateEvent(eventData: {
-  name: string;
-  type: Event["type"];
-  start_date?: string | null;
-  date_precision?: Event["date_precision"];
-}): Promise<Event> {
-  const db = getSupabaseClient();
-
-  // Try to find existing by name (case-insensitive)
-  const { data: existing } = await db
-    .from("events")
-    .select("*")
-    .ilike("name", eventData.name)
-    .limit(1);
-
-  if (existing && existing.length > 0) {
-    return existing[0] as Event;
-  }
-
-  const { data: created, error } = await db
-    .from("events")
-    .insert({
-      name: eventData.name,
-      type: eventData.type,
-      start_date: eventData.start_date ?? null,
-      end_date: null,
-      date_precision: eventData.date_precision ?? "exact",
-      location: null,
-      description: null,
-      source: "email_extracted" as const,
-      verified: false,
-    })
-    .select()
-    .single();
-
-  if (error) throw new Error(`Failed to create event: ${error.message}`);
-  return created as Event;
-}
-
-export async function findOrCreateProgram(programData: {
-  name: string;
-}): Promise<Program> {
-  const db = getSupabaseClient();
-
-  // Try to find existing by name (case-insensitive)
-  const { data: existing } = await db
-    .from("programs")
-    .select("*")
-    .ilike("name", programData.name)
-    .limit(1);
-
-  if (existing && existing.length > 0) {
-    return existing[0] as Program;
-  }
-
-  const { data: created, error } = await db
-    .from("programs")
-    .insert({
-      name: programData.name,
-      description: null,
-      eligibility: null,
-      url: null,
-      status: "active" as const,
-    })
-    .select()
-    .single();
-
-  if (error) throw new Error(`Failed to create program: ${error.message}`);
-  return created as Program;
 }
 
 export async function createEntityLink(link: {

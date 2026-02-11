@@ -13,7 +13,7 @@ const {
   mockGetUnclassifiedMessages,
   mockCreateApproval,
   mockCreateEngagement,
-  mockFindOrCreateProgram,
+  mockCreateEntityLink,
   mockSendClassificationPrompt,
   mockUpsertParticipants,
   mockAppendOpenItems,
@@ -106,8 +106,8 @@ const {
     mockGetActivePrograms: vi.fn(),
     mockGetUnclassifiedMessages: vi.fn(),
     mockCreateApproval: vi.fn().mockResolvedValue({ id: "approval-001" }),
-    mockCreateEngagement: vi.fn().mockResolvedValue({ id: "init-auto", name: "Auto-Created", status: "active", summary: null, partner_name: null, created_at: "", updated_at: "", closed_at: null }),
-    mockFindOrCreateProgram: vi.fn().mockResolvedValue({ id: "prog-auto", name: "Auto-Program", description: null, eligibility: null, url: null, status: "active", created_at: "" }),
+    mockCreateEngagement: vi.fn().mockResolvedValue({ id: "init-auto", name: "Auto-Created", status: "active", summary: null, partner_name: null, tags: [], created_at: "", updated_at: "", closed_at: null }),
+    mockCreateEntityLink: vi.fn().mockResolvedValue(undefined),
     mockSendClassificationPrompt: vi.fn().mockResolvedValue({
       sid: "SM123",
       options: [{ number: 1, label: "Test", engagement_id: null, is_new: true }],
@@ -134,7 +134,7 @@ vi.mock("../supabase", () => ({
   getUnclassifiedMessages: mockGetUnclassifiedMessages,
   createApproval: mockCreateApproval,
   createEngagement: mockCreateEngagement,
-  findOrCreateProgram: mockFindOrCreateProgram,
+  createEntityLink: mockCreateEntityLink,
   upsertParticipants: mockUpsertParticipants,
   appendOpenItems: mockAppendOpenItems,
 }));
@@ -217,9 +217,9 @@ const HIGH_CONFIDENCE_RESULT: ClassificationResult = {
     is_new: false,
     partner_name: "CyberShield",
   },
-  events_referenced: [],
-  programs_referenced: [
-    { id: "prog-001", name: "AWS Security Competency", is_new: false, confidence: 0.92 },
+  matched_events: [],
+  matched_programs: [
+    { id: "prog-001", name: "AWS Security Competency" },
   ],
   entity_links: [
     {
@@ -236,6 +236,7 @@ const HIGH_CONFIDENCE_RESULT: ClassificationResult = {
   ],
   current_state: "CyberShield continues to pursue AWS Security Competency.",
   open_items: [],
+  suggested_tags: [],
 };
 
 const LOW_CONFIDENCE_RESULT: ClassificationResult = {
@@ -247,12 +248,13 @@ const LOW_CONFIDENCE_RESULT: ClassificationResult = {
     is_new: true,
     partner_name: "Unknown Partner",
   },
-  events_referenced: [],
-  programs_referenced: [],
+  matched_events: [],
+  matched_programs: [],
   entity_links: [],
   participants: [],
   current_state: null,
   open_items: [],
+  suggested_tags: [],
 };
 
 const HIGH_CONFIDENCE_NEW_RESULT: ClassificationResult = {
@@ -264,14 +266,15 @@ const HIGH_CONFIDENCE_NEW_RESULT: ClassificationResult = {
     is_new: true,
     partner_name: "NewCorp",
   },
-  events_referenced: [],
-  programs_referenced: [],
+  matched_events: [],
+  matched_programs: [],
   entity_links: [],
   participants: [
     { name: "Bob Smith", email: "bob@newcorp.com", organization: "NewCorp", role: "CTO" },
   ],
   current_state: "NewCorp exploring cloud migration.",
   open_items: [],
+  suggested_tags: [],
 };
 
 const NOISE_RESULT: ClassificationResult = {
@@ -283,12 +286,13 @@ const NOISE_RESULT: ClassificationResult = {
     is_new: false,
     partner_name: null,
   },
-  events_referenced: [],
-  programs_referenced: [],
+  matched_events: [],
+  matched_programs: [],
   entity_links: [],
   participants: [],
   current_state: null,
   open_items: [],
+  suggested_tags: [],
 };
 
 // ============================================================
@@ -415,6 +419,7 @@ describe("processUnclassifiedMessages", () => {
       summary: "NewCorp exploring cloud migration.",
       current_state: "NewCorp exploring cloud migration.",
       open_items: [],
+      tags: [],
     });
   });
 
@@ -431,29 +436,20 @@ describe("processUnclassifiedMessages", () => {
     expect(mockCreateApproval).toHaveBeenCalled();
   });
 
-  it("auto-assigns even when new events are suggested with high confidence match", async () => {
-    const resultWithNewEvent: ClassificationResult = {
+  it("auto-assigns with matched events at high confidence", async () => {
+    const resultWithEvent: ClassificationResult = {
       ...HIGH_CONFIDENCE_RESULT,
-      events_referenced: [
-        {
-          id: null,
-          name: "Partner Security Summit 2025",
-          type: "summit",
-          date: "2025-06-15",
-          date_precision: "exact",
-          is_new: true,
-          confidence: 0.88,
-        },
+      matched_events: [
+        { id: "evt-001", name: "AWS re:Invent 2025" },
       ],
     };
 
     const msg = makeMessage();
     mockGetUnclassifiedMessages.mockResolvedValue([msg]);
-    mockClassifyMessage.mockResolvedValue(resultWithNewEvent);
+    mockClassifyMessage.mockResolvedValue(resultWithEvent);
 
     const result = await processUnclassifiedMessages();
 
-    // New events no longer block auto-assign — only new tracks do
     expect(result.autoAssigned).toBe(1);
     expect(result.flaggedForReview).toBe(0);
   });

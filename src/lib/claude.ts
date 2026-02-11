@@ -226,6 +226,27 @@ function parseClassificationResponse(raw: string): ClassificationResult {
   }
 
   const parsed = JSON.parse(cleaned);
+
+  // Map prompt field names → TypeScript type field names
+  // (prompt still uses events_referenced/programs_referenced until Step 5)
+  if (parsed.events_referenced && !parsed.matched_events) {
+    parsed.matched_events = (parsed.events_referenced as { id: string | null; name: string }[])
+      .filter((e) => e.id != null)
+      .map((e) => ({ id: e.id as string, name: e.name }));
+    delete parsed.events_referenced;
+  }
+  if (parsed.programs_referenced && !parsed.matched_programs) {
+    parsed.matched_programs = (parsed.programs_referenced as { id: string | null; name: string }[])
+      .filter((p) => p.id != null)
+      .map((p) => ({ id: p.id as string, name: p.name }));
+    delete parsed.programs_referenced;
+  }
+
+  // Default suggested_tags until prompt includes it
+  if (!parsed.suggested_tags) {
+    parsed.suggested_tags = [];
+  }
+
   return parsed as ClassificationResult;
 }
 
