@@ -27,7 +27,7 @@ const ENGAGEMENT: Engagement = {
   name: "CyberShield - Security Review",
   status: "active",
   summary: "Pursuing Security Competency.",
-  current_state: null,
+  current_state: "Pursuing Security Competency.",
   open_items: [],
   partner_name: "CyberShield",
   tags: [],
@@ -61,11 +61,11 @@ const PROGRAM: Program = {
 };
 
 describe("buildUserMessage", () => {
-  it("includes engagement names, ids, and summaries", () => {
+  it("includes engagement names, ids, and current state", () => {
     const result = buildUserMessage([makeMessage()], [ENGAGEMENT], [], []);
     expect(result).toContain("CyberShield - Security Review");
     expect(result).toContain("init-001");
-    expect(result).toContain("Pursuing Security Competency.");
+    expect(result).toContain("Current state: Pursuing Security Competency.");
     expect(result).toContain("Partner: CyberShield");
   });
 
@@ -113,7 +113,6 @@ describe("parseClassificationResponse", () => {
     engagement_match: { id: "init-001", name: "Test", confidence: 0.95, is_new: false, partner_name: null },
     matched_events: [],
     matched_programs: [],
-    entity_links: [],
     participants: [],
   });
 

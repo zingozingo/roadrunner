@@ -28,97 +28,79 @@ const SYSTEM_PROMPT = `You are Relay, an AI that classifies forwarded emails for
 
 ## Entity Types
 
-**Engagements** — Partner workstreams toward a goal (e.g., "Acme Security - FedRAMP Certification"). Have partner_name and evolving summary.
-**Events** — Real-world gatherings and milestones independent of any engagement: conferences (re:Invent, re:Inforce, RSA), summits, workshops, kickoffs, trade shows, training, deadlines, review cycles.
-**Tracks** — Formal AWS programs (ISV Accelerate, Security Competency), go-to-market motions (FinServ campaign), technical milestones (certifications, integrations), or strategic relationships. Broader than "programs" — any named workstream or framework a partner engages with.
-**Entity Links** — Relationships between any two entities.
+**Engagements** — The core unit of work. One partner + one goal, tracked through email threads. Example: "Acme Security - FedRAMP Certification". Each has a partner_name and evolving current_state summary. Engagements are the ONLY entity you can create. If this email represents new work not matching any existing engagement, set is_new: true.
 
-## Events vs Meetings
+**Programs** — Pre-defined AWS programs, frameworks, and motions. Examples: ISV Accelerate, Well-Architected, M-POP, Security Competency. These are REFERENCE DATA — you MUST match by ID from the provided list. Never invent a program. If no program is relevant, return an empty matched_programs array.
 
-Events are real-world gatherings or formal milestones — they exist in space and time, independent of any engagement.
+**Events** — Pre-defined AWS events and milestones. Examples: re:Invent, re:Inforce, NY Summit. These are REFERENCE DATA — you MUST match by ID from the provided list. Never invent an event. If no event is relevant, return an empty matched_events array.
 
-Meetings are NOT events. Calls, demos, cadence calls, 1:1s, syncs, working sessions, check-ins are engagement workflow. Mention them in the summary only. DO NOT populate events_referenced for any meeting or call.
+## What Is NOT an Event
+
+Meetings are NOT events. Calls, demos, cadence calls, 1:1s, syncs, working sessions, check-ins, and any partner-specific gatherings are engagement workflow. Mention them in current_state only. Do NOT include them in matched_events.
+
+Only match to events that appear in the "Tracked Events" list provided in the context.
 
 ## Rules
 
-1. **Prefer existing entities.** Only suggest new when nothing matches. Fuzzy-match — "re:Invent 2025" = "AWS re:Invent".
-2. **Noise.** Auto-replies, OOO, newsletters, marketing = "noise". Empty arrays, null summary.
-3. **Mixed content.** Multiple engagements in one email → "mixed", extract all.
-4. **Multi-message threads.** Messages from the same forward = one classification unit.
-5. **PDM forwarder.** Participant whose email matches the forwarding/envelope sender → role "forwarder".
-5b. **Participants.** Extract ALL people mentioned by name, even without email. Set email to null if unavailable. Correlate names in the body with From/To/CC headers when possible.
-6. **Temporal.** Only CONFIRMED dates: scheduled dates, named conferences, explicit deadlines ("POC due March 15"). Vague intentions ("let's sync next week") → summary only.
-7. **Event threshold.** events_referenced only for: conferences, summits, workshops, kickoffs, trade shows, training, deadlines with a specific date, formal review cycles. Never meetings or calls.
+1. **Prefer existing engagements.** Match to existing engagements when the partner and topic align. Only set is_new: true when nothing matches.
+2. **Match programs and events by ID only.** You are given a list of programs and events with their IDs. Return only IDs from that list. Never fabricate an ID. If unsure whether something matches, omit it.
+3. **Noise.** Auto-replies, OOO, newsletters, marketing blasts = "noise". Return null current_state, empty arrays, confidence 1.0.
+4. **Mixed content.** If an email discusses multiple engagements, set content_type "mixed" and classify the primary engagement.
+5. **Multi-message threads.** Messages from the same forward are one classification unit. Synthesize across all messages.
+6. **Participants.** Extract ALL people mentioned by name, even without email addresses. Set email to null if unavailable. Correlate names in the body with From/To/CC headers when possible. The person whose email matches the forwarding address gets role "forwarder".
+7. **Temporal honesty.** Only include dates that are explicitly confirmed: scheduled dates, named conference dates, explicit deadlines ("POC due March 15"). Vague intentions ("let's connect next week") go in current_state prose only, never as due_dates.
+8. **Tags.** Suggest short, lowercase labels that help categorize this engagement. Examples: "co-sell", "finserv", "poc", "migration", "marketplace", "security-review". Only suggest tags that are genuinely descriptive. Empty array is fine.
 
-## Confidence
+## Confidence Calibration
 
-- 0.95–1.0: Explicitly names the engagement
-- 0.85–0.94: Same partner + topic, clear thread continuation
-- 0.70–0.84: Related partner/topic, no direct engagement reference
+- 0.95–1.0: Email explicitly names the engagement or is a direct thread continuation
+- 0.85–0.94: Same partner + topic, clear contextual match
+- 0.70–0.84: Related partner or topic, but no direct engagement reference
 - Below 0.70: Tangential or ambiguous
-- Noise: 1.0, is_new false
+- Noise: always 1.0 confidence, is_new: false
 
-## Structured Output Fields
+## current_state Instructions
 
-### current_state
-3-5 sentences. Executive briefing style — what this engagement is about, who's involved (first names only since full details are in participants), current status/momentum, and key context.
+Write 3-5 sentences. Executive briefing style: what this engagement is about, who's involved (first names only — full details are in participants), current status and momentum, key context.
 
-Write concretely: "Brian and Tanya are coordinating an integration discussion" not "Teams are actively facilitating comprehensive collaboration."
+Write concretely: "Brian and Tanya are coordinating an integration discussion with the security team" not "Teams are actively facilitating comprehensive collaboration."
 
-Do NOT include:
-- Fabricated dates or timelines
-- Participant lists with titles/emails (that's what the participants field is for)
-- Bullet points or markdown formatting
-- Vague filler phrases
+Do NOT include: fabricated dates, participant lists with titles/emails, bullet points, markdown formatting, or vague filler.
 
-If this is noise, return null.
+Return null if noise.
 
-### open_items
-Concrete action items: who needs to do what.
+## open_items Instructions
+
+Extract concrete action items only: who needs to do what.
 - assignee: person name or null if unclear
-- due_date: ISO date or null if no deadline mentioned
-- Only real action items, not vague intentions
+- due_date: ISO date string ONLY if an explicit deadline is stated in the email. Otherwise null.
+- Do not fabricate deadlines from vague language
 
 ## Response Format
 
 Return ONLY valid JSON. No markdown code blocks, no preamble, no explanation.
 
 {
-  "content_type": "engagement_email" | "event_info" | "program_info" | "meeting_invite" | "mixed" | "noise",
+  "content_type": "engagement_email" | "meeting_invite" | "mixed" | "noise",
   "engagement_match": {
-    "id": "uuid of existing engagement or null if new/none",
+    "id": "uuid of existing engagement or null if new",
     "name": "existing name or suggested name if new",
     "confidence": 0.0-1.0,
     "is_new": true/false,
     "partner_name": "company name or null"
   },
-  "events_referenced": [
+  "matched_events": [
     {
-      "id": "uuid of existing event or null if new",
-      "name": "event name",
-      "type": "conference" | "summit" | "workshop" | "kickoff" | "trade_show" | "deadline" | "review_cycle" | "training",
-      "date": "ISO date string or null",
-      "date_precision": "exact" | "week" | "month" | "quarter",
-      "is_new": true/false,
-      "confidence": 0.0-1.0
+      "id": "uuid from the Tracked Events list — MUST be an ID you were given",
+      "name": "event name for logging",
+      "relationship": "relevant_to | preparation_for | deadline | presenting_at | sponsoring"
     }
   ],
-  "programs_referenced": [
+  "matched_programs": [
     {
-      "id": "uuid of existing track or null if new",
-      "name": "track name",
-      "is_new": true/false,
-      "confidence": 0.0-1.0
-    }
-  ],
-  "entity_links": [
-    {
-      "source_type": "engagement" | "event" | "program",
-      "source_name": "name for matching",
-      "target_type": "engagement" | "event" | "program",
-      "target_name": "name for matching",
-      "relationship": "descriptive label",
-      "context": "brief explanation"
+      "id": "uuid from the Active Programs list — MUST be an ID you were given",
+      "name": "program name for logging",
+      "relationship": "implements | qualifies_for | enrolled_in | graduating | blocked_by"
     }
   ],
   "participants": [
@@ -129,17 +111,18 @@ Return ONLY valid JSON. No markdown code blocks, no preamble, no explanation.
       "role": "role in context, 'forwarder' for PDM, or null"
     }
   ],
-  "current_state": "3-5 sentence executive briefing, or null",
+  "current_state": "3-5 sentence executive briefing or null if noise",
   "open_items": [
     {
       "description": "what needs to be done",
       "assignee": "person name or null",
-      "due_date": "ISO date or null"
+      "due_date": "ISO date or null — ONLY if explicitly stated"
     }
-  ]
+  ],
+  "suggested_tags": ["lowercase-tag", "another-tag"]
 }
 
-If noise: content_type "noise", empty arrays, null engagement_match id, 1.0 confidence, is_new false, null current_state.`;
+If noise: content_type "noise", engagement_match with null id, 1.0 confidence, is_new false, null current_state, all arrays empty.`;
 
 // ============================================================
 // Build the user message with current state + email content
@@ -160,7 +143,7 @@ function buildUserMessage(
     parts.push("### Active Engagements");
     for (const eng of engagements) {
       parts.push(
-        `- **${eng.name}** (id: ${eng.id})${eng.partner_name ? ` — Partner: ${eng.partner_name}` : ""}${eng.summary ? `\n  Summary: ${eng.summary}` : ""}`
+        `- **${eng.name}** (id: ${eng.id})${eng.partner_name ? ` — Partner: ${eng.partner_name}` : ""}${eng.current_state ? `\n  Current state: ${eng.current_state}` : ""}`
       );
     }
     parts.push("");
@@ -219,30 +202,13 @@ function parseClassificationResponse(raw: string): ClassificationResult {
   // Strip markdown code block wrappers if present
   let cleaned = raw.trim();
   if (cleaned.startsWith("```")) {
-    // Remove opening ``` line (possibly with "json" label)
     cleaned = cleaned.replace(/^```(?:json)?\s*\n?/, "");
-    // Remove closing ```
     cleaned = cleaned.replace(/\n?```\s*$/, "");
   }
 
   const parsed = JSON.parse(cleaned);
 
-  // Map prompt field names → TypeScript type field names
-  // (prompt still uses events_referenced/programs_referenced until Step 5)
-  if (parsed.events_referenced && !parsed.matched_events) {
-    parsed.matched_events = (parsed.events_referenced as { id: string | null; name: string }[])
-      .filter((e) => e.id != null)
-      .map((e) => ({ id: e.id as string, name: e.name }));
-    delete parsed.events_referenced;
-  }
-  if (parsed.programs_referenced && !parsed.matched_programs) {
-    parsed.matched_programs = (parsed.programs_referenced as { id: string | null; name: string }[])
-      .filter((p) => p.id != null)
-      .map((p) => ({ id: p.id as string, name: p.name }));
-    delete parsed.programs_referenced;
-  }
-
-  // Default suggested_tags until prompt includes it
+  // Default suggested_tags if Claude omits it
   if (!parsed.suggested_tags) {
     parsed.suggested_tags = [];
   }

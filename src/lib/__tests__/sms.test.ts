@@ -53,7 +53,6 @@ function makeResult(overrides: Partial<ClassificationResult> = {}): Classificati
     matched_events: [],
     matched_programs: [],
     suggested_tags: [],
-    entity_links: [],
     participants: [],
     current_state: null,
     open_items: [],

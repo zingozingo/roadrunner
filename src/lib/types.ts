@@ -73,8 +73,6 @@ export interface Message {
   body_raw: string | null;
   content_type:
     | "engagement_email"
-    | "event_info"
-    | "program_info"
     | "meeting_invite"
     | "mixed"
     | "noise"
@@ -135,19 +133,13 @@ export interface ClassificationResult {
   matched_events: {
     id: string;
     name: string;
+    relationship: string;
   }[];
   /** Programs matched by ID from context. Claude never creates programs. */
   matched_programs: {
     id: string;
     name: string;
-  }[];
-  entity_links: {
-    source_type: EntityLink["source_type"];
-    source_name: string;
-    target_type: EntityLink["target_type"];
-    target_name: string;
     relationship: string;
-    context: string;
   }[];
   participants: {
     name: string;

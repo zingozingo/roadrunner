@@ -219,17 +219,7 @@ const HIGH_CONFIDENCE_RESULT: ClassificationResult = {
   },
   matched_events: [],
   matched_programs: [
-    { id: "prog-001", name: "AWS Security Competency" },
-  ],
-  entity_links: [
-    {
-      source_type: "engagement",
-      source_name: "CyberShield - Security Review",
-      target_type: "program",
-      target_name: "AWS Security Competency",
-      relationship: "qualifies_for",
-      context: "CyberShield is working toward Security Competency certification",
-    },
+    { id: "prog-001", name: "AWS Security Competency", relationship: "qualifies_for" },
   ],
   participants: [
     { name: "Alice Chen", email: "alice@cybershield.com", organization: "CyberShield", role: "Technical Lead" },
@@ -250,7 +240,6 @@ const LOW_CONFIDENCE_RESULT: ClassificationResult = {
   },
   matched_events: [],
   matched_programs: [],
-  entity_links: [],
   participants: [],
   current_state: null,
   open_items: [],
@@ -268,7 +257,6 @@ const HIGH_CONFIDENCE_NEW_RESULT: ClassificationResult = {
   },
   matched_events: [],
   matched_programs: [],
-  entity_links: [],
   participants: [
     { name: "Bob Smith", email: "bob@newcorp.com", organization: "NewCorp", role: "CTO" },
   ],
@@ -288,7 +276,6 @@ const NOISE_RESULT: ClassificationResult = {
   },
   matched_events: [],
   matched_programs: [],
-  entity_links: [],
   participants: [],
   current_state: null,
   open_items: [],
@@ -440,7 +427,7 @@ describe("processUnclassifiedMessages", () => {
     const resultWithEvent: ClassificationResult = {
       ...HIGH_CONFIDENCE_RESULT,
       matched_events: [
-        { id: "evt-001", name: "AWS re:Invent 2025" },
+        { id: "evt-001", name: "AWS re:Invent 2025", relationship: "relevant_to" },
       ],
     };
 

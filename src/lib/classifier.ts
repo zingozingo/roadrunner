@@ -231,8 +231,8 @@ export async function persistClassificationResult(
         source_id: engagementId,
         target_type: "event",
         target_id: event.id,
-        relationship: findRelationship(result, "event", event.name) ?? "related",
-        context: null,
+        relationship: event.relationship,
+        context: event.name,
       });
     } catch (err) {
       console.error(`Failed to link engagement to event "${event.name}":`, err);
@@ -246,8 +246,8 @@ export async function persistClassificationResult(
         source_id: engagementId,
         target_type: "program",
         target_id: program.id,
-        relationship: findRelationship(result, "program", program.name) ?? "related",
-        context: null,
+        relationship: program.relationship,
+        context: program.name,
       });
     } catch (err) {
       console.error(`Failed to link engagement to program "${program.name}":`, err);
@@ -258,33 +258,6 @@ export async function persistClassificationResult(
   if (result.participants.length > 0) {
     await upsertParticipants(result.participants, engagementId);
   }
-}
-
-/**
- * Look up relationship from entity_links array for a matched event/program.
- * Returns the relationship string if found, null otherwise.
- */
-function findRelationship(
-  result: ClassificationResult,
-  targetType: string,
-  targetName: string
-): string | null {
-  const normalized = targetName.toLowerCase().trim();
-  for (const link of result.entity_links) {
-    if (
-      link.target_type === targetType &&
-      link.target_name.toLowerCase().trim() === normalized
-    ) {
-      return link.relationship;
-    }
-    if (
-      link.source_type === targetType &&
-      link.source_name.toLowerCase().trim() === normalized
-    ) {
-      return link.relationship;
-    }
-  }
-  return null;
 }
 
 // ============================================================
