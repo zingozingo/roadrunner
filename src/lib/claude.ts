@@ -157,8 +157,9 @@ function buildUserMessage(
       const dateStr = evt.start_date
         ? `${evt.start_date}${evt.end_date ? ` to ${evt.end_date}` : ""}`
         : "date TBD";
+      const hostStr = evt.host ? `, host: ${evt.host}` : "";
       parts.push(
-        `- **${evt.name}** (id: ${evt.id}, type: ${evt.type}, ${dateStr})${evt.description ? ` — ${evt.description}` : ""}`
+        `- **${evt.name}** (id: ${evt.id}, type: ${evt.type}${hostStr}, ${dateStr})${evt.description ? ` — ${evt.description}` : ""}`
       );
     }
     parts.push("");

@@ -26,27 +26,10 @@ const typeColors: Record<Event["type"], string> = {
 function formatDateDisplay(event: Event): string {
   if (!event.start_date) return "No date set";
 
-  const start = new Date(event.start_date);
-
-  switch (event.date_precision) {
-    case "quarter": {
-      const q = Math.ceil((start.getMonth() + 1) / 3);
-      return `Q${q} ${start.getFullYear()}`;
-    }
-    case "month":
-      return start.toLocaleDateString(undefined, { year: "numeric", month: "long" });
-    case "week": {
-      const weekEnd = new Date(start);
-      weekEnd.setDate(weekEnd.getDate() + 6);
-      return `Week of ${start.toLocaleDateString()}`;
-    }
-    default: {
-      const s = start.toLocaleDateString();
-      if (!event.end_date) return s;
-      const e = new Date(event.end_date).toLocaleDateString();
-      return s === e ? s : `${s} — ${e}`;
-    }
-  }
+  const s = new Date(event.start_date).toLocaleDateString();
+  if (!event.end_date) return s;
+  const e = new Date(event.end_date).toLocaleDateString();
+  return s === e ? s : `${s} — ${e}`;
 }
 
 export default async function EventDetailPage({
@@ -149,16 +132,18 @@ export default async function EventDetailPage({
               Details
             </h2>
             <dl className="space-y-2 text-sm">
+              {event.host && (
+                <div>
+                  <dt className="text-muted">Host</dt>
+                  <dd className="text-foreground">{event.host}</dd>
+                </div>
+              )}
               {event.location && (
                 <div>
                   <dt className="text-muted">Location</dt>
                   <dd className="text-foreground">{event.location}</dd>
                 </div>
               )}
-              <div>
-                <dt className="text-muted">Date Precision</dt>
-                <dd className="text-foreground capitalize">{event.date_precision}</dd>
-              </div>
               <div>
                 <dt className="text-muted">Source</dt>
                 <dd className="text-foreground capitalize">{event.source.replace("_", " ")}</dd>

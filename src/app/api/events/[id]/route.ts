@@ -12,10 +12,6 @@ const VALID_TYPES = new Set<Event["type"]>([
   "trade_show", "deadline", "review_cycle", "training",
 ]);
 
-const VALID_PRECISIONS = new Set<Event["date_precision"]>([
-  "exact", "week", "month", "quarter",
-]);
-
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -50,7 +46,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, type, start_date, end_date, date_precision, location, description, verified } = body;
+    const { name, type, start_date, end_date, host, location, description, verified } = body;
 
     if (name !== undefined && typeof name === "string" && !name.trim()) {
       return NextResponse.json(
@@ -62,13 +58,6 @@ export async function PUT(
     if (type !== undefined && !VALID_TYPES.has(type)) {
       return NextResponse.json(
         { error: `Invalid type "${type}"` },
-        { status: 400 }
-      );
-    }
-
-    if (date_precision !== undefined && !VALID_PRECISIONS.has(date_precision)) {
-      return NextResponse.json(
-        { error: `Invalid date_precision "${date_precision}"` },
         { status: 400 }
       );
     }
@@ -86,7 +75,7 @@ export async function PUT(
     if (type !== undefined) updates.type = type;
     if (start_date !== undefined) updates.start_date = start_date || null;
     if (end_date !== undefined) updates.end_date = end_date || null;
-    if (date_precision !== undefined) updates.date_precision = date_precision;
+    if (host !== undefined) updates.host = host || null;
     if (location !== undefined) updates.location = location || null;
     if (description !== undefined) updates.description = description || null;
     if (verified !== undefined) updates.verified = verified;

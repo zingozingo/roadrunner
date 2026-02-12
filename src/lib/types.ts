@@ -32,7 +32,7 @@ export interface Event {
   type: "conference" | "summit" | "workshop" | "kickoff" | "trade_show" | "deadline" | "review_cycle" | "training";
   start_date: string | null;
   end_date: string | null;
-  date_precision: "exact" | "week" | "month" | "quarter";
+  host: string | null;
   location: string | null;
   description: string | null;
   source: "seed" | "email_extracted" | "user_created";
@@ -47,6 +47,8 @@ export interface Program {
   eligibility: string | null;
   url: string | null;
   status: "active" | "archived";
+  lifecycle_type: "indefinite" | "recurring" | "expiring";
+  lifecycle_duration: string | null;
   created_at: string;
 }
 

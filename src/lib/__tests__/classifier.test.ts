@@ -170,7 +170,7 @@ const EVENT_REINVENT: Event = {
   type: "conference",
   start_date: "2025-12-01",
   end_date: "2025-12-05",
-  date_precision: "exact",
+  host: "AWS",
   location: "Las Vegas, NV",
   description: "Annual AWS conference",
   source: "seed",
@@ -185,6 +185,8 @@ const PROGRAM_COMPETENCY: Program = {
   eligibility: "Must pass technical review",
   url: null,
   status: "active",
+  lifecycle_type: "recurring",
+  lifecycle_duration: "1 year",
   created_at: "2025-01-01T00:00:00Z",
 };
 

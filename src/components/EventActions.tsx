@@ -10,10 +10,6 @@ const TYPE_OPTIONS: Event["type"][] = [
   "trade_show", "deadline", "review_cycle", "training",
 ];
 
-const PRECISION_OPTIONS: Event["date_precision"][] = [
-  "exact", "week", "month", "quarter",
-];
-
 export default function EventActions({ event }: { event: Event }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -27,7 +23,7 @@ export default function EventActions({ event }: { event: Event }) {
   const [type, setType] = useState<Event["type"]>(event.type);
   const [startDate, setStartDate] = useState(event.start_date ?? "");
   const [endDate, setEndDate] = useState(event.end_date ?? "");
-  const [datePrecision, setDatePrecision] = useState<Event["date_precision"]>(event.date_precision);
+  const [host, setHost] = useState(event.host ?? "");
   const [location, setLocation] = useState(event.location ?? "");
   const [description, setDescription] = useState(event.description ?? "");
   const [verified, setVerified] = useState(event.verified);
@@ -37,7 +33,7 @@ export default function EventActions({ event }: { event: Event }) {
     setType(event.type);
     setStartDate(event.start_date ?? "");
     setEndDate(event.end_date ?? "");
-    setDatePrecision(event.date_precision);
+    setHost(event.host ?? "");
     setLocation(event.location ?? "");
     setDescription(event.description ?? "");
     setVerified(event.verified);
@@ -67,7 +63,7 @@ export default function EventActions({ event }: { event: Event }) {
           type,
           start_date: startDate || null,
           end_date: endDate || null,
-          date_precision: datePrecision,
+          host: host.trim() || null,
           location: location.trim() || null,
           description: description.trim() || null,
           verified,
@@ -176,26 +172,18 @@ export default function EventActions({ event }: { event: Event }) {
             </div>
           </div>
 
-          {/* Date Precision */}
+          {/* Host */}
           <div>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted">
-              Date Precision
+              Host
             </label>
-            <div className="flex gap-2">
-              {PRECISION_OPTIONS.map((opt) => (
-                <button
-                  key={opt}
-                  onClick={() => setDatePrecision(opt)}
-                  className={`rounded-lg border px-3 py-1.5 text-sm capitalize transition-colors ${
-                    datePrecision === opt
-                      ? "border-accent bg-accent/10 text-accent"
-                      : "border-border bg-background text-muted hover:text-foreground"
-                  }`}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
+            <input
+              type="text"
+              value={host}
+              onChange={(e) => setHost(e.target.value)}
+              placeholder="e.g. AWS, RSA Conference, CrowdStrike..."
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+            />
           </div>
 
           {/* Location */}

@@ -705,7 +705,7 @@ export async function updateEvent(
     type?: Event["type"];
     start_date?: string | null;
     end_date?: string | null;
-    date_precision?: Event["date_precision"];
+    host?: string | null;
     location?: string | null;
     description?: string | null;
     verified?: boolean;
