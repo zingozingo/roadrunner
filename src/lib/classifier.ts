@@ -194,11 +194,13 @@ export async function persistClassificationResult(
     }
 
     if (openItems.length > 0) {
+      // Only call appendOpenItems when there are actual items to merge
       const merged = await appendOpenItems(engagementId, openItems);
       if (merged) {
         updates.open_items = merged;
       }
     }
+    // If open_items is empty, skip — nothing to append
 
     // Merge suggested tags (deduplicated)
     if (result.suggested_tags && result.suggested_tags.length > 0) {

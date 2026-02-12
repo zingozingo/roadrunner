@@ -61,20 +61,58 @@ Only match to events that appear in the "Tracked Events" list provided in the co
 
 ## current_state Instructions
 
-Write 3-5 sentences. Executive briefing style: what this engagement is about, who's involved (first names only — full details are in participants), current status and momentum, key context.
+You are given the engagement's existing current_state in the context (under "Current state:" for each engagement). Your job is to EVOLVE it, not replace it.
 
-Write concretely: "Brian and Tanya are coordinating an integration discussion with the security team" not "Teams are actively facilitating comprehensive collaboration."
+**If this email matches an EXISTING engagement:**
+- Read the existing current_state carefully
+- If the email contains material new information (new decisions, scope changes, new participants joining, status updates, blockers identified), update the relevant parts of the current_state while preserving the rest
+- If the email is routine (scheduling logistics, acknowledgments, brief follow-ups), return the existing current_state with minimal or no changes
+- Never drop important context just because a new email arrived — the state should accumulate knowledge, not reset it
+- Keep it 3-5 sentences, executive briefing style
 
-Do NOT include: fabricated dates, participant lists with titles/emails, bullet points, markdown formatting, or vague filler.
+**If this is a NEW engagement (is_new: true):**
+- Write a fresh 3-5 sentence briefing based on the email content
+
+**Style rules (always apply):**
+- Write concretely: "Brian and Tanya are coordinating an integration discussion with the security team" not "Teams are actively facilitating comprehensive collaboration"
+- Use first names only — full participant details are in the participants field
+- No fabricated dates or timelines
+- No bullet points or markdown formatting
+- No vague filler phrases ("various stakeholders", "ongoing discussions", "comprehensive approach")
 
 Return null if noise.
 
 ## open_items Instructions
 
-Extract concrete action items only: who needs to do what.
-- assignee: person name or null if unclear
-- due_date: ISO date string ONLY if an explicit deadline is stated in the email. Otherwise null.
-- Do not fabricate deadlines from vague language
+Extract ONLY concrete, actionable tasks explicitly stated or clearly implied in the email. An open item must have a specific action someone can take.
+
+**What IS an open item:**
+- "Can you send over the architecture diagram by Friday?" → { description: "Send architecture diagram", assignee: "Steven", due_date: "2026-02-14" }
+- "We need to complete the security review" → { description: "Complete security review", assignee: null, due_date: null }
+- "Monty will set up the integration environment" → { description: "Set up integration environment", assignee: "Monty", due_date: null }
+- "The team needs to submit the PRM data by end of month" → { description: "Submit PRM data", assignee: "Contrast Security team", due_date: "2026-02-28" }
+
+**What is NOT an open item:**
+- "Let's circle back on this" — vague intention, not a task
+- "Looking forward to working together" — pleasantry
+- "We should probably think about timeline" — no specific action
+- "Great progress so far" — status commentary
+- "I'll loop in my team" — too vague unless a specific person/action is named
+
+**Assignee rules:**
+- One person: "Steven"
+- Multiple people: "Steven and CJ"
+- A team or company: "Contrast Security team" or "AWS team"
+- The PDM/forwarder: "Steven" (use their name)
+- Unknown who: null
+
+**Due date rules:**
+- ONLY if explicitly stated: "by Friday", "due March 15", "end of month", "before re:Invent"
+- Convert relative dates to ISO format using the email's date as reference
+- If no deadline is mentioned or implied, due_date is null
+- NEVER fabricate a deadline from vague language like "soon" or "ASAP"
+
+If the email contains no actionable tasks, return an empty array. An empty array is better than fabricated items.
 
 ## Response Format
 
@@ -114,7 +152,7 @@ Return ONLY valid JSON. No markdown code blocks, no preamble, no explanation.
   "current_state": "3-5 sentence executive briefing or null if noise",
   "open_items": [
     {
-      "description": "what needs to be done",
+      "description": "specific actionable task — not vague intentions",
       "assignee": "person name or null",
       "due_date": "ISO date or null — ONLY if explicitly stated"
     }

@@ -363,3 +363,43 @@ Next.js 14 App Router + TypeScript + Tailwind. Supabase Postgres for data. Singl
 **Rationale:** IDs are unambiguous. Claude already receives IDs in the context. Returning IDs eliminates the entire name resolution layer and its edge cases.
 
 **Impact:** Prompt changes (entity_links use IDs not names). Remove normalizeEntityName() and createEntityLinks() from classifier.ts. Simplify entity link creation to direct ID-based insert.
+
+## 2026-02-12: current_state Evolves Rather Than Overwrites
+
+**Decision:** Claude reads the existing current_state from context and evolves it — updating only material changes while preserving accumulated context. Routine emails (scheduling, acks) return the existing state with minimal changes.
+
+**Context:** v0.1 prompt generated a fresh current_state on every email, causing important context to be lost when a routine follow-up arrived. The 3-5 sentence limit forced Claude to pick the most recent information, dropping earlier context about engagement scope, participants, and decisions.
+
+**Rationale:** Engagement state should accumulate knowledge over time. The PDM needs a briefing that reflects the full picture, not just the last email. Evolving state preserves momentum while incorporating new developments.
+
+**Impact:** Updated SYSTEM_PROMPT current_state instructions. No code changes needed — buildUserMessage() already sends existing current_state in context.
+
+## 2026-02-12: open_items Strictly Limited to Explicit Action Items
+
+**Decision:** open_items extraction requires concrete, actionable tasks explicitly stated or clearly implied in the email. Vague intentions, pleasantries, and status commentary are excluded. Assignee model supports person names, multiple people, team names, or null.
+
+**Context:** v0.1 prompt was loose about what constituted an "action item." Claude would extract vague intentions ("let's circle back") and status commentary ("great progress") as open items. Assignees were often wrong or over-attributed.
+
+**Rationale:** Noisy open_items erode trust. Users ignore the list when half the items are fabricated. Strict extraction with realistic assignee patterns (person, "Steven and CJ", "Contrast Security team", null) produces actionable output worth reading.
+
+**Impact:** Updated SYSTEM_PROMPT open_items instructions with positive/negative examples, assignee rules, and due date rules. Empty array explicitly preferred over fabricated items.
+
+## 2026-02-12: Events Schema Simplified — date_precision Removed, host Added
+
+**Decision:** Drop date_precision column from events (either the date exists or it's null). Add host column (text, nullable) for the organization hosting the event.
+
+**Context:** date_precision ("exact", "week", "month", "quarter") added complexity without value — in practice, events either have confirmed dates or they don't. The host field captures a genuinely useful dimension: who's running the event (AWS, RSA Conference, a partner).
+
+**Rationale:** Simpler schema, more useful data. The UI date formatting code that handled quarter/month/week display was removed in favor of straightforward date rendering.
+
+**Impact:** Migration 012 adds host, drops date_precision. Updated Event type, UI components, API routes, and test fixtures.
+
+## 2026-02-12: Programs Lifecycle Model — lifecycle_type + lifecycle_duration
+
+**Decision:** Replace renewal_cycle with lifecycle_type (indefinite/recurring/expiring) + lifecycle_duration (human-readable string, nullable). Default is 'indefinite'.
+
+**Context:** renewal_cycle was a single text field that conflated two concepts: whether a program renews at all and how long its cycle is. "Annual" could mean the program expires yearly or that partners must re-certify yearly.
+
+**Rationale:** lifecycle_type captures the core distinction (does this program end?), while lifecycle_duration captures the timeframe when relevant. Indefinite programs have null duration. This models reality: Security Competency is recurring (annual revalidation), ISV Accelerate is indefinite, a specific funding program might be expiring.
+
+**Impact:** Migration 012 adds both columns with CHECK constraint, drops renewal_cycle. Updated Program type and test fixtures.
