@@ -1,0 +1,383 @@
+{
+    "programs": [],
+    "events": [
+        {
+            "name": "RSA Conference 2025",
+            "type": "conference",
+            "host": "RSA Conference (Crosspoint Capital Partners)",
+            "start_date": "2025-04-28",
+            "end_date": "2025-05-01",
+            "location": "Moscone Center, San Francisco, CA",
+            "description": "Premier global cybersecurity conference with 43,500+ attendees, 650+ exhibitors, and 450+ sessions covering security strategy, threat intelligence, identity, cloud security, and AI."
+        },
+        {
+            "name": "AWS Financial Services Symposium 2025",
+            "type": "summit",
+            "host": "Amazon Web Services",
+            "start_date": "2025-05-15",
+            "end_date": "2025-05-15",
+            "location": "Spring Studios, New York, NY",
+            "description": "Exclusive all-day event for senior business and IT executives across banking, payments, capital markets, and insurance. Invite-only, director level and above."
+        },
+        {
+            "name": "AWS Summit Washington DC 2025",
+            "type": "summit",
+            "host": "Amazon Web Services",
+            "start_date": "2025-06-10",
+            "end_date": "2025-06-11",
+            "location": "Walter E. Washington Convention Center, Washington, DC",
+            "description": "AWS's largest North American summit, tailored for public sector. 340+ sessions covering cloud migration, AI, security, and digital transformation for government, education, and nonprofit."
+        },
+        {
+            "name": "AWS Partner Summit Washington DC 2025",
+            "type": "summit",
+            "host": "Amazon Web Services",
+            "start_date": "2025-06-09",
+            "end_date": "2025-06-09",
+            "location": "Walter E. Washington Convention Center, Washington, DC",
+            "description": "Invite-only partner event preceding the DC Summit. Focused on co-sell strategy, partner enablement, and executive roundtables with AWS leadership."
+        },
+        {
+            "name": "AWS re:Inforce 2025",
+            "type": "conference",
+            "host": "Amazon Web Services",
+            "start_date": "2025-06-16",
+            "end_date": "2025-06-18",
+            "location": "Pennsylvania Convention Center, Philadelphia, PA",
+            "description": "AWS's dedicated cloud security conference. Keynote by CISO Amy Herzog. Hands-on training, security-focused sessions on identity, compliance, threat detection, and privacy. Note: This is the final standalone re:Inforce — in 2026 it merges into re:Invent."
+        },
+        {
+            "name": "AWS Partner Summit New York 2025",
+            "type": "summit",
+            "host": "Amazon Web Services",
+            "start_date": "2025-07-15",
+            "end_date": "2025-07-15",
+            "location": "Javits Convention Center, New York, NY",
+            "description": "Invite-only partner event the day before AWS Summit NYC. Breakout sessions from sponsors, executive roundtables, and networking reception. Auto-registers attendees for Summit NYC."
+        },
+        {
+            "name": "AWS Summit New York 2025",
+            "type": "summit",
+            "host": "Amazon Web Services",
+            "start_date": "2025-07-16",
+            "end_date": "2025-07-16",
+            "location": "Javits Convention Center, New York, NY",
+            "description": "Free one-day summit with keynote by Swami Sivasubramanian (VP, AWS Agentic AI). 15,000+ attendees across enterprise, mid-market, and public sector."
+        },
+        {
+            "name": "Black Hat USA 2025",
+            "type": "conference",
+            "host": "Black Hat (Informa Tech)",
+            "start_date": "2025-08-02",
+            "end_date": "2025-08-07",
+            "location": "Mandalay Bay Convention Center, Las Vegas, NV",
+            "description": "Premier information security conference. Four days of trainings followed by two-day main conference with 100+ briefings, Arsenal tool demos, and summits for executives."
+        },
+        {
+            "name": "AWS re:Invent 2025",
+            "type": "conference",
+            "host": "Amazon Web Services",
+            "start_date": "2025-12-01",
+            "end_date": "2025-12-05",
+            "location": "Las Vegas, NV (multi-venue: Venetian, Mandalay Bay, MGM Grand, Caesars Forum, Wynn, Encore)",
+            "description": "AWS's flagship annual conference. Five keynotes, hundreds of technical and leadership sessions, certification bootcamps, partner expo, and re:Play networking event. 14th annual event."
+        },
+        {
+            "name": "Best of re:Invent 2025 (Virtual)",
+            "type": "conference",
+            "host": "Amazon Web Services",
+            "start_date": "2026-01-28",
+            "end_date": "2026-01-29",
+            "location": "Virtual",
+            "description": "Free virtual event featuring curated highlights, top sessions, and biggest announcements from re:Invent 2025. Available on-demand after live broadcast."
+        },
+        {
+            "name": "AWS PartnerEquip: Live — Bengaluru 2025",
+            "type": "training",
+            "host": "Amazon Web Services",
+            "start_date": null,
+            "end_date": null,
+            "location": "Bengaluru, India",
+            "description": "Three-day in-person enablement for AWS Specialization Partners. NDA product roadmaps, hands-on labs, executive briefings, and co-sell strategy sessions. Invite-only."
+        },
+        {
+            "name": "AWS PartnerEquip: Live — Seattle 2025",
+            "type": "training",
+            "host": "Amazon Web Services",
+            "start_date": null,
+            "end_date": null,
+            "location": "Bellevue, WA",
+            "description": "Three-day in-person enablement for AWS Specialization Partners. NDA product roadmaps, hands-on labs, executive briefings, and co-sell strategy sessions. Invite-only."
+        },
+        {
+            "name": "AWS PartnerEquip: Live — Washington DC 2025",
+            "type": "training",
+            "host": "Amazon Web Services",
+            "start_date": null,
+            "end_date": null,
+            "location": "Washington, DC",
+            "description": "Three-day in-person enablement for AWS Specialization Partners. NDA product roadmaps, hands-on labs, executive briefings, and co-sell strategy sessions. Invite-only."
+        },
+        {
+            "name": "AWS PartnerEquip: Live — London 2025",
+            "type": "training",
+            "host": "Amazon Web Services",
+            "start_date": null,
+            "end_date": null,
+            "location": "London, United Kingdom",
+            "description": "Three-day in-person enablement for AWS Specialization Partners. NDA product roadmaps, hands-on labs, executive briefings, and co-sell strategy sessions. Invite-only."
+        },
+        {
+            "name": "HIMSS26 Global Health Conference",
+            "type": "conference",
+            "host": "Healthcare Information and Management Systems Society (HIMSS)",
+            "start_date": "2026-03-09",
+            "end_date": "2026-03-12",
+            "location": "Venetian Expo & Convention Center, Las Vegas, NV",
+            "description": "Premier healthcare IT conference with 25,000+ attendees from 88 countries. 600+ sessions, 950+ exhibitors covering health IT innovation, cybersecurity, AI, interoperability, and digital transformation."
+        },
+        {
+            "name": "RSA Conference 2026",
+            "type": "conference",
+            "host": "RSA Conference (Crosspoint Capital Partners)",
+            "start_date": "2026-03-23",
+            "end_date": "2026-03-26",
+            "location": "Moscone Center, San Francisco, CA",
+            "description": "Premier global cybersecurity conference. Theme: Power of Community. 600+ exhibitors, sessions on agentic AI, identity, cloud security, threat intelligence, and regulatory policy."
+        },
+        {
+            "name": "AWS Summit Paris 2026",
+            "type": "summit",
+            "host": "Amazon Web Services",
+            "start_date": "2026-04-01",
+            "end_date": "2026-04-01",
+            "location": "Palais des Congres de Paris, Paris, France",
+            "description": "Free one-day summit covering cloud migration, agentic AI, serverless computing, and customer showcases. Keynote, breakout sessions, partner expo, and networking reception."
+        },
+        {
+            "name": "Hannover Messe 2026",
+            "type": "trade_show",
+            "host": "Deutsche Messe AG",
+            "start_date": "2026-04-20",
+            "end_date": "2026-04-24",
+            "location": "Hannover Exhibition Grounds, Hannover, Germany",
+            "description": "World's leading industrial trade fair with 4,000+ exhibitors and 120,000+ visitors. Covers automation, digitalization, energy, robotics, AI, cybersecurity for OT/ICS, and Industry 4.0."
+        },
+        {
+            "name": "AWS Summit London 2026",
+            "type": "summit",
+            "host": "Amazon Web Services",
+            "start_date": "2026-04-22",
+            "end_date": "2026-04-22",
+            "location": "ExCeL London, Royal Victoria Dock, London, United Kingdom",
+            "description": "Free one-day summit with keynote, breakout sessions, partner expo, and networking reception. Topics include agentic AI, serverless computing, cloud migration, and security."
+        },
+        {
+            "name": "AWS Summit Singapore 2026",
+            "type": "summit",
+            "host": "Amazon Web Services",
+            "start_date": "2026-05-06",
+            "end_date": "2026-05-06",
+            "location": "Singapore",
+            "description": "Free one-day AWS Summit for the Southeast Asia region covering cloud innovation, AI, and digital transformation."
+        },
+        {
+            "name": "AWS Summit Sydney 2026",
+            "type": "summit",
+            "host": "Amazon Web Services",
+            "start_date": "2026-05-13",
+            "end_date": "2026-05-14",
+            "location": "Sydney, Australia",
+            "description": "Two-day AWS Summit for Australia and New Zealand. Cloud innovation, AI, data analytics, and partner solutions."
+        },
+        {
+            "name": "AWS Summit Hong Kong 2026",
+            "type": "summit",
+            "host": "Amazon Web Services",
+            "start_date": "2026-05-15",
+            "end_date": "2026-05-15",
+            "location": "Hong Kong",
+            "description": "Free one-day AWS Summit for the Greater China and Asia Pacific region."
+        },
+        {
+            "name": "HIMSS26 European Health Conference",
+            "type": "conference",
+            "host": "Healthcare Information and Management Systems Society (HIMSS)",
+            "start_date": "2026-05-19",
+            "end_date": "2026-05-21",
+            "location": "Bella Center, Copenhagen, Denmark",
+            "description": "European edition of HIMSS conference. Digital health transformation, AI, interoperability, cybersecurity, and policy across European health ecosystems."
+        },
+        {
+            "name": "AWS Summit Hamburg 2026",
+            "type": "summit",
+            "host": "Amazon Web Services",
+            "start_date": "2026-05-20",
+            "end_date": "2026-05-20",
+            "location": "Hamburg, Germany",
+            "description": "Free one-day AWS Summit for the DACH region covering cloud innovation, AI, and partner solutions."
+        },
+        {
+            "name": "AWS Summit Seoul 2026",
+            "type": "summit",
+            "host": "Amazon Web Services",
+            "start_date": "2026-05-20",
+            "end_date": "2026-05-21",
+            "location": "Seoul, South Korea",
+            "description": "Two-day AWS Summit for South Korea covering cloud innovation, AI, and digital transformation."
+        },
+        {
+            "name": "AWS Summit Mumbai 2026",
+            "type": "summit",
+            "host": "Amazon Web Services",
+            "start_date": "2026-05-28",
+            "end_date": "2026-05-28",
+            "location": "Mumbai, India",
+            "description": "Free one-day AWS Summit for the India region covering cloud innovation, AI, and digital transformation."
+        },
+        {
+            "name": "AWS Summit Milan 2026",
+            "type": "summit",
+            "host": "Amazon Web Services",
+            "start_date": "2026-05-28",
+            "end_date": "2026-05-28",
+            "location": "Milan, Italy",
+            "description": "Free one-day AWS Summit for Southern Europe covering cloud innovation, AI, and partner solutions."
+        },
+        {
+            "name": "Gartner Security & Risk Management Summit 2026 (US)",
+            "type": "summit",
+            "host": "Gartner",
+            "start_date": "2026-06-01",
+            "end_date": "2026-06-03",
+            "location": "Gaylord National Resort & Convention Center, National Harbor, MD",
+            "description": "Premier summit for CISOs and security leaders. Tracks on AI in cybersecurity, cyber resilience, cloud security, data security, and security leadership. Theme: Smarter, Faster, Stronger … Together."
+        },
+        {
+            "name": "AWS Summit Toronto 2026",
+            "type": "summit",
+            "host": "Amazon Web Services",
+            "start_date": "2026-06-03",
+            "end_date": "2026-06-03",
+            "location": "Metro Toronto Convention Centre, Toronto, Canada",
+            "description": "Free one-day AWS Summit for Canada covering cloud innovation, AI, and partner solutions."
+        },
+        {
+            "name": "AWS Summit Madrid 2026",
+            "type": "summit",
+            "host": "Amazon Web Services",
+            "start_date": "2026-06-04",
+            "end_date": "2026-06-04",
+            "location": "Madrid, Spain",
+            "description": "Free one-day AWS Summit for Iberia region covering cloud innovation, AI, and partner solutions."
+        },
+        {
+            "name": "AWS Summit Los Angeles 2026",
+            "type": "summit",
+            "host": "Amazon Web Services",
+            "start_date": "2026-06-10",
+            "end_date": "2026-06-10",
+            "location": "Los Angeles, CA",
+            "description": "Free one-day AWS Summit for the West Coast US region covering cloud innovation, AI, security, and partner solutions."
+        },
+        {
+            "name": "AWS Summit New York 2026",
+            "type": "summit",
+            "host": "Amazon Web Services",
+            "start_date": "2026-06-17",
+            "end_date": "2026-06-17",
+            "location": "Javits Convention Center, New York, NY",
+            "description": "Free one-day AWS Summit for the East Coast US region. Expected 15,000+ attendees across enterprise, mid-market, and public sector."
+        },
+        {
+            "name": "AWS Summit Tokyo 2026",
+            "type": "summit",
+            "host": "Amazon Web Services",
+            "start_date": "2026-06-25",
+            "end_date": "2026-06-26",
+            "location": "Tokyo, Japan",
+            "description": "Two-day AWS Summit for Japan covering cloud innovation, AI, and digital transformation."
+        },
+        {
+            "name": "AWS Summit Washington DC 2026",
+            "type": "summit",
+            "host": "Amazon Web Services",
+            "start_date": "2026-06-30",
+            "end_date": "2026-07-01",
+            "location": "Walter E. Washington Convention Center, Washington, DC",
+            "description": "AWS's largest North American summit, tailored for public sector. Note: Shifted from June 10-11 (2025) to June 30 – July 1 (2026). 340+ sessions, partner expo."
+        },
+        {
+            "name": "AWS Summit Bogota 2026",
+            "type": "summit",
+            "host": "Amazon Web Services",
+            "start_date": "2026-07-30",
+            "end_date": "2026-07-30",
+            "location": "Bogota, Colombia",
+            "description": "Free one-day AWS Summit for the Andean region of Latin America."
+        },
+        {
+            "name": "Black Hat USA 2026",
+            "type": "conference",
+            "host": "Black Hat (Informa Tech)",
+            "start_date": "2026-08-01",
+            "end_date": "2026-08-06",
+            "location": "Mandalay Bay Convention Center, Las Vegas, NV",
+            "description": "Premier information security conference. Trainings Aug 1-4, Summits Aug 4, Briefings Aug 5-6. 100+ briefings, Arsenal demos, and executive summits."
+        },
+        {
+            "name": "AWS Summit Jakarta 2026",
+            "type": "summit",
+            "host": "Amazon Web Services",
+            "start_date": "2026-08-06",
+            "end_date": "2026-08-06",
+            "location": "Jakarta, Indonesia",
+            "description": "Free one-day AWS Summit for Indonesia and Southeast Asia."
+        },
+        {
+            "name": "AWS Summit Mexico City 2026",
+            "type": "summit",
+            "host": "Amazon Web Services",
+            "start_date": "2026-08-12",
+            "end_date": "2026-08-12",
+            "location": "Mexico City, Mexico",
+            "description": "Free one-day AWS Summit for Mexico and Central America."
+        },
+        {
+            "name": "AWS Summit Zurich 2026",
+            "type": "summit",
+            "host": "Amazon Web Services",
+            "start_date": "2026-09-02",
+            "end_date": "2026-09-02",
+            "location": "Zurich, Switzerland",
+            "description": "Free one-day AWS Summit for Switzerland and the Alpine region."
+        },
+        {
+            "name": "Gartner Security & Risk Management Summit 2026 (London)",
+            "type": "summit",
+            "host": "Gartner",
+            "start_date": "2026-09-22",
+            "end_date": "2026-09-22",
+            "location": "ExCeL London, London, United Kingdom",
+            "description": "European edition of Gartner's security summit for CISOs and security leaders. Focused on enterprise security strategy, vendor selection, and risk frameworks for EMEA."
+        },
+        {
+            "name": "AWS Summit Canberra 2026",
+            "type": "summit",
+            "host": "Amazon Web Services",
+            "start_date": null,
+            "end_date": null,
+            "location": "Canberra, Australia",
+            "description": "AWS Summit focused on Australian public sector. Date TBD for 2026."
+        },
+        {
+            "name": "AWS re:Invent 2026",
+            "type": "conference",
+            "host": "Amazon Web Services",
+            "start_date": null,
+            "end_date": null,
+            "location": "Las Vegas, NV",
+            "description": "AWS flagship annual conference. Dates TBD but expected December 2026. Note: 2026 will incorporate re:Inforce security content — no standalone re:Inforce event in 2026."
+        }
+    ]
+}
