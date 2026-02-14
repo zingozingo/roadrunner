@@ -38,10 +38,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { text, subject, sender, messageId, context: contextOverride } = body as {
+  const { text, subject, sender, senderEmail, messageId, context: contextOverride } = body as {
     text?: string;
     subject?: string;
     sender?: string;
+    senderEmail?: string;
     messageId?: string;
     context?: ClassifyContext;
   };
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
           id: "test-00000000-0000-0000-0000-000000000000",
           engagement_id: null,
           sender_name: (sender as string) ?? null,
-          sender_email: null,
+          sender_email: (senderEmail as string) ?? null,
           sent_at: new Date().toISOString(),
           subject: (subject as string) ?? null,
           body_text: text as string,

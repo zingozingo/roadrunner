@@ -88,7 +88,7 @@ export default function Sidebar({
   };
 
   const nav = (
-    <nav className="flex flex-col gap-1 px-3 py-4">
+    <nav className="flex h-full flex-col gap-1 px-3 py-4">
       <Link
         href="/"
         className="mb-4 flex items-center gap-2 px-3 py-2"
@@ -120,6 +120,25 @@ export default function Sidebar({
           </Link>
         );
       })}
+
+      {/* Dev tools — pinned to bottom */}
+      <div className="mt-auto border-t border-border pt-3">
+        <Link
+          href="/test"
+          onClick={() => setMobileOpen(false)}
+          className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+            pathname === "/test"
+              ? "bg-accent/10 text-accent"
+              : "text-muted hover:bg-surface-hover hover:text-foreground"
+          }`}
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M8 2v5l-2 3v6a1 1 0 001 1h6a1 1 0 001-1v-6l-2-3V2" />
+            <path d="M6 2h8" />
+          </svg>
+          <span>Test</span>
+        </Link>
+      </div>
     </nav>
   );
 
