@@ -42,7 +42,7 @@ const NOISE_PATTERNS = [
 /**
  * Parse a "Name <email>" string into its parts.
  */
-function parseSenderField(raw: string): {
+export function parseSenderField(raw: string): {
   senderName: string | null;
   senderEmail: string | null;
 } {

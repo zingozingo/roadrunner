@@ -84,6 +84,10 @@ export interface Message {
   forwarded_at: string;
   pending_review: boolean;
   classification_result: ClassificationResult | null;
+  forwarder_email: string | null;
+  forwarder_name: string | null;
+  to_header: string | null;
+  cc_header: string | null;
 }
 
 export interface Participant {
@@ -166,6 +170,10 @@ export interface ParsedMessage {
   subject: string | null;
   body_text: string;
   body_raw: string;
+  forwarder_email?: string | null;
+  forwarder_name?: string | null;
+  to_header?: string | null;
+  cc_header?: string | null;
 }
 
 /** Mailgun inbound webhook multipart form fields */

@@ -18,6 +18,10 @@ function makeMessage(overrides: Partial<Message> = {}): Message {
     forwarded_at: "2025-02-03T16:00:00Z",
     pending_review: false,
     classification_result: null,
+    forwarder_email: null,
+    forwarder_name: null,
+    to_header: null,
+    cc_header: null,
     ...overrides,
   };
 }

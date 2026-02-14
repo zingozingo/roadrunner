@@ -56,6 +56,10 @@ export async function storeMessages(
     content_type: null,
     classification_confidence: null,
     linked_entities: [],
+    forwarder_email: m.forwarder_email ?? null,
+    forwarder_name: m.forwarder_name ?? null,
+    to_header: m.to_header ?? null,
+    cc_header: m.cc_header ?? null,
   }));
 
   const { data, error } = await getSupabaseClient()

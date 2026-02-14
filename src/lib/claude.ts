@@ -244,8 +244,10 @@ function buildUserMessage(
     if (messages.length > 1) {
       parts.push(`### Message from ${msg.sender_name || msg.sender_email || "Unknown"}`);
     }
-    if (msg.subject) parts.push(`**Subject:** ${msg.subject}`);
     if (msg.sender_email) parts.push(`**From:** ${msg.sender_name || ""} <${msg.sender_email}>`);
+    if (msg.to_header) parts.push(`**To:** ${msg.to_header}`);
+    if (msg.cc_header) parts.push(`**CC:** ${msg.cc_header}`);
+    if (msg.subject) parts.push(`**Subject:** ${msg.subject}`);
     if (msg.sent_at) parts.push(`**Date:** ${msg.sent_at}`);
     parts.push(`\n${msg.body_text || msg.body_raw || "(empty body)"}\n`);
   }

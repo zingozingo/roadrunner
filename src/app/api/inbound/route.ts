@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { parseForwardedEmail } from "@/lib/email-parser";
+import { parseForwardedEmail, parseSenderField } from "@/lib/email-parser";
 import { storeMessages, checkDuplicateMessage } from "@/lib/supabase";
 import { processSingleMessage } from "@/lib/classifier";
+import { ForwarderContext } from "@/lib/claude";
 
 /**
  * Verify Mailgun webhook signature.
@@ -136,9 +137,32 @@ export async function POST(request: NextRequest) {
     const subject = fields.get("subject") ?? "";
     const bodyPlain = fields.get("body-plain") ?? "";
     const strippedText = fields.get("stripped-text") ?? "";
+    const toHeader = fields.get("To") ?? "";
+    const ccHeader = fields.get("Cc") ?? "";
 
     // Prefer stripped-text (Mailgun's cleaned version), fall back to body-plain
     const emailBody = strippedText || bodyPlain;
+
+    // Parse forwarder identity from Mailgun envelope sender.
+    // When Steven forwards to Relay, Mailgun's "sender" = Steven's address.
+    const { senderName: forwarderName, senderEmail: forwarderEmail } =
+      parseSenderField(sender);
+
+    // Build forwarder context for classification
+    const forwarderContext: ForwarderContext | undefined =
+      forwarderName && forwarderEmail
+        ? { name: forwarderName, email: forwarderEmail }
+        : forwarderEmail
+          ? { name: forwarderEmail, email: forwarderEmail }
+          : undefined;
+
+    // Filter the Relay inbound address out of the To header — Claude doesn't need it
+    const relayAddress = (process.env.RELAY_EMAIL_ADDRESS ?? "").toLowerCase();
+    const filteredTo = toHeader
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => !relayAddress || !s.toLowerCase().includes(relayAddress))
+      .join(", ");
 
     if (!emailBody.trim()) {
       console.warn("Inbound webhook received empty email body", {
@@ -154,6 +178,14 @@ export async function POST(request: NextRequest) {
       subject,
       timestamp: forwardTimestamp,
     });
+
+    // Stamp forwarder identity and email headers onto every parsed message
+    for (const msg of parsed) {
+      msg.forwarder_email = forwarderEmail ?? null;
+      msg.forwarder_name = forwarderName ?? null;
+      msg.to_header = filteredTo || null;
+      msg.cc_header = ccHeader || null;
+    }
 
     console.log(`Email parsing: extracted ${parsed.length} message(s) from "${subject}"`);
 
@@ -190,7 +222,7 @@ export async function POST(request: NextRequest) {
     // Vercel's serverless timeout.
     let classified = false;
     try {
-      const result = await processSingleMessage(storedIds);
+      const result = await processSingleMessage(storedIds, forwarderContext);
       classified = result !== null;
       console.log(`Classification: ${classified ? "success" : "no result"}`);
     } catch (classifyError) {

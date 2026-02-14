@@ -45,7 +45,16 @@ export async function processUnclassifiedMessages(): Promise<{
 
   for (const group of groups) {
     try {
-      const result = await classifyMessage(group, context);
+      // Recover forwarder context from stored message metadata
+      const representative = group[0];
+      const forwarderContext: ForwarderContext | undefined =
+        representative.forwarder_name && representative.forwarder_email
+          ? { name: representative.forwarder_name, email: representative.forwarder_email }
+          : representative.forwarder_email
+            ? { name: representative.forwarder_email, email: representative.forwarder_email }
+            : undefined;
+
+      const result = await classifyMessage(group, context, forwarderContext);
       const { needsReview } = await applyClassificationResult(group, result, context);
       stats.processed += group.length;
 

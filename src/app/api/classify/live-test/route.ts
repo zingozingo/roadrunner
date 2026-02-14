@@ -53,15 +53,6 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Build body text with To/CC headers for context
-    let fullBody = emailBody;
-    if (to || cc) {
-      const headerLines: string[] = [];
-      if (to) headerLines.push(`To: ${to}`);
-      if (cc) headerLines.push(`CC: ${cc}`);
-      fullBody = headerLines.join("\n") + "\n\n" + fullBody;
-    }
-
     // 1. Store the test message (mimicking /api/inbound)
     const parsed: ParsedMessage[] = [
       {
@@ -69,8 +60,12 @@ export async function POST(request: NextRequest) {
         sender_email: fromEmail ?? null,
         sent_at: date ?? new Date().toISOString(),
         subject: subject ?? null,
-        body_text: fullBody,
+        body_text: emailBody,
         body_raw: emailBody,
+        forwarder_email: forwarderEmail ?? null,
+        forwarder_name: forwarderName ?? null,
+        to_header: to ?? null,
+        cc_header: cc ?? null,
       },
     ];
 

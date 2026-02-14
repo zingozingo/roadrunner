@@ -100,15 +100,6 @@ export async function POST(request: NextRequest) {
     if (hasText) {
       mode = "raw";
 
-      // Build the body text with email headers for Claude to see
-      let fullBody = text as string;
-      if (to || cc) {
-        const headerLines: string[] = [];
-        if (to) headerLines.push(`To: ${to}`);
-        if (cc) headerLines.push(`CC: ${cc}`);
-        fullBody = headerLines.join("\n") + "\n\n" + fullBody;
-      }
-
       messages = [
         {
           id: "test-00000000-0000-0000-0000-000000000000",
@@ -117,7 +108,7 @@ export async function POST(request: NextRequest) {
           sender_email: resolvedSenderEmail,
           sent_at: date ?? new Date().toISOString(),
           subject: (subject as string) ?? null,
-          body_text: fullBody,
+          body_text: text as string,
           body_raw: null,
           content_type: null,
           classification_confidence: null,
@@ -125,6 +116,10 @@ export async function POST(request: NextRequest) {
           forwarded_at: new Date().toISOString(),
           pending_review: false,
           classification_result: null,
+          forwarder_email: forwarderEmail ?? null,
+          forwarder_name: forwarderName ?? null,
+          to_header: (to as string) ?? null,
+          cc_header: (cc as string) ?? null,
         },
       ];
     } else {

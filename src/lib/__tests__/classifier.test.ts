@@ -206,6 +206,10 @@ function makeMessage(overrides: Partial<Message> = {}): Message {
     forwarded_at: "2025-02-03T16:00:00Z",
     pending_review: false,
     classification_result: null,
+    forwarder_email: null,
+    forwarder_name: null,
+    to_header: null,
+    cc_header: null,
     ...overrides,
   };
 }
@@ -318,14 +322,15 @@ describe("processUnclassifiedMessages", () => {
     expect(result.autoAssigned).toBe(1);
     expect(result.flaggedForReview).toBe(0);
 
-    // Verify classifyMessage was called with the message and full context
+    // Verify classifyMessage was called with the message, full context, and no forwarder
     expect(mockClassifyMessage).toHaveBeenCalledWith(
       [msg],
       {
         engagements: [ENGAGEMENT_FALCON],
         events: [EVENT_REINVENT],
         programs: [PROGRAM_COMPETENCY],
-      }
+      },
+      undefined
     );
   });
 
