@@ -77,6 +77,8 @@ describe("parseForwardedEmail", () => {
       expect(messages[1].subject).toBe("Security Review Next Steps");
       expect(messages[1].sent_at).not.toBeNull();
       expect(messages[1].body_text).toContain("Project Falcon");
+      expect(messages[1].to_header).toBe("Bob Lee <bob@aws.example.com>");
+      expect(messages[1].cc_header).toBeNull();
     });
 
     it("parses the second thread message (Bob)", () => {
@@ -85,13 +87,19 @@ describe("parseForwardedEmail", () => {
       expect(messages[2].subject).toBe("Re: Security Review Next Steps");
       expect(messages[2].body_text).toContain("Thursday at 2pm");
       expect(messages[2].body_text).toContain("re:Invent");
+      expect(messages[2].to_header).toBe("Alice Chen <alice@partnerco.com>");
+      expect(messages[2].cc_header).toBeNull();
     });
 
-    it("parses the third thread message (Alice reply)", () => {
+    it("parses the third thread message (Alice reply with multiple To recipients)", () => {
       expect(messages[3].sender_name).toBe("Alice Chen");
       expect(messages[3].sender_email).toBe("alice@partnerco.com");
       expect(messages[3].body_text).toContain("calendar invite");
       expect(messages[3].body_text).toContain("Competency program");
+      expect(messages[3].to_header).toBe(
+        "Bob Lee <bob@aws.example.com>; Dana Wright <dana@aws.example.com>"
+      );
+      expect(messages[3].cc_header).toBeNull();
     });
 
     it("strips 'Sent from my iPhone' from Alice's first message", () => {
@@ -159,6 +167,8 @@ Here's the latest on the SaaS migration project.`;
       expect(messages[0].sender_email).toBe("carlos@partner.com");
       expect(messages[0].subject).toBe("Partnership Update");
       expect(messages[0].body_text).toContain("SaaS migration");
+      expect(messages[0].to_header).toBe("Steven <steven@example.com>");
+      expect(messages[0].cc_header).toBeNull();
     });
   });
 
@@ -176,6 +186,79 @@ Weekly report attached.`;
     it("handles sender with no angle brackets", () => {
       expect(messages[0].sender_name).toBeNull();
       expect(messages[0].sender_email).toBe("noreply@system.com");
+    });
+  });
+
+  describe("Outlook header with CC line", () => {
+    const body = `
+________________________________
+From: Tanya Green <tanya.green@qualys.com>
+Sent: Friday, February 14, 2025 9:15 AM
+To: Steven Romero <sterme@amazon.com>
+Cc: CJ Martinez <cj@qualys.com>; Brian Park <bpark@amazon.com>
+Subject: Re: Qualys - ISV Accelerate Next Steps
+
+Hi Steven and team,
+
+Just confirming our call for Monday at 10am PT to review the integration roadmap.
+
+Thanks,
+Tanya`;
+
+    const messages = parseForwardedEmail(body);
+
+    it("parses the header block even when CC line is present", () => {
+      expect(messages.length).toBe(1);
+      expect(messages[0].sender_name).toBe("Tanya Green");
+      expect(messages[0].sender_email).toBe("tanya.green@qualys.com");
+      expect(messages[0].subject).toBe("Re: Qualys - ISV Accelerate Next Steps");
+      expect(messages[0].body_text).toContain("integration roadmap");
+    });
+
+    it("extracts To header from inner Outlook headers", () => {
+      expect(messages[0].to_header).toBe("Steven Romero <sterme@amazon.com>");
+    });
+
+    it("extracts CC header from inner Outlook headers", () => {
+      expect(messages[0].cc_header).toBe(
+        "CJ Martinez <cj@qualys.com>; Brian Park <bpark@amazon.com>"
+      );
+    });
+  });
+
+  describe("multi-message thread with CC on some messages", () => {
+    const body = `
+________________________________
+From: Alice Chen <alice@partnerco.com>
+Sent: Monday, February 3, 2025 10:30 AM
+To: Bob Lee <bob@aws.example.com>
+Subject: Security Review
+
+Initial review request.
+
+________________________________
+From: Bob Lee <bob@aws.example.com>
+Sent: Monday, February 3, 2025 2:15 PM
+To: Alice Chen <alice@partnerco.com>
+Cc: Dana Wright <dana@aws.example.com>
+Subject: Re: Security Review
+
+Looping in Dana from our SA team.`;
+
+    const messages = parseForwardedEmail(body);
+
+    it("parses both messages (one without CC, one with CC)", () => {
+      expect(messages.length).toBe(2);
+    });
+
+    it("first message has no CC", () => {
+      expect(messages[0].to_header).toBe("Bob Lee <bob@aws.example.com>");
+      expect(messages[0].cc_header).toBeNull();
+    });
+
+    it("second message has CC", () => {
+      expect(messages[1].to_header).toBe("Alice Chen <alice@partnerco.com>");
+      expect(messages[1].cc_header).toBe("Dana Wright <dana@aws.example.com>");
     });
   });
 });

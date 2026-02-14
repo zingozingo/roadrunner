@@ -8,20 +8,27 @@ import { ParsedMessage } from "./types";
  *   From: Jane Smith <jane@example.com>
  *   Sent: Monday, February 3, 2025 10:30 AM
  *   To: Bob Lee <bob@partner.com>
+ *   Cc: Dana Wright <dana@aws.example.com>     ← optional
  *   Subject: Re: Security Review
  *
  *   [body text]
  *
  * Some variations use "Date:" instead of "Sent:", or skip the separator line.
+ * The CC line is optional — when present it appears between To and Subject.
+ *
+ * Capture groups: 1=From, 2=Sent, 3=To, 4=Cc (optional), 5=Subject
+ *
+ * NOTE: Multi-line To/CC wrapping is not handled yet — future enhancement.
  */
 const FORWARDED_BLOCK_RE =
-  /(?:^|\n)(?:_{3,}|-{3,}|\*{3,})?\s*\n?From:\s+(.+)\nSent:\s+(.+)\nTo:\s+(.+)\nSubject:\s+(.+)\n/gi;
+  /(?:^|\n)(?:_{3,}|-{3,}|\*{3,})?\s*\n?From:\s+(.+)\nSent:\s+(.+)\nTo:\s+(.+)\n(?:Cc:\s+(.+)\n)?Subject:\s+(.+)\n/gi;
 
 /**
  * Alternative header pattern — some clients use "Date:" instead of "Sent:"
+ * Capture groups: 1=From, 2=Date, 3=To, 4=Cc (optional), 5=Subject
  */
 const ALT_BLOCK_RE =
-  /(?:^|\n)(?:_{3,}|-{3,}|\*{3,})?\s*\n?From:\s+(.+)\nDate:\s+(.+)\nTo:\s+(.+)\nSubject:\s+(.+)\n/gi;
+  /(?:^|\n)(?:_{3,}|-{3,}|\*{3,})?\s*\n?From:\s+(.+)\nDate:\s+(.+)\nTo:\s+(.+)\n(?:Cc:\s+(.+)\n)?Subject:\s+(.+)\n/gi;
 
 /**
  * Patterns to strip from message bodies — signatures, disclaimers, device tags.
@@ -96,6 +103,8 @@ interface HeaderMatch {
   fullMatchEnd: number;
   senderRaw: string;
   sentRaw: string;
+  toRaw: string;
+  ccRaw: string | null;
   subject: string;
 }
 
@@ -119,7 +128,9 @@ function findHeaderBlocks(text: string): HeaderMatch[] {
         fullMatchEnd: match.index + match[0].length,
         senderRaw: match[1].trim(),
         sentRaw: match[2].trim(),
-        subject: match[4].trim(),
+        toRaw: match[3].trim(),
+        ccRaw: match[4]?.trim() ?? null,
+        subject: match[5].trim(),
       });
     }
   }
@@ -183,6 +194,8 @@ export function parseForwardedEmail(
       subject: header.subject,
       body_text: stripNoise(bodySlice),
       body_raw: bodySlice.trim(),
+      to_header: header.toRaw,
+      cc_header: header.ccRaw,
     });
   }
 

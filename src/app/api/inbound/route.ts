@@ -179,12 +179,14 @@ export async function POST(request: NextRequest) {
       timestamp: forwardTimestamp,
     });
 
-    // Stamp forwarder identity and email headers onto every parsed message
+    // Stamp forwarder identity onto every parsed message.
+    // For To/CC: prefer inner Outlook headers extracted by the parser (set per-message),
+    // fall back to Mailgun's outer envelope fields (for direct, non-forwarded emails).
     for (const msg of parsed) {
       msg.forwarder_email = forwarderEmail ?? null;
       msg.forwarder_name = forwarderName ?? null;
-      msg.to_header = filteredTo || null;
-      msg.cc_header = ccHeader || null;
+      msg.to_header = msg.to_header || filteredTo || null;
+      msg.cc_header = msg.cc_header || ccHeader || null;
     }
 
     console.log(`Email parsing: extracted ${parsed.length} message(s) from "${subject}"`);
