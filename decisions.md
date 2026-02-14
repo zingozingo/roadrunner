@@ -403,3 +403,143 @@ Next.js 14 App Router + TypeScript + Tailwind. Supabase Postgres for data. Singl
 **Rationale:** lifecycle_type captures the core distinction (does this program end?), while lifecycle_duration captures the timeframe when relevant. Indefinite programs have null duration. This models reality: Security Competency is recurring (annual revalidation), ISV Accelerate is indefinite, a specific funding program might be expiring.
 
 **Impact:** Migration 012 adds both columns with CHECK constraint, drops renewal_cycle. Updated Program type and test fixtures.
+
+## 2026-02-14: Initiatives Renamed to Engagements
+
+**Decision:** Rename "initiatives" to "engagements" across the entire codebase — 38 files including database migration, API routes, UI components, types, prompts, and tests.
+
+**Context:** "Initiative" implied project management. The system tracks ongoing partner relationships through email threads — that's an engagement. "Engagement" is the term PDMs actually use.
+
+**Rationale:** Domain language should drive naming. Every forwarded email is about engaging with a partner on something concrete, not managing a project.
+
+**Impact:** Migration 010 renames database table and all FK references. URL paths changed to /engagements/. TypeScript types renamed. Classification prompt updated. Redirect from old /initiatives/ paths.
+
+## 2026-02-14: Events and Programs Seed-Only, Matched by ID
+
+**Decision:** Claude never creates events or programs. It matches to pre-seeded reference data by UUID only. No fuzzy name resolution in application code.
+
+**Context:** Claude was fabricating events from vague email mentions, duplicating programs from fuzzy name matching, and generating IDs that didn't exist. The event approval flow added complexity for low-value entity creation.
+
+**Rationale:** "Constrain intelligence" — give Claude structured reference data with stable IDs and let it match, not create. Programs (~15-20) and events (~10-50/year) are small enough to seed manually.
+
+**Impact:** Eliminated findOrCreateEvent(), findOrCreateProgram(), EventApprovalCard, event_creation approval type, normalizeEntityName(), and the entire name→ID resolution layer.
+
+## 2026-02-14: Single Shared Persistence Function
+
+**Decision:** Consolidated two parallel persistence codepaths into a single `persistClassificationResult()` function used by both auto-assign (classifier.ts) and manual resolve (resolve/route.ts).
+
+**Context:** Auto-assign path used a stale context map for entity links — engagements created during classification weren't in the map, so their links silently failed. Manual resolve path built a fresh map and worked. Two copies had diverged in error handling, dedup logic, and open_items merging.
+
+**Rationale:** Same job should have same behavior. Fix once, works everywhere.
+
+**Impact:** ~200 lines of duplicate code removed. Entity links no longer fail silently on auto-created engagements. Both paths call the same function with the same signature.
+
+## 2026-02-14: Entity Links via Matched Arrays with Relationship
+
+**Decision:** Removed `entity_links` array from ClassificationResult. The `matched_events` and `matched_programs` arrays with `{ id, name, relationship }` ARE the links.
+
+**Context:** Old `entity_links` array used name-based resolution — `source_name`/`target_name` strings matched against a name→ID map. Normalization was fragile ("AWS re:Invent" vs "re:Invent 2025" failed to match).
+
+**Rationale:** ID-based by construction. If it's in `matched_events`, it has a valid UUID from the context Claude received. No post-hoc resolution needed.
+
+**Impact:** Eliminated name-based entity link resolution entirely. `createEntityLink()` now takes IDs directly from Claude's response.
+
+## 2026-02-14: Content Types Simplified
+
+**Decision:** Reduced content types from 6 to 4: `engagement_email`, `meeting_invite`, `mixed`, `noise`. Removed `event_info` and `program_info`.
+
+**Context:** `event_info` and `program_info` existed to route emails into the event/program creation pathways. Without creation, an email mentioning an event is just an `engagement_email` that matches an event by ID.
+
+**Rationale:** Fewer content types means simpler routing logic and cleaner prompt instructions.
+
+**Impact:** Migration 011 updates existing data. ClassificationResult type simplified. Prompt content_type enum reduced.
+
+## 2026-02-14: Tags System
+
+**Decision:** JSONB string array on engagements table. Claude suggests tags via `suggested_tags` in classification response. Users can edit freely. Lowercase, freeform labels like "co-sell", "poc", "finserv", "marketplace".
+
+**Context:** Needed a categorization mechanism that doesn't require rigid taxonomy. Not everything fits into programs, events, or entity links. Campaigns, strategic labels, workflow states, and segments need a home.
+
+**Rationale:** Tags are cheap, flexible, and can evolve into formal programs if a pattern emerges. No schema changes needed to add new categories.
+
+**Impact:** Migration 011 adds `tags jsonb DEFAULT '[]'` to engagements. Classifier merges new tags (deduplicated) on each classification. Tag pills on engagement cards and detail page.
+
+## 2026-02-14: Program Lifecycle Model
+
+**Decision:** Replace `renewal_cycle` with `lifecycle_type` (indefinite/recurring/expiring) + `lifecycle_duration` (human-readable string, nullable).
+
+**Context:** AWS programs have three distinct patterns: Security Competency is recurring (annual revalidation), ISV Accelerate is indefinite (no expiry), a specific funding program might be expiring. A single text field couldn't express this.
+
+**Rationale:** `lifecycle_type` captures the core distinction (does this end?), while `lifecycle_duration` captures the timeframe when relevant. Indefinite programs have null duration.
+
+**Impact:** Migration 012 adds both columns with CHECK constraint, drops renewal_cycle. Updated Program type and seed data format.
+
+## 2026-02-14: Events — Host Added, date_precision Removed
+
+**Decision:** Added `host` text column (who runs the event). Removed `date_precision` enum (exact/week/month/quarter).
+
+**Context:** `date_precision` was overthinking it — in practice, events either have confirmed dates or they don't, `null` suffices. `host` matters for distinguishing AWS events from partner events from industry events.
+
+**Rationale:** Simpler schema, more useful data. The date formatting code that handled quarter/month/week display was removed in favor of straightforward date rendering.
+
+**Impact:** Migration 012 adds host, drops date_precision. Updated Event type, UI, and seed data format.
+
+## 2026-02-14: current_state Evolves Not Overwrites
+
+**Decision:** Prompt instructs Claude to read the existing `current_state` from context and evolve it — updating only material changes while preserving accumulated context. Routine follow-ups (scheduling, acknowledgments) return existing state with minimal changes.
+
+**Context:** Every email was generating a fresh current_state, causing recency bias and losing accumulated context. A routine "sounds good!" reply would replace a detailed briefing about engagement scope.
+
+**Rationale:** Like a Wikipedia article — update the section that changed, don't rewrite the whole thing. Engagement state should accumulate knowledge over time.
+
+**Impact:** Updated SYSTEM_PROMPT with explicit current_state instructions for existing vs new engagements and style rules. No code changes — `buildUserMessage()` already sends existing current_state in context.
+
+## 2026-02-14: open_items Strictly Limited
+
+**Decision:** Prompt includes positive and negative examples for open_items. Assignee model supports: one person ("Steven"), multiple people ("Steven and CJ"), team/company ("Contrast Security team"), or null. Due dates only from explicit statements.
+
+**Context:** Claude was extracting vague intentions ("let's circle back"), pleasantries ("looking forward to working together"), and status commentary ("great progress") as action items. Deadlines were fabricated from vague language like "soon."
+
+**Rationale:** Noisy open_items erode trust. Users ignore the list when half the items are fabricated. Empty array is better than fabricated items.
+
+**Impact:** Updated SYSTEM_PROMPT with detailed positive/negative examples, assignee rules, and due date rules. Cleaner open_items output.
+
+## 2026-02-14: Forwarder as First-Class System Concept
+
+**Decision:** `ForwarderContext { name, email }` passed explicitly to Claude via a dedicated "Forwarding Context" prompt section. Stored as `forwarder_email`/`forwarder_name` columns on messages table for batch recovery.
+
+**Context:** Claude was guessing the forwarder from body text greetings ("Hi Steven") or From headers. The Mailgun envelope sender IS the forwarder — it was available all along but never parsed or passed through. Batch reclassification (`processUnclassifiedMessages`) had no way to recover the forwarder identity.
+
+**Rationale:** System-level truth over AI inference. The forwarder is a known constant for each email — pass it explicitly rather than asking Claude to guess.
+
+**Impact:** Migration 013 adds 4 columns to messages. Updated classifier, inbound route, test routes. Prompt rules 5 & 6 rewritten for explicit forwarder handling.
+
+## 2026-02-14: To/CC Extracted from Inner Outlook Headers
+
+**Decision:** Email parser now captures To (was being discarded from regex `match[3]`) and handles optional CC line between To and Subject. Stored as `to_header`/`cc_header` on ParsedMessage. Mailgun's outer envelope is fallback only.
+
+**Context:** Mailgun's `To` field contains `relay@mg.roadrunner.dev` for forwarded emails — useless. The real recipients are in the Outlook-style headers embedded in the body text. Also fixed: emails with a CC line between To and Subject completely failed to parse as multi-message threads because the regex didn't allow for CC.
+
+**Rationale:** Fix at the parser level where the data lives. The regex already captured To but `findHeaderBlocks()` threw it away. Making CC optional in the regex is a one-line fix that unblocks an entire class of emails.
+
+**Impact:** Updated regex patterns (both Sent and Date variants), HeaderMatch interface, `findHeaderBlocks()`, `parseForwardedEmail()`. Inbound route prefers parser values over Mailgun envelope. 6 new parser tests (49 total).
+
+## 2026-02-14: Reusable Seed Data Loader
+
+**Decision:** `scripts/seed-data.ts` reads JSON files with `{ events: [...], programs: [...] }` format. Idempotent — checks by name before insert, logs every action. Usage: `npm run seed -- data/file.json`.
+
+**Context:** Needed a repeatable way to load reference data without SQL migrations. Events and programs are content, not schema — they change with the calendar year and program portfolio.
+
+**Rationale:** A script is rerunnable, version-controllable, and doesn't pollute the migration chain. JSON files can be committed to `data/` or passed ad-hoc.
+
+**Impact:** 42 events seeded (re:Invent, re:Inforce, summits, deadlines, review cycles). Programs pending seed.
+
+## 2026-02-14: Browser-Based Classification Test Page
+
+**Decision:** `/test` page with separate "PDM / Forwarder" section and "Original Email" section (From, To, CC, Subject, Date, Body). Two modes: "Classify Only" (dry run, no side effects) and "Classify & Save" (full pipeline with DB writes).
+
+**Context:** Testing classification quality required curl commands with long JSON payloads that didn't mirror real email structure. No way to quickly iterate on prompt changes.
+
+**Rationale:** Fast iteration on prompt quality requires fast testing. The test page mirrors the exact data flow of the production pipeline — forwarder context, email headers, body — with visual results.
+
+**Impact:** New pages: `/test`, `/api/classify/test` (dry run), `/api/classify/live-test` (full pipeline). Added to sidebar. Replaces curl-based testing entirely.

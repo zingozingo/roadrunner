@@ -3,7 +3,7 @@
 **Project Codename:** Roadrunner
 **Owner:** Steven
 **Version:** v0.2 target architecture
-**Last Updated:** 2026-02-10
+**Last Updated:** 2026-02-14
 
 ---
 
@@ -46,7 +46,8 @@ Pre-seeded AWS programs and frameworks. Reference data that Claude matches again
 | eligibility | text | Nullable, structured eligibility notes |
 | url | text | Nullable, link to program page |
 | status | text | `active` / `archived` |
-| renewal_cycle | text | Nullable. e.g. "6 months" for M-POP, "annual" for competencies |
+| lifecycle_type | text | `indefinite` / `recurring` / `expiring` (default: `indefinite`) |
+| lifecycle_duration | text | Nullable. e.g. "1 year" for competency revalidation, "6 months" for M-POP |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
 
@@ -63,7 +64,7 @@ Pre-seeded AWS events and milestones. Reference data that Claude matches against
 | type | text | `conference` / `summit` / `workshop` / `kickoff` / `trade_show` / `deadline` / `review_cycle` / `training` |
 | start_date | date | Nullable if unknown |
 | end_date | date | Nullable |
-| date_precision | text | `exact` / `week` / `month` / `quarter` |
+| host | text | Nullable. Who runs the event: "AWS", "RSA Conference", etc. |
 | location | text | Nullable |
 | description | text | |
 | source | text | Always `seed` for admin-created records |
@@ -143,23 +144,26 @@ Editing a participant is global — changes appear everywhere that participant i
 ```
 Email → Mailgun webhook → /api/inbound
   │
-  ├─ Parse forwarded thread → Message[]
+  ├─ Extract form fields (formData with URL-encoded fallback)
+  ├─ Parse forwarder identity from Mailgun envelope sender
+  ├─ Parse forwarded thread → Message[] (with inner To/CC headers)
+  ├─ Stamp forwarder_email/name, to_header, cc_header on each message
   ├─ Dedup check (sender + subject + first 100 chars)
   ├─ Store messages in DB (unclassified)
   │
   ▼
 Claude API (single call)
   │
-  ├─ Context sent: all active engagements (with current_state),
+  ├─ Context sent: ForwarderContext { name, email },
+  │                all active engagements (with current_state),
   │                all programs (with IDs + descriptions),
-  │                all events (with IDs + dates),
-  │                the email content
+  │                all events (with IDs + dates + host),
+  │                the email content (with From, To, CC, Subject, Date)
   │
   ├─ Claude returns:
   │   - engagement_match: { id | null, name, confidence, is_new, partner_name }
-  │   - matched_program_ids: string[]     ← IDs only, no creation
-  │   - matched_event_ids: string[]       ← IDs only, no creation
-  │   - entity_links: [{ source, target, relationship, context }]
+  │   - matched_programs: [{ id, name, relationship }]  ← IDs from context
+  │   - matched_events: [{ id, name, relationship }]    ← IDs from context
   │   - participants: [{ name, email, org, role }]
   │   - current_state: string | null
   │   - open_items: [{ description, assignee, due_date }]
@@ -174,13 +178,13 @@ Routing
   ├─ Low confidence (<0.85) → create approval, send SMS notification
   │
   ▼
-Persistence (single shared function)
+Persistence (single shared function: persistClassificationResult)
   │
   ├─ Create or update engagement
   ├─ Update messages with classification result
-  ├─ Create entity links (engagement↔program, engagement↔event)
+  ├─ Create entity links (engagement↔program, engagement↔event) by ID
   ├─ Upsert participants and participant_links
-  └─ Merge open_items, update tags
+  └─ Merge open_items (deduplicated), merge tags
 ```
 
 ### Key rules
@@ -224,22 +228,22 @@ Persistence (single shared function)
 
 Programs and events enter the system through admin-only interfaces. No AI creation. No user-facing creation forms on the main dashboard pages.
 
-### Admin page
+### Seed script (implemented)
+- `npm run seed -- data/file.json` — reads JSON files with `{ events: [...], programs: [...] }` format
+- Idempotent: checks by name before insert, logs every action
+- JSON files can be committed to `data/` or passed ad-hoc
+- **Current state:** 42 events seeded (re:Invent, re:Inforce, summits, regional events, deadlines, review cycles). Programs pending seed.
+
+### Admin page (planned)
 - Dashboard sidebar link: "Admin"
 - Two sections: Programs and Events
 - Each shows a table with inline editing
 - Add/edit/archive (programs) or add/edit/delete (events)
 - No bulk operations needed in the UI — small datasets
 
-### Bulk import endpoint
-- `POST /api/admin/seed/programs` — accepts JSON array of program records
-- `POST /api/admin/seed/events` — accepts JSON array of event records
-- Used for initial data load and annual refresh
-- Upserts by name (case-insensitive) to avoid duplicates
-
 ### Data volumes
 - Programs: ~15-20 records. Rarely changes. Examples: ISV Accelerate, Security Competency, Marketplace Co-Sell, M-POP.
-- Events: ~10-15 per year. Updated annually before each calendar year, with mid-year additions as events are announced. Examples: re:Invent, re:Inforce, RSA Conference, partner summits.
+- Events: ~40-50 per year. Updated annually before each calendar year, with mid-year additions as events are announced. Examples: re:Invent, re:Inforce, RSA Conference, partner summits, regional events.
 
 ---
 
@@ -252,6 +256,7 @@ Programs and events enter the system through admin-only interfaces. No AI creati
 - **Programs** — Read-only list showing linked engagements
 - **Events** — Read-only list showing linked engagements, dates, locations
 - **Admin** — Seed management for programs and events (separate from main views)
+- **Test** — Classification test page: submit emails with forwarder context, dry-run or full pipeline
 
 ### Engagements list page
 - Grouped by status: active, paused, closed
@@ -278,9 +283,9 @@ Programs and events enter the system through admin-only interfaces. No AI creati
 - Click through to see which engagements are linked
 - No create/edit buttons — admin only
 
-### Admin page
-- Programs table: name, description, eligibility, url, renewal_cycle, status. Inline edit. Add new.
-- Events table: name, type, dates, location, description. Inline edit. Add new.
+### Admin page (planned)
+- Programs table: name, description, eligibility, url, lifecycle_type, lifecycle_duration, status. Inline edit. Add new.
+- Events table: name, type, dates, host, location, description. Inline edit. Add new.
 - Bulk import buttons (upload JSON)
 
 ### Inbox page
@@ -296,53 +301,60 @@ Programs and events enter the system through admin-only interfaces. No AI creati
 High-level steps from v0.1 to goal state. Not ordered — dependencies exist between some steps.
 
 ### Database
-- Rename `initiatives` table → `engagements` (or add view/alias)
-- Add `tags jsonb DEFAULT '[]'` column to engagements
-- Add `renewal_cycle text` column to programs
-- Add `updated_at timestamptz` column to programs and events (if missing)
-- Drop `summary` column from engagements (or keep as computed alias for `current_state`)
-- Update `entity_links` check constraints: `initiative` → `engagement` in source_type/target_type
-- Update `participant_links` check constraints: `initiative` → `engagement` in entity_type
-- Update `approval_queue`: remove `event_creation` type support, rename references
-- Clean up any orphaned `event_creation` approval records
+- ~~Rename `initiatives` table → `engagements`~~ ✅ Migration 010
+- ~~Add `tags jsonb DEFAULT '[]'` column to engagements~~ ✅ Migration 011
+- ~~Replace `renewal_cycle` with `lifecycle_type` + `lifecycle_duration` on programs~~ ✅ Migration 012
+- ~~Add `host` to events, drop `date_precision`~~ ✅ Migration 012
+- ~~Add `forwarder_email`, `forwarder_name`, `to_header`, `cc_header` to messages~~ ✅ Migration 013
+- ~~Update `entity_links` check constraints: `initiative` → `engagement`~~ ✅ Migration 010
+- ~~Update `participant_links` check constraints: `initiative` → `engagement`~~ ✅ Migration 010
+- ~~Update `approval_queue`: remove `event_creation` type support~~ ✅ Migration 011
+- Drop `summary` column from engagements (or keep as computed alias for `current_state`) — pending
 
 ### Classifier
-- Remove event creation logic from `applyClassificationResult()`
-- Remove program creation logic from `applyClassificationResult()`
-- Remove `createEntityLinks()` name-based resolution — replace with ID-based linking
-- Extract shared persistence function used by both auto-assign and resolve paths
-- Update routing logic: no `hasNewTrackSuggestions` check (programs can't be new)
+- ~~Remove event creation logic from `applyClassificationResult()`~~ ✅
+- ~~Remove program creation logic from `applyClassificationResult()`~~ ✅
+- ~~Remove `createEntityLinks()` name-based resolution — replace with ID-based linking~~ ✅
+- ~~Extract shared persistence function (`persistClassificationResult`)~~ ✅
+- ~~Update routing logic: no `hasNewTrackSuggestions` check~~ ✅
+- ~~Thread forwarderContext through classification pipeline~~ ✅
+- ~~Recover forwarder from stored message fields for batch reclassification~~ ✅
 
 ### Prompt
-- Remove event creation instructions and `is_new` field for events
-- Remove program creation instructions and `is_new` field for programs
-- Change events/programs to return matched IDs only (arrays of strings)
-- Add `suggested_tags` to response format
-- Rename "initiative" → "engagement" throughout
-- Simplify entity_links to use IDs directly instead of names
+- ~~Remove event creation instructions and `is_new` field for events~~ ✅
+- ~~Remove program creation instructions and `is_new` field for programs~~ ✅
+- ~~Change events/programs to matched arrays with `{ id, name, relationship }`~~ ✅
+- ~~Add `suggested_tags` to response format~~ ✅
+- ~~Rename "initiative" → "engagement" throughout~~ ✅
+- ~~Add ForwarderContext section and rules 5/6 for forwarder handling~~ ✅
+- ~~Add current_state evolution instructions (evolve, not overwrite)~~ ✅
+- ~~Add open_items strict extraction with positive/negative examples~~ ✅
+
+### Email parser
+- ~~Extract To header from inner Outlook headers (was being discarded)~~ ✅
+- ~~Handle optional CC line between To and Subject~~ ✅
+- Multi-line To/CC wrapping — future enhancement
 
 ### Resolve route
-- Remove `handleEventApproval()` function
-- Remove `event_creation` branch
-- Use shared persistence function instead of `persistClassificationEntities()`
-- Rename initiative references → engagement
+- ~~Remove `handleEventApproval()` function~~ ✅
+- ~~Remove `event_creation` branch~~ ✅
+- ~~Use shared persistence function~~ ✅
+- ~~Rename initiative references → engagement~~ ✅
 
 ### UI
-- Rename "Initiatives" → "Engagements" in sidebar, page titles, URLs
-- Add tag display and editing to engagement cards and detail page
-- Add tag filter to engagements list page
-- Simplify programs page to read-only (remove any edit buttons)
-- Simplify events page to read-only (remove any edit buttons)
-- Add Admin page with program and event management
-- Remove EventApprovalCard component
-- Update InboxClient to handle single approval type only
-- Update Sidebar navigation
+- ~~Rename "Initiatives" → "Engagements" in sidebar, page titles, URLs~~ ✅
+- Add tag display and editing to engagement cards and detail page — pending
+- Add tag filter to engagements list page — pending
+- ~~Remove EventApprovalCard component~~ ✅
+- ~~Update InboxClient to handle single approval type only~~ ✅
+- Add Admin page with program and event management — pending
+- ~~Add Test page for classification testing~~ ✅
 
 ### API routes
-- Rename `/api/initiatives/` → `/api/engagements/` (keep redirect from old path)
-- Add `/api/admin/seed/programs` and `/api/admin/seed/events`
-- Remove event creation from `/api/reviews/resolve`
-- Audit and remove unused routes (debug-inbound, digest stub)
+- ~~Rename `/api/initiatives/` → `/api/engagements/`~~ ✅
+- ~~Add seed script (`npm run seed`)~~ ✅
+- ~~Remove event creation from `/api/reviews/resolve`~~ ✅
+- Audit and remove unused routes (debug-inbound, digest stub) — pending
 
 ---
 
