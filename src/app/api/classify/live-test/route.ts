@@ -9,6 +9,8 @@ import { ParsedMessage } from "@/lib/types";
 // Full pipeline test: stores a message, runs classification,
 // persists results (engagement, links, participants).
 // Mirrors what /api/inbound does but from manual input.
+//
+// Accepts structured email fields including forwarder context.
 // ============================================================
 
 export async function POST(request: NextRequest) {
@@ -21,10 +23,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { sender, senderEmail, subject, body: emailBody } = body as {
-    sender?: string;
-    senderEmail?: string;
+  const {
+    forwarderName,
+    forwarderEmail,
+    fromName,
+    fromEmail,
+    to,
+    cc,
+    subject,
+    date,
+    body: emailBody,
+  } = body as {
+    forwarderName?: string;
+    forwarderEmail?: string;
+    fromName?: string;
+    fromEmail?: string;
+    to?: string;
+    cc?: string;
     subject?: string;
+    date?: string;
     body?: string;
   };
 
@@ -36,14 +53,23 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // Build body text with To/CC headers for context
+    let fullBody = emailBody;
+    if (to || cc) {
+      const headerLines: string[] = [];
+      if (to) headerLines.push(`To: ${to}`);
+      if (cc) headerLines.push(`CC: ${cc}`);
+      fullBody = headerLines.join("\n") + "\n\n" + fullBody;
+    }
+
     // 1. Store the test message (mimicking /api/inbound)
     const parsed: ParsedMessage[] = [
       {
-        sender_name: sender ?? null,
-        sender_email: senderEmail ?? null,
-        sent_at: new Date().toISOString(),
+        sender_name: fromName ?? null,
+        sender_email: fromEmail ?? null,
+        sent_at: date ?? new Date().toISOString(),
         subject: subject ?? null,
-        body_text: emailBody,
+        body_text: fullBody,
         body_raw: emailBody,
       },
     ];
@@ -51,11 +77,17 @@ export async function POST(request: NextRequest) {
     const stored = await storeMessages(parsed);
     const messageId = stored[0].id;
 
-    // 2. Run the full classification pipeline
-    //    (classify → route → persist → SMS attempt)
-    const result = await processSingleMessage([messageId]);
+    // 2. Build forwarder context for classification
+    const forwarderContext =
+      forwarderName && forwarderEmail
+        ? { name: forwarderName, email: forwarderEmail }
+        : undefined;
 
-    // 3. Fetch the updated message to see what engagement was assigned
+    // 3. Run the full classification pipeline
+    //    (classify → route → persist → SMS attempt)
+    const result = await processSingleMessage([messageId], forwarderContext);
+
+    // 4. Fetch the updated message to see what engagement was assigned
     const db = getSupabaseClient();
     const { data: updatedMessage } = await db
       .from("messages")
@@ -63,7 +95,7 @@ export async function POST(request: NextRequest) {
       .eq("id", messageId)
       .single();
 
-    // 4. Fetch the engagement if assigned
+    // 5. Fetch the engagement if assigned
     let engagement = null;
     if (updatedMessage?.engagement_id) {
       const { data } = await db
@@ -74,7 +106,7 @@ export async function POST(request: NextRequest) {
       engagement = data;
     }
 
-    // 5. Fetch entity links created for this engagement
+    // 6. Fetch entity links created for this engagement
     let entityLinks: Record<string, unknown>[] = [];
     if (updatedMessage?.engagement_id) {
       const { data } = await db

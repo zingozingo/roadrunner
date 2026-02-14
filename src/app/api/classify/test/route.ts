@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { classifyMessage, ClassifyContext } from "@/lib/claude";
+import { classifyMessage, ClassifyContext, ForwarderContext } from "@/lib/claude";
 import {
   getActiveEngagements,
   getActiveEvents,
@@ -16,7 +16,7 @@ import { Message } from "@/lib/types";
 // No DB writes, no SMS, no approval queue, no message updates.
 //
 // Two modes:
-//   Mode A (raw text):      { text, subject?, sender? }
+//   Mode A (raw text):      { text, subject?, fromName?, fromEmail?, ... }
 //   Mode B (existing msg):  { messageId }
 //
 // Both modes accept optional context override:
@@ -38,9 +38,32 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { text, subject, sender, senderEmail, messageId, context: contextOverride } = body as {
+  const {
+    text,
+    subject,
+    date,
+    // New structured fields
+    forwarderName,
+    forwarderEmail,
+    fromName,
+    fromEmail,
+    to,
+    cc,
+    // Legacy fields (still supported for curl / backward compat)
+    sender,
+    senderEmail,
+    messageId,
+    context: contextOverride,
+  } = body as {
     text?: string;
     subject?: string;
+    date?: string;
+    forwarderName?: string;
+    forwarderEmail?: string;
+    fromName?: string;
+    fromEmail?: string;
+    to?: string;
+    cc?: string;
     sender?: string;
     senderEmail?: string;
     messageId?: string;
@@ -70,17 +93,31 @@ export async function POST(request: NextRequest) {
     let messages: Message[];
     let mode: "raw" | "existing";
 
+    // Resolve sender fields: prefer new fromName/fromEmail, fall back to legacy sender/senderEmail
+    const resolvedSenderName = fromName ?? sender ?? null;
+    const resolvedSenderEmail = fromEmail ?? senderEmail ?? null;
+
     if (hasText) {
       mode = "raw";
+
+      // Build the body text with email headers for Claude to see
+      let fullBody = text as string;
+      if (to || cc) {
+        const headerLines: string[] = [];
+        if (to) headerLines.push(`To: ${to}`);
+        if (cc) headerLines.push(`CC: ${cc}`);
+        fullBody = headerLines.join("\n") + "\n\n" + fullBody;
+      }
+
       messages = [
         {
           id: "test-00000000-0000-0000-0000-000000000000",
           engagement_id: null,
-          sender_name: (sender as string) ?? null,
-          sender_email: (senderEmail as string) ?? null,
-          sent_at: new Date().toISOString(),
+          sender_name: resolvedSenderName,
+          sender_email: resolvedSenderEmail,
+          sent_at: date ?? new Date().toISOString(),
           subject: (subject as string) ?? null,
-          body_text: text as string,
+          body_text: fullBody,
           body_raw: null,
           content_type: null,
           classification_confidence: null,
@@ -127,8 +164,14 @@ export async function POST(request: NextRequest) {
       context = { engagements, events, programs };
     }
 
+    // Build forwarder context if provided
+    const forwarderContext: ForwarderContext | undefined =
+      forwarderName && forwarderEmail
+        ? { name: forwarderName, email: forwarderEmail }
+        : undefined;
+
     // Run classification — pure function, no side effects
-    const result = await classifyMessage(messages, context);
+    const result = await classifyMessage(messages, context, forwarderContext);
 
     const processingTimeMs = Math.round(performance.now() - start);
 

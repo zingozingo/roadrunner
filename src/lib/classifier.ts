@@ -1,4 +1,4 @@
-import { classifyMessage, ClassifyContext } from "./claude";
+import { classifyMessage, ClassifyContext, ForwarderContext } from "./claude";
 import {
   getSupabaseClient,
   getActiveEngagements,
@@ -72,7 +72,8 @@ export async function processUnclassifiedMessages(): Promise<{
 // ============================================================
 
 export async function processSingleMessage(
-  messageIds: string[]
+  messageIds: string[],
+  forwarderContext?: ForwarderContext
 ): Promise<ClassificationResult | null> {
   if (messageIds.length === 0) return null;
 
@@ -99,7 +100,7 @@ export async function processSingleMessage(
   const context: ClassifyContext = { engagements, events, programs };
 
   try {
-    const result = await classifyMessage(messages as Message[], context);
+    const result = await classifyMessage(messages as Message[], context, forwarderContext);
     await applyClassificationResult(messages as Message[], result, context);
     return result;
   } catch (error) {

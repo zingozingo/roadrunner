@@ -3,26 +3,25 @@
 import { useState } from "react";
 import Link from "next/link";
 
-// ── Pre-filled example so you don't start with empty fields ─────
-const EXAMPLE = {
-  sender: "Jane Smith",
-  senderEmail: "jane.smith@example-partner.com",
-  subject: "Re: APN Navigate Onboarding — Acme Corp",
+// ── Pre-filled example ──────────────────────────────────────────
+const DEFAULTS = {
+  forwarderName: "Steven Romero",
+  forwarderEmail: "sterme@amazon.com",
+  fromName: "Tanya Green",
+  fromEmail: "tanya.green@qualys.com",
+  to: "Steven Romero <sterme@amazon.com>",
+  cc: "",
+  subject: "AWS Summit New York - EC2 Image Builder Convo",
+  date: new Date().toISOString().slice(0, 16), // datetime-local format
   body: `Hi Steven,
 
-Just following up on our call yesterday regarding Acme Corp's APN Navigate enrollment. They've completed the technical review and are ready for the business review stage.
+I wanted to reach out about our EC2 Image Builder integration discussions. We're interested in attending AWS Summit New York 2026 to continue the conversation with your team.
 
-Key updates:
-- Technical review: PASSED
-- Business review: Scheduled for next Thursday (Feb 20)
-- POC: Jane Smith, CTO
+Can you help me understand what preparation steps we should take from a partner perspective?
 
-Also, are we still planning to attend the AWS Summit in Chicago? Would be great to set up a meeting with their team there.
-
-Can you confirm the review panel availability?
-
-Best,
-Jane`,
+Thanks,
+Tanya Green
+Sr. Cloud Architect, Qualys`,
 };
 
 // ── Types for the API responses ─────────────────────────────────
@@ -66,14 +65,26 @@ interface ClassificationResult {
 
 interface DryRunResponse {
   result: ClassificationResult;
-  meta: { mode: string; contextStats: Record<string, number>; processingTimeMs: number };
+  meta: {
+    mode: string;
+    contextStats: Record<string, number>;
+    processingTimeMs: number;
+  };
 }
 
 interface LiveResponse {
   result: ClassificationResult | null;
-  message: { id: string; engagement_id: string | null; pending_review: boolean };
+  message: {
+    id: string;
+    engagement_id: string | null;
+    pending_review: boolean;
+  };
   engagement: { id: string; name: string; status: string } | null;
-  entityLinks: { source_type: string; target_type: string; relationship: string }[];
+  entityLinks: {
+    source_type: string;
+    target_type: string;
+    relationship: string;
+  }[];
   meta: { processingTimeMs: number };
 }
 
@@ -83,10 +94,23 @@ type ResultData =
 
 // ── Component ───────────────────────────────────────────────────
 export default function TestClient() {
-  const [sender, setSender] = useState(EXAMPLE.sender);
-  const [senderEmail, setSenderEmail] = useState(EXAMPLE.senderEmail);
-  const [subject, setSubject] = useState(EXAMPLE.subject);
-  const [body, setBody] = useState(EXAMPLE.body);
+  // Forwarder (PDM)
+  const [forwarderName, setForwarderName] = useState(DEFAULTS.forwarderName);
+  const [forwarderEmail, setForwarderEmail] = useState(
+    DEFAULTS.forwarderEmail
+  );
+  const [forwarderOpen, setForwarderOpen] = useState(false);
+
+  // Original email
+  const [fromName, setFromName] = useState(DEFAULTS.fromName);
+  const [fromEmail, setFromEmail] = useState(DEFAULTS.fromEmail);
+  const [to, setTo] = useState(DEFAULTS.to);
+  const [cc, setCc] = useState(DEFAULTS.cc);
+  const [subject, setSubject] = useState(DEFAULTS.subject);
+  const [date, setDate] = useState(DEFAULTS.date);
+  const [body, setBody] = useState(DEFAULTS.body);
+
+  // State
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ResultData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -96,11 +120,20 @@ export default function TestClient() {
     setResult(null);
     setError(null);
 
+    const payload = {
+      forwarderName,
+      forwarderEmail,
+      fromName,
+      fromEmail,
+      to: to || undefined,
+      cc: cc || undefined,
+      subject,
+      date: date ? new Date(date).toISOString() : undefined,
+      ...(live ? { body } : { text: body }),
+    };
+
     try {
       const endpoint = live ? "/api/classify/live-test" : "/api/classify/test";
-      const payload = live
-        ? { sender, senderEmail, subject, body }
-        : { text: body, subject, sender, senderEmail };
 
       const res = await fetch(endpoint, {
         method: "POST",
@@ -150,17 +183,90 @@ export default function TestClient() {
         </p>
       </div>
 
-      {/* Form */}
+      {/* Forwarder section (collapsible) */}
+      <div className="rounded-xl border border-border bg-surface">
+        <button
+          type="button"
+          onClick={() => setForwarderOpen(!forwarderOpen)}
+          className="flex w-full items-center justify-between px-5 py-3 text-left"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted">
+              PDM / Forwarder (you)
+            </span>
+            <span className="text-xs text-muted">
+              {forwarderName} &lt;{forwarderEmail}&gt;
+            </span>
+          </div>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            className={`text-muted transition-transform ${forwarderOpen ? "rotate-180" : ""}`}
+          >
+            <path d="M4 6l4 4 4-4" />
+          </svg>
+        </button>
+        {forwarderOpen && (
+          <div className="border-t border-border px-5 pb-4 pt-3">
+            <div className="grid grid-cols-2 gap-4">
+              <Field
+                label="Name"
+                value={forwarderName}
+                onChange={setForwarderName}
+              />
+              <Field
+                label="Email"
+                value={forwarderEmail}
+                onChange={setForwarderEmail}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Original email section */}
       <div className="space-y-4 rounded-xl border border-border bg-surface p-5">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">
+          Original Email
+        </h2>
+
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Sender Name" value={sender} onChange={setSender} />
-          <Field
-            label="Sender Email"
-            value={senderEmail}
-            onChange={setSenderEmail}
-          />
+          <Field label="From Name" value={fromName} onChange={setFromName} />
+          <Field label="From Email" value={fromEmail} onChange={setFromEmail} />
         </div>
-        <Field label="Subject" value={subject} onChange={setSubject} />
+
+        <Field
+          label="To"
+          value={to}
+          onChange={setTo}
+          placeholder='e.g. Steven Romero <sterme@amazon.com>, CJ Martinez <cj@amazon.com>'
+        />
+        <Field
+          label="CC"
+          value={cc}
+          onChange={setCc}
+          placeholder="(optional)"
+        />
+
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Subject" value={subject} onChange={setSubject} />
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted">
+              Date
+            </label>
+            <input
+              type="datetime-local"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-accent focus:outline-none [color-scheme:dark]"
+            />
+          </div>
+        </div>
+
         <div>
           <label className="mb-1 block text-xs font-medium text-muted">
             Body
@@ -327,7 +433,9 @@ export default function TestClient() {
                   >
                     <p className="text-foreground">{item.description}</p>
                     <div className="mt-1 flex gap-4 text-xs text-muted">
-                      {item.assignee && <span>Assignee: {item.assignee}</span>}
+                      {item.assignee && (
+                        <span>Assignee: {item.assignee}</span>
+                      )}
                       {item.due_date && <span>Due: {item.due_date}</span>}
                     </div>
                   </li>
@@ -419,10 +527,12 @@ function Field({
   label,
   value,
   onChange,
+  placeholder,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  placeholder?: string;
 }) {
   return (
     <div>
@@ -433,6 +543,7 @@ function Field({
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
         className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-muted focus:border-accent focus:outline-none"
       />
     </div>

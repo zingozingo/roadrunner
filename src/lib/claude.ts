@@ -46,8 +46,8 @@ Only match to events that appear in the "Tracked Events" list provided in the co
 2. **Match programs and events by ID only.** You are given a list of programs and events with their IDs. Return only IDs from that list. Never fabricate an ID. If unsure whether something matches, omit it.
 3. **Noise.** Auto-replies, OOO, newsletters, marketing blasts = "noise". Return null current_state, empty arrays, confidence 1.0.
 4. **Mixed content.** If an email discusses multiple engagements, set content_type "mixed" and classify the primary engagement.
-5. **Multi-message threads.** Messages from the same forward are one classification unit. Synthesize across all messages.
-6. **Participants.** Extract ALL people mentioned by name, even without email addresses. Set email to null if unavailable. Correlate names in the body with From/To/CC headers when possible. The person whose email matches the forwarding address gets role "forwarder".
+5. **Forwarder.** The PDM who forwarded this email is identified in the "Forwarding Context" section. ALWAYS include them as a participant with role "forwarder". Do NOT try to identify the forwarder from the email body or greeting — use ONLY the forwarding context provided.
+6. **Participants.** Extract all other people from the email headers (From, To, CC) and body. Each person should appear EXACTLY ONCE in the participants array — merge information from headers and body into a single entry. If someone appears in the From header AND signs the email with a title, combine into one entry. Set email to null only if truly unavailable. The forwarder should not be duplicated — if they also appear in From/To/CC, include them once with role "forwarder".
 7. **Temporal honesty.** Only include dates that are explicitly confirmed: scheduled dates, named conference dates, explicit deadlines ("POC due March 15"). Vague intentions ("let's connect next week") go in current_state prose only, never as due_dates.
 8. **Tags.** Suggest short, lowercase labels that help categorize this engagement. Examples: "co-sell", "finserv", "poc", "migration", "marketplace", "security-review". Only suggest tags that are genuinely descriptive. Empty array is fine.
 
@@ -166,13 +166,33 @@ If noise: content_type "noise", engagement_match with null id, 1.0 confidence, i
 // Build the user message with current state + email content
 // ============================================================
 
+export interface ForwarderContext {
+  name: string;
+  email: string;
+}
+
 function buildUserMessage(
   messages: Message[],
   engagements: Engagement[],
   events: Event[],
-  programs: Program[]
+  programs: Program[],
+  forwarderContext?: ForwarderContext
 ): string {
   const parts: string[] = [];
+
+  // Forwarding context — tells Claude who the PDM/forwarder is
+  if (forwarderContext) {
+    parts.push("## Forwarding Context\n");
+    parts.push(
+      "This email was forwarded to Relay by the PDM (Partner Development Manager):"
+    );
+    parts.push(
+      `**Forwarder:** ${forwarderContext.name} <${forwarderContext.email}>`
+    );
+    parts.push(
+      'The forwarder is ALWAYS a participant with role "forwarder". Do NOT extract them from the email body — they are provided here.\n'
+    );
+  }
 
   // Current state context
   parts.push("## Current Tracked State\n");
@@ -267,7 +287,8 @@ export interface ClassifyContext {
 
 export async function classifyMessage(
   messages: Message[],
-  context: ClassifyContext
+  context: ClassifyContext,
+  forwarderContext?: ForwarderContext
 ): Promise<ClassificationResult> {
   const client = getClient();
 
@@ -275,7 +296,8 @@ export async function classifyMessage(
     messages,
     context.engagements,
     context.events,
-    context.programs
+    context.programs,
+    forwarderContext
   );
 
   const response = await client.messages.create({
