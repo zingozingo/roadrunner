@@ -6,6 +6,7 @@ import {
   getEntityLinksForEntity,
   updateEngagement,
   deleteEngagement,
+  deleteMessagesByEngagement,
 } from "@/lib/supabase";
 
 export async function GET(
@@ -114,11 +115,12 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    const includeMessages = request.nextUrl.searchParams.get("includeMessages") === "true";
 
     // Verify engagement exists
     const existing = await getEngagementById(id);
@@ -129,9 +131,14 @@ export async function DELETE(
       );
     }
 
+    let messagesDeleted = 0;
+    if (includeMessages) {
+      messagesDeleted = await deleteMessagesByEngagement(id);
+    }
+
     await deleteEngagement(id);
 
-    return NextResponse.json({ status: "deleted" });
+    return NextResponse.json({ status: "deleted", messagesDeleted });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("DELETE /api/engagements/[id] error:", message);

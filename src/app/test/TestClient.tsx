@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 // ── Pre-filled example ──────────────────────────────────────────
 const DEFAULTS = {
@@ -115,6 +116,11 @@ export default function TestClient() {
   const [result, setResult] = useState<ResultData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Cleanup state
+  const [showCleanupConfirm, setShowCleanupConfirm] = useState(false);
+  const [cleaning, setCleaning] = useState(false);
+  const [cleanupResult, setCleanupResult] = useState<Record<string, number> | null>(null);
+
   async function handleClassify(live: boolean) {
     setLoading(true);
     setResult(null);
@@ -153,6 +159,26 @@ export default function TestClient() {
       setError(err instanceof Error ? err.message : "Request failed");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleCleanup() {
+    setShowCleanupConfirm(false);
+    setCleaning(true);
+    setCleanupResult(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/classify/test-cleanup", { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? `HTTP ${res.status}`);
+        return;
+      }
+      setCleanupResult(data.deleted);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Cleanup failed");
+    } finally {
+      setCleaning(false);
     }
   }
 
@@ -517,6 +543,48 @@ export default function TestClient() {
           )}
         </div>
       )}
+
+      {/* Clear Test Data */}
+      <div className="rounded-xl border border-border bg-surface p-5">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">
+          Data Cleanup
+        </h2>
+        <p className="mt-2 text-sm text-muted">
+          Remove all engagements, messages, and participants. Events and
+          programs (seed data) are preserved. This cannot be undone.
+        </p>
+        <button
+          onClick={() => setShowCleanupConfirm(true)}
+          disabled={cleaning}
+          className="mt-3 rounded-lg border border-red-500/40 bg-background px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-40"
+        >
+          {cleaning ? "Clearing..." : "Clear All Data"}
+        </button>
+
+        {cleanupResult && (
+          <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm">
+            <p className="font-medium text-emerald-400">Cleanup complete</p>
+            <ul className="mt-1 space-y-0.5 text-xs text-muted">
+              {Object.entries(cleanupResult).map(([table, count]) => (
+                <li key={table}>
+                  {table}: <span className="text-foreground">{count}</span> deleted
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {/* Cleanup confirmation dialog */}
+      <ConfirmDialog
+        isOpen={showCleanupConfirm}
+        onConfirm={handleCleanup}
+        onCancel={() => setShowCleanupConfirm(false)}
+        title="Clear All Data"
+        message="This will permanently delete all engagements, messages, participants, notes, and approval queue items. Only events and programs (seed data) are preserved. This cannot be undone."
+        confirmLabel="Clear Everything"
+        confirmStyle="danger"
+      />
     </div>
   );
 }

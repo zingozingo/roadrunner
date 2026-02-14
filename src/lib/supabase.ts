@@ -321,22 +321,9 @@ export const updateInitiative = updateEngagement;
 export async function deleteEngagement(id: string): Promise<void> {
   const db = getSupabaseClient();
 
-  // Application-level cascade — order matters:
-  // 1. Orphan messages (set engagement_id = null, don't delete)
-  const { error: msgErr } = await db
-    .from("messages")
-    .update({ engagement_id: null })
-    .eq("engagement_id", id);
-  if (msgErr) throw new Error(`Failed to orphan messages: ${msgErr.message}`);
+  // Application-level cascade for polymorphic FKs (no DB cascade possible):
 
-  // 2. Delete notes
-  const { error: noteErr } = await db
-    .from("notes")
-    .delete()
-    .eq("engagement_id", id);
-  if (noteErr) throw new Error(`Failed to delete notes: ${noteErr.message}`);
-
-  // 3. Delete entity links (both directions)
+  // 1. Delete entity links (both directions)
   const { error: linkSrcErr } = await db
     .from("entity_links")
     .delete()
@@ -351,7 +338,7 @@ export async function deleteEngagement(id: string): Promise<void> {
     .eq("target_id", id);
   if (linkTgtErr) throw new Error(`Failed to delete entity links (target): ${linkTgtErr.message}`);
 
-  // 4. Delete participant links
+  // 2. Delete participant links
   const { error: plinkErr } = await db
     .from("participant_links")
     .delete()
@@ -359,7 +346,7 @@ export async function deleteEngagement(id: string): Promise<void> {
     .eq("entity_id", id);
   if (plinkErr) throw new Error(`Failed to delete participant links: ${plinkErr.message}`);
 
-  // 5. Delete unresolved approvals referencing this engagement
+  // 3. Delete unresolved approvals referencing this engagement
   const { error: approvalErr } = await db
     .from("approval_queue")
     .delete()
@@ -367,12 +354,32 @@ export async function deleteEngagement(id: string): Promise<void> {
     .eq("resolved", false);
   if (approvalErr) throw new Error(`Failed to delete approvals: ${approvalErr.message}`);
 
-  // 6. Delete the engagement
+  // 4. Delete the engagement — DB cascades handle:
+  //    messages.engagement_id → SET NULL
+  //    notes.engagement_id → CASCADE
   const { error: engErr } = await db
     .from("engagements")
     .delete()
     .eq("id", id);
   if (engErr) throw new Error(`Failed to delete engagement: ${engErr.message}`);
+}
+
+/**
+ * Delete all messages belonging to an engagement.
+ * Must be called BEFORE deleteEngagement() since the FK will SET NULL on cascade.
+ * Returns the number of messages deleted.
+ */
+export async function deleteMessagesByEngagement(engagementId: string): Promise<number> {
+  const db = getSupabaseClient();
+
+  const { data, error } = await db
+    .from("messages")
+    .delete()
+    .eq("engagement_id", engagementId)
+    .select("id");
+
+  if (error) throw new Error(`Failed to delete messages: ${error.message}`);
+  return data?.length ?? 0;
 }
 
 /** @deprecated Use deleteEngagement instead */

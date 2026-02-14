@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Engagement } from "@/lib/types";
-import ConfirmDialog from "./ConfirmDialog";
 
 const STATUS_OPTIONS: Engagement["status"][] = ["active", "paused", "closed"];
 
@@ -16,7 +15,7 @@ export default function EngagementActions({
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteMode, setDeleteMode] = useState<null | "keep" | "remove">(null);
   const [error, setError] = useState<string | null>(null);
 
   // Edit form state
@@ -76,14 +75,15 @@ export default function EngagementActions({
     }
   }
 
-  async function handleDelete() {
-    setShowDeleteConfirm(false);
+  async function handleDelete(includeMessages: boolean) {
+    setDeleteMode(null);
     setDeleting(true);
     setError(null);
     try {
-      const res = await fetch(`/api/engagements/${engagement.id}`, {
-        method: "DELETE",
-      });
+      const url = includeMessages
+        ? `/api/engagements/${engagement.id}?includeMessages=true`
+        : `/api/engagements/${engagement.id}`;
+      const res = await fetch(url, { method: "DELETE" });
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -206,7 +206,7 @@ export default function EngagementActions({
           Edit
         </button>
         <button
-          onClick={() => setShowDeleteConfirm(true)}
+          onClick={() => setDeleteMode("keep")}
           disabled={deleting}
           className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-red-400 transition-colors hover:border-red-500 hover:text-red-300 disabled:opacity-50"
         >
@@ -226,15 +226,55 @@ export default function EngagementActions({
         </div>
       )}
 
-      <ConfirmDialog
-        isOpen={showDeleteConfirm}
-        onConfirm={handleDelete}
-        onCancel={() => setShowDeleteConfirm(false)}
-        title="Delete Engagement"
-        message="This will remove the engagement and unlink all associated messages. Messages will not be deleted. This action cannot be undone."
-        confirmLabel="Delete"
-        confirmStyle="danger"
-      />
+      {/* Delete confirmation dialog with two options */}
+      {deleteMode !== null && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          onClick={() => setDeleteMode(null)}
+        >
+          <div className="absolute inset-0 bg-black/60" />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Delete Engagement"
+            className="relative z-10 w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-semibold text-foreground">Delete Engagement</h2>
+            <p className="mt-2 text-sm text-muted">
+              What should happen to the messages linked to this engagement?
+            </p>
+            <div className="mt-5 space-y-3">
+              <button
+                onClick={() => handleDelete(false)}
+                className="w-full rounded-lg border border-border bg-background px-4 py-3 text-left transition-colors hover:border-muted"
+              >
+                <span className="text-sm font-medium text-foreground">Keep Messages</span>
+                <p className="mt-0.5 text-xs text-muted">
+                  Messages return to the inbox as unclassified. Nothing is lost.
+                </p>
+              </button>
+              <button
+                onClick={() => handleDelete(true)}
+                className="w-full rounded-lg border border-red-500/40 bg-red-500/5 px-4 py-3 text-left transition-colors hover:bg-red-500/10"
+              >
+                <span className="text-sm font-medium text-red-400">Delete Everything</span>
+                <p className="mt-0.5 text-xs text-muted">
+                  Permanently delete the engagement and all its messages. This cannot be undone.
+                </p>
+              </button>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => setDeleteMode(null)}
+                className="rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground transition-colors hover:border-muted"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
