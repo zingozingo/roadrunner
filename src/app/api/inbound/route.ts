@@ -117,19 +117,47 @@ export async function POST(request: NextRequest) {
     const token = fields.get("token") ?? null;
     const signature = fields.get("signature") ?? null;
 
-    // TODO: Re-enable signature verification once key issue is resolved
-    // Signature fields are optional during debugging — warn but don't block
+    // Signature verification — hard gate
+    const signingKey = process.env.MAILGUN_WEBHOOK_SIGNING_KEY;
     let signatureValid: boolean | null = null;
-    if (timestamp && token && signature) {
-      signatureValid = verifyMailgunSignature(timestamp, token, signature);
-      console.log(`Signature check: ${signatureValid ? "PASS" : "FAIL (bypassed)"}`);
-    } else {
-      console.warn("Signature fields missing — skipping verification", {
+
+    if (!signingKey) {
+      // No key configured
+      if (process.env.NODE_ENV === "production") {
+        console.error("MAILGUN_WEBHOOK_SIGNING_KEY not configured in production — rejecting");
+        return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+      }
+      console.warn("MAILGUN_WEBHOOK_SIGNING_KEY not configured — allowing in development");
+    } else if (!timestamp || !token || !signature) {
+      // Key configured but Mailgun signature fields missing — reject
+      console.error("Signature fields missing — rejecting", {
         hasTimestamp: !!timestamp,
         hasToken: !!token,
         hasSignature: !!signature,
         availableFields: Array.from(fields.keys()),
       });
+      return NextResponse.json({ error: "Missing signature fields" }, { status: 403 });
+    } else {
+      // Replay protection: reject timestamps older than 5 minutes
+      const tsSeconds = parseInt(timestamp, 10);
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      const ageSeconds = nowSeconds - tsSeconds;
+      if (Number.isNaN(tsSeconds) || Math.abs(ageSeconds) > 300) {
+        console.error("Replay protection: timestamp too old or invalid", {
+          timestamp,
+          ageSeconds,
+          nowSeconds,
+        });
+        return NextResponse.json({ error: "Stale or invalid timestamp" }, { status: 403 });
+      }
+
+      // HMAC verification
+      signatureValid = verifyMailgunSignature(timestamp, token, signature);
+      if (!signatureValid) {
+        console.error("Signature verification failed — rejecting");
+        return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
+      }
+      console.log("Signature check: PASS");
     }
 
     // Extract email fields from Mailgun's payload

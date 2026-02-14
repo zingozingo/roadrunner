@@ -85,9 +85,6 @@ export async function getActiveEngagements(): Promise<Engagement[]> {
   return data as Engagement[];
 }
 
-/** @deprecated Use getActiveEngagements instead */
-export const getActiveInitiatives = getActiveEngagements;
-
 export async function getActiveEvents(): Promise<Event[]> {
   const { data, error } = await getSupabaseClient()
     .from("events")
@@ -208,9 +205,6 @@ export async function getLatestUnresolvedEngagementApproval(): Promise<ApprovalQ
   return data && data.length > 0 ? (data[0] as ApprovalQueueItem) : null;
 }
 
-/** @deprecated Use getLatestUnresolvedEngagementApproval instead */
-export const getLatestUnresolvedInitiativeApproval = getLatestUnresolvedEngagementApproval;
-
 // ============================================================
 // Engagement CRUD
 // ============================================================
@@ -241,9 +235,6 @@ export async function createEngagement(data: {
   return engagement as Engagement;
 }
 
-/** @deprecated Use createEngagement instead */
-export const createInitiative = createEngagement;
-
 export async function updateMessageEngagement(
   messageId: string,
   engagementId: string
@@ -256,9 +247,6 @@ export async function updateMessageEngagement(
   if (error) throw new Error(`Failed to update message engagement: ${error.message}`);
 }
 
-/** @deprecated Use updateMessageEngagement instead */
-export const updateMessageInitiative = updateMessageEngagement;
-
 export async function updateEngagementSummary(
   id: string,
   summary: string
@@ -270,9 +258,6 @@ export async function updateEngagementSummary(
 
   if (error) throw new Error(`Failed to update engagement summary: ${error.message}`);
 }
-
-/** @deprecated Use updateEngagementSummary instead */
-export const updateInitiativeSummary = updateEngagementSummary;
 
 export async function updateEngagement(
   id: string,
@@ -314,9 +299,6 @@ export async function updateEngagement(
   if (error) throw new Error(`Failed to update engagement: ${error.message}`);
   return data as Engagement;
 }
-
-/** @deprecated Use updateEngagement instead */
-export const updateInitiative = updateEngagement;
 
 export async function deleteEngagement(id: string): Promise<void> {
   const db = getSupabaseClient();
@@ -382,9 +364,6 @@ export async function deleteMessagesByEngagement(engagementId: string): Promise<
   return data?.length ?? 0;
 }
 
-/** @deprecated Use deleteEngagement instead */
-export const deleteInitiative = deleteEngagement;
-
 // ============================================================
 // Dashboard query helpers
 // ============================================================
@@ -414,9 +393,6 @@ export async function getAllEngagements(): Promise<Engagement[]> {
   return (data ?? []) as Engagement[];
 }
 
-/** @deprecated Use getAllEngagements instead */
-export const getAllInitiatives = getAllEngagements;
-
 export async function getEngagementById(id: string): Promise<Engagement | null> {
   const { data, error } = await getSupabaseClient()
     .from("engagements")
@@ -428,9 +404,6 @@ export async function getEngagementById(id: string): Promise<Engagement | null> 
   return data as Engagement | null;
 }
 
-/** @deprecated Use getEngagementById instead */
-export const getInitiativeById = getEngagementById;
-
 export async function getMessagesByEngagement(id: string): Promise<Message[]> {
   const { data, error } = await getSupabaseClient()
     .from("messages")
@@ -441,9 +414,6 @@ export async function getMessagesByEngagement(id: string): Promise<Message[]> {
   if (error) throw new Error(`Failed to fetch messages: ${error.message}`);
   return (data ?? []) as Message[];
 }
-
-/** @deprecated Use getMessagesByEngagement instead */
-export const getMessagesByInitiative = getMessagesByEngagement;
 
 export async function getParticipantsByEngagement(
   engagementId: string
@@ -460,9 +430,6 @@ export async function getParticipantsByEngagement(
     (row) => ({ ...row.participant, role: row.role, linkId: row.id })
   );
 }
-
-/** @deprecated Use getParticipantsByEngagement instead */
-export const getParticipantsByInitiative = getParticipantsByEngagement;
 
 export async function getEntityLinksForEntity(
   type: EntityLink["source_type"],
@@ -705,9 +672,6 @@ export async function getLinkedEngagementsForEntity(
   if (error) throw new Error(`Failed to fetch linked engagements: ${error.message}`);
   return (data ?? []) as Engagement[];
 }
-
-/** @deprecated Use getLinkedEngagementsForEntity instead */
-export const getLinkedInitiativesForEntity = getLinkedEngagementsForEntity;
 
 export async function updateEvent(
   id: string,
@@ -1175,5 +1139,4 @@ export async function getEngagementsWithMessageCounts(): Promise<
   );
 }
 
-/** @deprecated Use getEngagementsWithMessageCounts instead */
-export const getInitiativesWithMessageCounts = getEngagementsWithMessageCounts;
+

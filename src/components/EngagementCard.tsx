@@ -27,9 +27,9 @@ export default function EngagementCard({
         </div>
         <StatusBadge status={engagement.status} />
       </div>
-      {engagement.summary && (
+      {(engagement.current_state ?? engagement.summary) && (
         <p className="mt-2 line-clamp-2 text-sm text-muted">
-          {engagement.summary}
+          {engagement.current_state ?? engagement.summary}
         </p>
       )}
       <div className="mt-3 flex items-center gap-3 text-xs text-muted">

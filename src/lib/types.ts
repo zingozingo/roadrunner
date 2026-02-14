@@ -23,9 +23,6 @@ export interface Engagement {
   closed_at: string | null;
 }
 
-/** @deprecated Use Engagement instead */
-export type Initiative = Engagement;
-
 export interface Event {
   id: string;
   name: string;
@@ -109,13 +106,6 @@ export interface ParticipantLink {
   created_at: string;
 }
 
-export interface Note {
-  id: string;
-  engagement_id: string;
-  content: string;
-  created_at: string;
-}
-
 // ============================================================
 // Application types
 // ============================================================
@@ -176,20 +166,6 @@ export interface ParsedMessage {
   cc_header?: string | null;
 }
 
-/** Mailgun inbound webhook multipart form fields */
-export interface MailgunWebhookPayload {
-  sender: string;
-  recipient: string;
-  subject: string;
-  "body-plain": string;
-  "body-html": string;
-  "stripped-text": string;
-  "stripped-html": string;
-  timestamp: string;
-  token: string;
-  signature: string;
-}
-
 export interface ApprovalQueueItem {
   id: string;
   type: "engagement_assignment";
@@ -212,10 +188,5 @@ export interface SMSOption {
   is_new: boolean;
 }
 
-export interface SMSNotification {
-  to: string;
-  body: string;
-  engagement_id?: string;
-  type: "new_engagement" | "status_change" | "digest" | "alert";
-}
+
 
