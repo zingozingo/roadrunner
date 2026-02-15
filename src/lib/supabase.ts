@@ -750,6 +750,7 @@ export async function updateTrack(
   id: string,
   updates: {
     name?: string;
+    type?: Program["type"];
     description?: string | null;
     eligibility?: string | null;
     url?: string | null;

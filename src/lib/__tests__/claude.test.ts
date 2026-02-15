@@ -57,6 +57,7 @@ const EVENT: Event = {
 const PROGRAM: Program = {
   id: "prog-001",
   name: "AWS Security Competency",
+  type: "Competency",
   description: "Validates partner security expertise",
   eligibility: null,
   url: null,

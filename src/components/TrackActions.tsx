@@ -2,10 +2,19 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Program } from "@/lib/types";
+import { Program, ProgramType } from "@/lib/types";
 import ConfirmDialog from "./ConfirmDialog";
 
 const STATUS_OPTIONS: Program["status"][] = ["active", "archived"];
+const TYPE_OPTIONS: (ProgramType | "")[] = [
+  "",
+  "Competency",
+  "Service Ready",
+  "SCA",
+  "Program",
+  "Credit Program",
+];
+const LIFECYCLE_OPTIONS: Program["lifecycle_type"][] = ["indefinite", "recurring", "expiring"];
 
 export default function TrackActions({ track }: { track: Program }) {
   const router = useRouter();
@@ -17,6 +26,7 @@ export default function TrackActions({ track }: { track: Program }) {
 
   // Edit form state
   const [name, setName] = useState(track.name);
+  const [type, setType] = useState<ProgramType | "">(track.type ?? "");
   const [description, setDescription] = useState(track.description ?? "");
   const [eligibility, setEligibility] = useState(track.eligibility ?? "");
   const [url, setUrl] = useState(track.url ?? "");
@@ -24,6 +34,7 @@ export default function TrackActions({ track }: { track: Program }) {
 
   function startEdit() {
     setName(track.name);
+    setType(track.type ?? "");
     setDescription(track.description ?? "");
     setEligibility(track.eligibility ?? "");
     setUrl(track.url ?? "");
@@ -51,6 +62,7 @@ export default function TrackActions({ track }: { track: Program }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
+          type: type || null,
           description: description.trim() || null,
           eligibility: eligibility.trim() || null,
           url: url.trim() || null,
@@ -94,6 +106,11 @@ export default function TrackActions({ track }: { track: Program }) {
     }
   }
 
+  const inputClass =
+    "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none";
+  const labelClass =
+    "mb-1 block text-xs font-semibold uppercase tracking-wider text-muted";
+
   // ── Edit mode ──────────────────────────────────────────────
   if (editing) {
     return (
@@ -101,64 +118,71 @@ export default function TrackActions({ track }: { track: Program }) {
         <div className="space-y-4">
           {/* Name */}
           <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted">
-              Name
-            </label>
+            <label className={labelClass}>Name</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+              className={inputClass}
             />
+          </div>
+
+          {/* Type */}
+          <div>
+            <label className={labelClass}>Type</label>
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value as ProgramType | "")}
+              className={inputClass}
+            >
+              <option value="">No type</option>
+              {TYPE_OPTIONS.filter(Boolean).map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Description */}
           <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted">
-              Description
-            </label>
+            <label className={labelClass}>Description</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              rows={4}
+              rows={6}
               placeholder="Track description..."
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+              className={`${inputClass} resize-y min-h-[100px]`}
             />
           </div>
 
           {/* Eligibility */}
           <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted">
-              Eligibility
-            </label>
-            <input
-              type="text"
+            <label className={labelClass}>Requirements</label>
+            <textarea
               value={eligibility}
               onChange={(e) => setEligibility(e.target.value)}
-              placeholder="Eligibility criteria..."
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+              rows={3}
+              placeholder="Eligibility requirements..."
+              className={`${inputClass} resize-y min-h-[60px]`}
             />
           </div>
 
           {/* URL */}
           <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted">
-              External URL
-            </label>
+            <label className={labelClass}>External URL</label>
             <input
               type="url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://..."
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+              className={inputClass}
             />
           </div>
 
           {/* Status */}
           <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted">
-              Status
-            </label>
+            <label className={labelClass}>Status</label>
             <div className="flex gap-2">
               {STATUS_OPTIONS.map((opt) => (
                 <button
@@ -172,6 +196,25 @@ export default function TrackActions({ track }: { track: Program }) {
                 >
                   {opt}
                 </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Lifecycle (read-only display) */}
+          <div>
+            <label className={labelClass}>Lifecycle</label>
+            <div className="flex gap-2">
+              {LIFECYCLE_OPTIONS.map((opt) => (
+                <span
+                  key={opt}
+                  className={`rounded-lg border px-3 py-1.5 text-sm capitalize ${
+                    track.lifecycle_type === opt
+                      ? "border-accent/40 bg-accent/5 text-foreground"
+                      : "border-border text-muted"
+                  }`}
+                >
+                  {opt}
+                </span>
               ))}
             </div>
           </div>

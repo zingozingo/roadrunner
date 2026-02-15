@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import StatusBadge from "@/components/StatusBadge";
+import { ProgramTypeBadge } from "@/components/TypeBadge";
 import EntityLinkChip from "@/components/EntityLink";
 import TrackActions from "@/components/TrackActions";
 import {
@@ -22,7 +23,6 @@ export default async function TrackDetailPage({
   if (!track) notFound();
 
   const entityLinks = await getEntityLinksForEntity("program", id);
-
   const nameMap = await resolveEntityLinkNames(entityLinks);
 
   return (
@@ -39,15 +39,18 @@ export default async function TrackDetailPage({
 
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            {track.name}
-          </h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-2xl font-bold text-foreground">
+              {track.name}
+            </h1>
+            <StatusBadge status={track.status} />
+            <ProgramTypeBadge type={track.type} />
+          </div>
           {track.eligibility && (
-            <p className="mt-1 text-muted">Eligibility: {track.eligibility}</p>
+            <p className="mt-1 text-sm text-muted">Requirements: {track.eligibility}</p>
           )}
         </div>
         <div className="flex items-center gap-3">
-          <StatusBadge status={track.status} />
           <TrackActions track={track} />
         </div>
       </div>
@@ -62,6 +65,18 @@ export default async function TrackDetailPage({
               </h2>
               <p className="text-sm text-foreground whitespace-pre-wrap">
                 {track.description}
+              </p>
+            </div>
+          )}
+
+          {/* Eligibility */}
+          {track.eligibility && (
+            <div className="rounded-xl border border-border bg-surface p-4">
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
+                Requirements
+              </h2>
+              <p className="text-sm text-foreground whitespace-pre-wrap">
+                {track.eligibility}
               </p>
             </div>
           )}
@@ -94,7 +109,6 @@ export default async function TrackDetailPage({
               </div>
             </div>
           )}
-
         </div>
 
         {/* Sidebar: metadata */}
@@ -103,11 +117,27 @@ export default async function TrackDetailPage({
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
               Details
             </h2>
-            <dl className="space-y-2 text-sm">
+            <dl className="space-y-3 text-sm">
               <div>
                 <dt className="text-muted">Status</dt>
                 <dd className="text-foreground capitalize">{track.status}</dd>
               </div>
+              {track.type && (
+                <div>
+                  <dt className="text-muted">Type</dt>
+                  <dd className="text-foreground">{track.type}</dd>
+                </div>
+              )}
+              <div>
+                <dt className="text-muted">Lifecycle Type</dt>
+                <dd className="text-foreground capitalize">{track.lifecycle_type}</dd>
+              </div>
+              {track.lifecycle_duration && (
+                <div>
+                  <dt className="text-muted">Lifecycle Duration</dt>
+                  <dd className="text-foreground">{track.lifecycle_duration}</dd>
+                </div>
+              )}
               {track.url && (
                 <div>
                   <dt className="text-muted">External Link</dt>

@@ -228,8 +228,9 @@ function buildUserMessage(
   if (programs.length > 0) {
     parts.push("### Active Programs");
     for (const prog of programs) {
+      const typeStr = prog.type ? `, type: ${prog.type}` : "";
       parts.push(
-        `- **${prog.name}** (id: ${prog.id})${prog.description ? ` — ${prog.description}` : ""}`
+        `- **${prog.name}** (id: ${prog.id}${typeStr})${prog.description ? ` — ${prog.description}` : ""}`
       );
     }
     parts.push("");

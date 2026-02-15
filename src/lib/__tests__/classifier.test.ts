@@ -181,6 +181,7 @@ const EVENT_REINVENT: Event = {
 const PROGRAM_COMPETENCY: Program = {
   id: "prog-001",
   name: "AWS Security Competency",
+  type: "Competency",
   description: "Validates partner security expertise",
   eligibility: "Must pass technical review",
   url: null,

@@ -42,7 +42,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, description, eligibility, url, status } = body;
+    const { name, type, description, eligibility, url, status } = body;
 
     if (name !== undefined && typeof name === "string" && !name.trim()) {
       return NextResponse.json(
@@ -66,8 +66,17 @@ export async function PUT(
       );
     }
 
+    const VALID_TYPES = new Set(["Competency", "Service Ready", "SCA", "Program", "Credit Program"]);
+    if (type !== undefined && type !== null && !VALID_TYPES.has(type)) {
+      return NextResponse.json(
+        { error: `Invalid type "${type}". Must be one of: Competency, Service Ready, SCA, Program, Credit Program` },
+        { status: 400 }
+      );
+    }
+
     const updates: Record<string, unknown> = {};
     if (name !== undefined) updates.name = name.trim();
+    if (type !== undefined) updates.type = type || null;
     if (description !== undefined) updates.description = description || null;
     if (eligibility !== undefined) updates.eligibility = eligibility || null;
     if (url !== undefined) updates.url = url || null;

@@ -21,6 +21,13 @@
   --confidence-medium: #f59e0b;
   --confidence-low: #ef4444;
 
+  /* Program type colors */
+  --program-competency: #3b82f6;
+  --program-service-ready: #06b6d4;
+  --program-sca: #a855f7;
+  --program-program: #22c55e;
+  --program-credit: #f97316;
+
   /* Event type colors */
   --event-conference: #8b5cf6;
   --event-summit: #6366f1;

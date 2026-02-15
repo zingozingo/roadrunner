@@ -41,6 +41,7 @@ interface SeedEvent {
 
 interface SeedProgram {
   name: string;
+  type?: "Competency" | "Service Ready" | "SCA" | "Program" | "Credit Program" | null;
   description?: string | null;
   eligibility?: string | null;
   url?: string | null;
@@ -142,6 +143,7 @@ async function main() {
 
       const { error } = await supabase.from("programs").insert({
         name: program.name,
+        type: program.type ?? null,
         description: program.description ?? null,
         eligibility: program.eligibility ?? null,
         url: program.url ?? null,

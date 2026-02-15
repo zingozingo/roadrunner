@@ -37,9 +37,12 @@ export interface Event {
   created_at: string;
 }
 
+export type ProgramType = "Competency" | "Service Ready" | "SCA" | "Program" | "Credit Program";
+
 export interface Program {
   id: string;
   name: string;
+  type: ProgramType | null;
   description: string | null;
   eligibility: string | null;
   url: string | null;

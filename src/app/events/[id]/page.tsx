@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import StatusBadge from "@/components/StatusBadge";
+import { EventTypeBadge } from "@/components/TypeBadge";
 import EntityLinkChip from "@/components/EntityLink";
 import EventActions from "@/components/EventActions";
 import {
@@ -10,25 +11,17 @@ import {
   getEntityLinksForEntity,
   resolveEntityLinkNames,
 } from "@/lib/supabase";
-import { Event } from "@/lib/types";
 
-const typeColors: Record<Event["type"], string> = {
-  conference: "bg-[var(--event-conference)]/20 text-[var(--event-conference)]",
-  summit: "bg-[var(--event-summit)]/20 text-[var(--event-summit)]",
-  workshop: "bg-[var(--event-workshop)]/20 text-[var(--event-workshop)]",
-  kickoff: "bg-[var(--event-kickoff)]/20 text-[var(--event-kickoff)]",
-  trade_show: "bg-[var(--event-trade-show)]/20 text-[var(--event-trade-show)]",
-  deadline: "bg-[var(--event-deadline)]/20 text-[var(--event-deadline)]",
-  review_cycle: "bg-[var(--event-review-cycle)]/20 text-[var(--event-review-cycle)]",
-  training: "bg-[var(--event-training)]/20 text-[var(--event-training)]",
-};
-
-function formatDateDisplay(event: Event): string {
-  if (!event.start_date) return "No date set";
-
-  const s = new Date(event.start_date).toLocaleDateString();
-  if (!event.end_date) return s;
-  const e = new Date(event.end_date).toLocaleDateString();
+function formatDateDisplay(start: string | null, end: string | null): string {
+  if (!start) return "Date TBD";
+  const opts: Intl.DateTimeFormatOptions = {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  };
+  const s = new Date(start + "T00:00:00").toLocaleDateString("en-US", opts);
+  if (!end) return s;
+  const e = new Date(end + "T00:00:00").toLocaleDateString("en-US", opts);
   return s === e ? s : `${s} — ${e}`;
 }
 
@@ -43,7 +36,6 @@ export default async function EventDetailPage({
   if (!event) notFound();
 
   const entityLinks = await getEntityLinksForEntity("event", id);
-
   const nameMap = await resolveEntityLinkNames(entityLinks);
 
   return (
@@ -60,20 +52,16 @@ export default async function EventDetailPage({
 
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-bold text-foreground">
               {event.name}
             </h1>
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                typeColors[event.type] ?? "bg-border text-muted"
-              }`}
-            >
-              {event.type.replace("_", " ")}
-            </span>
+            <EventTypeBadge type={event.type} />
             {!event.verified && <StatusBadge status="unverified" />}
           </div>
-          <p className="mt-1 text-muted">{formatDateDisplay(event)}</p>
+          <p className="mt-1 text-muted">
+            {formatDateDisplay(event.start_date, event.end_date)}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <EventActions event={event} />
@@ -122,7 +110,6 @@ export default async function EventDetailPage({
               </div>
             </div>
           )}
-
         </div>
 
         {/* Sidebar: metadata */}
@@ -131,7 +118,11 @@ export default async function EventDetailPage({
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
               Details
             </h2>
-            <dl className="space-y-2 text-sm">
+            <dl className="space-y-3 text-sm">
+              <div>
+                <dt className="text-muted">Type</dt>
+                <dd className="text-foreground capitalize">{event.type.replace("_", " ")}</dd>
+              </div>
               {event.host && (
                 <div>
                   <dt className="text-muted">Host</dt>
@@ -144,6 +135,12 @@ export default async function EventDetailPage({
                   <dd className="text-foreground">{event.location}</dd>
                 </div>
               )}
+              <div>
+                <dt className="text-muted">Dates</dt>
+                <dd className="text-foreground">
+                  {formatDateDisplay(event.start_date, event.end_date)}
+                </dd>
+              </div>
               <div>
                 <dt className="text-muted">Source</dt>
                 <dd className="text-foreground capitalize">{event.source.replace("_", " ")}</dd>
