@@ -9,6 +9,9 @@ export interface OpenItem {
   resolved?: boolean;
 }
 
+export type Pillar = "Co-Sell" | "Co-Market" | "Co-Build";
+export type Priority = "Mandated" | "High" | "Normal" | "Opportunistic";
+
 export interface Engagement {
   id: string;
   name: string;
@@ -17,6 +20,8 @@ export interface Engagement {
   current_state: string | null;
   open_items: OpenItem[];
   partner_name: string | null;
+  pillar: Pillar | null;
+  priority: Priority | null;
   tags: string[];
   created_at: string;
   updated_at: string;

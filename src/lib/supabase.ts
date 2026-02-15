@@ -11,6 +11,8 @@ import {
   ClassificationResult,
   SMSOption,
   OpenItem,
+  Pillar,
+  Priority,
 } from "./types";
 
 let client: SupabaseClient | null = null;
@@ -216,6 +218,8 @@ export async function createEngagement(data: {
   current_state?: string | null;
   open_items?: OpenItem[];
   tags?: string[];
+  pillar?: Pillar | null;
+  priority?: Priority | null;
 }): Promise<Engagement> {
   const { data: engagement, error } = await getSupabaseClient()
     .from("engagements")
@@ -227,6 +231,8 @@ export async function createEngagement(data: {
       open_items: data.open_items ?? [],
       tags: data.tags ?? [],
       status: "active",
+      pillar: data.pillar ?? null,
+      priority: data.priority ?? null,
     })
     .select()
     .single();
@@ -269,6 +275,8 @@ export async function updateEngagement(
     current_state?: string | null;
     open_items?: OpenItem[];
     tags?: string[];
+    pillar?: Pillar | null;
+    priority?: Priority | null;
   }
 ): Promise<Engagement> {
   const row: Record<string, unknown> = {};
@@ -279,6 +287,8 @@ export async function updateEngagement(
   if (updates.current_state !== undefined) row.current_state = updates.current_state;
   if (updates.open_items !== undefined) row.open_items = updates.open_items;
   if (updates.tags !== undefined) row.tags = updates.tags;
+  if (updates.pillar !== undefined) row.pillar = updates.pillar;
+  if (updates.priority !== undefined) row.priority = updates.priority;
 
   if (updates.status !== undefined) {
     row.status = updates.status;

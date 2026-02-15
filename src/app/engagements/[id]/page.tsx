@@ -121,6 +121,18 @@ export default async function EngagementDetailPage({
               Details
             </h2>
             <dl className="space-y-2 text-sm">
+              {engagement.pillar && (
+                <div>
+                  <dt className="text-muted">Pillar</dt>
+                  <dd className="text-foreground">{engagement.pillar}</dd>
+                </div>
+              )}
+              {engagement.priority && (
+                <div>
+                  <dt className="text-muted">Priority</dt>
+                  <dd className="text-foreground">{engagement.priority}</dd>
+                </div>
+              )}
               <div>
                 <dt className="text-muted">Created</dt>
                 <dd className="text-foreground">
