@@ -543,3 +543,83 @@ Next.js 14 App Router + TypeScript + Tailwind. Supabase Postgres for data. Singl
 **Rationale:** Fast iteration on prompt quality requires fast testing. The test page mirrors the exact data flow of the production pipeline — forwarder context, email headers, body — with visual results.
 
 **Impact:** New pages: `/test`, `/api/classify/test` (dry run), `/api/classify/live-test` (full pipeline). Added to sidebar. Replaces curl-based testing entirely.
+
+## 2026-02-14: Two-Tier Catalog/Enrollment Pattern
+
+**Decision:** Programs catalog (Tier 1) contains 33 canonical program records. Partner Programs (Tier 2) contains 70 per-partner enrollment records linked to the catalog via "Program" field. Catalog is the single source that seeds Roadrunner.
+
+**Context:** Needed a way for Roadrunner to match against canonical program names while Airtable tracks per-partner enrollment status.
+
+**Rationale:** Separating "what exists" from "who's enrolled in what" prevents Claude from needing to understand the full portfolio structure. It just matches against the vocabulary.
+
+**Impact:** All entity types should follow this pattern (Events catalog already exists, Partner Event Status is Tier 2).
+
+## 2026-02-14: Partner Engagements Replaces Partner Initiatives
+
+**Decision:** New Partner Engagements table with fields: Pillar (Co-Sell/Co-Market/Co-Build), Priority (Mandated/High/Normal/Opportunistic), Status (Planned/Active/Blocked/Completed/Archived), Related Program link, Roadrunner ID, plus all original fields. 37 records migrated from Partner Initiatives which is now archived.
+
+**Context:** Partner Initiatives had a flat schema that didn't capture strategic context or link to programs/Roadrunner.
+
+**Rationale:** Richer schema enables triage of Roadrunner suggestions (Priority), connects work to credentials (Related Program), and establishes sync key (Roadrunner ID).
+
+**Impact:** Roadrunner engagements table should eventually mirror these fields. Classification output already returns pillar-compatible data.
+
+## 2026-02-14: Program Type Taxonomy
+
+**Decision:** Five program types — Competency, Service Ready, SCA, Program, Credit Program — stored in both Airtable (single select on Programs catalog) and Roadrunner (text column with CHECK constraint on programs table).
+
+**Context:** Claude needs to distinguish program categories during email classification. An email about a competency pursuit looks different from MPOPP enrollment.
+
+**Rationale:** Type is a fundamental classification axis. Having it in both systems means Claude sees it in the prompt context and the UI can group/filter by it.
+
+**Impact:** Classification prompt now includes type. Tracks UI groups by type. Seed files include type field.
+
+## 2026-02-14: MPOPP Split — Activate vs Grow as Separate Catalog Entries
+
+**Decision:** MPOPP Activate and MPOPP Grow are two separate records in Programs catalog, not one record with a track sub-field.
+
+**Context:** Debated whether MPOPP is one program with tracks or two distinct programs.
+
+**Rationale:** They have different eligibility requirements, different purposes (new-to-marketplace vs scaling), and Claude needs distinct matching targets. Wallet/funding tracking stays in MPOPP Funding table.
+
+**Impact:** Partner Programs enrollment records link to the specific track. 11 partners on Grow, 1 on Activate.
+
+## 2026-02-14: Lifecycle Vocabulary — Roadrunner Terms as Standard
+
+**Decision:** Use indefinite/recurring/expiring everywhere (both Airtable and Roadrunner) instead of Ongoing/One-Time/Periodic from the original architecture plan.
+
+**Context:** Architecture plan and Roadrunner DB had different lifecycle vocabularies that mapped conceptually but used different words.
+
+**Rationale:** Roadrunner already had these in a CHECK constraint. Using the same terms eliminates translation during seeding.
+
+**Impact:** Airtable Programs catalog single select uses indefinite/recurring/expiring. Seed files pass through directly.
+
+## 2026-02-14: Engagement Status — Intentionally Different Between Systems
+
+**Decision:** Roadrunner uses active/paused/closed. Airtable uses Planned/Active/Blocked/Completed/Archived. These are not aligned and that's intentional.
+
+**Context:** Considered aligning status vocabularies between systems.
+
+**Rationale:** They serve different purposes. Roadrunner status reflects email activity flow (observable from emails). Airtable status reflects strategic assessment (human judgment). Mapping happens at sync time: Roadrunner active → Airtable Active, Roadrunner closed → Airtable Completed or Archived (human decides).
+
+**Impact:** Future sync logic needs a status mapping layer, not vocabulary unification.
+
+## 2026-02-14: Seed Flow — Airtable → JSON → Roadrunner
+
+**Decision:** Airtable Programs catalog is the authoritative source. Seed files are generated from it in the documented JSON schema, then loaded via npm run seed. Seed loader updated to accept type and eligibility fields.
+
+**Context:** Needed to establish which system is authoritative and how data flows between them.
+
+**Rationale:** Airtable is where human curation happens (visual, easy to edit). Roadrunner is where classification happens. Seeds flow from curation layer to execution layer.
+
+**Impact:** Any program changes start in Airtable, get exported to seed JSON, then loaded. Same pattern should apply to events.
+
+## 2026-02-14: Partner Initiatives Archived
+
+**Decision:** Partner Initiatives table archived (renamed with prefix, hidden from tab bar). Zero dependencies confirmed — no Partner Plans or AWS Relationships records linked to it.
+
+**Context:** All 37 records migrated to Partner Engagements with richer schema.
+
+**Rationale:** Dead table with no links. Keeping it visible would cause confusion about which table is active.
+
+**Impact:** Partner Engagements is now the sole active work-tracking table.

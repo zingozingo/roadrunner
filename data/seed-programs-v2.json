@@ -1,0 +1,334 @@
+{
+    "programs": [
+        {
+            "name": "Security Competency",
+            "type": "Competency",
+            "description": "AWS Partner competency validating deep security expertise. Covers identity, infrastructure protection, data protection, threat detection, incident response, and compliance.",
+            "eligibility": "Validated customer references, technical review, AWS-hosted or deeply integrated solution, annual renewal audit",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "recurring",
+            "lifecycle_duration": "Annual renewal"
+        },
+        {
+            "name": "DevOps Competency",
+            "type": "Competency",
+            "description": "AWS Partner competency for CI/CD, infrastructure as code, monitoring, and DevOps tooling. Validates that the partner's solution helps customers implement DevOps practices on AWS.",
+            "eligibility": "Validated customer references, technical review, demonstrated DevOps workflow integration with AWS services, annual renewal",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "recurring",
+            "lifecycle_duration": "Annual renewal"
+        },
+        {
+            "name": "SMB Software Competency",
+            "type": "Competency",
+            "description": "AWS Partner competency for ISVs serving small and medium businesses. Validates self-service, low-touch onboarding, and consumption-based pricing models.",
+            "eligibility": "Validated SMB customer references, technical review, demonstrated SMB-appropriate deployment model, annual renewal",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "recurring",
+            "lifecycle_duration": "Annual renewal"
+        },
+        {
+            "name": "Data & Analytics Competency",
+            "type": "Competency",
+            "description": "AWS Partner competency for data management, analytics, and business intelligence solutions. Covers data lakes, ETL, warehousing, and analytical workloads on AWS.",
+            "eligibility": "Validated customer references, technical review, demonstrated integration with AWS analytics services, annual renewal",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "recurring",
+            "lifecycle_duration": "Annual renewal"
+        },
+        {
+            "name": "Cloud Operations Competency",
+            "type": "Competency",
+            "description": "AWS Partner competency for cloud management, monitoring, cost optimization, and IT operations solutions.",
+            "eligibility": "Validated customer references, technical review, demonstrated cloud operations capabilities, annual renewal",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "recurring",
+            "lifecycle_duration": "Annual renewal"
+        },
+        {
+            "name": "Built-In Competency",
+            "type": "Competency",
+            "description": "AWS Partner competency for ISVs with native AWS service integrations built into their product as core components, not just deployed on AWS.",
+            "eligibility": "Validated customer references, technical deep-dive showing native AWS service integration, annual renewal",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "recurring",
+            "lifecycle_duration": "Annual renewal"
+        },
+        {
+            "name": "Observability Competency",
+            "type": "Competency",
+            "description": "AWS Partner competency for monitoring, logging, tracing, and observability solutions. Validates comprehensive visibility into AWS workloads.",
+            "eligibility": "Validated customer references, technical review, demonstrated integration with AWS observability services (CloudWatch, X-Ray, OpenSearch), annual renewal",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "recurring",
+            "lifecycle_duration": "Annual renewal"
+        },
+        {
+            "name": "Financial Services Competency",
+            "type": "Competency",
+            "description": "AWS Partner competency for solutions serving financial services customers — banking, insurance, capital markets, payments. Validates industry-specific compliance and regulatory awareness.",
+            "eligibility": "Validated FinServ customer references, technical review, demonstrated compliance capabilities (SOC2, PCI-DSS, etc.), annual renewal",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "recurring",
+            "lifecycle_duration": "Annual renewal"
+        },
+        {
+            "name": "Generative AI Competency",
+            "type": "Competency",
+            "description": "AWS Partner competency for GenAI and foundation model solutions. Validates that the partner builds or integrates generative AI capabilities using AWS AI/ML services.",
+            "eligibility": "Validated customer references with GenAI use cases, technical review showing AWS AI/ML service integration, annual renewal",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "recurring",
+            "lifecycle_duration": "Annual renewal"
+        },
+        {
+            "name": "Digital Workspace Competency",
+            "type": "Competency",
+            "description": "AWS Partner competency for virtual desktop, application streaming, and digital workspace solutions. Validates integration with AWS end-user computing services.",
+            "eligibility": "Validated customer references, technical review, demonstrated integration with AWS workspace services, annual renewal",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "recurring",
+            "lifecycle_duration": "Annual renewal"
+        },
+        {
+            "name": "Healthcare Competency",
+            "type": "Competency",
+            "description": "AWS Partner competency for healthcare and life sciences solutions. Validates HIPAA compliance capabilities and integration with AWS health services.",
+            "eligibility": "Validated healthcare customer references, technical review, demonstrated HIPAA compliance, annual renewal",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "recurring",
+            "lifecycle_duration": "Annual renewal"
+        },
+        {
+            "name": "Nonprofit ISV Competency",
+            "type": "Competency",
+            "description": "AWS Partner competency for ISVs serving nonprofit organizations. Validates purpose-built capabilities for fundraising, donor management, volunteer coordination, and grant tracking.",
+            "eligibility": "Validated nonprofit customer references, technical review, demonstrated nonprofit-specific functionality, annual renewal",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "recurring",
+            "lifecycle_duration": "Annual renewal"
+        },
+        {
+            "name": "Media & Entertainment Competency",
+            "type": "Competency",
+            "description": "AWS Partner competency for media, entertainment, and content solutions. Covers content creation, management, distribution, streaming, and media supply chain.",
+            "eligibility": "Validated M&E customer references, technical review, demonstrated media workflow integration with AWS, annual renewal",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "recurring",
+            "lifecycle_duration": "Annual renewal"
+        },
+        {
+            "name": "Manufacturing & Industrial Competency",
+            "type": "Competency",
+            "description": "AWS Partner competency for manufacturing, industrial IoT, and operational technology solutions. Covers SCADA, OT security, predictive maintenance, and smart factory use cases.",
+            "eligibility": "Validated manufacturing/industrial customer references, technical review, demonstrated OT/IoT integration with AWS, annual renewal",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "recurring",
+            "lifecycle_duration": "Annual renewal"
+        },
+        {
+            "name": "Government Competency",
+            "type": "Competency",
+            "description": "AWS Partner competency for government and public sector solutions. Validates FedRAMP awareness, compliance with government security standards, and public sector procurement readiness.",
+            "eligibility": "Validated government customer references, technical review, demonstrated compliance capabilities (FedRAMP, ITAR, etc.), annual renewal",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "recurring",
+            "lifecycle_duration": "Annual renewal"
+        },
+        {
+            "name": "Migration & Modernization Competency",
+            "type": "Competency",
+            "description": "AWS Partner competency for workload migration and application modernization. Validates that the partner helps customers migrate to AWS and modernize legacy applications.",
+            "eligibility": "Validated migration/modernization customer references, technical review, demonstrated use of AWS migration tools (MGN, DMS, etc.), annual renewal",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "recurring",
+            "lifecycle_duration": "Annual renewal"
+        },
+        {
+            "name": "Lambda Service Ready",
+            "type": "Service Ready",
+            "description": "AWS service-level technical validation confirming the partner's solution integrates with AWS Lambda and demonstrates serverless architecture compatibility.",
+            "eligibility": "Technical validation by AWS service team, demonstrated Lambda integration in production workloads",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "indefinite",
+            "lifecycle_duration": "Persists once achieved"
+        },
+        {
+            "name": "WAF Service Ready",
+            "type": "Service Ready",
+            "description": "AWS service-level technical validation confirming the partner's solution integrates with AWS WAF for web security and edge protection.",
+            "eligibility": "Technical validation by AWS service team, demonstrated WAF integration and rule management",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "indefinite",
+            "lifecycle_duration": "Persists once achieved"
+        },
+        {
+            "name": "Graviton Service Ready",
+            "type": "Service Ready",
+            "description": "AWS service-level technical validation confirming the partner's solution runs on AWS Graviton ARM-based processors with demonstrated cost optimization.",
+            "eligibility": "Technical validation by AWS service team, demonstrated Graviton compatibility and performance benchmarks",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "indefinite",
+            "lifecycle_duration": "Persists once achieved"
+        },
+        {
+            "name": "Amazon RDS Service Ready",
+            "type": "Service Ready",
+            "description": "AWS service-level technical validation confirming the partner's solution integrates with Amazon RDS for managed relational database workloads.",
+            "eligibility": "Technical validation by AWS service team, demonstrated RDS integration in production workloads",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "indefinite",
+            "lifecycle_duration": "Persists once achieved"
+        },
+        {
+            "name": "Linux Service Ready",
+            "type": "Service Ready",
+            "description": "AWS service-level technical validation confirming the partner's solution is validated on Linux-based AWS instances.",
+            "eligibility": "Technical validation by AWS service team, demonstrated Linux deployment and compatibility",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "indefinite",
+            "lifecycle_duration": "Persists once achieved"
+        },
+        {
+            "name": "PrivateLink Service Ready",
+            "type": "Service Ready",
+            "description": "AWS service-level technical validation confirming the partner's solution supports AWS PrivateLink for private VPC connectivity without public internet.",
+            "eligibility": "Technical validation by AWS service team, demonstrated PrivateLink endpoint implementation",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "indefinite",
+            "lifecycle_duration": "Persists once achieved"
+        },
+        {
+            "name": "GenAI SCA",
+            "type": "SCA",
+            "description": "Strategic Collaboration Agreement focused on generative AI. Multi-quarter negotiated agreement defining joint GenAI GTM activities, technical integration milestones, and co-investment terms.",
+            "eligibility": "AWS sponsor (typically GTM or product team), negotiated terms, partner commitment to Bedrock/SageMaker integration or GenAI solution development",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "expiring",
+            "lifecycle_duration": "Typically 6-12 months, negotiated per agreement"
+        },
+        {
+            "name": "PE SCA",
+            "type": "SCA",
+            "description": "Strategic Collaboration Agreement focused on partner enablement. Multi-quarter negotiated agreement defining enablement activities, training commitments, and AWS support resources.",
+            "eligibility": "AWS sponsor, negotiated terms, partner commitment to enablement milestones",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "expiring",
+            "lifecycle_duration": "Typically 6-12 months, negotiated per agreement"
+        },
+        {
+            "name": "GTM SCA",
+            "type": "SCA",
+            "description": "Strategic Collaboration Agreement focused on go-to-market. Multi-quarter negotiated agreement defining joint GTM activities, co-sell commitments, marketing investments, and revenue targets.",
+            "eligibility": "AWS sponsor, negotiated terms, partner commitment to co-sell targets and GTM milestones",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "expiring",
+            "lifecycle_duration": "Typically 6-12 months, negotiated per agreement"
+        },
+        {
+            "name": "Wholesale Marketplace Program (WMP)",
+            "type": "Program",
+            "description": "AWS Marketplace program enabling partners to sell through channel partners and distributors via Marketplace while still capturing Marketplace TCV.",
+            "eligibility": "Active Marketplace listing, channel partner relationships, Marketplace operations maturity",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "recurring",
+            "lifecycle_duration": "Annual enrollment"
+        },
+        {
+            "name": "DSOR",
+            "type": "Program",
+            "description": "Distributor Sales Operations and Resale program. Enables partners to sell through specific distributors (TD Synnex, Ingram Micro, Carahsoft) with formalized resale agreements.",
+            "eligibility": "Distributor relationship established, operational readiness for resale workflow",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "recurring",
+            "lifecycle_duration": "Annual renewal"
+        },
+        {
+            "name": "Passport Program",
+            "type": "Program",
+            "description": "AWS partner enablement program providing structured workshops for partners to improve Marketplace operations, co-sell readiness, and AWS partnership maturity.",
+            "eligibility": "PDM nomination, partner commitment to attend workshops and complete exercises",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "expiring",
+            "lifecycle_duration": "Program cohort — typically 3-6 months"
+        },
+        {
+            "name": "Marketplace Seller Prime",
+            "type": "Program",
+            "description": "AWS Marketplace program providing premium support, dedicated Marketplace advisor, and enhanced visibility for high-performing partners.",
+            "eligibility": "Marketplace sales performance thresholds, operational maturity, active co-sell participation",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "recurring",
+            "lifecycle_duration": "Annual qualification"
+        },
+        {
+            "name": "Direct Deal Exception Pathway",
+            "type": "Program",
+            "description": "AWS program allowing partners to process certain deals outside standard Marketplace flow. Requires monthly audits to maintain compliance.",
+            "eligibility": "Approval from AWS, demonstrated need for exception pathway, monthly compliance audits",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "recurring",
+            "lifecycle_duration": "Annual renewal with monthly audits"
+        },
+        {
+            "name": "Well-Architected Partner Program",
+            "type": "Program",
+            "description": "AWS program for partners who can conduct official Well-Architected Reviews with their customers using the AWS Well-Architected Framework.",
+            "eligibility": "Certified Well-Architected practitioners, demonstrated review capabilities, AWS approval",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "indefinite",
+            "lifecycle_duration": "Persists once achieved"
+        },
+        {
+            "name": "MPOPP Activate",
+            "type": "Credit Program",
+            "description": "Marketplace Partner Opportunity Program — Activate track. For partners new to Marketplace, providing credits and incentives to land first transactions.",
+            "eligibility": "Active Marketplace listing, limited existing Marketplace revenue, PDM sponsorship",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "expiring",
+            "lifecycle_duration": "Half-year enrollment (H1/H2)"
+        },
+        {
+            "name": "MPOPP Grow",
+            "type": "Credit Program",
+            "description": "Marketplace Partner Opportunity Program — Grow track. For partners with established Marketplace traction, providing larger credit allocations to accelerate revenue growth.",
+            "eligibility": "Demonstrated Marketplace revenue history, active co-sell participation, PDM sponsorship",
+            "url": null,
+            "status": "active",
+            "lifecycle_type": "expiring",
+            "lifecycle_duration": "Half-year enrollment (H1/H2)"
+        }
+    ]
+}
