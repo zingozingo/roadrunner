@@ -1,3 +1,7 @@
+# DEPRECATED
+
+> **This document is outdated and superseded by `decisions.md` and `docs/goal-state.md`. Retained for historical reference only. Do not use for current system architecture.**
+
 # Relay — Master Spec
 
 **Project Codename:** Roadrunner

@@ -683,3 +683,123 @@ Next.js 14 App Router + TypeScript + Tailwind. Supabase Postgres for data. Singl
 **Rationale:** "Meetings" is general enough for all meeting types. "Partner Events" follows the Tier 2 enrollment naming convention (Partner Programs, Partner Events). Consistency reduces cognitive load.
 
 **Impact:** Tables renamed in Airtable. Note: some link field labels in the Partners table may still show old names (cosmetic only, links work correctly).
+
+---
+
+## 2026-02-16: Bidirectional Sync Architecture — Catalog Pull + Activity Push
+
+**Decision:** Airtable → Roadrunner for Tier 1 catalogs (Programs, Events, AWS Relationships) via button-triggered pull. Roadrunner → Airtable for Tier 3 activity (Engagements, and soon Meetings) via auto-push on create/update.
+
+**Context:** Two systems need to stay in sync — Airtable as strategic portfolio hub, Roadrunner as real-time email activity layer.
+
+**Rationale:** Each system is authoritative for its domain. Pull for catalogs gives user control over when reference data refreshes. Auto-push for activity ensures Airtable always reflects the latest email-driven work without manual steps.
+
+**Impact:** Defines permanent data flow contract. Catalog sync via POST /api/sync (button-triggered). Activity sync via fire-and-forget after classification and manual edits.
+
+---
+
+## 2026-02-16: Name-Based Initial Match → ID-Based Ongoing Match
+
+**Decision:** First sync matches records by name (programs/events) or name + partner_name combo (engagements). After matching, both sides store each other's record IDs (airtable_record_id in Supabase, Roadrunner ID field in Airtable). All subsequent syncs match by ID first.
+
+**Context:** Initial state had 33 programs, 32 events, and 37 engagements in Airtable with no Roadrunner IDs, and Roadrunner records with no Airtable IDs.
+
+**Rationale:** Name matching bootstraps the relationship. ID matching makes it permanent and rename-safe. If someone renames "Security Competency" to "AWS Security Competency" in Airtable, the sync finds it by ID and updates the name — no duplicate created.
+
+**Impact:** airtable_record_id columns on programs, events, engagements, aws_relationships tables. Roadrunner ID field on Airtable Partner Engagements. Reconciliation is automatic on first sync.
+
+---
+
+## 2026-02-16: Fire-and-Forget Auto-Push Pattern
+
+**Decision:** Engagement pushes to Airtable use non-blocking Promise.catch(err => console.error()) pattern. Never awaited in the critical path of email classification or API responses.
+
+**Context:** Airtable API could be slow or down. Email classification must never fail because Airtable is unavailable.
+
+**Rationale:** Roadrunner must function independently. Airtable sync is a nice-to-have enrichment, not a hard dependency. Errors are logged but don't propagate.
+
+**Impact:** classifier.ts and PUT /api/engagements/[id] both call pushEngagementToAirtable() without await. Same pattern will apply to meetings sync.
+
+---
+
+## 2026-02-16: Notes Field Merge Strategy with Marker Sections
+
+**Decision:** Roadrunner writes activity summaries to Airtable Notes field using === Roadrunner Activity Summary === markers. Manual content above the marker is preserved. Future syncs replace only the marker section. If no marker exists and Notes has content, Roadrunner appends below.
+
+**Context:** Both systems write to Notes — Steven manually in Airtable, Roadrunner automatically from current_state and open_items.
+
+**Rationale:** Prevents data loss. Clear visual separation. The marker pattern is a well-established convention for multi-source content in a shared field.
+
+**Impact:** Notes field in Airtable Partner Engagements safely contains both manual strategic notes and auto-synced activity summaries.
+
+---
+
+## 2026-02-16: Meetings Don't Link Directly to Programs
+
+**Decision:** No program_id or program link on meetings table. Program context is always inherited via Meeting → Engagement → Program (through entity_links).
+
+**Context:** Question raised about whether meetings should link to programs like engagements do.
+
+**Rationale:** A meeting is a moment in time within an engagement's lifecycle. The engagement carries the program context. Adding a direct program link would create redundancy and risk inconsistency. Events ARE directly linked because meetings physically occur at events — that's a property of the meeting itself, not inherited.
+
+**Impact:** Keeps data model clean. Airtable Meetings table also has no Programs link — both systems are consistent.
+
+---
+
+## 2026-02-16: Meetings Schema Completeness — event_id, status, partner_name
+
+**Decision:** Added event_id FK (to events), status TEXT with CHECK constraint (Scheduling/Invites Sent/Confirmed/Completed/Did Not Occur), and partner_name TEXT to the meetings table via migration 022.
+
+**Context:** Gap analysis between Supabase meetings table and Airtable Meetings table revealed three missing fields that would block clean sync.
+
+**Rationale:** Closing gaps before building sync ensures 1:1 field mapping with zero translation issues. Status values match Airtable exactly. event_id enables "this meeting happens at this event" linking. partner_name handles standalone meetings without engagements.
+
+**Impact:** Migration 022. Updated types, API routes, list/detail pages, create/edit forms. Meeting status badges in UI.
+
+---
+
+## 2026-02-16: Events Consolidated to 32 (2026 Only)
+
+**Decision:** Removed 6 legacy 2025 events from Airtable (deprecated Event Type field, missing new schema fields). Added 4 AWS PartnerEquip training events. Final count: 32 events in both systems.
+
+**Context:** Event count discrepancy between systems — needed to reconcile before building sync.
+
+**Rationale:** Clean baseline is essential. Legacy events with old schemas would cause sync mapping issues. PartnerEquip events were in Supabase but missing from Airtable.
+
+**Impact:** Both systems at 32 events. All counts verified: 33 programs, 32 events, 7 AWS relationships.
+
+---
+
+## 2026-02-16: Catalog Sync is Idempotent with Change Detection
+
+**Decision:** Sync compares all mapped fields before writing. Only changed records trigger updates. Unchanged records are skipped. Results report inserted/updated/unchanged/errors counts with duration.
+
+**Context:** Sync button can be pressed repeatedly. Need to avoid unnecessary writes and provide clear feedback.
+
+**Rationale:** Idempotency is a fundamental property of reliable sync. Change detection reduces API calls and database writes. Clear reporting helps diagnose issues.
+
+**Impact:** First sync: ~12s (65 updates to add airtable_record_ids). Subsequent syncs: ~0.5s (all unchanged). Safe to run anytime.
+
+---
+
+## 2026-02-16: Airtable-Only Fields Never Overwritten by Sync
+
+**Decision:** Strategic fields on Airtable Partner Engagements (Start Date, Target Completion, AWS Stakeholders, Partner Stakeholders, Third Parties, Related Program, AWS Relationships, 2026 Partner Plans, Event Meetings) are never touched by Roadrunner → Airtable push.
+
+**Context:** Airtable is the strategic layer. Steven manually manages dates, stakeholders, program links, and plan associations there. Roadrunner only pushes activity data.
+
+**Rationale:** Clear ownership boundaries. Automated sync should enrich, not overwrite. Each system owns specific fields.
+
+**Impact:** pushEngagementToAirtable() only sends: name, pillar, priority, status, tags, partner link, notes, and Roadrunner ID. All other fields are untouched.
+
+---
+
+## 2026-02-16: approval_queue Schema Cleanup
+
+**Decision:** Added CHECK constraint on approval_queue.type limiting to 'engagement_assignment'. Dropped dead entity_data JSONB column (from removed event_creation flow). Migration 021.
+
+**Context:** Diagnostic revealed no CHECK constraint (any string accepted) and a dead column always containing null.
+
+**Rationale:** Schema hygiene. The event_creation approval type was fully removed in a prior session. The column and loose type constraint were remnants.
+
+**Impact:** Tighter schema validation. No functional change (all code already used correct values).
