@@ -457,7 +457,7 @@ status
 Status
 fldUAOu4GG1Wme5OJ
 RR → AT
-Map: "active"→"Active", "paused"→"Blocked", "closed"→"Completed"
+Map: "planned"→"Planned", "active"→"Active", "paused"→"Blocked", "completed"→"Completed", "archived"→"Archived"
 ✅ Synced
 tags (text[])
 Tags
@@ -563,7 +563,7 @@ Supabase-only
 Short email-derived summary (folded into Notes via current_state for AT)
 
 Gaps:
-Status mapping is incomplete. Supabase has: active, paused, closed. Airtable has: Planned, Active, Blocked, Completed, Archived. Current mapping: active→Active, paused→Blocked, closed→Completed. Missing: no Supabase equivalent for "Planned" or "Archived." If an engagement is created manually in Airtable as "Planned" and later matched to a Roadrunner engagement, the status will be overwritten. Recommendation: Add "planned" and "archived" to the Supabase engagement status values.
+None. Status mapping is complete — Supabase now has all 5 values (planned, active, paused, completed, archived) matching Airtable (Planned, Active, Blocked, Completed, Archived). Migration 025 added the missing values.
 
 
 Airtable-only fields are NEVER overwritten — this is enforced in the push logic. The sync only sends the fields listed as ✅ Synced.
@@ -794,21 +794,21 @@ Engagement Status
 Supabase Value
 Airtable Value
 Notes
+planned
+Planned
+✅ Mapped
 active
 Active
 ✅ Mapped
 paused
 Blocked
 ✅ Mapped
-closed
+completed
 Completed
 ✅ Mapped
-(none)
-Planned
-⚠️ Gap — no Supabase equivalent
-(none)
+archived
 Archived
-⚠️ Gap — no Supabase equivalent
+✅ Mapped
 
 Engagement Pillar
 Values match directly in both systems: Co-Sell, Co-Market, Co-Build
@@ -826,14 +826,14 @@ Immediate (Before Next Build Session)
 📝 Populate AWS Contact Emails — Add email addresses to all 7 AWS Relationships records in Airtable (Primary Contact Email + AWS Contact Emails fields). Then run sync to pull into Supabase. Required for classifier email matching.
 
 
-⚠️ Add "planned" and "archived" to engagement status — Supabase CHECK constraint only allows active/paused/closed. Airtable has Planned and Archived. Migration needed to add these values + update status mapping in sync.
+~~⚠️ Add "planned" and "archived" to engagement status~~ ✅ Done — Migration 025 aligned Supabase to 5 values (planned, active, paused, completed, archived). Status mapping updated in sync.
 
 
 Next Build Session
 ⏳ Build meetings sync (RR→AT) — Follow engagement push pattern. Field mapping is fully defined above. Key challenges: attendees JSONB → split text fields, event_id resolution via airtable_record_id, engagement_id resolution.
 
 
-⏳ Build ICS parsing — Detect .ics in email attachments → create meeting records with source='ics_parsed'. Feeds into meetings sync.
+~~⏳ Build ICS parsing~~ ✅ Done — ICS parser extracts meetings from body-calendar field, inline VCALENDAR in body-plain, or .ics file attachments. Creates meeting records with source='ics_parsed' and message_id FK for provenance. Feeds into meetings sync.
 
 
 ⏳ Classifier prompt: inject relationships context — Add aws_contact_emails to classifier prompt so Claude can match @amazon.com addresses to teams.

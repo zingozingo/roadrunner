@@ -24,7 +24,7 @@ The primary unit of work. AI-created and managed. One partner, one goal, one ema
 | id | uuid PK | |
 | name | text NOT NULL | AI-suggested on creation, user-editable |
 | partner_name | text | Primary partner involved |
-| status | text | `active` / `paused` / `closed` |
+| status | text | `planned` / `active` / `paused` / `completed` / `archived` |
 | current_state | text | 3-5 sentence executive briefing, updated on each new email |
 | open_items | jsonb | `[{description, assignee, due_date, resolved}]` |
 | tags | jsonb | String array. Freeform labels. Claude suggests, users edit. |
@@ -32,7 +32,7 @@ The primary unit of work. AI-created and managed. One partner, one goal, one ema
 | updated_at | timestamptz | Auto-updated via trigger |
 | closed_at | timestamptz | Nullable, set when status changes to `closed` |
 
-Engagements have a lifecycle: `active` → `paused` or `closed`. Closed engagements are archived — searchable but not shown in active views or matched against new emails.
+Engagements have a lifecycle: `planned` → `active` → `paused`, `completed`, or `archived`. Completed and archived engagements are searchable but not shown in active views or matched against new emails.
 
 ### Programs (seed-only)
 
@@ -309,6 +309,8 @@ High-level steps from v0.1 to goal state. Not ordered — dependencies exist bet
 - ~~Update `entity_links` check constraints: `initiative` → `engagement`~~ ✅ Migration 010
 - ~~Update `participant_links` check constraints: `initiative` → `engagement`~~ ✅ Migration 010
 - ~~Update `approval_queue`: remove `event_creation` type support~~ ✅ Migration 011
+- ~~Align engagement status to 5 values (planned, active, paused, completed, archived)~~ ✅ Migration 025
+- ~~Add `message_id` FK to meetings for ICS provenance tracking~~ ✅ Migration 026
 - Drop `summary` column from engagements (or keep as computed alias for `current_state`) — pending
 
 ### Classifier
@@ -333,6 +335,7 @@ High-level steps from v0.1 to goal state. Not ordered — dependencies exist bet
 ### Email parser
 - ~~Extract To header from inner Outlook headers (was being discarded)~~ ✅
 - ~~Handle optional CC line between To and Subject~~ ✅
+- ~~Eliminate preface messages for forwarded emails — attach meaningful notes as forwarder_note~~ ✅
 - Multi-line To/CC wrapping — future enhancement
 
 ### Resolve route
@@ -368,7 +371,7 @@ High-level steps from v0.1 to goal state. Not ordered — dependencies exist bet
 
 4. **Tags are the escape valve.** Anything that doesn't fit the entity model — campaigns, partner events, strategic labels, workflow states — becomes a tag. Tags are cheap, freeform, and filterable.
 
-5. **Ground truth sources only.** Email text, admin input, and calendar data (.ics, future) are the only valid sources. No synthesized dates, no inferred meetings, no fabricated events.
+5. **Ground truth sources only.** Email text, admin input, and calendar data (.ics) are the only valid sources. No synthesized dates, no inferred meetings, no fabricated events. ICS parsing extracts meetings from three sources: Mailgun's body-calendar field, inline VCALENDAR in body-plain, or .ics file attachments.
 
 6. **Claude matches by ID.** Programs and events have stable UUIDs. Claude receives them in context and returns matched IDs. No name-based fuzzy resolution in application code. If Claude can't match, it doesn't reference.
 

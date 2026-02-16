@@ -827,3 +827,75 @@ Next.js 14 App Router + TypeScript + Tailwind. Supabase Postgres for data. Singl
 **Rationale:** Hard delete over soft delete because these are catalog records — if removed from the authoritative source (Airtable), they should not persist as ghost data. CASCADE foreign keys on junction tables (engagement_aws_relationships, meeting_aws_relationships, entity_links) automatically clean up references. Safety guard: only targets records with a non-null airtable_record_id, so any hypothetical Supabase-only records are never touched.
 
 **Impact:** All three catalog sync functions (programs, events, relationships) now have orphan detection. deleteEngagement() in supabase.ts calls deleteEngagementFromAirtable() via fire-and-forget. New deleteRecord() utility in airtable.ts. SyncButton displays deleted count. Closes a gap where stale data could pollute classifier context.
+
+---
+
+## 2026-02-16: Smart Body Selection for Forwarded Emails
+
+**Decision:** Replaced the naive `strippedText || bodyPlain` body selection with a `selectEmailBody()` function that detects forwarded email content and prefers `body-plain` when Mailgun's `stripped-text` has lost the forwarded thread.
+
+**Context:** Mailgun's `stripped-text` removes "quoted" content — which includes forwarded email threads (the From:/Sent:/To:/Subject: header blocks the parser depends on). For a forwarding-centric app, stripped-text would consistently return only the forwarder's signature line (~30 chars), discarding the actual partner communication (~600-1300 chars).
+
+**Rationale:** Two detection heuristics: (1) body-plain has Outlook forward markers (`From:` + `Sent:` on line starts) that stripped-text lost, or (2) body-plain is 3x+ longer than stripped-text. Falls back to stripped-text for direct (non-forwarded) emails where it's cleaner. Permanent `[BODY]` logging tracks which path is chosen.
+
+**Impact:** Email parser now receives the full forwarded thread instead of just the forwarder's signature. No changes to the parser itself — the fix is upstream in the inbound route's body selection.
+
+---
+
+## 2026-02-16: body-calendar as Primary ICS Source
+
+**Decision:** Added `body-calendar` Mailgun field as the primary ICS source, ahead of inline body-plain extraction and file attachments. Three-path priority: body-calendar → inline VCALENDAR in body-plain → File attachment from FormData.
+
+**Context:** Production diagnostic logging revealed Mailgun sends calendar invites as a dedicated `body-calendar` string field (3775 chars of raw VCALENDAR content), not as File attachments in the FormData payload. The original implementation only checked for File attachments, which only works with multipart/form-data encoding — not URL-encoded fallback.
+
+**Rationale:** body-calendar is the most reliable path because it's always a string field (works with both multipart and URL-encoded payloads). Inline body-plain is a fallback for edge cases where body-calendar isn't set. File attachment is last resort for actual .ics file attachments. All three paths feed into the same `parseICSContent()` function.
+
+**Impact:** ICS meeting creation now works in production. `[ICS]` logging tracks which source path was used for each meeting. Non-blocking: ICS failures never prevent email processing.
+
+---
+
+## 2026-02-16: Eliminate Preface Messages from Email Parser
+
+**Decision:** The email parser no longer creates standalone messages for text that appears before the first forwarded header block (the "preface"). Instead, meaningful preface text is attached to the first real message as `forwarder_note`. Signature-only prefaces are silently discarded.
+
+**Context:** When Steven forwards an email, Outlook places his signature ("Steven Romero | Growth PDM") above the forwarded thread separator. The parser was treating this as a separate message, creating a noise record that wasted a Claude API call and diluted classification context. Every forwarded email produced an extra garbage message.
+
+**Rationale:** The preface is forwarding metadata, not partner communication. Signature patterns (Name | Title, bare names, "Sent from..." lines, separator lines) are stripped. If the remaining text exceeds 20 characters, it's treated as a meaningful forwarder note (e.g., "Please review — high priority partner") and attached to the first real message via `forwarder_note`. Added `forwarder_note?: string | null` to the ParsedMessage type.
+
+**Impact:** Forwarded emails now produce exactly the right number of messages (one per From:/Sent: header block). Test count increased from 67 to 73 with three new test suites covering signature-only, meaningful, and blank preface scenarios.
+
+---
+
+## 2026-02-16: message_id FK on Meetings Table
+
+**Decision:** Added `message_id uuid REFERENCES messages(id) ON DELETE SET NULL` to the meetings table (migration 026) to track which inbound email contained the ICS attachment that created a meeting.
+
+**Context:** Meetings created from ICS parsing had no link back to the source email. Without provenance tracking, there's no way to audit which email produced which meeting or to handle re-processing.
+
+**Rationale:** Nullable FK because manually created meetings have no source message. ON DELETE SET NULL preserves the meeting record if the source message is deleted. Index added for efficient lookups. `createMeetingFromICS()` in supabase.ts accepts an optional `messageId` parameter.
+
+**Impact:** Full audit trail from email → message → meeting. Meeting-to-engagement linking (Phase 2, via `linkMeetingToEngagement()`) can use the message's engagement_id to automatically associate meetings with the right engagement after classification.
+
+---
+
+## 2026-02-16: ICS Parser — Pure TypeScript, No Dependencies
+
+**Decision:** Built the ICS (RFC 5545) parser as pure TypeScript with no npm dependencies. Handles line folding, UTC/TZID timestamps, ORGANIZER/ATTENDEE extraction, and text unescaping.
+
+**Context:** Meeting invite processing requires parsing VCALENDAR/VEVENT content from email attachments or body fields. npm ICS libraries (node-ical, ical.js) are heavyweight and bring transitive dependencies.
+
+**Rationale:** The parser only needs to handle a single VEVENT per calendar (meeting invites, not full calendar feeds). RFC 5545 line folding and property extraction are straightforward to implement. Defensive: returns null for any parse failure rather than throwing. Validation: requires UID, SUMMARY, and DTSTART — returns null if any are missing.
+
+**Impact:** `parseICSContent()` in ics-parser.ts, `extractICSFromAttachments()` for FormData File scanning. Zero new dependencies. Used by inbound route for all three ICS extraction paths.
+
+---
+
+## 2026-02-16: Tracks → Programs Rename
+
+**Decision:** Renamed the "Tracks" entity to "Programs" throughout the codebase — database tables, TypeScript types, API routes, UI components, sidebar navigation, and seed data.
+
+**Context:** "Tracks" was the original internal name, but the entity represents AWS partner programs (ISV Accelerate, Security Competency, Marketplace Co-Sell, etc.). "Programs" is the term AWS uses externally and what partners recognize.
+
+**Rationale:** Align terminology with the domain. Steven uses "programs" in conversation and emails. The Airtable schema already uses "Programs." Having a different internal name creates unnecessary cognitive overhead.
+
+**Impact:** Breaking rename across ~15 files. Database migration renamed the table and updated all CHECK constraints, indexes, and foreign keys. No functional changes — pure terminology alignment.
