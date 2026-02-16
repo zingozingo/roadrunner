@@ -109,6 +109,19 @@ export interface Meeting {
   updated_at: string;
 }
 
+/** Output of ICS parser — the shape of a meeting before DB insertion */
+export interface ParsedMeeting {
+  title: string;
+  meeting_date: string;
+  start_time: string;
+  end_time: string;
+  location: string | null;
+  organizer_email: string | null;
+  attendees: MeetingAttendee[];
+  ics_uid: string;
+  notes: string | null;
+}
+
 export interface EntityLink {
   id: string;
   source_type: "engagement" | "event" | "program";
