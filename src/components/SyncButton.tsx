@@ -7,6 +7,7 @@ interface SyncResult {
   inserted: number;
   updated: number;
   unchanged: number;
+  deleted: number;
   errors: string[];
 }
 
@@ -23,6 +24,7 @@ function formatResult(label: string, r: SyncResult): string {
   const parts: string[] = [];
   if (r.inserted > 0) parts.push(`${r.inserted} inserted`);
   if (r.updated > 0) parts.push(`${r.updated} updated`);
+  if (r.deleted > 0) parts.push(`${r.deleted} deleted`);
   if (r.unchanged > 0) parts.push(`${r.unchanged} unchanged`);
   if (r.errors.length > 0) parts.push(`${r.errors.length} errors`);
   return `${label}: ${parts.join(", ") || "no records"}`;

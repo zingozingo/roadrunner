@@ -9,6 +9,7 @@ import {
   fetchRecord,
   createRecord,
   updateRecord,
+  deleteRecord,
   type AirtableRecord,
 } from "./airtable";
 import { getSupabaseClient } from "./supabase";
@@ -59,6 +60,7 @@ export interface SyncResult {
   inserted: number;
   updated: number;
   unchanged: number;
+  deleted: number;
   errors: string[];
 }
 
@@ -147,7 +149,7 @@ function mapProgram(rec: AirtableRecord): Record<string, unknown> | null {
 }
 
 export async function syncPrograms(): Promise<SyncResult> {
-  const result: SyncResult = { inserted: 0, updated: 0, unchanged: 0, errors: [] };
+  const result: SyncResult = { inserted: 0, updated: 0, unchanged: 0, deleted: 0, errors: [] };
   const supabase = getSupabaseClient();
 
   const [atRecords, { data: dbRows, error: fetchErr }] = await Promise.all([
@@ -207,6 +209,25 @@ export async function syncPrograms(): Promise<SyncResult> {
     }
   }
 
+  // Delete orphans: Supabase records with an airtable_record_id not in Airtable
+  const atIds = new Set(atRecords.map((r) => r.id));
+  const orphans = existing.filter(
+    (r) => r.airtable_record_id && !atIds.has(r.airtable_record_id)
+  );
+  for (const orphan of orphans) {
+    try {
+      const { error } = await supabase.from("programs").delete().eq("id", orphan.id);
+      if (error) {
+        result.errors.push(`Delete orphaned program "${orphan.name}": ${error.message}`);
+      } else {
+        console.log(`Deleted orphaned program: ${orphan.name} (airtable_record_id: ${orphan.airtable_record_id})`);
+        result.deleted++;
+      }
+    } catch (err) {
+      result.errors.push(`Delete orphaned program "${orphan.name}": ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  }
+
   return result;
 }
 
@@ -231,7 +252,7 @@ function mapEvent(rec: AirtableRecord): Record<string, unknown> | null {
 }
 
 export async function syncEvents(): Promise<SyncResult> {
-  const result: SyncResult = { inserted: 0, updated: 0, unchanged: 0, errors: [] };
+  const result: SyncResult = { inserted: 0, updated: 0, unchanged: 0, deleted: 0, errors: [] };
   const supabase = getSupabaseClient();
 
   const [atRecords, { data: dbRows, error: fetchErr }] = await Promise.all([
@@ -293,6 +314,25 @@ export async function syncEvents(): Promise<SyncResult> {
     }
   }
 
+  // Delete orphans: Supabase records with an airtable_record_id not in Airtable
+  const atIds = new Set(atRecords.map((r) => r.id));
+  const orphans = existing.filter(
+    (r) => r.airtable_record_id && !atIds.has(r.airtable_record_id)
+  );
+  for (const orphan of orphans) {
+    try {
+      const { error } = await supabase.from("events").delete().eq("id", orphan.id);
+      if (error) {
+        result.errors.push(`Delete orphaned event "${orphan.name}": ${error.message}`);
+      } else {
+        console.log(`Deleted orphaned event: ${orphan.name} (airtable_record_id: ${orphan.airtable_record_id})`);
+        result.deleted++;
+      }
+    } catch (err) {
+      result.errors.push(`Delete orphaned event "${orphan.name}": ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  }
+
   return result;
 }
 
@@ -336,7 +376,7 @@ function mapRelationship(
 }
 
 export async function syncAwsRelationships(): Promise<SyncResult> {
-  const result: SyncResult = { inserted: 0, updated: 0, unchanged: 0, errors: [] };
+  const result: SyncResult = { inserted: 0, updated: 0, unchanged: 0, deleted: 0, errors: [] };
   const supabase = getSupabaseClient();
 
   // Fetch partner lookup map and all relationship records in parallel
@@ -399,6 +439,27 @@ export async function syncAwsRelationships(): Promise<SyncResult> {
       }
     } catch (err) {
       result.errors.push(`Record ${rec.id}: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  }
+
+  // Delete orphans: Supabase records with an airtable_record_id not in Airtable
+  const atIds = new Set(atRecords.map((r) => r.id));
+  const orphans = existing.filter(
+    (r) => r.airtable_record_id && !atIds.has(r.airtable_record_id)
+  );
+  for (const orphan of orphans) {
+    try {
+      // CASCADE FKs on engagement_aws_relationships and meeting_aws_relationships
+      // will automatically clean up junction rows
+      const { error } = await supabase.from("aws_relationships").delete().eq("id", orphan.id);
+      if (error) {
+        result.errors.push(`Delete orphaned relationship "${orphan.name}": ${error.message}`);
+      } else {
+        console.log(`Deleted orphaned relationship: ${orphan.name} (airtable_record_id: ${orphan.airtable_record_id})`);
+        result.deleted++;
+      }
+    } catch (err) {
+      result.errors.push(`Delete orphaned relationship "${orphan.name}": ${err instanceof Error ? err.message : "Unknown error"}`);
     }
   }
 
@@ -650,11 +711,22 @@ export async function pushEngagementToAirtable(
 }
 
 /**
+ * Delete an engagement's Airtable record by its airtable_record_id.
+ * Fire-and-forget — caller should not await or depend on success.
+ */
+export async function deleteEngagementFromAirtable(
+  airtableRecordId: string
+): Promise<void> {
+  await deleteRecord(ENGAGEMENTS_TABLE, airtableRecordId);
+  console.log(`Deleted Airtable engagement record: ${airtableRecordId}`);
+}
+
+/**
  * Bulk sync all Roadrunner engagements to Airtable.
  * Fetches all records from both sides, matches, and creates/updates as needed.
  */
 export async function syncEngagementsToAirtable(): Promise<SyncResult> {
-  const result: SyncResult = { inserted: 0, updated: 0, unchanged: 0, errors: [] };
+  const result: SyncResult = { inserted: 0, updated: 0, unchanged: 0, deleted: 0, errors: [] };
   const supabase = getSupabaseClient();
 
   const [{ data: engagements, error: fetchErr }, atRecords, partnerNameToId] =

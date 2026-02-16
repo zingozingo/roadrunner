@@ -316,6 +316,23 @@ export async function updateEngagement(
 export async function deleteEngagement(id: string): Promise<void> {
   const db = getSupabaseClient();
 
+  // Fire-and-forget: delete from Airtable if synced
+  const { data: eng } = await db
+    .from("engagements")
+    .select("airtable_record_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (eng?.airtable_record_id) {
+    import("./sync")
+      .then(({ deleteEngagementFromAirtable }) =>
+        deleteEngagementFromAirtable(eng.airtable_record_id)
+      )
+      .catch((err) =>
+        console.error(`Airtable delete failed for engagement ${id}:`, err)
+      );
+  }
+
   // Application-level cascade for polymorphic FKs (no DB cascade possible):
 
   // 1. Delete entity links (both directions)

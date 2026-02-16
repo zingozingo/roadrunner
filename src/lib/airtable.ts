@@ -134,6 +134,25 @@ export async function updateRecord(
 }
 
 /**
+ * Delete a record from an Airtable table by its record ID.
+ */
+export async function deleteRecord(
+  tableId: string,
+  recordId: string
+): Promise<void> {
+  const apiKey = getApiKey();
+  const res = await fetch(`${API_BASE}/${tableId}/${recordId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Airtable delete error ${res.status}: ${body}`);
+  }
+}
+
+/**
  * Fetch all records from a table as a Map keyed by record ID.
  * Useful for resolving linked record references.
  */

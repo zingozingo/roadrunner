@@ -815,3 +815,15 @@ Next.js 14 App Router + TypeScript + Tailwind. Supabase Postgres for data. Singl
 **Rationale:** Reuses existing infrastructure — createEngagement() in supabase.ts and pushEngagementToAirtable() in sync.ts were unchanged. The POST /api/engagements route follows the same validation and fire-and-forget push pattern as the PUT route. Default status is "active" since manual creates represent work the user is actively choosing to track.
 
 **Impact:** Three creation paths now exist (classifier, approval resolution, manual form), all converging on the same persistence and sync pipeline. CreateEngagementForm.tsx is a self-contained client component. No changes to existing functions or patterns.
+
+---
+
+## 2026-02-16: Sync Delete Propagation
+
+**Decision:** Catalog sync (AT→RR) now detects and hard-deletes orphaned Supabase records when the corresponding Airtable record no longer exists. Engagement delete in Roadrunner now fire-and-forgets a delete to Airtable. SyncResult interface includes a "deleted" counter displayed in the UI.
+
+**Context:** Deleting an AWS Relationship in Airtable and running sync left the record orphaned in Supabase — visible in UI, present in database, and potentially sent to Claude as valid context. The sync only iterated Airtable records for insert/update but never checked for Supabase records missing from Airtable.
+
+**Rationale:** Hard delete over soft delete because these are catalog records — if removed from the authoritative source (Airtable), they should not persist as ghost data. CASCADE foreign keys on junction tables (engagement_aws_relationships, meeting_aws_relationships, entity_links) automatically clean up references. Safety guard: only targets records with a non-null airtable_record_id, so any hypothetical Supabase-only records are never touched.
+
+**Impact:** All three catalog sync functions (programs, events, relationships) now have orphan detection. deleteEngagement() in supabase.ts calls deleteEngagementFromAirtable() via fire-and-forget. New deleteRecord() utility in airtable.ts. SyncButton displays deleted count. Closes a gap where stale data could pollute classifier context.
