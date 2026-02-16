@@ -406,8 +406,8 @@ export async function syncAwsRelationships(): Promise<SyncResult> {
 
       if (match) {
         // For existing records, don't overwrite partner_name if we didn't resolve one
-        const updateFields = { ...mapped, airtable_record_id: rec.id };
-        if (!updateFields.partner_name && match.partner_name) {
+        const updateFields: Record<string, unknown> = { ...mapped, airtable_record_id: rec.id };
+        if (!mapped.partner_name && match.partner_name) {
           updateFields.partner_name = match.partner_name;
         }
 

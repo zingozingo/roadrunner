@@ -37,6 +37,7 @@ const ENGAGEMENT: Engagement = {
   pillar: null,
   priority: null,
   tags: [],
+  airtable_record_id: null,
   created_at: "2025-01-15T00:00:00Z",
   updated_at: "2025-02-01T00:00:00Z",
   closed_at: null,
@@ -53,6 +54,7 @@ const EVENT: Event = {
   description: "Annual AWS conference",
   source: "seed",
   verified: true,
+  airtable_record_id: null,
   created_at: "2025-01-01T00:00:00Z",
 };
 
@@ -66,6 +68,7 @@ const PROGRAM: Program = {
   status: "active",
   lifecycle_type: "indefinite",
   lifecycle_duration: null,
+  airtable_record_id: null,
   created_at: "2025-01-01T00:00:00Z",
 };
 
