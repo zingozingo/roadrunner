@@ -762,21 +762,21 @@ export async function deleteEvent(id: string): Promise<void> {
 }
 
 // ============================================================
-// Track (program) CRUD
+// Program CRUD
 // ============================================================
 
-export async function getTrackById(id: string): Promise<Program | null> {
+export async function getProgramById(id: string): Promise<Program | null> {
   const { data, error } = await getSupabaseClient()
     .from("programs")
     .select("*")
     .eq("id", id)
     .maybeSingle();
 
-  if (error) throw new Error(`Failed to fetch track: ${error.message}`);
+  if (error) throw new Error(`Failed to fetch program: ${error.message}`);
   return data as Program | null;
 }
 
-export async function updateTrack(
+export async function updateProgram(
   id: string,
   updates: {
     name?: string;
@@ -794,11 +794,11 @@ export async function updateTrack(
     .select()
     .single();
 
-  if (error) throw new Error(`Failed to update track: ${error.message}`);
+  if (error) throw new Error(`Failed to update program: ${error.message}`);
   return data as Program;
 }
 
-export async function deleteTrack(id: string): Promise<void> {
+export async function deleteProgram(id: string): Promise<void> {
   const db = getSupabaseClient();
 
   // 1. Delete entity links (both directions)
@@ -816,12 +816,12 @@ export async function deleteTrack(id: string): Promise<void> {
     .eq("target_id", id);
   if (linkTgtErr) throw new Error(`Failed to delete entity links (target): ${linkTgtErr.message}`);
 
-  // 2. Delete the track
+  // 2. Delete the program
   const { error: progErr } = await db
     .from("programs")
     .delete()
     .eq("id", id);
-  if (progErr) throw new Error(`Failed to delete track: ${progErr.message}`);
+  if (progErr) throw new Error(`Failed to delete program: ${progErr.message}`);
 }
 
 // ============================================================

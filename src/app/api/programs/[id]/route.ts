@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  getTrackById,
+  getProgramById,
   getLinkedEngagementsForEntity,
-  updateTrack,
-  deleteTrack,
+  updateProgram,
+  deleteProgram,
 } from "@/lib/supabase";
 
 const VALID_STATUSES = new Set(["active", "archived"]);
@@ -14,22 +14,22 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const track = await getTrackById(id);
+    const program = await getProgramById(id);
 
-    if (!track) {
+    if (!program) {
       return NextResponse.json(
-        { error: "Track not found" },
+        { error: "Program not found" },
         { status: 404 }
       );
     }
 
     const linkedEngagements = await getLinkedEngagementsForEntity("program", id);
 
-    return NextResponse.json({ track, linkedEngagements });
+    return NextResponse.json({ program, linkedEngagements });
   } catch (error) {
-    console.error("GET /api/tracks/[id] error:", error);
+    console.error("GET /api/programs/[id] error:", error);
     return NextResponse.json(
-      { error: "Failed to fetch track" },
+      { error: "Failed to fetch program" },
       { status: 500 }
     );
   }
@@ -58,10 +58,10 @@ export async function PUT(
       );
     }
 
-    const existing = await getTrackById(id);
+    const existing = await getProgramById(id);
     if (!existing) {
       return NextResponse.json(
-        { error: "Track not found" },
+        { error: "Program not found" },
         { status: 404 }
       );
     }
@@ -82,14 +82,14 @@ export async function PUT(
     if (url !== undefined) updates.url = url || null;
     if (status !== undefined) updates.status = status;
 
-    const updated = await updateTrack(id, updates);
+    const updated = await updateProgram(id, updates);
 
-    return NextResponse.json({ track: updated });
+    return NextResponse.json({ program: updated });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("PUT /api/tracks/[id] error:", message);
+    console.error("PUT /api/programs/[id] error:", message);
     return NextResponse.json(
-      { error: `Failed to update track: ${message}` },
+      { error: `Failed to update program: ${message}` },
       { status: 500 }
     );
   }
@@ -102,22 +102,22 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    const existing = await getTrackById(id);
+    const existing = await getProgramById(id);
     if (!existing) {
       return NextResponse.json(
-        { error: "Track not found" },
+        { error: "Program not found" },
         { status: 404 }
       );
     }
 
-    await deleteTrack(id);
+    await deleteProgram(id);
 
     return NextResponse.json({ status: "deleted" });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("DELETE /api/tracks/[id] error:", message);
+    console.error("DELETE /api/programs/[id] error:", message);
     return NextResponse.json(
-      { error: `Failed to delete track: ${message}` },
+      { error: `Failed to delete program: ${message}` },
       { status: 500 }
     );
   }

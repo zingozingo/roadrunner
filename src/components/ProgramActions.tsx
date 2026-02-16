@@ -16,7 +16,7 @@ const TYPE_OPTIONS: (ProgramType | "")[] = [
 ];
 const LIFECYCLE_OPTIONS: Program["lifecycle_type"][] = ["indefinite", "recurring", "expiring"];
 
-export default function TrackActions({ track }: { track: Program }) {
+export default function ProgramActions({ program }: { program: Program }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -25,20 +25,20 @@ export default function TrackActions({ track }: { track: Program }) {
   const [error, setError] = useState<string | null>(null);
 
   // Edit form state
-  const [name, setName] = useState(track.name);
-  const [type, setType] = useState<ProgramType | "">(track.type ?? "");
-  const [description, setDescription] = useState(track.description ?? "");
-  const [eligibility, setEligibility] = useState(track.eligibility ?? "");
-  const [url, setUrl] = useState(track.url ?? "");
-  const [status, setStatus] = useState<Program["status"]>(track.status);
+  const [name, setName] = useState(program.name);
+  const [type, setType] = useState<ProgramType | "">(program.type ?? "");
+  const [description, setDescription] = useState(program.description ?? "");
+  const [eligibility, setEligibility] = useState(program.eligibility ?? "");
+  const [url, setUrl] = useState(program.url ?? "");
+  const [status, setStatus] = useState<Program["status"]>(program.status);
 
   function startEdit() {
-    setName(track.name);
-    setType(track.type ?? "");
-    setDescription(track.description ?? "");
-    setEligibility(track.eligibility ?? "");
-    setUrl(track.url ?? "");
-    setStatus(track.status);
+    setName(program.name);
+    setType(program.type ?? "");
+    setDescription(program.description ?? "");
+    setEligibility(program.eligibility ?? "");
+    setUrl(program.url ?? "");
+    setStatus(program.status);
     setError(null);
     setEditing(true);
   }
@@ -57,7 +57,7 @@ export default function TrackActions({ track }: { track: Program }) {
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`/api/tracks/${track.id}`, {
+      const res = await fetch(`/api/programs/${program.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -89,7 +89,7 @@ export default function TrackActions({ track }: { track: Program }) {
     setDeleting(true);
     setError(null);
     try {
-      const res = await fetch(`/api/tracks/${track.id}`, {
+      const res = await fetch(`/api/programs/${program.id}`, {
         method: "DELETE",
       });
 
@@ -98,7 +98,7 @@ export default function TrackActions({ track }: { track: Program }) {
         throw new Error(body.error || `Server returned ${res.status}`);
       }
 
-      router.push("/tracks");
+      router.push("/programs");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete");
@@ -151,7 +151,7 @@ export default function TrackActions({ track }: { track: Program }) {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={6}
-              placeholder="Track description..."
+              placeholder="Program description..."
               className={`${inputClass} resize-y min-h-[100px]`}
             />
           </div>
@@ -208,7 +208,7 @@ export default function TrackActions({ track }: { track: Program }) {
                 <span
                   key={opt}
                   className={`rounded-lg border px-3 py-1.5 text-sm capitalize ${
-                    track.lifecycle_type === opt
+                    program.lifecycle_type === opt
                       ? "border-accent/40 bg-accent/5 text-foreground"
                       : "border-border text-muted"
                   }`}
@@ -283,8 +283,8 @@ export default function TrackActions({ track }: { track: Program }) {
         isOpen={showDeleteConfirm}
         onConfirm={handleDelete}
         onCancel={() => setShowDeleteConfirm(false)}
-        title="Delete Track"
-        message="This will remove the track and unlink all associated engagements. This action cannot be undone."
+        title="Delete Program"
+        message="This will remove the program and unlink all associated engagements. This action cannot be undone."
         confirmLabel="Delete"
         confirmStyle="danger"
       />

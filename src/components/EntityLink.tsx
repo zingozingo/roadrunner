@@ -9,7 +9,7 @@ const typeColors: Record<string, string> = {
 
 /** Map entity_type to user-facing label */
 function entityTypeLabel(type: string): string {
-  if (type === "program") return "Track";
+  if (type === "program") return "Program";
   if (type === "engagement") return "Engagement";
   return type.charAt(0).toUpperCase() + type.slice(1);
 }
@@ -23,7 +23,7 @@ function formatRelationship(rel: string): string {
 /** Route for a given entity type + id */
 function entityHref(type: string, id: string): string {
   if (type === "event") return `/events/${id}`;
-  if (type === "program") return `/tracks/${id}`;
+  if (type === "program") return `/programs/${id}`;
   return `/engagements/${id}`;
 }
 
