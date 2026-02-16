@@ -256,6 +256,22 @@ export async function POST(request: NextRequest) {
     // Extract ICS from Mailgun attachments, create meeting record if found.
     // Non-blocking: failures here never prevent email processing.
     let meetingCreated = false;
+
+    // [ICS-DEBUG] Temporary diagnostic logging — remove after ICS is confirmed working
+    if (rawFormData) {
+      const formEntries: string[] = [];
+      rawFormData.forEach((value, key) => {
+        if (value instanceof File) {
+          formEntries.push(`FILE: key="${key}" name="${value.name}" type="${value.type}" size=${value.size}`);
+        } else {
+          formEntries.push(`STRING: key="${key}" length=${String(value).length}`);
+        }
+      });
+      console.log("[ICS-DEBUG] FormData entries:", JSON.stringify(formEntries, null, 2));
+    } else {
+      console.log("[ICS-DEBUG] rawFormData is null (used urlencoded fallback)");
+    }
+
     if (rawFormData) {
       try {
         const icsContent = await extractICSFromAttachments(rawFormData);
