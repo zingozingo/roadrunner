@@ -623,3 +623,63 @@ Next.js 14 App Router + TypeScript + Tailwind. Supabase Postgres for data. Singl
 **Rationale:** Dead table with no links. Keeping it visible would cause confusion about which table is active.
 
 **Impact:** Partner Engagements is now the sole active work-tracking table.
+
+## 2026-02-14: AWS Relationships as Synced Catalog
+
+**Decision:** AWS Relationships syncs Airtable → Roadrunner like Programs and Events. Claude receives relationship data in context and matches @amazon.com addresses in email threads to internal AWS teams.
+
+**Context:** Claude needs to link engagements to relevant AWS teams (Product Team, GTM contact, exec sponsor). Without structured relationship data, it has no way to know who "jsmith@amazon.com" is or which team they represent.
+
+**Rationale:** Same "constrained intelligence" pattern — Claude picks from a closed list of relationships, never fabricates. Enables automatic linking of engagements to relevant AWS teams based on email participants.
+
+**Impact:** New aws_relationships table in Roadrunner (migration 017). Requires email fields populated in Airtable. Claude classifier prompt needs update to include relationships context (future phase).
+
+## 2026-02-14: Contact Emails Stored Inline
+
+**Decision:** Store Primary Contact Email and AWS Contact Emails directly in the aws_relationships table, not in a separate AWS Contacts table.
+
+**Context:** Need email addresses for Claude to match participants in email threads to known AWS relationships. Debated (A) inline on relationships vs (B) separate contacts table with junction.
+
+**Rationale:** Simpler architecture, no junction table overhead. The relationship is the unit of work — knowing "the Security SA team contact is jsmith@amazon.com" is sufficient. Can split into separate Contacts table later if relationship-to-contact mapping gets complex.
+
+**Impact:** Airtable AWS Relationships has 2 email fields (Primary Contact Email, AWS Contact Emails). Roadrunner has primary_contact_email (text) and aws_contact_emails (text[]) columns.
+
+## 2026-02-14: Meetings Table Generalization
+
+**Decision:** Single unified "Meetings" table handles all meeting types — event-related meetings, engagement calls, and standalone meetings. Renamed from "Event Meetings" to remove the event-only implication.
+
+**Context:** Originally only tracked meetings associated with big events (re:Invent 1:1s, Summit follow-ups). Need to also track engagement-related calls parsed from ICS attachments and ad-hoc meetings.
+
+**Rationale:** One table with a Source field (manual/ics_parsed) is cleaner than separate tables. Event link becomes optional via entity_links — meetings can exist without event context. engagement_id FK provides direct link to the engagement a meeting belongs to.
+
+**Impact:** Airtable table renamed "Event Meetings" → "Meetings" with 8 new fields added. Roadrunner meetings table created (migration 018) with engagement FK, ICS UID for dedup, attendees as JSONB, and airtable_record_id for sync.
+
+## 2026-02-14: Many-to-Many Junction Tables for AWS Relationships
+
+**Decision:** Create engagement_aws_relationships and meeting_aws_relationships junction tables instead of using the polymorphic entity_links pattern.
+
+**Context:** An engagement can involve multiple AWS teams (Product Team + GTM contact). A meeting can have multiple internal relationships present. Need to model this cleanly.
+
+**Rationale:** Dedicated junction tables are simpler and more explicit than polymorphic entity_links for this relationship. They mirror Airtable's multipleRecordLinks field behavior with no artificial limits. CASCADE deletes keep them clean automatically.
+
+**Impact:** Migrations 019 and 020 create junction tables with composite PKs. entity_links pattern NOT used for AWS relationships — that pattern stays for engagement↔event↔program links.
+
+## 2026-02-14: Sync Direction Formalized
+
+**Decision:** Airtable → Roadrunner for catalogs (Programs, Events, AWS Relationships). Roadrunner → Airtable for activity (Engagements, Meetings). Each entity type has ONE authoritative source.
+
+**Context:** Both systems can technically edit any entity. Without a clear source of truth per entity type, edits conflict and data drifts.
+
+**Rationale:** Airtable is the strategic hub where Steven manages portfolio, curates catalogs, and does strategic planning. Roadrunner is the action hub where Claude creates activity from emails. Sync pipelines must respect direction — never overwrite the authoritative source.
+
+**Impact:** Edit Programs/Events/AWS Relationships in Airtable only. Engagements/Meetings created in Roadrunner, synced back to Airtable. Future sync pipelines enforce this with read-only queries on the non-authoritative side.
+
+## 2026-02-14: Table Naming Alignment
+
+**Decision:** Renamed Airtable tables: "Event Meetings" → "Meetings" and "Partner Event Status" → "Partner Events". Roadrunner table names follow: meetings, aws_relationships.
+
+**Context:** Original names were too narrow. "Event Meetings" implied only event context. "Partner Event Status" didn't parallel "Partner Programs" naming convention.
+
+**Rationale:** "Meetings" is general enough for all meeting types. "Partner Events" follows the Tier 2 enrollment naming convention (Partner Programs, Partner Events). Consistency reduces cognitive load.
+
+**Impact:** Tables renamed in Airtable. Note: some link field labels in the Partners table may still show old names (cosmetic only, links work correctly).

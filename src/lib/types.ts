@@ -57,6 +57,52 @@ export interface Program {
   created_at: string;
 }
 
+export type RelationshipType = "Exec/Leader" | "Product Team" | "Program Team" | "Seller";
+export type RelationshipStrength = "Strong" | "Building" | "New" | "Deferred";
+
+export interface AwsRelationship {
+  id: string;
+  name: string;
+  partner_name: string | null;
+  aws_org: string | null;
+  aws_service: string | null;
+  relationship_type: RelationshipType | null;
+  primary_contact_name: string | null;
+  primary_contact_email: string | null;
+  aws_contact_emails: string[];
+  strength: RelationshipStrength | null;
+  notes: string | null;
+  airtable_record_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MeetingAttendee {
+  name: string | null;
+  email: string;
+}
+
+export interface Meeting {
+  id: string;
+  title: string;
+  engagement_id: string | null;
+  partner_name: string | null;
+  meeting_type: string | null;
+  status: string;
+  meeting_date: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  location: string | null;
+  organizer_email: string | null;
+  attendees: MeetingAttendee[];
+  ics_uid: string | null;
+  source: "manual" | "ics_parsed";
+  notes: string | null;
+  airtable_record_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface EntityLink {
   id: string;
   source_type: "engagement" | "event" | "program";
