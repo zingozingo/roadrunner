@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { parseForwardedEmail, parseSenderField } from "@/lib/email-parser";
-import { storeMessages, checkDuplicateMessage } from "@/lib/supabase";
+import { storeMessages, checkDuplicateMessage, createMeetingFromICS } from "@/lib/supabase";
+import { extractICSFromAttachments, parseICSContent } from "@/lib/ics-parser";
 import { processSingleMessage } from "@/lib/classifier";
 import { ForwarderContext } from "@/lib/claude";
 
@@ -42,10 +43,13 @@ function verifyMailgunSignature(
  * Try to extract form fields from the request.
  * Attempts formData() first, then falls back to text-based URL-encoded parsing.
  * Returns null if both fail.
+ *
+ * When formData() succeeds, the raw FormData is preserved so callers can
+ * access File objects (e.g., ICS attachments) that aren't in the string map.
  */
 async function extractFormFields(
   request: NextRequest
-): Promise<{ fields: Map<string, string>; method: string } | null> {
+): Promise<{ fields: Map<string, string>; method: string; rawFormData: FormData | null } | null> {
   // Attempt 1: request.formData() — works for multipart/form-data and
   // application/x-www-form-urlencoded in Node.js runtime
   try {
@@ -58,7 +62,7 @@ async function extractFormFields(
       }
     });
     if (fields.size > 0) {
-      return { fields, method: "formData" };
+      return { fields, method: "formData", rawFormData: formData };
     }
     // formData() succeeded but returned no string fields — fall through
     console.warn("formData() returned 0 string fields, trying text fallback");
@@ -76,7 +80,7 @@ async function extractFormFields(
         fields.set(key, value);
       });
       if (fields.size > 0) {
-        return { fields, method: "urlencoded-fallback" };
+        return { fields, method: "urlencoded-fallback", rawFormData: null };
       }
     }
     console.warn("Text body fallback also produced 0 fields, length:", text.length);
@@ -109,7 +113,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const { fields, method: parseMethod } = extracted;
+    const { fields, method: parseMethod, rawFormData } = extracted;
     console.log(`Parsed ${fields.size} fields via ${parseMethod}`);
 
     // Extract Mailgun signature fields
@@ -248,6 +252,28 @@ export async function POST(request: NextRequest) {
 
     console.log(`Supabase storage: stored ${stored.length} message(s), ids=[${storedIds.join(", ")}]`);
 
+    // --- ICS Meeting Creation (Phase 1) ---
+    // Extract ICS from Mailgun attachments, create meeting record if found.
+    // Non-blocking: failures here never prevent email processing.
+    let meetingCreated = false;
+    if (rawFormData) {
+      try {
+        const icsContent = await extractICSFromAttachments(rawFormData);
+        if (icsContent) {
+          const parsedMeeting = parseICSContent(icsContent);
+          if (parsedMeeting) {
+            const meetingId = await createMeetingFromICS(parsedMeeting, storedIds[0]);
+            meetingCreated = meetingId !== null;
+            console.log(`ICS processing: ${meetingCreated ? `created meeting ${meetingId}` : "deduped (already exists)"}`);
+          } else {
+            console.warn("ICS attachment found but could not be parsed");
+          }
+        }
+      } catch (icsError) {
+        console.error("ICS extraction/parsing failed (non-blocking):", icsError);
+      }
+    }
+
     // Trigger classification — Claude responds in 2-3s, well within
     // Vercel's serverless timeout.
     let classified = false;
@@ -265,6 +291,7 @@ export async function POST(request: NextRequest) {
       message: "ok",
       stored: stored.length,
       classified,
+      meetingCreated,
       signatureValid,
       parseMethod,
     });

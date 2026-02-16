@@ -8,6 +8,7 @@ import {
   MeetingAttendee,
   Message,
   ParsedMessage,
+  ParsedMeeting,
   ApprovalQueueItem,
   Participant,
   EntityLink,
@@ -1476,4 +1477,105 @@ export async function getEngagementsWithMessageCounts(): Promise<
   );
 }
 
+// ============================================================
+// ICS Meeting Creation & Linking
+// ============================================================
 
+/**
+ * Create a meeting record from parsed ICS data.
+ * Uses ON CONFLICT (ics_uid) DO NOTHING for natural dedup.
+ * Never throws — logs errors and returns null.
+ */
+export async function createMeetingFromICS(
+  parsed: ParsedMeeting,
+  messageId: string
+): Promise<string | null> {
+  try {
+    const db = getSupabaseClient();
+
+    const { data, error } = await db
+      .from("meetings")
+      .upsert(
+        {
+          title: parsed.title,
+          meeting_date: parsed.meeting_date,
+          start_time: parsed.start_time,
+          end_time: parsed.end_time,
+          location: parsed.location,
+          organizer_email: parsed.organizer_email,
+          attendees: parsed.attendees,
+          ics_uid: parsed.ics_uid,
+          notes: parsed.notes,
+          source: "ics_parsed",
+          status: "Confirmed",
+          message_id: messageId,
+        },
+        { onConflict: "ics_uid", ignoreDuplicates: true }
+      )
+      .select("id")
+      .maybeSingle();
+
+    if (error) {
+      console.error(`Failed to create meeting from ICS: ${error.message}`);
+      return null;
+    }
+
+    if (data) {
+      console.log(`Created meeting from ICS: ${parsed.title} (${parsed.meeting_date})`);
+      return data.id;
+    }
+
+    console.log(`Meeting already exists for ICS UID: ${parsed.ics_uid}`);
+    return null;
+  } catch (err) {
+    console.error("createMeetingFromICS error:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+/**
+ * Link a meeting to an engagement after classification.
+ * Finds the meeting by message_id and sets engagement_id + partner_name.
+ * The IS NULL guard prevents overwriting manually linked meetings.
+ * Never throws — logs errors silently.
+ */
+export async function linkMeetingToEngagement(
+  messageId: string,
+  engagementId: string
+): Promise<void> {
+  try {
+    const db = getSupabaseClient();
+
+    // Look up partner_name from the engagement
+    const { data: engagement } = await db
+      .from("engagements")
+      .select("partner_name")
+      .eq("id", engagementId)
+      .maybeSingle();
+
+    const updates: Record<string, unknown> = {
+      engagement_id: engagementId,
+    };
+    if (engagement?.partner_name) {
+      updates.partner_name = engagement.partner_name;
+    }
+
+    const { data, error } = await db
+      .from("meetings")
+      .update(updates)
+      .eq("message_id", messageId)
+      .is("engagement_id", null)
+      .select("id");
+
+    if (error) {
+      console.error(`Failed to link meeting to engagement: ${error.message}`);
+      return;
+    }
+
+    if (data && data.length > 0) {
+      console.log(`Linked meeting to engagement: ${engagementId}`);
+    }
+  } catch (err) {
+    console.error("linkMeetingToEngagement error:", err instanceof Error ? err.message : err);
+  }
+}

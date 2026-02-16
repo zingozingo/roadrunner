@@ -10,6 +10,7 @@ import {
   createEntityLink,
   upsertParticipants,
   appendOpenItems,
+  linkMeetingToEngagement,
 } from "./supabase";
 import { sendClassificationPrompt } from "./sms";
 import { ClassificationResult, Message } from "./types";
@@ -362,6 +363,14 @@ async function applyClassificationResult(
     };
 
     await db.from("messages").update(messageUpdate).in("id", messageIds);
+  }
+
+  // 3b. Link ICS meeting to engagement (Phase 2)
+  // If this message spawned a meeting via ICS parsing, link it now
+  if (result.content_type === "meeting_invite" && assignedEngagementId && !needsReview) {
+    for (const msgId of messageIds) {
+      await linkMeetingToEngagement(msgId, assignedEngagementId);
+    }
   }
 
   // 4. If flagged for review, create pending review and send SMS
