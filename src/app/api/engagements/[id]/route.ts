@@ -45,7 +45,7 @@ export async function GET(
   }
 }
 
-const VALID_STATUSES = new Set(["active", "paused", "closed"]);
+const VALID_STATUSES = new Set(["planned", "active", "paused", "completed", "archived"]);
 const VALID_PILLARS = new Set(["Co-Sell", "Co-Market", "Co-Build"]);
 const VALID_PRIORITIES = new Set(["Mandated", "High", "Normal", "Opportunistic"]);
 
@@ -77,7 +77,7 @@ export async function PUT(
 
     if (status !== undefined && !VALID_STATUSES.has(status)) {
       return NextResponse.json(
-        { error: `Invalid status "${status}". Must be one of: active, paused, closed` },
+        { error: `Invalid status "${status}". Must be one of: planned, active, paused, completed, archived` },
         { status: 400 }
       );
     }

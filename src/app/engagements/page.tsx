@@ -8,9 +8,11 @@ import { getEngagementsWithMessageCounts } from "@/lib/supabase";
 import { Engagement } from "@/lib/types";
 
 const statusOrder: Record<string, number> = {
-  active: 0,
-  paused: 1,
-  closed: 2,
+  planned: 0,
+  active: 1,
+  paused: 2,
+  completed: 3,
+  archived: 4,
 };
 
 export default async function EngagementsPage() {

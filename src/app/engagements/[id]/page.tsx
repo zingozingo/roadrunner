@@ -145,9 +145,9 @@ export default async function EngagementDetailPage({
                   {new Date(engagement.updated_at).toLocaleDateString()}
                 </dd>
               </div>
-              {engagement.closed_at && (
+              {engagement.closed_at && (engagement.status === "completed" || engagement.status === "archived") && (
                 <div>
-                  <dt className="text-muted">Closed</dt>
+                  <dt className="text-muted">Completed</dt>
                   <dd className="text-foreground">
                     {new Date(engagement.closed_at).toLocaleDateString()}
                   </dd>

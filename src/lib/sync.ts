@@ -444,9 +444,11 @@ const ENF = {
 } as const;
 
 const STATUS_TO_AIRTABLE: Record<string, string> = {
+  planned: "Planned",
   active: "Active",
   paused: "Blocked",
-  closed: "Completed",
+  completed: "Completed",
+  archived: "Archived",
 };
 
 const NOTES_MARKER = "=== Roadrunner Activity Summary ===";

@@ -295,7 +295,7 @@ export async function updateEngagement(
 
   if (updates.status !== undefined) {
     row.status = updates.status;
-    if (updates.status === "closed") {
+    if (updates.status === "completed" || updates.status === "archived") {
       row.closed_at = new Date().toISOString();
     } else {
       row.closed_at = null;

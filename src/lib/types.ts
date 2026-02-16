@@ -15,7 +15,7 @@ export type Priority = "Mandated" | "High" | "Normal" | "Opportunistic";
 export interface Engagement {
   id: string;
   name: string;
-  status: "active" | "paused" | "closed";
+  status: "planned" | "active" | "paused" | "completed" | "archived";
   summary: string | null;
   current_state: string | null;
   open_items: OpenItem[];

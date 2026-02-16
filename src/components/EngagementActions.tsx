@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Engagement, Pillar, Priority } from "@/lib/types";
 
-const STATUS_OPTIONS: Engagement["status"][] = ["active", "paused", "closed"];
+const STATUS_OPTIONS: Engagement["status"][] = ["planned", "active", "paused", "completed", "archived"];
 const PILLAR_OPTIONS: Pillar[] = ["Co-Sell", "Co-Market", "Co-Build"];
 const PRIORITY_OPTIONS: Priority[] = ["Mandated", "High", "Normal", "Opportunistic"];
 
