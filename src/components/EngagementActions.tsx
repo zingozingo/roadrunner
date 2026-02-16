@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Engagement } from "@/lib/types";
+import { Engagement, Pillar, Priority } from "@/lib/types";
 
 const STATUS_OPTIONS: Engagement["status"][] = ["active", "paused", "closed"];
+const PILLAR_OPTIONS: Pillar[] = ["Co-Sell", "Co-Market", "Co-Build"];
+const PRIORITY_OPTIONS: Priority[] = ["Mandated", "High", "Normal", "Opportunistic"];
 
 export default function EngagementActions({
   engagement,
@@ -22,6 +24,8 @@ export default function EngagementActions({
   const [name, setName] = useState(engagement.name);
   const [partnerName, setPartnerName] = useState(engagement.partner_name ?? "");
   const [status, setStatus] = useState<Engagement["status"]>(engagement.status);
+  const [pillar, setPillar] = useState<Pillar | null>(engagement.pillar);
+  const [priority, setPriority] = useState<Priority | null>(engagement.priority);
   const [currentState, setCurrentState] = useState(
     engagement.current_state ?? engagement.summary ?? ""
   );
@@ -30,6 +34,8 @@ export default function EngagementActions({
     setName(engagement.name);
     setPartnerName(engagement.partner_name ?? "");
     setStatus(engagement.status);
+    setPillar(engagement.pillar);
+    setPriority(engagement.priority);
     setCurrentState(engagement.current_state ?? engagement.summary ?? "");
     setError(null);
     setEditing(true);
@@ -56,6 +62,8 @@ export default function EngagementActions({
           name: name.trim(),
           partner_name: partnerName.trim() || null,
           status,
+          pillar,
+          priority,
           summary: currentState.trim() || null,
           current_state: currentState.trim() || null,
         }),
@@ -142,6 +150,50 @@ export default function EngagementActions({
                   onClick={() => setStatus(opt)}
                   className={`rounded-lg border px-3 py-1.5 text-sm capitalize transition-colors ${
                     status === opt
+                      ? "border-accent bg-accent/10 text-accent"
+                      : "border-border bg-background text-muted hover:text-foreground"
+                  }`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Pillar */}
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted">
+              Pillar
+            </label>
+            <div className="flex gap-2">
+              {PILLAR_OPTIONS.map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => setPillar(pillar === opt ? null : opt)}
+                  className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                    pillar === opt
+                      ? "border-accent bg-accent/10 text-accent"
+                      : "border-border bg-background text-muted hover:text-foreground"
+                  }`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Priority */}
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted">
+              Priority
+            </label>
+            <div className="flex gap-2">
+              {PRIORITY_OPTIONS.map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => setPriority(priority === opt ? null : opt)}
+                  className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                    priority === opt
                       ? "border-accent bg-accent/10 text-accent"
                       : "border-border bg-background text-muted hover:text-foreground"
                   }`}
