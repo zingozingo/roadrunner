@@ -3,6 +3,7 @@ import {
   Engagement,
   Event,
   Program,
+  AwsRelationship,
   Message,
   ParsedMessage,
   ApprovalQueueItem,
@@ -1124,6 +1125,95 @@ export async function appendOpenItems(
 
   if (deduped.length === 0) return null;
   return [...existingItems, ...deduped];
+}
+
+// ============================================================
+// Dashboard query helpers (continued)
+// ============================================================
+
+// ============================================================
+// AWS Relationship CRUD
+// ============================================================
+
+export async function getAwsRelationshipsWithCounts(): Promise<
+  (AwsRelationship & { linked_count: number })[]
+> {
+  const { data: relationships, error } = await getSupabaseClient()
+    .from("aws_relationships")
+    .select("*")
+    .order("name", { ascending: true });
+
+  if (error) throw new Error(`Failed to fetch relationships: ${error.message}`);
+
+  const { data: junctions } = await getSupabaseClient()
+    .from("engagement_aws_relationships")
+    .select("aws_relationship_id");
+
+  const linkCounts = new Map<string, number>();
+  for (const j of junctions ?? []) {
+    const row = j as { aws_relationship_id: string };
+    linkCounts.set(row.aws_relationship_id, (linkCounts.get(row.aws_relationship_id) ?? 0) + 1);
+  }
+
+  return ((relationships ?? []) as AwsRelationship[]).map((r) => ({
+    ...r,
+    linked_count: linkCounts.get(r.id) ?? 0,
+  }));
+}
+
+export async function getAwsRelationship(id: string): Promise<AwsRelationship | null> {
+  const { data, error } = await getSupabaseClient()
+    .from("aws_relationships")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw new Error(`Failed to fetch relationship: ${error.message}`);
+  return data as AwsRelationship | null;
+}
+
+export async function getEngagementsByAwsRelationship(relationshipId: string): Promise<Engagement[]> {
+  const db = getSupabaseClient();
+
+  const { data: junctionRows, error: junctionErr } = await db
+    .from("engagement_aws_relationships")
+    .select("engagement_id")
+    .eq("aws_relationship_id", relationshipId);
+
+  if (junctionErr) throw new Error(`Failed to fetch junction: ${junctionErr.message}`);
+
+  const ids = (junctionRows ?? []).map((r: { engagement_id: string }) => r.engagement_id);
+  if (ids.length === 0) return [];
+
+  const { data, error } = await db
+    .from("engagements")
+    .select("*")
+    .in("id", ids)
+    .order("status", { ascending: true })
+    .order("updated_at", { ascending: false });
+
+  if (error) throw new Error(`Failed to fetch linked engagements: ${error.message}`);
+  return (data ?? []) as Engagement[];
+}
+
+export async function updateAwsRelationship(
+  id: string,
+  updates: {
+    strength?: AwsRelationship["strength"];
+    notes?: string | null;
+    primary_contact_email?: string | null;
+    aws_contact_emails?: string[];
+  }
+): Promise<AwsRelationship> {
+  const { data, error } = await getSupabaseClient()
+    .from("aws_relationships")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to update relationship: ${error.message}`);
+  return data as AwsRelationship;
 }
 
 // ============================================================

@@ -1,4 +1,4 @@
-import { ProgramType } from "@/lib/types";
+import { ProgramType, RelationshipType, RelationshipStrength } from "@/lib/types";
 import { Event } from "@/lib/types";
 
 const programTypeColors: Record<ProgramType, string> = {
@@ -35,6 +35,41 @@ export function EventTypeBadge({ type }: { type: Event["type"] }) {
   return (
     <span className={`rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${colors}`}>
       {type.replace("_", " ")}
+    </span>
+  );
+}
+
+const relationshipTypeColors: Record<RelationshipType, string> = {
+  "Exec/Leader": "bg-purple-500/20 text-purple-400",
+  "Product Team": "bg-blue-500/20 text-blue-400",
+  "Program Team": "bg-teal-500/20 text-teal-400",
+  Seller: "bg-orange-500/20 text-orange-400",
+};
+
+export function RelationshipTypeBadge({ type }: { type: RelationshipType | null }) {
+  if (!type) return null;
+  const colors = relationshipTypeColors[type] ?? "bg-border text-muted";
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${colors}`}>
+      {type}
+    </span>
+  );
+}
+
+const strengthColors: Record<RelationshipStrength, string> = {
+  Strong: "bg-status-active/20 text-status-active",
+  Building: "bg-status-paused/20 text-status-paused",
+  New: "bg-blue-500/20 text-blue-400",
+  Deferred: "bg-status-closed/20 text-status-closed",
+};
+
+export function StrengthBadge({ strength }: { strength: RelationshipStrength | null }) {
+  if (!strength) return null;
+  const colors = strengthColors[strength] ?? "bg-border text-muted";
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${colors}`}>
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      {strength}
     </span>
   );
 }
