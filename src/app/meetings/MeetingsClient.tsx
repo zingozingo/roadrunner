@@ -6,9 +6,10 @@ import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import EmptyState from "@/components/EmptyState";
 import FilterBar from "@/components/FilterBar";
-import { Meeting, Engagement } from "@/lib/types";
+import { MeetingStatusBadge } from "@/components/TypeBadge";
+import { Meeting, Engagement, Event, MeetingStatus } from "@/lib/types";
 
-type MeetingWithEngagement = Meeting & { engagement_name: string | null };
+type MeetingWithNames = Meeting & { engagement_name: string | null; event_name: string | null };
 
 const MEETING_TYPE_OPTIONS = [
   { label: "Executive", value: "Executive Meeting" },
@@ -22,6 +23,14 @@ const MEETING_TYPES = [
   "GTM Meeting",
   "Product Team Relationship",
   "Specialized Meeting",
+];
+
+const MEETING_STATUSES: MeetingStatus[] = [
+  "Scheduling",
+  "Invites Sent",
+  "Confirmed",
+  "Completed",
+  "Did Not Occur",
 ];
 
 function formatDate(dateStr: string | null): string {
@@ -40,11 +49,12 @@ function formatTime(start: string | null, end: string | null): string {
 }
 
 interface MeetingsClientProps {
-  meetings: MeetingWithEngagement[];
+  meetings: MeetingWithNames[];
   engagements: Engagement[];
+  events: Event[];
 }
 
-export default function MeetingsClient({ meetings, engagements }: MeetingsClientProps) {
+export default function MeetingsClient({ meetings, engagements, events }: MeetingsClientProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
@@ -56,7 +66,10 @@ export default function MeetingsClient({ meetings, engagements }: MeetingsClient
   const [newTitle, setNewTitle] = useState("");
   const [newDate, setNewDate] = useState("");
   const [newType, setNewType] = useState("");
+  const [newStatus, setNewStatus] = useState<string>("Scheduling");
   const [newEngagementId, setNewEngagementId] = useState("");
+  const [newEventId, setNewEventId] = useState("");
+  const [newPartnerName, setNewPartnerName] = useState("");
   const [newLocation, setNewLocation] = useState("");
   const [newStartTime, setNewStartTime] = useState("");
   const [newEndTime, setNewEndTime] = useState("");
@@ -70,6 +83,17 @@ export default function MeetingsClient({ meetings, engagements }: MeetingsClient
     });
   }
 
+  // Auto-populate partner_name when engagement changes
+  function handleEngagementChange(engId: string) {
+    setNewEngagementId(engId);
+    if (engId) {
+      const eng = engagements.find((e) => e.id === engId);
+      if (eng?.partner_name && !newPartnerName) {
+        setNewPartnerName(eng.partner_name);
+      }
+    }
+  }
+
   const filteredMeetings = useMemo(() => {
     return meetings.filter((m) => {
       if (searchQuery) {
@@ -78,7 +102,8 @@ export default function MeetingsClient({ meetings, engagements }: MeetingsClient
         const matchesLocation = m.location?.toLowerCase().includes(q);
         const matchesNotes = m.notes?.toLowerCase().includes(q);
         const matchesEngagement = m.engagement_name?.toLowerCase().includes(q);
-        if (!matchesTitle && !matchesLocation && !matchesNotes && !matchesEngagement) return false;
+        const matchesPartner = m.partner_name?.toLowerCase().includes(q);
+        if (!matchesTitle && !matchesLocation && !matchesNotes && !matchesEngagement && !matchesPartner) return false;
       }
       if (activeFilters.size > 0 && m.meeting_type && !activeFilters.has(m.meeting_type)) return false;
       if (activeFilters.size > 0 && !m.meeting_type) return false;
@@ -91,9 +116,9 @@ export default function MeetingsClient({ meetings, engagements }: MeetingsClient
     const now = new Date();
     now.setHours(0, 0, 0, 0);
 
-    const upcoming: MeetingWithEngagement[] = [];
-    const past: MeetingWithEngagement[] = [];
-    const tbd: MeetingWithEngagement[] = [];
+    const upcoming: MeetingWithNames[] = [];
+    const past: MeetingWithNames[] = [];
+    const tbd: MeetingWithNames[] = [];
 
     for (const m of filteredMeetings) {
       if (!m.meeting_date) {
@@ -111,7 +136,7 @@ export default function MeetingsClient({ meetings, engagements }: MeetingsClient
     past.sort((a, b) => b.meeting_date!.localeCompare(a.meeting_date!));
     tbd.sort((a, b) => a.title.localeCompare(b.title));
 
-    const result: { label: string; meetings: MeetingWithEngagement[] }[] = [];
+    const result: { label: string; meetings: MeetingWithNames[] }[] = [];
     if (upcoming.length > 0) result.push({ label: "Upcoming", meetings: upcoming });
     if (past.length > 0) result.push({ label: "Past", meetings: past });
     if (tbd.length > 0) result.push({ label: "Date TBD", meetings: tbd });
@@ -134,7 +159,10 @@ export default function MeetingsClient({ meetings, engagements }: MeetingsClient
           title: newTitle.trim(),
           meeting_date: newDate || null,
           meeting_type: newType || null,
+          status: newStatus || "Scheduling",
           engagement_id: newEngagementId || null,
+          event_id: newEventId || null,
+          partner_name: newPartnerName.trim() || null,
           location: newLocation.trim() || null,
           start_time: newStartTime.trim() || null,
           end_time: newEndTime.trim() || null,
@@ -162,7 +190,10 @@ export default function MeetingsClient({ meetings, engagements }: MeetingsClient
     setNewTitle("");
     setNewDate("");
     setNewType("");
+    setNewStatus("Scheduling");
     setNewEngagementId("");
+    setNewEventId("");
+    setNewPartnerName("");
     setNewLocation("");
     setNewStartTime("");
     setNewEndTime("");
@@ -232,6 +263,30 @@ export default function MeetingsClient({ meetings, engagements }: MeetingsClient
             </div>
 
             <div>
+              <label className={labelClass}>Status</label>
+              <select
+                value={newStatus}
+                onChange={(e) => setNewStatus(e.target.value)}
+                className={inputClass}
+              >
+                {MEETING_STATUSES.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className={labelClass}>Partner</label>
+              <input
+                type="text"
+                value={newPartnerName}
+                onChange={(e) => setNewPartnerName(e.target.value)}
+                placeholder="Partner name..."
+                className={inputClass}
+              />
+            </div>
+
+            <div>
               <label className={labelClass}>Start Time</label>
               <input
                 type="text"
@@ -268,7 +323,7 @@ export default function MeetingsClient({ meetings, engagements }: MeetingsClient
               <label className={labelClass}>Engagement</label>
               <select
                 value={newEngagementId}
-                onChange={(e) => setNewEngagementId(e.target.value)}
+                onChange={(e) => handleEngagementChange(e.target.value)}
                 className={inputClass}
               >
                 <option value="">None</option>
@@ -279,6 +334,22 @@ export default function MeetingsClient({ meetings, engagements }: MeetingsClient
                       {e.name}{e.partner_name ? ` (${e.partner_name})` : ""}
                     </option>
                   ))}
+              </select>
+            </div>
+
+            <div>
+              <label className={labelClass}>Event</label>
+              <select
+                value={newEventId}
+                onChange={(e) => setNewEventId(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">None</option>
+                {events.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -354,6 +425,7 @@ export default function MeetingsClient({ meetings, engagements }: MeetingsClient
                               <h3 className="font-medium text-foreground">
                                 {m.title}
                               </h3>
+                              <MeetingStatusBadge status={m.status} />
                               {m.meeting_type && (
                                 <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-xs font-medium text-blue-400 whitespace-nowrap">
                                   {m.meeting_type}
@@ -369,13 +441,21 @@ export default function MeetingsClient({ meetings, engagements }: MeetingsClient
                               {formatDate(m.meeting_date)}
                               {(m.start_time || m.end_time) && ` · ${formatTime(m.start_time, m.end_time)}`}
                               {m.location && ` · ${m.location}`}
+                              {m.partner_name && ` · ${m.partner_name}`}
                             </p>
                           </div>
-                          {m.engagement_name && (
-                            <span className="shrink-0 rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent whitespace-nowrap">
-                              {m.engagement_name}
-                            </span>
-                          )}
+                          <div className="flex shrink-0 flex-col items-end gap-1">
+                            {m.engagement_name && (
+                              <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent whitespace-nowrap">
+                                {m.engagement_name}
+                              </span>
+                            )}
+                            {m.event_name && (
+                              <span className="rounded-full bg-purple-500/10 px-2.5 py-0.5 text-xs font-medium text-purple-400 whitespace-nowrap">
+                                {m.event_name}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </Link>
                     ))}

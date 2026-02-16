@@ -8,6 +8,14 @@ const VALID_TYPES = new Set([
   "Specialized Meeting",
 ]);
 
+const VALID_STATUSES = new Set([
+  "Scheduling",
+  "Invites Sent",
+  "Confirmed",
+  "Completed",
+  "Did Not Occur",
+]);
+
 export async function GET() {
   try {
     const meetings = await getMeetingsWithEngagements();
@@ -24,7 +32,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { title, engagement_id, partner_name, meeting_type, meeting_date, start_time, end_time, location, attendees, notes } = body;
+    const { title, engagement_id, event_id, partner_name, meeting_type, status, meeting_date, start_time, end_time, location, attendees, notes } = body;
 
     if (!title || typeof title !== "string" || !title.trim()) {
       return NextResponse.json(
@@ -40,6 +48,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (status && !VALID_STATUSES.has(status)) {
+      return NextResponse.json(
+        { error: `Invalid status "${status}". Must be one of: ${[...VALID_STATUSES].join(", ")}` },
+        { status: 400 }
+      );
+    }
+
     if (attendees !== undefined && !Array.isArray(attendees)) {
       return NextResponse.json(
         { error: "Attendees must be an array" },
@@ -50,8 +65,10 @@ export async function POST(request: NextRequest) {
     const meeting = await createMeeting({
       title: title.trim(),
       engagement_id: engagement_id || null,
+      event_id: event_id || null,
       partner_name: partner_name?.trim() || null,
       meeting_type: meeting_type || null,
+      status: status || "Scheduling",
       meeting_date: meeting_date || null,
       start_time: start_time?.trim() || null,
       end_time: end_time?.trim() || null,

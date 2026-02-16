@@ -82,13 +82,16 @@ export interface MeetingAttendee {
   email: string;
 }
 
+export type MeetingStatus = "Scheduling" | "Invites Sent" | "Confirmed" | "Completed" | "Did Not Occur";
+
 export interface Meeting {
   id: string;
   title: string;
   engagement_id: string | null;
+  event_id: string | null;
   partner_name: string | null;
   meeting_type: string | null;
-  status: string;
+  status: MeetingStatus;
   meeting_date: string | null;
   start_time: string | null;
   end_time: string | null;

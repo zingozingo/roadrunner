@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Meeting, Engagement, MeetingAttendee } from "@/lib/types";
+import { Meeting, Engagement, Event, MeetingAttendee, MeetingStatus } from "@/lib/types";
 import ConfirmDialog from "./ConfirmDialog";
 
 const MEETING_TYPES = [
@@ -12,12 +12,22 @@ const MEETING_TYPES = [
   "Specialized Meeting",
 ];
 
+const MEETING_STATUSES: MeetingStatus[] = [
+  "Scheduling",
+  "Invites Sent",
+  "Confirmed",
+  "Completed",
+  "Did Not Occur",
+];
+
 export default function MeetingActions({
   meeting,
   engagements: initialEngagements,
+  events: initialEvents,
 }: {
   meeting: Meeting;
   engagements?: Engagement[];
+  events?: Event[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -26,12 +36,16 @@ export default function MeetingActions({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [engagements, setEngagements] = useState<Engagement[]>(initialEngagements ?? []);
+  const [events, setEvents] = useState<Event[]>(initialEvents ?? []);
 
   // Edit form state
   const [title, setTitle] = useState(meeting.title);
   const [meetingDate, setMeetingDate] = useState(meeting.meeting_date ?? "");
   const [meetingType, setMeetingType] = useState(meeting.meeting_type ?? "");
+  const [status, setStatus] = useState<string>(meeting.status);
   const [engagementId, setEngagementId] = useState(meeting.engagement_id ?? "");
+  const [eventId, setEventId] = useState(meeting.event_id ?? "");
+  const [partnerName, setPartnerName] = useState(meeting.partner_name ?? "");
   const [startTime, setStartTime] = useState(meeting.start_time ?? "");
   const [endTime, setEndTime] = useState(meeting.end_time ?? "");
   const [location, setLocation] = useState(meeting.location ?? "");
@@ -40,20 +54,30 @@ export default function MeetingActions({
     meeting.attendees.map((a) => `${a.name ?? ""}|${a.email}`).join("\n")
   );
 
-  // Fetch engagements for dropdown if not passed as prop
+  // Fetch engagements and events for dropdowns if not passed as props
   useEffect(() => {
-    if (initialEngagements) return;
-    fetch("/api/engagements")
-      .then((res) => res.json())
-      .then((data) => setEngagements(data.engagements ?? []))
-      .catch(() => {});
-  }, [initialEngagements]);
+    if (!initialEngagements) {
+      fetch("/api/engagements")
+        .then((res) => res.json())
+        .then((data) => setEngagements(data.engagements ?? []))
+        .catch(() => {});
+    }
+    if (!initialEvents) {
+      fetch("/api/events")
+        .then((res) => res.json())
+        .then((data) => setEvents(data.events ?? []))
+        .catch(() => {});
+    }
+  }, [initialEngagements, initialEvents]);
 
   function startEdit() {
     setTitle(meeting.title);
     setMeetingDate(meeting.meeting_date ?? "");
     setMeetingType(meeting.meeting_type ?? "");
+    setStatus(meeting.status);
     setEngagementId(meeting.engagement_id ?? "");
+    setEventId(meeting.event_id ?? "");
+    setPartnerName(meeting.partner_name ?? "");
     setStartTime(meeting.start_time ?? "");
     setEndTime(meeting.end_time ?? "");
     setLocation(meeting.location ?? "");
@@ -63,6 +87,17 @@ export default function MeetingActions({
     );
     setError(null);
     setEditing(true);
+  }
+
+  // Auto-populate partner_name when engagement changes
+  function handleEngagementChange(engId: string) {
+    setEngagementId(engId);
+    if (engId) {
+      const eng = engagements.find((e) => e.id === engId);
+      if (eng?.partner_name && !partnerName) {
+        setPartnerName(eng.partner_name);
+      }
+    }
   }
 
   function cancelEdit() {
@@ -100,7 +135,10 @@ export default function MeetingActions({
           title: title.trim(),
           meeting_date: meetingDate || null,
           meeting_type: meetingType || null,
+          status: status || "Scheduling",
           engagement_id: engagementId || null,
+          event_id: eventId || null,
+          partner_name: partnerName.trim() || null,
           start_time: startTime.trim() || null,
           end_time: endTime.trim() || null,
           location: location.trim() || null,
@@ -193,6 +231,32 @@ export default function MeetingActions({
               </select>
             </div>
 
+            {/* Status */}
+            <div>
+              <label className={labelClass}>Status</label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className={inputClass}
+              >
+                {MEETING_STATUSES.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Partner */}
+            <div>
+              <label className={labelClass}>Partner</label>
+              <input
+                type="text"
+                value={partnerName}
+                onChange={(e) => setPartnerName(e.target.value)}
+                placeholder="Partner name..."
+                className={inputClass}
+              />
+            </div>
+
             {/* Start Time */}
             <div>
               <label className={labelClass}>Start Time</label>
@@ -234,7 +298,7 @@ export default function MeetingActions({
               <label className={labelClass}>Engagement</label>
               <select
                 value={engagementId}
-                onChange={(e) => setEngagementId(e.target.value)}
+                onChange={(e) => handleEngagementChange(e.target.value)}
                 className={inputClass}
               >
                 <option value="">None</option>
@@ -245,6 +309,23 @@ export default function MeetingActions({
                       {e.name}{e.partner_name ? ` (${e.partner_name})` : ""}
                     </option>
                   ))}
+              </select>
+            </div>
+
+            {/* Event */}
+            <div>
+              <label className={labelClass}>Event</label>
+              <select
+                value={eventId}
+                onChange={(e) => setEventId(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">None</option>
+                {events.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

@@ -3,10 +3,12 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import MeetingActions from "@/components/MeetingActions";
+import { MeetingStatusBadge } from "@/components/TypeBadge";
 import {
   getMeeting,
   getAwsRelationshipsByMeeting,
   getEngagementById,
+  getEventById,
 } from "@/lib/supabase";
 
 function formatDate(dateStr: string | null): string {
@@ -28,9 +30,10 @@ export default async function MeetingDetailPage({
   const meeting = await getMeeting(id);
   if (!meeting) notFound();
 
-  const [awsRelationships, engagement] = await Promise.all([
+  const [awsRelationships, engagement, event] = await Promise.all([
     getAwsRelationshipsByMeeting(id),
     meeting.engagement_id ? getEngagementById(meeting.engagement_id) : null,
+    meeting.event_id ? getEventById(meeting.event_id) : null,
   ]);
 
   return (
@@ -51,6 +54,7 @@ export default async function MeetingDetailPage({
             <h1 className="text-2xl font-bold text-foreground">
               {meeting.title}
             </h1>
+            <MeetingStatusBadge status={meeting.status} />
             {meeting.meeting_type && (
               <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-xs font-medium text-blue-400 whitespace-nowrap">
                 {meeting.meeting_type}
@@ -172,6 +176,10 @@ export default async function MeetingDetailPage({
                   <dd className="text-foreground">{meeting.location}</dd>
                 </div>
               )}
+              <div>
+                <dt className="text-muted">Status</dt>
+                <dd><MeetingStatusBadge status={meeting.status} /></dd>
+              </div>
               {engagement && (
                 <div>
                   <dt className="text-muted">Engagement</dt>
@@ -185,6 +193,19 @@ export default async function MeetingDetailPage({
                   </dd>
                 </div>
               )}
+              {event && (
+                <div>
+                  <dt className="text-muted">Event</dt>
+                  <dd>
+                    <Link
+                      href={`/events/${event.id}`}
+                      className="text-accent hover:underline"
+                    >
+                      {event.name}
+                    </Link>
+                  </dd>
+                </div>
+              )}
               {meeting.partner_name && (
                 <div>
                   <dt className="text-muted">Partner</dt>
@@ -194,10 +215,6 @@ export default async function MeetingDetailPage({
               <div>
                 <dt className="text-muted">Source</dt>
                 <dd className="text-foreground capitalize">{meeting.source.replace("_", " ")}</dd>
-              </div>
-              <div>
-                <dt className="text-muted">Status</dt>
-                <dd className="text-foreground capitalize">{meeting.status}</dd>
               </div>
               <div>
                 <dt className="text-muted">Created</dt>

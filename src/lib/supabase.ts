@@ -1227,7 +1227,7 @@ export async function updateAwsRelationship(
 // ============================================================
 
 export async function getMeetingsWithEngagements(): Promise<
-  (Meeting & { engagement_name: string | null })[]
+  (Meeting & { engagement_name: string | null; event_name: string | null })[]
 > {
   const { data: meetings, error } = await getSupabaseClient()
     .from("meetings")
@@ -1238,8 +1238,10 @@ export async function getMeetingsWithEngagements(): Promise<
 
   // Resolve engagement names
   const engagementIds = new Set<string>();
+  const eventIds = new Set<string>();
   for (const m of (meetings ?? []) as Meeting[]) {
     if (m.engagement_id) engagementIds.add(m.engagement_id);
+    if (m.event_id) eventIds.add(m.event_id);
   }
 
   const engagementNames = new Map<string, string>();
@@ -1255,9 +1257,24 @@ export async function getMeetingsWithEngagements(): Promise<
     }
   }
 
+  // Resolve event names
+  const eventNames = new Map<string, string>();
+  if (eventIds.size > 0) {
+    const { data: events } = await getSupabaseClient()
+      .from("events")
+      .select("id, name")
+      .in("id", [...eventIds]);
+
+    for (const e of events ?? []) {
+      const row = e as { id: string; name: string };
+      eventNames.set(row.id, row.name);
+    }
+  }
+
   return ((meetings ?? []) as Meeting[]).map((m) => ({
     ...m,
     engagement_name: m.engagement_id ? engagementNames.get(m.engagement_id) ?? null : null,
+    event_name: m.event_id ? eventNames.get(m.event_id) ?? null : null,
   }));
 }
 
@@ -1309,6 +1326,7 @@ export async function getMeetingsByEngagement(engagementId: string): Promise<Mee
 export async function createMeeting(data: {
   title: string;
   engagement_id?: string | null;
+  event_id?: string | null;
   partner_name?: string | null;
   meeting_type?: string | null;
   status?: string;
@@ -1326,9 +1344,10 @@ export async function createMeeting(data: {
     .insert({
       title: data.title,
       engagement_id: data.engagement_id ?? null,
+      event_id: data.event_id ?? null,
       partner_name: data.partner_name ?? null,
       meeting_type: data.meeting_type ?? null,
-      status: data.status ?? "scheduled",
+      status: data.status ?? "Scheduling",
       meeting_date: data.meeting_date ?? null,
       start_time: data.start_time ?? null,
       end_time: data.end_time ?? null,
@@ -1350,6 +1369,7 @@ export async function updateMeeting(
   updates: {
     title?: string;
     engagement_id?: string | null;
+    event_id?: string | null;
     partner_name?: string | null;
     meeting_type?: string | null;
     status?: string;

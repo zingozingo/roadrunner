@@ -13,6 +13,14 @@ const VALID_TYPES = new Set([
   "Specialized Meeting",
 ]);
 
+const VALID_STATUSES = new Set([
+  "Scheduling",
+  "Invites Sent",
+  "Confirmed",
+  "Completed",
+  "Did Not Occur",
+]);
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -30,15 +38,22 @@ export async function GET(
 
     const awsRelationships = await getAwsRelationshipsByMeeting(id);
 
-    // Resolve engagement name if linked
+    // Resolve engagement and event names if linked
     let engagementName: string | null = null;
-    if (meeting.engagement_id) {
-      const { getEngagementById } = await import("@/lib/supabase");
-      const eng = await getEngagementById(meeting.engagement_id);
-      engagementName = eng?.name ?? null;
+    let eventName: string | null = null;
+    if (meeting.engagement_id || meeting.event_id) {
+      const { getEngagementById, getEventById } = await import("@/lib/supabase");
+      if (meeting.engagement_id) {
+        const eng = await getEngagementById(meeting.engagement_id);
+        engagementName = eng?.name ?? null;
+      }
+      if (meeting.event_id) {
+        const evt = await getEventById(meeting.event_id);
+        eventName = evt?.name ?? null;
+      }
     }
 
-    return NextResponse.json({ meeting, engagementName, awsRelationships });
+    return NextResponse.json({ meeting, engagementName, eventName, awsRelationships });
   } catch (error) {
     console.error("GET /api/meetings/[id] error:", error);
     return NextResponse.json(
@@ -55,7 +70,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { title, engagement_id, partner_name, meeting_type, status, meeting_date, start_time, end_time, location, attendees, notes } = body;
+    const { title, engagement_id, event_id, partner_name, meeting_type, status, meeting_date, start_time, end_time, location, attendees, notes } = body;
 
     if (title !== undefined && (typeof title !== "string" || !title.trim())) {
       return NextResponse.json(
@@ -67,6 +82,13 @@ export async function PUT(
     if (meeting_type !== undefined && meeting_type !== null && !VALID_TYPES.has(meeting_type)) {
       return NextResponse.json(
         { error: `Invalid meeting type "${meeting_type}"` },
+        { status: 400 }
+      );
+    }
+
+    if (status !== undefined && status !== null && !VALID_STATUSES.has(status)) {
+      return NextResponse.json(
+        { error: `Invalid status "${status}". Must be one of: ${[...VALID_STATUSES].join(", ")}` },
         { status: 400 }
       );
     }
@@ -89,6 +111,7 @@ export async function PUT(
     const updates: Record<string, unknown> = {};
     if (title !== undefined) updates.title = title.trim();
     if (engagement_id !== undefined) updates.engagement_id = engagement_id || null;
+    if (event_id !== undefined) updates.event_id = event_id || null;
     if (partner_name !== undefined) updates.partner_name = partner_name?.trim() || null;
     if (meeting_type !== undefined) updates.meeting_type = meeting_type || null;
     if (status !== undefined) updates.status = status;
