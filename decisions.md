@@ -803,3 +803,15 @@ Next.js 14 App Router + TypeScript + Tailwind. Supabase Postgres for data. Singl
 **Rationale:** Schema hygiene. The event_creation approval type was fully removed in a prior session. The column and loose type constraint were remnants.
 
 **Impact:** Tighter schema validation. No functional change (all code already used correct values).
+
+---
+
+## 2026-02-16: Manual Engagement Creation via UI
+
+**Decision:** Added a "New Engagement" form to the Roadrunner dashboard. Engagements can now be created manually without requiring a forwarded email. The form mirrors the existing edit form (name, partner, status, pillar, priority, current state) and feeds into the same createEngagement() → auto-push pipeline as classifier-created engagements.
+
+**Context:** Engagements previously could only originate from two paths: classifier auto-create (≥0.85 confidence) or approval queue resolution. There was no way to track work that originated from Slack, verbal conversations, or proactive planning without forwarding a dummy email.
+
+**Rationale:** Reuses existing infrastructure — createEngagement() in supabase.ts and pushEngagementToAirtable() in sync.ts were unchanged. The POST /api/engagements route follows the same validation and fire-and-forget push pattern as the PUT route. Default status is "active" since manual creates represent work the user is actively choosing to track.
+
+**Impact:** Three creation paths now exist (classifier, approval resolution, manual form), all converging on the same persistence and sync pipeline. CreateEngagementForm.tsx is a self-contained client component. No changes to existing functions or patterns.

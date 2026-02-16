@@ -4,6 +4,7 @@ import PageHeader from "@/components/PageHeader";
 import EngagementCard from "@/components/EngagementCard";
 import EmptyState from "@/components/EmptyState";
 import SyncButton from "@/components/SyncButton";
+import CreateEngagementForm from "@/components/CreateEngagementForm";
 import { getEngagementsWithMessageCounts } from "@/lib/supabase";
 import { Engagement } from "@/lib/types";
 
@@ -40,7 +41,10 @@ export default async function EngagementsPage() {
           title="Engagements"
           subtitle={`${engagements.length} engagement${engagements.length !== 1 ? "s" : ""} tracked`}
         />
-        <SyncButton entity="engagements" label="Push to Airtable" compact />
+        <div className="flex shrink-0 gap-2">
+          <CreateEngagementForm />
+          <SyncButton entity="engagements" label="Push to Airtable" compact />
+        </div>
       </div>
 
       {engagements.length === 0 ? (
