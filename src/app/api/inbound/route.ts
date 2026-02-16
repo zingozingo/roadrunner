@@ -92,6 +92,51 @@ async function extractFormFields(
 }
 
 /**
+ * Smart body selection for forwarded emails.
+ *
+ * Mailgun's stripped-text removes "quoted" content — which includes forwarded
+ * email threads. For forwarded emails, body-plain preserves the full content
+ * the email parser needs (From:/Sent:/To:/Subject: header blocks).
+ *
+ * Strategy:
+ * 1. If body-plain has Outlook forward markers that stripped-text lost → use body-plain
+ * 2. If body-plain is significantly longer (3x+) → stripped-text probably lost content
+ * 3. Default to stripped-text (cleaner for non-forwarded, direct emails)
+ */
+function selectEmailBody(strippedText: string, bodyPlain: string): string {
+  const stripped = strippedText.trim();
+  const plain = bodyPlain.trim();
+
+  if (!stripped && !plain) return "";
+  if (!stripped) return plain;
+  if (!plain) return stripped;
+
+  // Check if body-plain has Outlook forward markers that stripped-text lost
+  const hasForwardMarkers = (text: string) =>
+    /^From:\s/m.test(text) && /^Sent:\s/m.test(text);
+  const plainHasMarkers = hasForwardMarkers(plain);
+  const strippedHasMarkers = hasForwardMarkers(stripped);
+
+  if (plainHasMarkers && !strippedHasMarkers) {
+    console.log(
+      `[BODY] Using body-plain (${plain.length} chars) — stripped-text lost forwarded content (${stripped.length} chars)`
+    );
+    return plain;
+  }
+
+  // If body-plain is significantly longer, stripped-text probably lost content
+  if (plain.length > stripped.length * 3 && plain.length > 200) {
+    console.log(
+      `[BODY] Using body-plain (${plain.length} chars) — significantly longer than stripped-text (${stripped.length} chars)`
+    );
+    return plain;
+  }
+
+  console.log(`[BODY] Using stripped-text (${stripped.length} chars)`);
+  return stripped;
+}
+
+/**
  * POST /api/inbound
  * Receives Mailgun inbound email webhooks (multipart form data).
  */
@@ -169,11 +214,12 @@ export async function POST(request: NextRequest) {
     const subject = fields.get("subject") ?? "";
     const bodyPlain = fields.get("body-plain") ?? "";
     const strippedText = fields.get("stripped-text") ?? "";
+    const bodyCalendar = fields.get("body-calendar") ?? "";
     const toHeader = fields.get("To") ?? "";
     const ccHeader = fields.get("Cc") ?? "";
 
-    // Prefer stripped-text (Mailgun's cleaned version), fall back to body-plain
-    const emailBody = strippedText || bodyPlain;
+    // Smart body selection — prefers body-plain when forwarded content is detected
+    const emailBody = selectEmailBody(strippedText, bodyPlain);
 
     // Parse forwarder identity from Mailgun envelope sender.
     // When Steven forwards to Relay, Mailgun's "sender" = Steven's address.
@@ -253,41 +299,54 @@ export async function POST(request: NextRequest) {
     console.log(`Supabase storage: stored ${stored.length} message(s), ids=[${storedIds.join(", ")}]`);
 
     // --- ICS Meeting Creation (Phase 1) ---
-    // Extract ICS from Mailgun attachments, create meeting record if found.
+    // Extract ICS from: body-calendar field → inline body-plain → file attachment.
     // Non-blocking: failures here never prevent email processing.
     let meetingCreated = false;
+    try {
+      let icsContent: string | null = null;
+      let icsSource = "";
 
-    // [ICS-DEBUG] Temporary diagnostic logging — remove after ICS is confirmed working
-    if (rawFormData) {
-      const formEntries: string[] = [];
-      rawFormData.forEach((value, key) => {
-        if (value instanceof File) {
-          formEntries.push(`FILE: key="${key}" name="${value.name}" type="${value.type}" size=${value.size}`);
-        } else {
-          formEntries.push(`STRING: key="${key}" length=${String(value).length}`);
-        }
-      });
-      console.log("[ICS-DEBUG] FormData entries:", JSON.stringify(formEntries, null, 2));
-    } else {
-      console.log("[ICS-DEBUG] rawFormData is null (used urlencoded fallback)");
-    }
-
-    if (rawFormData) {
-      try {
-        const icsContent = await extractICSFromAttachments(rawFormData);
-        if (icsContent) {
-          const parsedMeeting = parseICSContent(icsContent);
-          if (parsedMeeting) {
-            const meetingId = await createMeetingFromICS(parsedMeeting, storedIds[0]);
-            meetingCreated = meetingId !== null;
-            console.log(`ICS processing: ${meetingCreated ? `created meeting ${meetingId}` : "deduped (already exists)"}`);
-          } else {
-            console.warn("ICS attachment found but could not be parsed");
-          }
-        }
-      } catch (icsError) {
-        console.error("ICS extraction/parsing failed (non-blocking):", icsError);
+      // Path A: body-calendar field (Mailgun provides this for meeting invites)
+      if (bodyCalendar && bodyCalendar.includes("BEGIN:VCALENDAR")) {
+        icsContent = bodyCalendar;
+        icsSource = "body-calendar";
+        console.log(`[ICS] Found body-calendar field (${bodyCalendar.length} chars)`);
       }
+
+      // Path B: Inline VCALENDAR in body-plain
+      if (!icsContent && bodyPlain.includes("BEGIN:VCALENDAR")) {
+        const vcalStart = bodyPlain.indexOf("BEGIN:VCALENDAR");
+        const vcalEnd = bodyPlain.indexOf("END:VCALENDAR");
+        if (vcalEnd > vcalStart) {
+          icsContent = bodyPlain.substring(vcalStart, vcalEnd + "END:VCALENDAR".length);
+          icsSource = "body-plain inline";
+          console.log(`[ICS] Found inline VCALENDAR in body-plain (${icsContent.length} chars)`);
+        }
+      }
+
+      // Path C: File attachment (only works with multipart/form-data)
+      if (!icsContent && rawFormData) {
+        icsContent = await extractICSFromAttachments(rawFormData);
+        if (icsContent) {
+          icsSource = "file attachment";
+          console.log(`[ICS] Found .ics file attachment (${icsContent.length} chars)`);
+        }
+      }
+
+      // Parse and create meeting record
+      if (icsContent) {
+        const parsedMeeting = parseICSContent(icsContent);
+        if (parsedMeeting) {
+          console.log(`[ICS] Parsed meeting: "${parsedMeeting.title}" on ${parsedMeeting.meeting_date} (source: ${icsSource})`);
+          const meetingId = await createMeetingFromICS(parsedMeeting, storedIds[0]);
+          meetingCreated = meetingId !== null;
+          console.log(`[ICS] ${meetingCreated ? `Created meeting ${meetingId}` : "Deduped (already exists)"}`);
+        } else {
+          console.warn(`[ICS] Found calendar data (${icsSource}) but could not parse it`);
+        }
+      }
+    } catch (icsError) {
+      console.error("ICS extraction/parsing failed (non-blocking):", icsError);
     }
 
     // Trigger classification — Claude responds in 2-3s, well within

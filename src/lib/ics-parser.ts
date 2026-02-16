@@ -312,31 +312,17 @@ export function parseICSContent(icsContent: string): ParsedMeeting | null {
 export async function extractICSFromAttachments(
   formData: FormData
 ): Promise<string | null> {
-  // [ICS-DEBUG] Temporary diagnostic logging — remove after ICS is confirmed working
-  let entryCount = 0;
-  let fileCount = 0;
-
-  for (const [key, value] of formData.entries()) {
-    entryCount++;
+  for (const [, value] of formData.entries()) {
     if (!(value instanceof File)) continue;
 
-    fileCount++;
     const isICSByName = value.name.toLowerCase().endsWith(".ics");
     const isICSByType =
       value.type === "text/calendar" ||
       value.type === "application/ics";
 
-    console.log(
-      `[ICS-DEBUG] File entry: key="${key}" name="${value.name}" type="${value.type}" size=${value.size} isICS=${isICSByName || isICSByType}`
-    );
-
     if (isICSByName || isICSByType) {
-      const content = await value.text();
-      console.log(`[ICS-DEBUG] Extracted ICS content (${content.length} chars), starts with: ${content.slice(0, 80)}`);
-      return content;
+      return await value.text();
     }
   }
-
-  console.log(`[ICS-DEBUG] No ICS found. Scanned ${entryCount} entries, ${fileCount} were File objects.`);
   return null;
 }

@@ -199,25 +199,21 @@ export function parseForwardedEmail(
     });
   }
 
-  // If there's text BEFORE the first header block, it's the forwarder's own message.
-  // Only include it if it has meaningful content (not just separator lines).
+  // If there's text BEFORE the first header block, it's the forwarder's preface
+  // (e.g., "FYI", a signature line, or a brief note). This is forwarding metadata,
+  // not partner communication — never create a standalone message for it.
+  // If the preface contains a meaningful note (not just a signature), attach it
+  // to the first real message as forwarder_note for classification context.
   const preface = rawBody.slice(0, headers[0].index).trim();
-  const meaningfulPreface = preface.replace(/[_\-*\s]/g, "");
-  if (meaningfulPreface.length > 10) {
-    const { senderName, senderEmail } = envelope?.sender
-      ? parseSenderField(envelope.sender)
-      : { senderName: null, senderEmail: null };
+  const cleaned = preface
+    .replace(/^[\s_\-=*]+$/gm, "")           // separator lines
+    .replace(/^[A-Z][a-z]+ [A-Z][a-z]+\s*\|.*$/gm, "") // "Name | Title" pattern
+    .replace(/^[A-Z][a-z]+ [A-Z][a-z]+\s*$/gm, "")     // just a name on a line
+    .replace(/^\s*Sent from .+$/gm, "")       // mobile signatures
+    .trim();
 
-    messages.unshift({
-      sender_name: senderName,
-      sender_email: senderEmail,
-      sent_at: envelope?.timestamp
-        ? new Date(envelope.timestamp * 1000).toISOString()
-        : null,
-      subject: envelope?.subject ?? null,
-      body_text: stripNoise(preface),
-      body_raw: preface,
-    });
+  if (cleaned.length > 20 && messages.length > 0) {
+    messages[0].forwarder_note = cleaned;
   }
 
   return messages;

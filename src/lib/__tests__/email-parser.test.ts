@@ -60,62 +60,59 @@ describe("parseForwardedEmail", () => {
       timestamp: 1738700000,
     });
 
-    it("extracts the forwarder's preface + 3 thread messages = 4 total", () => {
-      expect(messages.length).toBe(4);
+    it("extracts 3 thread messages (preface is NOT a standalone message)", () => {
+      expect(messages.length).toBe(3);
     });
 
-    it("first message is the forwarder's own note", () => {
-      expect(messages[0].sender_name).toBe("Steven Romero");
-      expect(messages[0].sender_email).toBe("steven@example.com");
-      expect(messages[0].body_text).toContain("forwarding this thread");
-      expect(messages[0].subject).toBe("Fwd: Security Review Next Steps");
+    it("attaches forwarder's note to the first thread message", () => {
+      expect(messages[0].forwarder_note).toContain("forwarding this thread");
     });
 
     it("parses the first thread message (Alice)", () => {
-      expect(messages[1].sender_name).toBe("Alice Chen");
-      expect(messages[1].sender_email).toBe("alice@partnerco.com");
-      expect(messages[1].subject).toBe("Security Review Next Steps");
-      expect(messages[1].sent_at).not.toBeNull();
-      expect(messages[1].body_text).toContain("Project Falcon");
-      expect(messages[1].to_header).toBe("Bob Lee <bob@aws.example.com>");
-      expect(messages[1].cc_header).toBeNull();
+      expect(messages[0].sender_name).toBe("Alice Chen");
+      expect(messages[0].sender_email).toBe("alice@partnerco.com");
+      expect(messages[0].subject).toBe("Security Review Next Steps");
+      expect(messages[0].sent_at).not.toBeNull();
+      expect(messages[0].body_text).toContain("Project Falcon");
+      expect(messages[0].to_header).toBe("Bob Lee <bob@aws.example.com>");
+      expect(messages[0].cc_header).toBeNull();
     });
 
     it("parses the second thread message (Bob)", () => {
-      expect(messages[2].sender_name).toBe("Bob Lee");
-      expect(messages[2].sender_email).toBe("bob@aws.example.com");
-      expect(messages[2].subject).toBe("Re: Security Review Next Steps");
-      expect(messages[2].body_text).toContain("Thursday at 2pm");
-      expect(messages[2].body_text).toContain("re:Invent");
-      expect(messages[2].to_header).toBe("Alice Chen <alice@partnerco.com>");
-      expect(messages[2].cc_header).toBeNull();
+      expect(messages[1].sender_name).toBe("Bob Lee");
+      expect(messages[1].sender_email).toBe("bob@aws.example.com");
+      expect(messages[1].subject).toBe("Re: Security Review Next Steps");
+      expect(messages[1].body_text).toContain("Thursday at 2pm");
+      expect(messages[1].body_text).toContain("re:Invent");
+      expect(messages[1].to_header).toBe("Alice Chen <alice@partnerco.com>");
+      expect(messages[1].cc_header).toBeNull();
     });
 
     it("parses the third thread message (Alice reply with multiple To recipients)", () => {
-      expect(messages[3].sender_name).toBe("Alice Chen");
-      expect(messages[3].sender_email).toBe("alice@partnerco.com");
-      expect(messages[3].body_text).toContain("calendar invite");
-      expect(messages[3].body_text).toContain("Competency program");
-      expect(messages[3].to_header).toBe(
+      expect(messages[2].sender_name).toBe("Alice Chen");
+      expect(messages[2].sender_email).toBe("alice@partnerco.com");
+      expect(messages[2].body_text).toContain("calendar invite");
+      expect(messages[2].body_text).toContain("Competency program");
+      expect(messages[2].to_header).toBe(
         "Bob Lee <bob@aws.example.com>; Dana Wright <dana@aws.example.com>"
       );
-      expect(messages[3].cc_header).toBeNull();
+      expect(messages[2].cc_header).toBeNull();
     });
 
     it("strips 'Sent from my iPhone' from Alice's first message", () => {
-      expect(messages[1].body_text).not.toContain("Sent from my iPhone");
+      expect(messages[0].body_text).not.toContain("Sent from my iPhone");
     });
 
     it("strips confidentiality notice from Alice's last message", () => {
-      expect(messages[3].body_text).not.toContain("CONFIDENTIALITY NOTICE");
+      expect(messages[2].body_text).not.toContain("CONFIDENTIALITY NOTICE");
     });
 
     it("preserves body_raw with original content", () => {
-      expect(messages[1].body_raw).toContain("Sent from my iPhone");
+      expect(messages[0].body_raw).toContain("Sent from my iPhone");
     });
 
     it("parses dates into ISO format", () => {
-      const sent = messages[1].sent_at!;
+      const sent = messages[0].sent_at!;
       // Should be a valid ISO date
       expect(new Date(sent).toISOString()).toBe(sent);
       // February 3, 2025
@@ -223,6 +220,84 @@ Tanya`;
       expect(messages[0].cc_header).toBe(
         "CJ Martinez <cj@qualys.com>; Brian Park <bpark@amazon.com>"
       );
+    });
+  });
+
+  describe("forwarded email with signature-only preface", () => {
+    const body = `Steven Romero | Growth PDM
+
+________________________________
+From: John Smith <john@partner.com>
+Sent: Monday, February 16, 2026 10:30 AM
+To: Romero, Steven <sterme@amazon.com>
+Subject: A&I Solutions partnership
+
+Hi Steven, I wanted to reach out about A&I Solutions as a potential software partner.
+
+Thanks,
+John`;
+
+    const messages = parseForwardedEmail(body, {
+      sender: "Steven Romero <sterme@amazon.com>",
+      subject: "FW: A&I Solutions partnership",
+    });
+
+    it("creates 1 message (the real email), not 2", () => {
+      expect(messages.length).toBe(1);
+    });
+
+    it("body_text is the actual forwarded content, not the signature", () => {
+      expect(messages[0].body_text).toContain("A&I Solutions");
+      expect(messages[0].body_text).not.toContain("Growth PDM");
+    });
+
+    it("does not set forwarder_note for signature-only preface", () => {
+      expect(messages[0].forwarder_note).toBeUndefined();
+    });
+  });
+
+  describe("forwarded email with meaningful preface", () => {
+    const body = `Please review and follow up on this — high priority partner.
+
+________________________________
+From: Jane Doe <jane@partner.com>
+Sent: Friday, February 14, 2026 3:00 PM
+To: Steven Romero <sterme@amazon.com>
+Subject: WAF Integration Update
+
+Here's the latest on the WAF integration.`;
+
+    const messages = parseForwardedEmail(body, {
+      sender: "Steven Romero <sterme@amazon.com>",
+      subject: "FW: WAF Integration Update",
+    });
+
+    it("creates 1 message with forwarder_note set", () => {
+      expect(messages.length).toBe(1);
+      expect(messages[0].forwarder_note).toContain("high priority partner");
+    });
+
+    it("body_text is the forwarded content", () => {
+      expect(messages[0].body_text).toContain("WAF integration");
+    });
+  });
+
+  describe("forwarded email with blank preface", () => {
+    const body = `
+________________________________
+From: Alice Chen <alice@partnerco.com>
+Sent: Monday, February 3, 2025 10:30 AM
+To: Bob Lee <bob@aws.example.com>
+Subject: Quick Question
+
+Just a quick question about the timeline.`;
+
+    const messages = parseForwardedEmail(body);
+
+    it("creates 1 message, no forwarder_note", () => {
+      expect(messages.length).toBe(1);
+      expect(messages[0].forwarder_note).toBeUndefined();
+      expect(messages[0].body_text).toContain("quick question");
     });
   });
 

@@ -235,6 +235,7 @@ export interface ParsedMessage {
   body_raw: string;
   forwarder_email?: string | null;
   forwarder_name?: string | null;
+  forwarder_note?: string | null;
   to_header?: string | null;
   cc_header?: string | null;
 }
