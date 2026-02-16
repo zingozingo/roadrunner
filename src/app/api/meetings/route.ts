@@ -1,0 +1,73 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getMeetingsWithEngagements, createMeeting } from "@/lib/supabase";
+
+const VALID_TYPES = new Set([
+  "Executive Meeting",
+  "GTM Meeting",
+  "Product Team Relationship",
+  "Specialized Meeting",
+]);
+
+export async function GET() {
+  try {
+    const meetings = await getMeetingsWithEngagements();
+    return NextResponse.json({ meetings });
+  } catch (error) {
+    console.error("GET /api/meetings error:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch meetings" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { title, engagement_id, partner_name, meeting_type, meeting_date, start_time, end_time, location, attendees, notes } = body;
+
+    if (!title || typeof title !== "string" || !title.trim()) {
+      return NextResponse.json(
+        { error: "Title is required" },
+        { status: 400 }
+      );
+    }
+
+    if (meeting_type && !VALID_TYPES.has(meeting_type)) {
+      return NextResponse.json(
+        { error: `Invalid meeting type "${meeting_type}"` },
+        { status: 400 }
+      );
+    }
+
+    if (attendees !== undefined && !Array.isArray(attendees)) {
+      return NextResponse.json(
+        { error: "Attendees must be an array" },
+        { status: 400 }
+      );
+    }
+
+    const meeting = await createMeeting({
+      title: title.trim(),
+      engagement_id: engagement_id || null,
+      partner_name: partner_name?.trim() || null,
+      meeting_type: meeting_type || null,
+      meeting_date: meeting_date || null,
+      start_time: start_time?.trim() || null,
+      end_time: end_time?.trim() || null,
+      location: location?.trim() || null,
+      attendees: attendees ?? [],
+      notes: notes?.trim() || null,
+      source: "manual",
+    });
+
+    return NextResponse.json({ meeting }, { status: 201 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("POST /api/meetings error:", message);
+    return NextResponse.json(
+      { error: `Failed to create meeting: ${message}` },
+      { status: 500 }
+    );
+  }
+}
