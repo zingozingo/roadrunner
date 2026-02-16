@@ -123,6 +123,12 @@ export async function PUT(
       priority,
     });
 
+    // Fire-and-forget: push update to Airtable
+    import("@/lib/sync")
+      .then(({ pushEngagementToAirtable }) => pushEngagementToAirtable(id))
+      .then((r) => console.log(`Airtable push: ${r.action} engagement ${id}`))
+      .catch((err) => console.error(`Airtable push failed for ${id}:`, err));
+
     return NextResponse.json({ engagement: updated });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

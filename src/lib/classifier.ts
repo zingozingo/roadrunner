@@ -340,6 +340,18 @@ async function applyClassificationResult(
       messageIds,
       !!hasHighConfidenceNew
     );
+
+    // Fire-and-forget: push engagement to Airtable
+    import("./sync")
+      .then(({ pushEngagementToAirtable }) =>
+        pushEngagementToAirtable(assignedEngagementId!)
+      )
+      .then((r) =>
+        console.log(`Airtable push: ${r.action} engagement ${assignedEngagementId}`)
+      )
+      .catch((err) =>
+        console.error(`Airtable push failed for ${assignedEngagementId}:`, err)
+      );
   } else {
     // Not assigned — still update messages with classification data
     const messageUpdate: Record<string, unknown> = {

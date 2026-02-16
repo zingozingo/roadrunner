@@ -58,6 +58,82 @@ export async function fetchAllRecords(tableId: string): Promise<AirtableRecord[]
 }
 
 /**
+ * Fetch a single record by its Airtable record ID.
+ */
+export async function fetchRecord(
+  tableId: string,
+  recordId: string
+): Promise<AirtableRecord> {
+  const apiKey = getApiKey();
+  const url = new URL(`${API_BASE}/${tableId}/${recordId}`);
+  url.searchParams.set("returnFieldsByFieldId", "true");
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Airtable fetch error ${res.status}: ${body}`);
+  }
+
+  return res.json();
+}
+
+/**
+ * Create a new record in an Airtable table. Fields keyed by field ID.
+ * Returns the created record (with its new Airtable record ID).
+ */
+export async function createRecord(
+  tableId: string,
+  fields: Record<string, unknown>
+): Promise<AirtableRecord> {
+  const apiKey = getApiKey();
+  const res = await fetch(`${API_BASE}/${tableId}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ fields, typecast: true }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Airtable create error ${res.status}: ${body}`);
+  }
+
+  return res.json();
+}
+
+/**
+ * Update an existing Airtable record. Fields keyed by field ID.
+ * Only the specified fields are updated (PATCH semantics).
+ */
+export async function updateRecord(
+  tableId: string,
+  recordId: string,
+  fields: Record<string, unknown>
+): Promise<AirtableRecord> {
+  const apiKey = getApiKey();
+  const res = await fetch(`${API_BASE}/${tableId}/${recordId}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ fields, typecast: true }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Airtable update error ${res.status}: ${body}`);
+  }
+
+  return res.json();
+}
+
+/**
  * Fetch all records from a table as a Map keyed by record ID.
  * Useful for resolving linked record references.
  */

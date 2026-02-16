@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import PageHeader from "@/components/PageHeader";
 import EngagementCard from "@/components/EngagementCard";
 import EmptyState from "@/components/EmptyState";
+import SyncButton from "@/components/SyncButton";
 import { getEngagementsWithMessageCounts } from "@/lib/supabase";
 import { Engagement } from "@/lib/types";
 
@@ -32,10 +33,13 @@ export default async function EngagementsPage() {
 
   return (
     <div className="p-6 lg:p-8">
-      <PageHeader
-        title="Engagements"
-        subtitle={`${engagements.length} engagement${engagements.length !== 1 ? "s" : ""} tracked`}
-      />
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <PageHeader
+          title="Engagements"
+          subtitle={`${engagements.length} engagement${engagements.length !== 1 ? "s" : ""} tracked`}
+        />
+        <SyncButton entity="engagements" label="Push to Airtable" compact />
+      </div>
 
       {engagements.length === 0 ? (
         <EmptyState
