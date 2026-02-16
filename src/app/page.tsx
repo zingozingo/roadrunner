@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import StatusBadge from "@/components/StatusBadge";
+import SyncButton from "@/components/SyncButton";
 import {
   getUnresolvedApprovalCount,
   getAllEngagements,
@@ -26,10 +27,13 @@ export default async function DashboardPage() {
 
   return (
     <div className="p-6 lg:p-8">
-      <PageHeader
-        title="Dashboard"
-        subtitle="Relay — AI-powered engagement tracker"
-      />
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <PageHeader
+          title="Dashboard"
+          subtitle="Relay — AI-powered engagement tracker"
+        />
+        <SyncButton />
+      </div>
 
       {/* Summary cards */}
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

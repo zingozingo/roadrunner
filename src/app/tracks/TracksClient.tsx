@@ -7,6 +7,7 @@ import EmptyState from "@/components/EmptyState";
 import StatusBadge from "@/components/StatusBadge";
 import FilterBar from "@/components/FilterBar";
 import { ProgramTypeBadge } from "@/components/TypeBadge";
+import SyncButton from "@/components/SyncButton";
 import { Program, ProgramType } from "@/lib/types";
 
 type TrackWithCount = Program & { linked_count: number };
@@ -90,10 +91,13 @@ export default function TracksClient({ tracks }: TracksClientProps) {
 
   return (
     <div className="p-6 lg:p-8">
-      <PageHeader
-        title="Tracks"
-        subtitle={`${tracks.length} track${tracks.length !== 1 ? "s" : ""} tracked`}
-      />
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <PageHeader
+          title="Tracks"
+          subtitle={`${tracks.length} track${tracks.length !== 1 ? "s" : ""} tracked`}
+        />
+        <SyncButton entity="programs" label="Sync Tracks" compact />
+      </div>
 
       {tracks.length === 0 ? (
         <EmptyState

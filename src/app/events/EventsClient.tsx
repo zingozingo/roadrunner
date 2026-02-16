@@ -7,6 +7,7 @@ import EmptyState from "@/components/EmptyState";
 import StatusBadge from "@/components/StatusBadge";
 import FilterBar from "@/components/FilterBar";
 import { EventTypeBadge } from "@/components/TypeBadge";
+import SyncButton from "@/components/SyncButton";
 import { Event } from "@/lib/types";
 
 type EventWithCount = Event & { linked_count: number };
@@ -173,10 +174,13 @@ export default function EventsClient({ events }: { events: EventWithCount[] }) {
 
   return (
     <div className="p-6 lg:p-8">
-      <PageHeader
-        title="Events"
-        subtitle={`${events.length} event${events.length !== 1 ? "s" : ""} tracked`}
-      />
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <PageHeader
+          title="Events"
+          subtitle={`${events.length} event${events.length !== 1 ? "s" : ""} tracked`}
+        />
+        <SyncButton entity="events" label="Sync Events" compact />
+      </div>
 
       {events.length === 0 ? (
         <EmptyState

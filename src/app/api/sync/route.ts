@@ -1,0 +1,40 @@
+import { NextRequest, NextResponse } from "next/server";
+import { syncAllCatalogs, syncEntity } from "@/lib/sync";
+
+const VALID_ENTITIES = new Set(["programs", "events", "relationships"]);
+
+export async function POST(request: NextRequest) {
+  // Check for Airtable API key
+  if (!process.env.AIRTABLE_API_KEY) {
+    return NextResponse.json(
+      { error: "AIRTABLE_API_KEY environment variable is not configured" },
+      { status: 500 }
+    );
+  }
+
+  try {
+    const entity = request.nextUrl.searchParams.get("entity");
+
+    if (entity && !VALID_ENTITIES.has(entity)) {
+      return NextResponse.json(
+        { error: `Invalid entity "${entity}". Must be one of: ${[...VALID_ENTITIES].join(", ")}` },
+        { status: 400 }
+      );
+    }
+
+    const result = entity
+      ? await syncEntity(entity as "programs" | "events" | "relationships")
+      : await syncAllCatalogs();
+
+    console.log("Sync completed:", JSON.stringify(result));
+
+    return NextResponse.json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("POST /api/sync error:", message);
+    return NextResponse.json(
+      { error: `Sync failed: ${message}` },
+      { status: 500 }
+    );
+  }
+}

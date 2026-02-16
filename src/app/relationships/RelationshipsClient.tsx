@@ -6,6 +6,7 @@ import PageHeader from "@/components/PageHeader";
 import EmptyState from "@/components/EmptyState";
 import { RelationshipTypeBadge, StrengthBadge } from "@/components/TypeBadge";
 import FilterBar from "@/components/FilterBar";
+import SyncButton from "@/components/SyncButton";
 import { AwsRelationship, RelationshipType } from "@/lib/types";
 
 type RelationshipWithCount = AwsRelationship & { linked_count: number };
@@ -91,10 +92,13 @@ export default function RelationshipsClient({ relationships }: RelationshipsClie
 
   return (
     <div className="p-6 lg:p-8">
-      <PageHeader
-        title="Relationships"
-        subtitle={`${relationships.length} AWS relationship${relationships.length !== 1 ? "s" : ""} tracked`}
-      />
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <PageHeader
+          title="Relationships"
+          subtitle={`${relationships.length} AWS relationship${relationships.length !== 1 ? "s" : ""} tracked`}
+        />
+        <SyncButton entity="relationships" label="Sync Relationships" compact />
+      </div>
 
       {relationships.length === 0 ? (
         <EmptyState

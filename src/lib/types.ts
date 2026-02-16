@@ -39,6 +39,7 @@ export interface Event {
   description: string | null;
   source: "seed" | "email_extracted" | "user_created";
   verified: boolean;
+  airtable_record_id: string | null;
   created_at: string;
 }
 
@@ -54,6 +55,7 @@ export interface Program {
   status: "active" | "archived";
   lifecycle_type: "indefinite" | "recurring" | "expiring";
   lifecycle_duration: string | null;
+  airtable_record_id: string | null;
   created_at: string;
 }
 
