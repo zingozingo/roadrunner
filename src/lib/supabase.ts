@@ -1437,7 +1437,14 @@ export async function createMeeting(data: {
     .single();
 
   if (error) throw new Error(`Failed to create meeting: ${error.message}`);
-  return meeting as Meeting;
+
+  // Fire-and-forget: push to Airtable
+  const mtgResult = meeting as Meeting;
+  import("./sync")
+    .then(({ pushMeetingToAirtable }) => pushMeetingToAirtable(mtgResult.id))
+    .catch((err) => console.error(`Airtable push failed for meeting ${mtgResult.id}:`, err));
+
+  return mtgResult;
 }
 
 export async function updateMeeting(
@@ -1471,6 +1478,23 @@ export async function updateMeeting(
 
 export async function deleteMeeting(id: string): Promise<void> {
   const db = getSupabaseClient();
+
+  // Fire-and-forget: delete from Airtable if synced
+  const { data: mtg } = await db
+    .from("meetings")
+    .select("airtable_record_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (mtg?.airtable_record_id) {
+    import("./sync")
+      .then(({ deleteMeetingFromAirtable }) =>
+        deleteMeetingFromAirtable(mtg.airtable_record_id)
+      )
+      .catch((err) =>
+        console.error(`Airtable delete failed for meeting ${id}:`, err)
+      );
+  }
 
   // 1. Delete junction records
   const { error: junctionErr } = await db
@@ -1580,6 +1604,12 @@ export async function createMeetingFromICS(
 
     if (data) {
       console.log(`Created meeting from ICS: ${parsed.title} (${parsed.meeting_date})`);
+
+      // Fire-and-forget: push to Airtable
+      import("./sync")
+        .then(({ pushMeetingToAirtable }) => pushMeetingToAirtable(data.id))
+        .catch((err) => console.error(`Airtable push failed for meeting ${data.id}:`, err));
+
       return data.id;
     }
 
@@ -1635,6 +1665,13 @@ export async function linkMeetingToEngagement(
 
     if (data && data.length > 0) {
       console.log(`Linked meeting to engagement: ${engagementId}`);
+
+      // Fire-and-forget: push updated meeting(s) to Airtable
+      for (const row of data as { id: string }[]) {
+        import("./sync")
+          .then(({ pushMeetingToAirtable }) => pushMeetingToAirtable(row.id))
+          .catch((err) => console.error(`Airtable push failed for meeting ${row.id}:`, err));
+      }
     }
   } catch (err) {
     console.error("linkMeetingToEngagement error:", err instanceof Error ? err.message : err);

@@ -958,6 +958,372 @@ export async function syncEngagementsToAirtable(): Promise<SyncResult> {
   return result;
 }
 
+// ── Meeting push (Roadrunner → Airtable) ─────────────────
+
+const MEETINGS_TABLE = "tbl6LsEqSvEZgqBdW";
+
+const MF = {
+  event: "fldT96Imgc7CFDBEX",
+  partner: "fldZjCUMpBtgpU13X",
+  meetingType: "fldGWa1MFoqoc89qC",
+  status: "fldpXlLugkUgQsjcr",
+  meetingDate: "fldx9ZrIMundEMUko",
+  awsContacts: "fldOVCmwhiisY8bDo",
+  partnerContacts: "fldJira79g9xWNTte",
+  notes: "fldzGUipu36EA9rax",
+  engagement: "fld2TczwxJXZLUwpW",
+  awsRelationships: "fldeDCWtZx7YoyYR6",
+  startTime: "fldifWilEYICfifXz",
+  endTime: "fldV78rQbzDhVK9NO",
+  location: "fldTyiMYT48aCHttx",
+  source: "fld2RW78vS1T91bab",
+  roadrunnerId: "fldLveS95zGGVU4j1",
+  icsUid: "fldNb83l5XLtz8J9k",
+} as const;
+
+// Read-only formula field used for title matching (never written)
+const MF_TITLE_FORMULA = "fldcbatIDunJ00dLp";
+
+interface MeetingLookups {
+  partnerNameToAtId: Map<string, string>;
+  partnerDbToAtId: Map<string, string>;
+  eventDbToAtId: Map<string, string>;
+  engagementDbToAtId: Map<string, string>;
+  meetingRelAtIds: Map<string, string[]>;
+}
+
+async function buildMeetingLookups(): Promise<MeetingLookups> {
+  const supabase = getSupabaseClient();
+
+  const [
+    partnerNameToAtId,
+    { data: partners },
+    { data: events },
+    { data: engagements },
+    { data: junctions },
+    { data: relationships },
+  ] = await Promise.all([
+    fetchPartnerNameToIdMap(),
+    supabase.from("partners").select("id, airtable_record_id").not("airtable_record_id", "is", null),
+    supabase.from("events").select("id, airtable_record_id").not("airtable_record_id", "is", null),
+    supabase.from("engagements").select("id, airtable_record_id").not("airtable_record_id", "is", null),
+    supabase.from("meeting_aws_relationships").select("meeting_id, aws_relationship_id"),
+    supabase.from("aws_relationships").select("id, airtable_record_id").not("airtable_record_id", "is", null),
+  ]);
+
+  const partnerDbToAtId = new Map<string, string>();
+  for (const p of (partners ?? []) as { id: string; airtable_record_id: string }[]) {
+    partnerDbToAtId.set(p.id, p.airtable_record_id);
+  }
+
+  const eventDbToAtId = new Map<string, string>();
+  for (const e of (events ?? []) as { id: string; airtable_record_id: string }[]) {
+    eventDbToAtId.set(e.id, e.airtable_record_id);
+  }
+
+  const engagementDbToAtId = new Map<string, string>();
+  for (const e of (engagements ?? []) as { id: string; airtable_record_id: string }[]) {
+    engagementDbToAtId.set(e.id, e.airtable_record_id);
+  }
+
+  const relDbToAtId = new Map<string, string>();
+  for (const r of (relationships ?? []) as { id: string; airtable_record_id: string }[]) {
+    relDbToAtId.set(r.id, r.airtable_record_id);
+  }
+
+  const meetingRelAtIds = new Map<string, string[]>();
+  for (const j of (junctions ?? []) as { meeting_id: string; aws_relationship_id: string }[]) {
+    const atId = relDbToAtId.get(j.aws_relationship_id);
+    if (atId) {
+      const existing = meetingRelAtIds.get(j.meeting_id) ?? [];
+      existing.push(atId);
+      meetingRelAtIds.set(j.meeting_id, existing);
+    }
+  }
+
+  return {
+    partnerNameToAtId,
+    partnerDbToAtId,
+    eventDbToAtId,
+    engagementDbToAtId,
+    meetingRelAtIds,
+  };
+}
+
+function buildMeetingFields(
+  meeting: Record<string, unknown>,
+  lookups: MeetingLookups
+): Record<string, unknown> {
+  const fields: Record<string, unknown> = {
+    [MF.roadrunnerId]: meeting.id,
+    [MF.status]: meeting.status,
+  };
+
+  if (meeting.meeting_type) fields[MF.meetingType] = meeting.meeting_type;
+  if (meeting.meeting_date) fields[MF.meetingDate] = meeting.meeting_date;
+  if (meeting.start_time) fields[MF.startTime] = meeting.start_time;
+  if (meeting.end_time) fields[MF.endTime] = meeting.end_time;
+  if (meeting.location) fields[MF.location] = meeting.location;
+  if (meeting.source) fields[MF.source] = meeting.source;
+  if (meeting.ics_uid) fields[MF.icsUid] = meeting.ics_uid;
+  if (meeting.notes) fields[MF.notes] = meeting.notes;
+
+  // Partner linked record: FK lookup first, name fallback
+  const partnerId = meeting.partner_id as string | null;
+  const partnerName = meeting.partner_name as string | null;
+  if (partnerId) {
+    const atId = lookups.partnerDbToAtId.get(partnerId);
+    if (atId) fields[MF.partner] = [atId];
+  }
+  if (!fields[MF.partner] && partnerName) {
+    const atId = lookups.partnerNameToAtId.get(partnerName.toLowerCase());
+    if (atId) fields[MF.partner] = [atId];
+  }
+
+  // Event linked record
+  const eventId = meeting.event_id as string | null;
+  if (eventId) {
+    const atId = lookups.eventDbToAtId.get(eventId);
+    if (atId) fields[MF.event] = [atId];
+  }
+
+  // Engagement linked record
+  const engagementId = meeting.engagement_id as string | null;
+  if (engagementId) {
+    const atId = lookups.engagementDbToAtId.get(engagementId);
+    if (atId) fields[MF.engagement] = [atId];
+  }
+
+  // AWS Relationships linked records
+  const relAtIds = lookups.meetingRelAtIds.get(meeting.id as string);
+  if (relAtIds && relAtIds.length > 0) {
+    fields[MF.awsRelationships] = relAtIds;
+  }
+
+  // Attendees split into AWS contacts and partner contacts
+  const attendees = (meeting.attendees ?? []) as Record<string, unknown>[];
+  const awsNames: string[] = [];
+  const partnerContactNames: string[] = [];
+
+  for (const a of attendees) {
+    const email = ((a.email as string) || "").toLowerCase();
+    const org = ((a.organization as string) || "").toLowerCase();
+    const displayName = (a.name as string) || email;
+
+    const isAws =
+      email.includes("@amazon.com") ||
+      org.includes("aws") ||
+      org.includes("amazon");
+
+    if (isAws) {
+      awsNames.push(displayName);
+    } else if (
+      !email.includes("relay@stevenromero.dev") &&
+      !email.includes("salesforce")
+    ) {
+      partnerContactNames.push(displayName);
+    }
+  }
+
+  if (awsNames.length > 0) fields[MF.awsContacts] = awsNames.join("\n");
+  if (partnerContactNames.length > 0) fields[MF.partnerContacts] = partnerContactNames.join("\n");
+
+  return fields;
+}
+
+/**
+ * Push a single meeting to Airtable.
+ * Creates or updates the Airtable record, stores airtable_record_id in Supabase.
+ */
+export async function pushMeetingToAirtable(
+  meetingId: string
+): Promise<PushResult> {
+  const supabase = getSupabaseClient();
+
+  const { data: meeting, error: fetchErr } = await supabase
+    .from("meetings")
+    .select("*")
+    .eq("id", meetingId)
+    .single();
+
+  if (fetchErr || !meeting) {
+    throw new Error(`Meeting ${meetingId} not found`);
+  }
+
+  const lookups = await buildMeetingLookups();
+  const fields = buildMeetingFields(meeting, lookups);
+
+  // Try to find existing Airtable record
+  let atRecordId: string | null = meeting.airtable_record_id;
+
+  if (atRecordId) {
+    try {
+      await fetchRecord(MEETINGS_TABLE, atRecordId);
+    } catch {
+      // Record may have been deleted in Airtable — treat as new
+      atRecordId = null;
+    }
+  }
+
+  if (!atRecordId) {
+    // Search Airtable by Roadrunner ID, then by title + meeting_date
+    const atRecords = await fetchAllRecords(MEETINGS_TABLE);
+
+    let match = atRecords.find(
+      (r) => r.fields[MF.roadrunnerId] === meetingId
+    );
+
+    if (!match) {
+      match = atRecords.find((r) => {
+        const atTitle = r.fields[MF_TITLE_FORMULA];
+        const atDate = r.fields[MF.meetingDate];
+        return (
+          typeof atTitle === "string" &&
+          atTitle.toLowerCase() === (meeting.title as string).toLowerCase() &&
+          atDate === meeting.meeting_date
+        );
+      });
+    }
+
+    if (match) {
+      atRecordId = match.id;
+    }
+  }
+
+  if (atRecordId) {
+    await updateRecord(MEETINGS_TABLE, atRecordId, fields);
+
+    if (!meeting.airtable_record_id) {
+      await supabase
+        .from("meetings")
+        .update({ airtable_record_id: atRecordId })
+        .eq("id", meetingId);
+    }
+
+    return { action: "updated", airtable_record_id: atRecordId };
+  } else {
+    const created = await createRecord(MEETINGS_TABLE, fields);
+
+    await supabase
+      .from("meetings")
+      .update({ airtable_record_id: created.id })
+      .eq("id", meetingId);
+
+    return { action: "created", airtable_record_id: created.id };
+  }
+}
+
+/**
+ * Delete a meeting's Airtable record by its airtable_record_id.
+ * Fire-and-forget — caller should not await or depend on success.
+ */
+export async function deleteMeetingFromAirtable(
+  airtableRecordId: string
+): Promise<void> {
+  await deleteRecord(MEETINGS_TABLE, airtableRecordId);
+  console.log(`Deleted Airtable meeting record: ${airtableRecordId}`);
+}
+
+/**
+ * Bulk sync all Roadrunner meetings to Airtable.
+ * Fetches all records from both sides, matches, and creates/updates as needed.
+ */
+export async function syncMeetingsToAirtable(): Promise<SyncResult> {
+  const result: SyncResult = { inserted: 0, updated: 0, unchanged: 0, deleted: 0, errors: [] };
+  const supabase = getSupabaseClient();
+
+  const [{ data: meetings, error: fetchErr }, atRecords, lookups] =
+    await Promise.all([
+      supabase.from("meetings").select("*"),
+      fetchAllRecords(MEETINGS_TABLE),
+      buildMeetingLookups(),
+    ]);
+
+  if (fetchErr) throw new Error(`Failed to fetch meetings: ${fetchErr.message}`);
+
+  // Build Airtable lookup maps
+  const atByRoadrunnerId = new Map<string, AirtableRecord>();
+  const atByTitleDate = new Map<string, AirtableRecord>();
+  for (const rec of atRecords) {
+    const rrId = rec.fields[MF.roadrunnerId];
+    if (typeof rrId === "string" && rrId) atByRoadrunnerId.set(rrId, rec);
+    const title = rec.fields[MF_TITLE_FORMULA];
+    const date = rec.fields[MF.meetingDate];
+    if (typeof title === "string" && typeof date === "string") {
+      atByTitleDate.set(`${title.toLowerCase()}|${date}`, rec);
+    }
+  }
+
+  for (const mtg of meetings ?? []) {
+    try {
+      const fields = buildMeetingFields(mtg, lookups);
+
+      // Find existing Airtable record
+      let atRecord: AirtableRecord | undefined;
+      if (mtg.airtable_record_id) {
+        atRecord = atRecords.find((r) => r.id === mtg.airtable_record_id);
+      }
+      if (!atRecord) {
+        atRecord =
+          atByRoadrunnerId.get(mtg.id) ??
+          atByTitleDate.get(`${(mtg.title as string).toLowerCase()}|${mtg.meeting_date}`);
+      }
+
+      if (atRecord) {
+        // Change detection: compare field values
+        const fieldsForCompare = { ...fields };
+        const atFieldsForCompare: Record<string, unknown> = {};
+        for (const key of Object.keys(fieldsForCompare)) {
+          atFieldsForCompare[key] = atRecord.fields[key] ?? null;
+        }
+        const dataChanged = hasChanges(fieldsForCompare, atFieldsForCompare);
+
+        if (!dataChanged) {
+          result.unchanged++;
+          // Still store airtable_record_id if not set
+          if (!mtg.airtable_record_id) {
+            await supabase
+              .from("meetings")
+              .update({ airtable_record_id: atRecord.id })
+              .eq("id", mtg.id);
+          }
+          continue;
+        }
+
+        await updateRecord(MEETINGS_TABLE, atRecord.id, fields);
+
+        if (!mtg.airtable_record_id) {
+          await supabase
+            .from("meetings")
+            .update({ airtable_record_id: atRecord.id })
+            .eq("id", mtg.id);
+        }
+
+        result.updated++;
+      } else {
+        // Create new Airtable record
+        const created = await createRecord(MEETINGS_TABLE, fields);
+
+        await supabase
+          .from("meetings")
+          .update({ airtable_record_id: created.id })
+          .eq("id", mtg.id);
+
+        result.inserted++;
+      }
+
+      // Rate limiting between writes
+      await new Promise((r) => setTimeout(r, 200));
+    } catch (err) {
+      result.errors.push(
+        `Meeting "${mtg.title}": ${err instanceof Error ? err.message : "Unknown error"}`
+      );
+    }
+  }
+
+  return result;
+}
+
 // ── Sync all catalogs ───────────────────────────────────────
 
 export interface SyncAllResult {
@@ -966,6 +1332,7 @@ export interface SyncAllResult {
   events?: SyncResult;
   relationships?: SyncResult;
   engagements?: SyncResult;
+  meetings?: SyncResult;
   duration_ms: number;
 }
 
@@ -989,7 +1356,7 @@ export async function syncAllCatalogs(): Promise<SyncAllResult> {
 }
 
 export async function syncEntity(
-  entity: "partners" | "programs" | "events" | "relationships" | "engagements"
+  entity: "partners" | "programs" | "events" | "relationships" | "engagements" | "meetings"
 ): Promise<SyncAllResult> {
   const start = Date.now();
   const result: SyncAllResult = { duration_ms: 0 };
@@ -999,6 +1366,7 @@ export async function syncEntity(
   else if (entity === "events") result.events = await syncEvents();
   else if (entity === "relationships") result.relationships = await syncAwsRelationships();
   else if (entity === "engagements") result.engagements = await syncEngagementsToAirtable();
+  else if (entity === "meetings") result.meetings = await syncMeetingsToAirtable();
 
   result.duration_ms = Date.now() - start;
   return result;

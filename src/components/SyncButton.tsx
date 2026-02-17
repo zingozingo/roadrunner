@@ -17,6 +17,7 @@ interface SyncResponse {
   events?: SyncResult;
   relationships?: SyncResult;
   engagements?: SyncResult;
+  meetings?: SyncResult;
   duration_ms: number;
   error?: string;
 }
@@ -36,7 +37,7 @@ export default function SyncButton({
   label,
   compact,
 }: {
-  entity?: "partners" | "programs" | "events" | "relationships" | "engagements";
+  entity?: "partners" | "programs" | "events" | "relationships" | "engagements" | "meetings";
   label?: string;
   compact?: boolean;
 }) {
@@ -105,14 +106,15 @@ export default function SyncButton({
             {result.events && <p>{formatResult("Events", result.events)}</p>}
             {result.relationships && <p>{formatResult("Relationships", result.relationships)}</p>}
             {result.engagements && <p>{formatResult("Engagements", result.engagements)}</p>}
+            {result.meetings && <p>{formatResult("Meetings", result.meetings)}</p>}
           </div>
-          {[result.partners, result.programs, result.events, result.relationships, result.engagements]
+          {[result.partners, result.programs, result.events, result.relationships, result.engagements, result.meetings]
             .filter(Boolean)
             .some((r) => r!.errors.length > 0) && (
             <details className="mt-1">
               <summary className="cursor-pointer text-yellow-400">View errors</summary>
               <ul className="mt-1 space-y-0.5 text-yellow-400/80">
-                {[result.partners, result.programs, result.events, result.relationships, result.engagements]
+                {[result.partners, result.programs, result.events, result.relationships, result.engagements, result.meetings]
                   .filter(Boolean)
                   .flatMap((r) => r!.errors)
                   .map((e, i) => (
