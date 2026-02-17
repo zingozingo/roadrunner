@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseForwardedEmail } from "../email-parser";
+import { parseForwardedEmail, findGmailQuoteMarkers } from "../email-parser";
 
 // Realistic Outlook forwarded email with 3-message thread
 const OUTLOOK_THREAD = `FYI — forwarding this thread about the security review.
@@ -441,6 +441,209 @@ Looping in Dana from our SA team.`;
     it("second message has CC", () => {
       expect(messages[1].to_header).toBe("Alice Chen <alice@partnerco.com>");
       expect(messages[1].cc_header).toBe("Dana Wright <dana@aws.example.com>");
+    });
+  });
+
+  describe("Gmail single quote → 2 messages", () => {
+    const body = `Hi team, here's an update on the Spacelift integration.
+
+We finalized the architecture doc and sent it to their engineering lead.
+
+On Mon, Feb 3, 2025 at 10:30 AM Alice Chen <alice@partnerco.com> wrote:
+Thanks for the update! I've reviewed the doc and have a few comments.
+
+Can we schedule a call this week to discuss?
+
+Best,
+Alice`;
+
+    const messages = parseForwardedEmail(body, {
+      sender: "Steven Romero <sterme@amazon.com>",
+      subject: "Re: Spacelift Integration",
+      timestamp: 1738700000,
+    });
+
+    it("splits into 2 messages", () => {
+      expect(messages.length).toBe(2);
+    });
+
+    it("newest message has envelope sender", () => {
+      expect(messages[0].sender_name).toBe("Steven Romero");
+      expect(messages[0].sender_email).toBe("sterme@amazon.com");
+      expect(messages[0].body_text).toContain("Spacelift integration");
+    });
+
+    it("older message has Gmail-extracted sender", () => {
+      expect(messages[1].sender_email).toBe("alice@partnerco.com");
+      expect(messages[1].sender_name).toBe("Alice Chen");
+      expect(messages[1].body_text).toContain("reviewed the doc");
+    });
+
+    it("both messages share the envelope subject", () => {
+      expect(messages[0].subject).toBe("Re: Spacelift Integration");
+      expect(messages[1].subject).toBe("Re: Spacelift Integration");
+    });
+
+    it("parses sent_at from Gmail date", () => {
+      expect(messages[1].sent_at).not.toBeNull();
+      expect(messages[1].sent_at).toContain("2025-02-03");
+    });
+  });
+
+  describe("Gmail multi-level → 3 messages", () => {
+    const body = `Got it, I'll prepare the demo environment.
+
+On Tue, Feb 4, 2025 at 2:15 PM Bob Lee <bob@partner.com> wrote:
+Sounds good. Let me know if you need access to our staging server.
+
+On Mon, Feb 3, 2025 at 10:30 AM Alice Chen <alice@partnerco.com> wrote:
+Can we set up a demo for the client next week?`;
+
+    const messages = parseForwardedEmail(body, {
+      sender: "Steven Romero <sterme@amazon.com>",
+      subject: "Re: Demo Setup",
+      timestamp: 1738700000,
+    });
+
+    it("splits into 3 messages (newest → oldest)", () => {
+      expect(messages.length).toBe(3);
+    });
+
+    it("newest message is from envelope sender", () => {
+      expect(messages[0].sender_email).toBe("sterme@amazon.com");
+      expect(messages[0].body_text).toContain("demo environment");
+    });
+
+    it("middle message is from Bob", () => {
+      expect(messages[1].sender_email).toBe("bob@partner.com");
+      expect(messages[1].body_text).toContain("staging server");
+    });
+
+    it("oldest message is from Alice", () => {
+      expect(messages[2].sender_email).toBe("alice@partnerco.com");
+      expect(messages[2].body_text).toContain("demo for the client");
+    });
+  });
+
+  describe("Gmail + Outlook hybrid → Outlook wins", () => {
+    const body = `
+________________________________
+From: Alice Chen <alice@partnerco.com>
+Sent: Monday, February 3, 2025 10:30 AM
+To: Bob Lee <bob@aws.example.com>
+Subject: Security Review
+
+Hi Bob, here's the security review.
+
+On Mon, Jan 27, 2025 at 3:00 PM, Carlos <carlos@vendor.com> wrote:
+Here's the initial assessment.`;
+
+    const messages = parseForwardedEmail(body);
+
+    it("uses Outlook parsing (1 message), Gmail quote stays in body", () => {
+      expect(messages.length).toBe(1);
+      expect(messages[0].sender_email).toBe("alice@partnerco.com");
+      expect(messages[0].body_text).toContain("security review");
+      // Gmail quote is part of Alice's message body, not split out
+      expect(messages[0].body_text).toContain("initial assessment");
+    });
+  });
+
+  describe("Gmail wrapped lines → 2 messages", () => {
+    const body = `Thanks for the update.
+
+On Mon, Feb 3, 2025 at 10:30 AM
+  <alice@partnerco.com> wrote:
+Here's the latest status on the migration project.`;
+
+    const messages = parseForwardedEmail(body, {
+      sender: "Bob Lee <bob@partner.com>",
+      subject: "Re: Migration",
+      timestamp: 1738700000,
+    });
+
+    it("extracts email from wrapped 2nd line", () => {
+      expect(messages.length).toBe(2);
+      expect(messages[1].sender_email).toBe("alice@partnerco.com");
+      expect(messages[1].body_text).toContain("migration project");
+    });
+  });
+
+  describe("Apple Mail format → 2 messages", () => {
+    const body = `Confirmed, I'll be there.
+
+On Dec 10, 2025, at 7:02 PM, Jane Smith <jane@partner.com> wrote:
+Can we meet tomorrow at 3pm to discuss the roadmap?`;
+
+    const messages = parseForwardedEmail(body, {
+      sender: "Steven Romero <sterme@amazon.com>",
+      subject: "Re: Roadmap Discussion",
+      timestamp: 1738700000,
+    });
+
+    it("parses Apple Mail style quote", () => {
+      expect(messages.length).toBe(2);
+    });
+
+    it("extracts sender from Apple Mail format", () => {
+      expect(messages[1].sender_email).toBe("jane@partner.com");
+      expect(messages[1].sender_name).toBe("Jane Smith");
+    });
+
+    it("extracts body from quoted message", () => {
+      expect(messages[1].body_text).toContain("roadmap");
+    });
+  });
+
+  describe("CAUTION banner stripped", () => {
+    const body = `CAUTION: This email originated from outside of the organization. Do not click links or open attachments unless you recognize the sender.
+
+Hi Steven,
+
+Just wanted to share the partnership proposal.
+
+Thanks,
+Alice`;
+
+    const messages = parseForwardedEmail(body, {
+      sender: "Alice Chen <alice@partnerco.com>",
+      subject: "Partnership Proposal",
+    });
+
+    it("strips CAUTION banner from body_text", () => {
+      expect(messages[0].body_text).not.toContain("CAUTION");
+      expect(messages[0].body_text).toContain("partnership proposal");
+    });
+
+    it("preserves body_raw with CAUTION banner", () => {
+      expect(messages[0].body_raw).toContain("CAUTION");
+    });
+  });
+
+  describe("Signature -- delimiter stripped", () => {
+    const body = `Hi Steven,
+
+Let's sync on the integration timeline.
+
+--
+Alice Chen
+VP Engineering, PartnerCo
+alice@partnerco.com
++1 (555) 123-4567`;
+
+    const messages = parseForwardedEmail(body, {
+      sender: "Alice Chen <alice@partnerco.com>",
+      subject: "Integration Timeline",
+    });
+
+    it("strips signature block from body_text", () => {
+      expect(messages[0].body_text).toContain("integration timeline");
+      expect(messages[0].body_text).not.toContain("VP Engineering");
+      expect(messages[0].body_text).not.toContain("555");
+    });
+
+    it("preserves body_raw with full signature", () => {
+      expect(messages[0].body_raw).toContain("VP Engineering");
     });
   });
 });

@@ -45,15 +45,88 @@ export const supabase = new Proxy({} as SupabaseClient, {
 });
 
 /**
+ * Generate a fingerprint for a parsed message to detect duplicates.
+ * Uses lowercase sender_email + first 100 chars of body_text.
+ */
+export function messageFingerprint(msg: ParsedMessage): string {
+  const email = (msg.sender_email ?? "").toLowerCase();
+  const body = (msg.body_text ?? "").trim().toLowerCase().slice(0, 100);
+  return `${email}|${body}`;
+}
+
+/**
+ * Find fingerprints that already exist in the messages table.
+ * Queries recent messages (last 30 days) by sender_email, then builds
+ * fingerprints in JS. Fails open on query errors (returns empty set).
+ */
+async function findExistingFingerprints(
+  messages: ParsedMessage[]
+): Promise<Set<string>> {
+  const existing = new Set<string>();
+
+  try {
+    // Collect unique sender emails from the batch
+    const senderEmails = [
+      ...new Set(
+        messages
+          .map((m) => m.sender_email?.toLowerCase())
+          .filter((e): e is string => !!e)
+      ),
+    ];
+
+    if (senderEmails.length === 0) return existing;
+
+    const thirtyDaysAgo = new Date(
+      Date.now() - 30 * 24 * 60 * 60 * 1000
+    ).toISOString();
+
+    const { data, error } = await getSupabaseClient()
+      .from("messages")
+      .select("sender_email, body_text")
+      .in("sender_email", senderEmails)
+      .gte("forwarded_at", thirtyDaysAgo);
+
+    if (error) {
+      console.error("Fingerprint lookup failed (allowing all):", error.message);
+      return existing;
+    }
+
+    for (const row of (data ?? []) as { sender_email: string; body_text: string }[]) {
+      const fp = `${(row.sender_email ?? "").toLowerCase()}|${(row.body_text ?? "").trim().toLowerCase().slice(0, 100)}`;
+      existing.add(fp);
+    }
+  } catch (err) {
+    console.error("findExistingFingerprints error (allowing all):", err);
+  }
+
+  return existing;
+}
+
+/**
  * Bulk insert parsed messages into the messages table.
  * Messages are stored as unclassified (engagement_id = null).
+ * Deduplicates per-message using fingerprints against recent DB records.
  */
 export async function storeMessages(
   messages: ParsedMessage[]
 ): Promise<Message[]> {
   if (messages.length === 0) return [];
 
-  const rows = messages.map((m) => ({
+  // Per-message dedup: filter out messages that already exist
+  const existingFps = await findExistingFingerprints(messages);
+  const dedupedMessages = messages.filter((m) => {
+    const fp = messageFingerprint(m);
+    return !existingFps.has(fp);
+  });
+
+  const skipped = messages.length - dedupedMessages.length;
+  if (skipped > 0) {
+    console.log(`[DEDUP] Skipped ${skipped} duplicate message(s)`);
+  }
+
+  if (dedupedMessages.length === 0) return [];
+
+  const rows = dedupedMessages.map((m) => ({
     sender_name: m.sender_name,
     sender_email: m.sender_email,
     sent_at: m.sent_at,

@@ -44,6 +44,10 @@ const NOISE_PATTERNS = [
   /\nCONFIDENTIALITY NOTICE[\s\S]{0,500}$/gi,
   // Trailing Outlook separator lines with nothing after
   /\n_{20,}\s*$/g,
+  // AWS/corporate "CAUTION: external email" gateway banner
+  /(?:^|\n)CAUTION: This email originated from outside of the organization[^\n]*/gi,
+  // Standard email signature delimiter (RFC 3676): "--" or "-- " on own line
+  /\n--[ ]?\n[\s\S]*$/g,
 ];
 
 /**
@@ -72,7 +76,9 @@ export function parseSenderField(raw: string): {
 function parseDate(raw: string): string | null {
   const cleaned = raw.trim();
   // Strip leading day name ("Monday, " etc.)
-  const withoutDay = cleaned.replace(/^[A-Za-z]+,\s*/, "");
+  let withoutDay = cleaned.replace(/^[A-Za-z]+,\s*/, "");
+  // Strip Gmail-style "at" between date and time ("Feb 3, 2025 at 10:30 AM" → "Feb 3, 2025 10:30 AM")
+  withoutDay = withoutDay.replace(/\s+at\s+/i, " ");
   const date = new Date(withoutDay);
   if (!isNaN(date.getTime())) {
     return date.toISOString();
@@ -140,13 +146,110 @@ function findHeaderBlocks(text: string): HeaderMatch[] {
   return matches;
 }
 
+interface GmailQuoteMatch {
+  index: number;        // position of "On " in text
+  fullMatchEnd: number; // position after "wrote:\n"
+  senderName: string | null;
+  senderEmail: string | null;
+  dateRaw: string | null;
+}
+
+/**
+ * Find all Gmail/Apple Mail-style quote markers ("On ... wrote:") in the text.
+ *
+ * Handles two patterns:
+ * - Single-line: "On Mon, Feb 3, 2025 at 10:30 AM Alice <alice@co.com> wrote:"
+ * - Two-line (wrapped): "On Mon, Feb 3, 2025 at 10:30 AM\n  <alice@co.com> wrote:"
+ * - Apple Mail: "On Dec 10, 2025, at 7:02 PM, Name <email> wrote:"
+ */
+export function findGmailQuoteMarkers(text: string): GmailQuoteMatch[] {
+  const matches: GmailQuoteMatch[] = [];
+  const seen = new Set<number>();
+
+  // Single-line: "On ... wrote:" followed by newline
+  const singleLineRe = /(?:^|\n)(On .+wrote:)[ \t]*\n/gm;
+  // Two-line (wrapped): "On ...\n  <email> wrote:" followed by newline
+  const twoLineRe = /(?:^|\n)(On .+\n[ \t]*<[^>]+>\s*wrote:)[ \t]*\n/gm;
+
+  for (const regex of [singleLineRe, twoLineRe]) {
+    regex.lastIndex = 0;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      // The actual "On " starts after the optional \n prefix
+      const markerStart = match[0].startsWith("\n")
+        ? match.index + 1
+        : match.index;
+
+      if (seen.has(markerStart)) continue;
+      seen.add(markerStart);
+
+      const fullMatchEnd = match.index + match[0].length;
+      const onText = match[1];
+
+      // Extract email: last <...@...> in the matched text
+      let senderEmail: string | null = null;
+      let senderName: string | null = null;
+      let dateRaw: string | null = null;
+
+      const emailMatches = [...onText.matchAll(/<([^>]+@[^>]+)>/g)];
+      if (emailMatches.length > 0) {
+        senderEmail = emailMatches[emailMatches.length - 1][1];
+
+        // Extract the portion after "On " and before the <email>
+        const lastEmailMatch = emailMatches[emailMatches.length - 1];
+        const beforeEmail = onText.slice(3, lastEmailMatch.index).trim();
+
+        // Name: extract trailing alphabetic words before <email>.
+        // "Mon, Feb 3, 2025 at 10:30 AM Alice Chen" → "Alice Chen"
+        // "Dec 10, 2025, at 7:02 PM, Jane Smith" → "Jane Smith"
+        const nameMatch = beforeEmail.match(/(?:^|[,\s])\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s*$/);
+        if (nameMatch) {
+          senderName = nameMatch[1].trim();
+          // Date: everything before the name
+          const nameStart = beforeEmail.lastIndexOf(nameMatch[1]);
+          dateRaw = beforeEmail.slice(0, nameStart).trim().replace(/,\s*$/, "") || null;
+        } else {
+          // No name found — entire beforeEmail is the date
+          dateRaw = beforeEmail.replace(/,\s*$/, "") || null;
+        }
+      } else {
+        // No email in angle brackets — try to extract name before "wrote:"
+        const wroteIdx = onText.lastIndexOf(" wrote:");
+        if (wroteIdx > 3) {
+          const afterOn = onText.slice(3, wroteIdx).trim();
+          // Try to find trailing name (capitalized words)
+          const nameMatch = afterOn.match(/(?:^|[,\s])\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s*$/);
+          if (nameMatch) {
+            senderName = nameMatch[1].trim();
+            const nameStart = afterOn.lastIndexOf(nameMatch[1]);
+            dateRaw = afterOn.slice(0, nameStart).trim().replace(/,\s*$/, "") || null;
+          } else {
+            dateRaw = afterOn || null;
+          }
+        }
+      }
+
+      matches.push({
+        index: markerStart,
+        fullMatchEnd,
+        senderName,
+        senderEmail,
+        dateRaw,
+      });
+    }
+  }
+
+  matches.sort((a, b) => a.index - b.index);
+  return matches;
+}
+
 /**
  * Parse a forwarded email body into individual messages.
  *
  * Strategy:
  * 1. Find all Outlook-style header blocks (From:/Sent:/To:/Subject:)
- * 2. Extract the body between each header block and the next
- * 3. If no headers found, return the entire text as a single fallback message
+ * 2. If none, try Gmail/Apple Mail-style "On ... wrote:" markers
+ * 3. If neither found, return the entire text as a single fallback message
  */
 export function parseForwardedEmail(
   rawBody: string,
@@ -163,8 +266,15 @@ export function parseForwardedEmail(
 
   const headers = findHeaderBlocks(rawBody);
 
-  // No structured headers found — fall back to single message from envelope
+  // No Outlook headers — try Gmail/Apple Mail "On ... wrote:" markers
   if (headers.length === 0) {
+    const gmailMarkers = findGmailQuoteMarkers(rawBody);
+
+    if (gmailMarkers.length > 0) {
+      return buildGmailMessages(rawBody, gmailMarkers, envelope);
+    }
+
+    // No structured headers at all — fall back to single message from envelope
     const { senderName, senderEmail } = envelope?.sender
       ? parseSenderField(envelope.sender)
       : { senderName: null, senderEmail: null };
@@ -219,6 +329,71 @@ export function parseForwardedEmail(
 
   if (cleaned.length > 20 && messages.length > 0) {
     messages[0].forwarder_note = cleaned;
+  }
+
+  return messages;
+}
+
+/**
+ * Build ParsedMessage[] from Gmail/Apple Mail "On ... wrote:" markers.
+ *
+ * Message 0 (newest): body = text before the first marker, sender from envelope.
+ * Message N (older):  body = text between marker[n] and marker[n+1], sender from marker.
+ */
+function buildGmailMessages(
+  rawBody: string,
+  markers: GmailQuoteMatch[],
+  envelope?: { sender?: string; subject?: string; timestamp?: number }
+): ParsedMessage[] {
+  const messages: ParsedMessage[] = [];
+  const subject = envelope?.subject ?? null;
+
+  // Message 0: the newest message (text before first quote marker)
+  const newestBody = rawBody.slice(0, markers[0].index);
+  const cleanedNewest = stripNoise(newestBody).trim();
+
+  // If the preface is very short (< 20 chars), it's not a real message body —
+  // likely just "FYI" or empty. In that case, skip creating a message for it
+  // and attach as forwarder_note instead.
+  const { senderName: envName, senderEmail: envEmail } = envelope?.sender
+    ? parseSenderField(envelope.sender)
+    : { senderName: null, senderEmail: null };
+
+  if (cleanedNewest.length >= 20) {
+    messages.push({
+      sender_name: envName,
+      sender_email: envEmail,
+      sent_at: envelope?.timestamp
+        ? new Date(envelope.timestamp * 1000).toISOString()
+        : null,
+      subject,
+      body_text: cleanedNewest,
+      body_raw: newestBody.trim(),
+    });
+  }
+
+  // Older messages: each marker introduces a quoted message
+  for (let i = 0; i < markers.length; i++) {
+    const marker = markers[i];
+    const bodyStart = marker.fullMatchEnd;
+    const bodyEnd = i + 1 < markers.length ? markers[i + 1].index : rawBody.length;
+    const bodySlice = rawBody.slice(bodyStart, bodyEnd);
+
+    const msg: ParsedMessage = {
+      sender_name: marker.senderName,
+      sender_email: marker.senderEmail,
+      sent_at: marker.dateRaw ? parseDate(marker.dateRaw) : null,
+      subject,
+      body_text: stripNoise(bodySlice),
+      body_raw: bodySlice.trim(),
+    };
+
+    messages.push(msg);
+  }
+
+  // If we skipped the newest message (too short), attach it as forwarder_note
+  if (cleanedNewest.length > 0 && cleanedNewest.length < 20 && messages.length > 0) {
+    messages[0].forwarder_note = cleanedNewest;
   }
 
   return messages;
