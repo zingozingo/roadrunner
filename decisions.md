@@ -1091,3 +1091,111 @@ Next.js 14 App Router + TypeScript + Tailwind. Supabase Postgres for data. Singl
 **Rationale:** The `engagement_aws_relationships` junction table already supports many-to-many. The catalog record shouldn't constrain what the junction table enables.
 
 **Impact:** Deferred to next session. Requires Airtable schema discussion and migration planning. No code change yet.
+
+---
+
+## 2026-02-17: AWS Relationships Partner Decoupling
+
+**Decision:** Removed `partner_name` column from `aws_relationships`. Relationships are partner-agnostic catalog records. Partner context flows through `engagement_aws_relationships` and `meeting_aws_relationships` junction tables per-activity.
+
+**Context:** AWS Relationships had a Partners linked-record field in Airtable creating false 1:1 ownership. "Multicloud Team" linked to Cloudaware but could be relevant to any partner.
+
+**Rationale:** Relationships describe AWS team structures, not partner ownership. The real partner↔relationship connection is per-engagement via junction tables, not a static property of the relationship itself.
+
+**Impact:** Migration 031 drops column + index. Removed from types.ts, sync.ts (no longer resolves Partners link), UI list/detail pages. Airtable Partners field manually deleted. 9 files changed.
+
+---
+
+## 2026-02-17: Open Items Prompt Visibility + Auto-Resolution
+
+**Decision:** Claude now sees existing `open_items` (resolved + unresolved) in the engagement context. New `resolved_open_items` output field enables auto-completion. Matching uses bidirectional >50% keyword overlap.
+
+**Context:** Claude previously had no visibility into existing open items, causing semantic duplicates ("send the doc" vs "deliver the document") and inability to auto-resolve completed tasks.
+
+**Rationale:** Showing Claude existing items prevents duplicates at the source. Auto-resolution via keyword matching is conservative (fails open) with manual checkboxes as fallback.
+
+**Impact:** prompt-builder.ts shows open items per engagement. claude.ts system prompt updated with visibility + resolution instructions. types.ts adds `resolved_open_items`. classifier.ts calls `resolveOpenItems()`. supabase.ts adds `matchResolvedItems()` with keyword extraction. 20 new tests.
+
+---
+
+## 2026-02-17: No previous_current_state Safety Net
+
+**Decision:** No backup column for `current_state` before overwrite. Recovery exists via `classification_result` JSONB on each message record.
+
+**Context:** Considered adding `previous_current_state` to protect against Claude writing bad state that drops context.
+
+**Rationale:** The correct approach is making classification reliable, not building safety nets for unreliable classification. Message-level `classification_result` JSONB provides implicit history.
+
+**Impact:** Simpler schema. Focus shifts to prompt quality and testing.
+
+---
+
+## 2026-02-17: Two-Pass Recursive Email Parser
+
+**Decision:** Parser runs Outlook header split (Pass 1), then recursively splits Gmail/generic quotes within each extracted message (Pass 2). New `splitQuotedReplies()` function handles recursion with depth limit of 5. Messages sorted chronologically after splitting.
+
+**Context:** Real-world emails mix formats — Outlook wraps the forward, Gmail "On... wrote:" quotes exist within message bodies. Original parser treated these as mutually exclusive paths.
+
+**Rationale:** Every message body is potentially a container for more quoted messages regardless of outer format. Recursive splitting naturally handles threads-within-threads. Chronological sorting makes timeline display straightforward.
+
+**Impact:** Handles Outlook, Gmail, Apple Mail, generic separators (`---- Original Message ----`), and mixed-format threads. 72 email-parser tests (up from 26). Foundation for clean UI timeline display.
+
+---
+
+## 2026-02-17: CRLF Normalization at Parser Entry
+
+**Decision:** Normalize `\r\n` → `\n` and bare `\r` → `\n` at the very top of `parseForwardedEmail()` before any regex matching.
+
+**Context:** Mailgun delivers body-plain with `\r\n` (CRLF) line endings. Node.js `.` does not match `\r`, causing ALL Outlook header regexes to fail silently. Every real email was falling through to single-message fallback.
+
+**Rationale:** Normalizing input is simpler and more robust than modifying every regex pattern. Single line fix catches all edge cases including mixed and bare CR line endings.
+
+**Impact:** Fixed the root cause preventing all real email thread splitting in production. 8 new CRLF-specific tests.
+
+---
+
+## 2026-02-17: Per-Message Dedup via Fingerprinting
+
+**Decision:** Messages deduplicated by fingerprint (`lowercase(sender_email) + "|" + body_text.trim().slice(0,100)`) before insertion. Checks against last 30 days of messages.
+
+**Context:** Re-forwarding a thread with one new reply would create duplicate records for all old messages in the thread.
+
+**Rationale:** Fingerprinting is fast (single query), deterministic, and handles the common case of thread re-forwarding. 30-day window prevents unbounded lookups while covering all realistic re-forward scenarios.
+
+**Impact:** `storeMessages()` filters duplicates before insert. Logs `[DEDUP]` when skipping. 6 new dedup tests.
+
+---
+
+## 2026-02-17: Forwarder Identity from USER_CONFIG for Corpmail/PRVS
+
+**Decision:** When Mailgun sender matches any known user email variant (corpmail, PRVS, aliases via `isUserEmail()`), `forwarder_name` and email fall back to `USER_CONFIG` canonical values.
+
+**Context:** Amazon SES rewrites the From header to corpmail tracking IDs (`0101019c...@corpmail.amazon.com`). `parseSenderField()` couldn't extract a name from these.
+
+**Rationale:** The PDM is always the forwarder in the current architecture. Canonical identity should be consistent regardless of email routing artifacts.
+
+**Impact:** Forwarder always displays as "Steven Romero" / "sterme@amazon.com" in the UI.
+
+---
+
+## 2026-02-17: Direct-to-Relay Not MVP
+
+**Decision:** Non-forwarded emails (partner sends directly to relay address) are not supported for MVP. All emails will be forwarded by the PDM.
+
+**Context:** Direct emails would set the partner as the "forwarder" since Mailgun's sender field would be the partner contact, not the PDM.
+
+**Rationale:** Supporting direct emails requires distinguishing "PDM forwarded this" from "someone emailed relay directly" — added complexity with no immediate use case.
+
+**Impact:** Forwarder identity logic stays simple. Revisit if direct-to-relay becomes needed.
+
+---
+
+## 2026-02-17: Meetings from Text Stay Prose-Only
+
+**Decision:** Meeting mentions in email text (no ICS attachment) stay in `current_state` narrative only. Only ICS attachments create structured meeting records.
+
+**Context:** Emails often mention "let's meet Thursday at 2pm" without a calendar invite. Could extract lightweight meeting signals.
+
+**Rationale:** Clean separation between structured calendar data (ICS) and conversational references. Parsing "let's meet" from email text is unreliable and creates low-confidence records.
+
+**Impact:** Meetings table stays high-confidence (ICS-sourced only). Meeting mentions are captured in `current_state` prose.

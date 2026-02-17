@@ -142,7 +142,6 @@ AWS team contacts and organizational links. Reference data for linking engagemen
 |-------|------|-------|
 | id | uuid PK | |
 | name | text NOT NULL | Relationship name, e.g. "AI / API Security Team" |
-| partner_name | text | Resolved from Airtable linked record |
 | relationship_type | text | `exec_leader` / `product_team` / `program_team` / `seller` |
 | aws_org | text | Nullable. AWS organization |
 | aws_service | text | Nullable. AWS service area |
@@ -156,7 +155,7 @@ AWS team contacts and organizational links. Reference data for linking engagemen
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
 
-~7 records. Linked to engagements and meetings via junction tables (`engagement_aws_relationships`, `meeting_aws_relationships`).
+~7 records. Partner-agnostic catalog records — partner context flows through junction tables per-activity (`engagement_aws_relationships`, `meeting_aws_relationships`).
 
 ---
 
@@ -224,10 +223,10 @@ Email → Mailgun webhook → /api/inbound
   │
   ├─ Extract form fields (formData with URL-encoded fallback)
   ├─ Parse forwarder identity from Mailgun envelope sender
-  ├─ Parse forwarded thread → Message[] (with inner To/CC headers)
+  ├─ Parse forwarded thread → Message[] (two-pass: Outlook/Gmail split → recursive sub-split, chronological sort)
   ├─ Stamp forwarder_email/name, to_header, cc_header on each message
-  ├─ Dedup check (sender + subject + first 100 chars)
-  ├─ Store messages in DB (unclassified)
+  ├─ Dedup check (sender + subject + first 100 chars) — early exit
+  ├─ Store messages in DB (with per-message fingerprint dedup)
   │
   ▼
 Claude API (single call)
@@ -249,6 +248,8 @@ Claude API (single call)
   │   - participants: [{ name, email, org, role }]
   │   - current_state: string | null
   │   - open_items: [{ description, assignee, due_date }]
+  │   - resolved_open_items: string[]  ← descriptions matching existing items
+  │   - matched_relationships: [{ id, name, relationship_type }]
   │   - suggested_tags: string[]
   │
   ▼
@@ -266,7 +267,9 @@ Persistence (single shared function: persistClassificationResult)
   ├─ Update messages with classification result
   ├─ Create entity links (engagement↔program, engagement↔event) by ID
   ├─ Upsert participants and participant_links
-  └─ Merge open_items (deduplicated), merge tags
+  ├─ Merge open_items (deduplicated), merge tags
+  ├─ Auto-resolve open_items via keyword matching (resolved_open_items)
+  └─ Link AWS relationships via junction table
 ```
 
 ### Key rules
@@ -436,6 +439,13 @@ High-level steps from v0.1 to goal state. Not ordered — dependencies exist bet
 - ~~Extract To header from inner Outlook headers (was being discarded)~~ ✅
 - ~~Handle optional CC line between To and Subject~~ ✅
 - ~~Eliminate preface messages for forwarded emails — attach meaningful notes as forwarder_note~~ ✅
+- ~~CRLF normalization at parser entry (fixes silent regex failures on real emails)~~ ✅
+- ~~Two-pass recursive parser: Pass 1 splits by Outlook headers OR Gmail markers; Pass 2 runs splitQuotedReplies() recursively on each message for internal Gmail quotes and generic separators~~ ✅
+- ~~Gmail/Apple Mail "On ... wrote:" quote detection (findGmailQuoteMarkers)~~ ✅
+- ~~Generic separator detection (---- Original Message ----, ______)~~ ✅
+- ~~CAUTION banner stripping and RFC 3676 signature delimiter stripping~~ ✅
+- ~~Per-message dedup via fingerprinting in storeMessages()~~ ✅
+- ~~Chronological message sorting (oldest first, undated at end)~~ ✅
 - Multi-line To/CC wrapping — future enhancement
 
 ### Resolve route
