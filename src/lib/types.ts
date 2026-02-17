@@ -80,6 +80,21 @@ export interface AwsRelationship {
   updated_at: string;
 }
 
+export interface Partner {
+  id: string;
+  name: string;
+  category: string | null;
+  sub_category: string | null;
+  alliance_lead: string | null;
+  alliance_lead_email: string | null;
+  psa: string | null;
+  spms_id: number | null;
+  partner_contact_emails: string[] | null;
+  airtable_record_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface MeetingAttendee {
   name: string | null;
   email: string;

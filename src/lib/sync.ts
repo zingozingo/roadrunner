@@ -56,6 +56,17 @@ const RF = {
   notes: "fldOcbNUrtfxjqiW5",
 } as const;
 
+const PTRF = {
+  name: "fldlE5L12oES6IQSO",
+  category: "fldSoIAhWfmPgHzuc",
+  subCategory: "fldeW5BvDgSp1bLNX",
+  allianceLead: "fldN2yZtjwetyHJwI",
+  psa: "fldNRDPljDlJZkbds",
+  spmsId: "fld9gzD2CRM9NApUH",
+  allianceLeadEmail: "fldgoSc6QMl6l1303",
+  partnerContactEmails: "fldAEQSbi448tEjff",
+} as const;
+
 export interface SyncResult {
   inserted: number;
   updated: number;
@@ -489,6 +500,128 @@ async function fetchPartnerLookup(): Promise<Map<string, string>> {
   }
 }
 
+// ── Partners sync ───────────────────────────────────────────
+
+/** Extract .name from Airtable single-select object, or return string as-is */
+function selectName(val: unknown): string | null {
+  if (val === undefined || val === null) return null;
+  if (typeof val === "string") return val.trim() || null;
+  if (typeof val === "object" && val !== null && "name" in val) {
+    const name = (val as { name: unknown }).name;
+    return typeof name === "string" ? name.trim() || null : null;
+  }
+  return null;
+}
+
+function mapPartner(rec: AirtableRecord): Record<string, unknown> | null {
+  const name = str(rec.fields[PTRF.name]);
+  if (!name) return null;
+
+  const rawCategory = selectName(rec.fields[PTRF.category]);
+  const category = rawCategory ? rawCategory.toLowerCase() : null;
+
+  // Split semicolon-delimited contact emails into string[]
+  const rawEmails = str(rec.fields[PTRF.partnerContactEmails]);
+  const partnerContactEmails = rawEmails
+    ? rawEmails.split(";").map((s) => s.trim()).filter(Boolean)
+    : null;
+
+  const rawSpmsId = rec.fields[PTRF.spmsId];
+  const spmsId = typeof rawSpmsId === "number" ? rawSpmsId : null;
+
+  return {
+    name,
+    category,
+    sub_category: str(rec.fields[PTRF.subCategory]),
+    alliance_lead: str(rec.fields[PTRF.allianceLead]),
+    alliance_lead_email: str(rec.fields[PTRF.allianceLeadEmail]),
+    psa: selectName(rec.fields[PTRF.psa]),
+    spms_id: spmsId,
+    partner_contact_emails: partnerContactEmails,
+  };
+}
+
+export async function syncPartners(): Promise<SyncResult> {
+  const result: SyncResult = { inserted: 0, updated: 0, unchanged: 0, deleted: 0, errors: [] };
+  const supabase = getSupabaseClient();
+
+  const [atRecords, { data: dbRows, error: fetchErr }] = await Promise.all([
+    fetchAllRecords(PARTNERS_TABLE),
+    supabase.from("partners").select("*"),
+  ]);
+
+  if (fetchErr) throw new Error(`Failed to fetch partners: ${fetchErr.message}`);
+  const existing = dbRows ?? [];
+
+  const byAtId = new Map(existing.filter((r) => r.airtable_record_id).map((r) => [r.airtable_record_id, r]));
+  const byName = new Map(existing.map((r) => [r.name.toLowerCase(), r]));
+
+  for (const rec of atRecords) {
+    try {
+      const mapped = mapPartner(rec);
+      if (!mapped) {
+        result.errors.push(`Skipped record ${rec.id}: missing name`);
+        continue;
+      }
+
+      const match = byAtId.get(rec.id) ?? byName.get((mapped.name as string).toLowerCase());
+
+      if (match) {
+        const fieldsToCompare = { ...mapped, airtable_record_id: rec.id };
+        if (!hasChanges(fieldsToCompare, match)) {
+          result.unchanged++;
+          continue;
+        }
+
+        const { error } = await supabase
+          .from("partners")
+          .update({ ...mapped, airtable_record_id: rec.id })
+          .eq("id", match.id);
+
+        if (error) {
+          result.errors.push(`Update partner "${mapped.name}": ${error.message}`);
+        } else {
+          result.updated++;
+        }
+      } else {
+        const { error } = await supabase
+          .from("partners")
+          .insert({ ...mapped, airtable_record_id: rec.id });
+
+        if (error) {
+          result.errors.push(`Insert partner "${mapped.name}": ${error.message}`);
+        } else {
+          result.inserted++;
+        }
+      }
+    } catch (err) {
+      result.errors.push(`Record ${rec.id}: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  }
+
+  // Delete orphans: Supabase records with an airtable_record_id not in Airtable
+  const atIds = new Set(atRecords.map((r) => r.id));
+  const orphans = existing.filter(
+    (r) => r.airtable_record_id && !atIds.has(r.airtable_record_id)
+  );
+  for (const orphan of orphans) {
+    try {
+      // partner_id FKs on engagements and meetings use ON DELETE SET NULL
+      const { error } = await supabase.from("partners").delete().eq("id", orphan.id);
+      if (error) {
+        result.errors.push(`Delete orphaned partner "${orphan.name}": ${error.message}`);
+      } else {
+        console.log(`Deleted orphaned partner: ${orphan.name} (airtable_record_id: ${orphan.airtable_record_id})`);
+        result.deleted++;
+      }
+    } catch (err) {
+      result.errors.push(`Delete orphaned partner "${orphan.name}": ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  }
+
+  return result;
+}
+
 // ── Engagement push (Roadrunner → Airtable) ────────────────
 
 const ENGAGEMENTS_TABLE = "tblTC491AUVcrKvq2";
@@ -828,6 +961,7 @@ export async function syncEngagementsToAirtable(): Promise<SyncResult> {
 // ── Sync all catalogs ───────────────────────────────────────
 
 export interface SyncAllResult {
+  partners?: SyncResult;
   programs?: SyncResult;
   events?: SyncResult;
   relationships?: SyncResult;
@@ -838,12 +972,15 @@ export interface SyncAllResult {
 export async function syncAllCatalogs(): Promise<SyncAllResult> {
   const start = Date.now();
 
-  // Run sequentially to respect Airtable rate limits
+  // Run sequentially to respect Airtable rate limits.
+  // Partners sync first — other entities may reference them.
+  const partners = await syncPartners();
   const programs = await syncPrograms();
   const events = await syncEvents();
   const relationships = await syncAwsRelationships();
 
   return {
+    partners,
     programs,
     events,
     relationships,
@@ -852,12 +989,13 @@ export async function syncAllCatalogs(): Promise<SyncAllResult> {
 }
 
 export async function syncEntity(
-  entity: "programs" | "events" | "relationships" | "engagements"
+  entity: "partners" | "programs" | "events" | "relationships" | "engagements"
 ): Promise<SyncAllResult> {
   const start = Date.now();
   const result: SyncAllResult = { duration_ms: 0 };
 
-  if (entity === "programs") result.programs = await syncPrograms();
+  if (entity === "partners") result.partners = await syncPartners();
+  else if (entity === "programs") result.programs = await syncPrograms();
   else if (entity === "events") result.events = await syncEvents();
   else if (entity === "relationships") result.relationships = await syncAwsRelationships();
   else if (entity === "engagements") result.engagements = await syncEngagementsToAirtable();

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { syncAllCatalogs, syncEntity } from "@/lib/sync";
 
-const VALID_ENTITIES = new Set(["programs", "events", "relationships", "engagements"]);
+const VALID_ENTITIES = new Set(["partners", "programs", "events", "relationships", "engagements"]);
 
 export async function POST(request: NextRequest) {
   // Check for Airtable API key
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = entity
-      ? await syncEntity(entity as "programs" | "events" | "relationships" | "engagements")
+      ? await syncEntity(entity as "partners" | "programs" | "events" | "relationships" | "engagements")
       : await syncAllCatalogs();
 
     console.log("Sync completed:", JSON.stringify(result));
