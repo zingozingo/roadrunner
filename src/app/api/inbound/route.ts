@@ -161,6 +161,29 @@ export async function POST(request: NextRequest) {
     const { fields, method: parseMethod, rawFormData } = extracted;
     console.log(`Parsed ${fields.size} fields via ${parseMethod}`);
 
+    // --- TEMPORARY DIAGNOSTIC LOGGING (remove after one test) ---
+    const bodyPlainDiag = fields.get("body-plain") ?? "";
+    const strippedDiag = fields.get("stripped-text") ?? "";
+    const bodyHtmlDiag = fields.get("body-html") ?? "";
+    const bodyCalDiag = fields.get("body-calendar") ?? "";
+    console.log("[MAILGUN-DIAG]", JSON.stringify({
+      fieldKeys: Array.from(fields.keys()),
+      lengths: {
+        "body-plain": bodyPlainDiag.length,
+        "stripped-text": strippedDiag.length,
+        "body-html": bodyHtmlDiag.length,
+        "body-calendar": bodyCalDiag.length,
+      },
+      bodyPlainHead: bodyPlainDiag.slice(0, 300),
+      strippedTextHead: strippedDiag.slice(0, 300),
+      sender: fields.get("sender") ?? "(missing)",
+      from: fields.get("from") ?? "(missing)",
+      To: fields.get("To") ?? "(missing)",
+      Cc: fields.get("Cc") ?? "(missing)",
+      subject: fields.get("subject") ?? "(missing)",
+    }));
+    // --- END TEMPORARY DIAGNOSTIC ---
+
     // Extract Mailgun signature fields
     const timestamp = fields.get("timestamp") ?? null;
     const token = fields.get("token") ?? null;
@@ -220,6 +243,14 @@ export async function POST(request: NextRequest) {
 
     // Smart body selection — prefers body-plain when forwarded content is detected
     const emailBody = selectEmailBody(strippedText, bodyPlain);
+
+    // --- TEMPORARY DIAGNOSTIC (remove after one test) ---
+    const hasOutlookPlain = /^From:\s/m.test(bodyPlain) && /^Sent:\s/m.test(bodyPlain);
+    const hasOutlookStripped = /^From:\s/m.test(strippedText) && /^Sent:\s/m.test(strippedText);
+    const hasGmailQuote = /^On .+ wrote:\s*$/m.test(bodyPlain);
+    const chosen = emailBody === strippedText.trim() ? "stripped-text" : "body-plain";
+    console.log(`[BODY-SELECTION] chose: ${chosen}, outlookInPlain: ${hasOutlookPlain}, outlookInStripped: ${hasOutlookStripped}, gmailQuoteInPlain: ${hasGmailQuote}, bodyPlainLen: ${bodyPlain.length}, strippedLen: ${strippedText.length}`);
+    // --- END TEMPORARY DIAGNOSTIC ---
 
     // Parse forwarder identity from Mailgun envelope sender.
     // When Steven forwards to Relay, Mailgun's "sender" = Steven's address.
