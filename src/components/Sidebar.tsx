@@ -27,6 +27,16 @@ const navItems = [
     showBadge: false,
   },
   {
+    href: "/partners",
+    label: "Partners",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M3 3h6v6H3zM11 3h6v6h-6zM3 11h6v6H3zM11 11h6v6h-6z" />
+      </svg>
+    ),
+    showBadge: false,
+  },
+  {
     href: "/events",
     label: "Events",
     icon: (
