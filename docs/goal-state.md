@@ -3,7 +3,7 @@
 **Project Codename:** Roadrunner
 **Owner:** Steven
 **Version:** v0.2 target architecture
-**Last Updated:** 2026-02-14
+**Last Updated:** 2026-02-17
 
 ---
 
@@ -23,11 +23,15 @@ The primary unit of work. AI-created and managed. One partner, one goal, one ema
 |-------|------|-------|
 | id | uuid PK | |
 | name | text NOT NULL | AI-suggested on creation, user-editable |
-| partner_name | text | Primary partner involved |
+| partner_name | text | Primary partner involved (denormalized display text) |
+| partner_id | uuid FK→partners | Nullable. Resolved from partner_name on create/update |
+| pillar | text | `Co-Sell` / `Co-Market` / `Co-Build`. Nullable |
+| priority | text | `Mandated` / `High` / `Normal` / `Opportunistic`. Nullable |
 | status | text | `planned` / `active` / `paused` / `completed` / `archived` |
 | current_state | text | 3-5 sentence executive briefing, updated on each new email |
 | open_items | jsonb | `[{description, assignee, due_date, resolved}]` |
 | tags | jsonb | String array. Freeform labels. Claude suggests, users edit. |
+| airtable_record_id | text | Stored after first push to Airtable |
 | created_at | timestamptz | |
 | updated_at | timestamptz | Auto-updated via trigger |
 | closed_at | timestamptz | Nullable, set when status changes to `closed` |
@@ -79,6 +83,80 @@ Events are shared calendar anchors — ~10-15 per year, updated annually. Confer
 Not a table. A JSONB string array on the engagements table. Freeform labels that cover anything that doesn't fit the entity model: campaigns ("FinServ Q2"), partner events ("Wiz Innovation Summit"), strategic labels ("exec-sponsored"), workflow states ("waiting-on-legal"), segments ("public-sector").
 
 Claude suggests tags during classification. Users can add, remove, or edit tags freely. Tags are filterable in the engagement list view.
+
+### Partners (Airtable-sourced catalog)
+
+Partner companies synced from Airtable. Reference data for FK relationships, contact-based routing, and partner hub views. Claude does not create partners.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| id | uuid PK | |
+| name | text NOT NULL | Partner company name |
+| category | text | Lowercase: `isv`, `si`, `consulting`, etc. |
+| sub_category | text | Nullable |
+| alliance_lead | text | Nullable. PDM or alliance lead name |
+| alliance_lead_email | text | Nullable. For future deterministic matching |
+| psa | text | Nullable. Partner Solutions Architect |
+| spms_id | integer | Nullable. SPMS system ID |
+| partner_contact_emails | text[] | Nullable. For future deterministic matching |
+| airtable_record_id | text | Stored on first sync |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+~20 records. Synced from Airtable (catalog pull). Partners sync first in catalog pull order since other entities reference them. Engagements and meetings link via `partner_id` FK with `partner_name` text fallback.
+
+### Meetings
+
+Meetings linked to engagements and/or events. Created manually via UI or automatically from ICS calendar attachments in forwarded emails.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| id | uuid PK | |
+| title | text NOT NULL | Meeting title |
+| meeting_date | date | Nullable if unknown |
+| meeting_type | text | `Executive Meeting` / `GTM Meeting` / `Product Team Relationship` / `Specialized Meeting` |
+| status | text | `Scheduling` / `Invites Sent` / `Confirmed` / `Completed` / `Did Not Occur` |
+| partner_name | text | Nullable. Denormalized display text |
+| partner_id | uuid FK→partners | Nullable. Resolved from partner_name |
+| engagement_id | uuid FK→engagements | Nullable. Which engagement this meeting belongs to |
+| event_id | uuid FK→events | Nullable. Which event this meeting occurs at |
+| message_id | uuid FK→messages | Nullable. Source email for ICS-parsed meetings |
+| location | text | Nullable |
+| start_time | text | Nullable. e.g. "10:00 AM" |
+| end_time | text | Nullable. e.g. "11:00 AM" |
+| notes | text | Nullable |
+| attendees | jsonb | `[{name, email, organization, role}]` |
+| source | text | `manual` / `ics_parsed` |
+| ics_uid | text | Nullable. For ICS deduplication |
+| airtable_record_id | text | Stored after first push to Airtable |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+Meetings are pushed to Airtable (activity push) with auto-push on create/ICS-parse/engagement-link/delete and manual bulk push button.
+
+### AWS Relationships (Airtable-sourced catalog)
+
+AWS team contacts and organizational links. Reference data for linking engagements and meetings to internal AWS teams.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| id | uuid PK | |
+| name | text NOT NULL | Relationship name, e.g. "AI / API Security Team" |
+| partner_name | text | Resolved from Airtable linked record |
+| relationship_type | text | `exec_leader` / `product_team` / `program_team` / `seller` |
+| aws_org | text | Nullable. AWS organization |
+| aws_service | text | Nullable. AWS service area |
+| primary_contact | text | Nullable. Contact name |
+| primary_contact_email | text | Nullable. For future classifier matching |
+| aws_contact_emails | text[] | Nullable. For future classifier matching |
+| strength | text | `strong` / `building` / `new` / `deferred` |
+| notes | text | Nullable |
+| how_we_connected | text | Nullable |
+| airtable_record_id | text | Stored on first sync |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+~7 records. Linked to engagements and meetings via junction tables (`engagement_aws_relationships`, `meeting_aws_relationships`).
 
 ---
 
@@ -250,12 +328,15 @@ Programs and events enter the system through admin-only interfaces. No AI creati
 ## 7. UI Structure
 
 ### Sidebar navigation
-- **Dashboard** — Summary cards: pending reviews, active engagements, upcoming events
+- **Dashboard** — Summary cards: pending reviews, active engagements, upcoming events, catalog sync
 - **Inbox** — Approval queue for low-confidence engagement assignments only (no event approvals)
-- **Engagements** — List with tag filters, status groups, search
-- **Programs** — Read-only list showing linked engagements
-- **Events** — Read-only list showing linked engagements, dates, locations
-- **Admin** — Seed management for programs and events (separate from main views)
+- **Engagements** — List with status groups, search, type filters. Push to Airtable button
+- **Meetings** — List grouped by upcoming/past/TBD, type filters, search. Push to Airtable button
+- **Partners** — List with search. Sync from Airtable button. Detail pages show linked engagements and meetings
+- **Programs** — Read-only list showing linked engagements. Sync from Airtable button
+- **Events** — Read-only list showing linked engagements, dates, locations. Sync from Airtable button
+- **Relationships** — AWS team contacts. Sync from Airtable button. Detail pages show linked engagements and meetings
+- **Admin** — Seed management for programs and events (separate from main views) — planned
 - **Test** — Classification test page: submit emails with forwarder context, dry-run or full pipeline
 
 ### Engagements list page
@@ -311,6 +392,9 @@ High-level steps from v0.1 to goal state. Not ordered — dependencies exist bet
 - ~~Update `approval_queue`: remove `event_creation` type support~~ ✅ Migration 011
 - ~~Align engagement status to 5 values (planned, active, paused, completed, archived)~~ ✅ Migration 025
 - ~~Add `message_id` FK to meetings for ICS provenance tracking~~ ✅ Migration 026
+- ~~Create `partners` table with catalog sync from Airtable~~ ✅ Migration 027
+- ~~Add `partner_id` FK to engagements and meetings~~ ✅ Migration 027
+- ~~Backfill `partner_id` from `partner_name` → `partners.name`~~ ✅ Migration 028
 - Drop `summary` column from engagements (or keep as computed alias for `current_state`) — pending
 
 ### Classifier

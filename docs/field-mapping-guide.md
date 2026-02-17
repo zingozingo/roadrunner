@@ -571,7 +571,7 @@ Airtable-only fields are NEVER overwritten — this is enforced in the push logi
 
 
 Entity 5: Meetings
-Sync direction: Roadrunner → Airtable (activity push) Trigger: ⏳ Not yet built — will follow engagement push pattern Match strategy: airtable_record_id first, then Roadrunner ID field, then title + date Record counts: 0 in both systems (no meetings created yet)
+Sync direction: Roadrunner → Airtable (activity push) Trigger: Auto fire-and-forget on create/ICS-parse/engagement-link/delete + manual bulk push button Match strategy: airtable_record_id first, then Roadrunner ID field, then title + date
 Supabase Column
 Airtable Field
 Field ID
@@ -589,115 +589,241 @@ Event (link)
 fldT96Imgc7CFDBEX
 RR → AT
 Resolve event_id → events.airtable_record_id → send as [recordId]
-⏳ Planned
+✅ Synced
 partner_name
 Partner (link)
 fldZjCUMpBtgpU13X
 RR → AT
-Resolve name → Partners table record ID → send as [recordId]
-⏳ Planned
+Resolve partner_id FK → partners.airtable_record_id, fallback to name lookup
+✅ Synced
 meeting_type
 Meeting Type
 fldGWa1MFoqoc89qC
 RR → AT
 Values match directly: "Executive Meeting", "GTM Meeting", "Product Team Relationship", "Specialized Meeting"
-⏳ Planned
+✅ Synced
 status
 Status
 fldpXlLugkUgQsjcr
 RR → AT
 Values match directly: "Scheduling", "Invites Sent", "Confirmed", "Completed", "Did Not Occur"
-⏳ Planned
+✅ Synced
 meeting_date
 Meeting Date
 fldx9ZrIMundEMUko
 RR → AT
 None (date format)
-⏳ Planned
+✅ Synced
 attendees (JSONB)
 AWS Contact(s)
 fldOVCmwhiisY8bDo
 RR → AT
-Extract attendees where org contains "AWS" or "Amazon" → join names as text
-⏳ Planned
+Extract attendees where org contains "AWS" or "Amazon" → join names as text. Filters out relay/Salesforce addresses.
+✅ Synced
 attendees (JSONB)
 Partner Contact(s)
 fldJira79g9xWNTte
 RR → AT
-Extract attendees where org is partner → join names as text
-⏳ Planned
+Extract attendees where org is partner (not AWS/Amazon) → join names as text. Filters out relay/Salesforce addresses.
+✅ Synced
 notes
 Notes
 fldzGUipu36EA9rax
 RR → AT
-None (or use marker pattern like engagements)
-⏳ Planned
+Direct overwrite (no marker merge pattern — unlike engagements)
+✅ Synced
 engagement_id (FK)
 Engagement (link)
 fld2TczwxJXZLUwpW
 RR → AT
 Resolve engagement_id → engagements.airtable_record_id → send as [recordId]
-⏳ Planned
+✅ Synced
 start_time
 Start Time
 fldifWilEYICfifXz
 RR → AT
 None (text)
-⏳ Planned
+✅ Synced
 end_time
 End Time
 fldV78rQbzDhVK9NO
 RR → AT
 None (text)
-⏳ Planned
+✅ Synced
 location
 Location
 fldTyiMYT48aCHttx
 RR → AT
 None
-⏳ Planned
+✅ Synced
 source
 Source
 fld2RW78vS1T91bab
 RR → AT
 Values match directly: "manual", "ics_parsed"
-⏳ Planned
+✅ Synced
 id (UUID)
 Roadrunner ID
 fldLveS95zGGVU4j1
 RR → AT
 Stored on first push
-⏳ Planned
+✅ Synced
 ics_uid
 ICS UID
 fldNb83l5XLtz8J9k
 RR → AT
 None
-⏳ Planned
+✅ Synced
 airtable_record_id
 record ID
 —
 AT → RR
 Stored after create/match
-⏳ Planned
+✅ Synced
 —
 AWS Relationships (link)
 fldeDCWtZx7YoyYR6
-⏳
+RR → AT
 Resolve via meeting_aws_relationships junction → airtable_record_ids → [recordId, ...]
-⏳ Planned
+✅ Synced
 
-Key challenge for meetings sync: The attendees JSONB field in Supabase stores structured data [{name, email, organization, role}], but Airtable has two separate plain text fields: "AWS Contact(s)" and "Partner Contact(s)". The sync needs to split attendees by organization and format as text.
-Airtable's "Event Name" is a formula field (concatenates Event + Partner + Meeting Type) — it's read-only and doesn't need to be set during sync.
+Attendees split logic: The attendees JSONB field in Supabase stores structured data [{name, email, organization, role}]. The sync splits attendees into AWS contacts (org contains "AWS" or "Amazon") and partner contacts (everyone else), filtering out relay/Salesforce system addresses. Each group is formatted as newline-separated "Name (email)" text.
+Airtable's "Event Name" is a formula field (concatenates Event + Partner + Meeting Type) — it's read-only and not set during sync.
+
+Entity 6: Partners
+Sync direction: Airtable → Roadrunner (catalog pull) Trigger: Manual button click ("Sync from Airtable") Match strategy: airtable_record_id first, then name Record counts: 20 in both systems ✅
+Airtable Field
+Field ID
+Supabase Column
+Direction
+Transform
+Status
+Partner Name
+fldlE5L12oES6IQSO
+name
+AT → RR
+None
+✅ Synced
+Category
+fldSoIAhWfmPgHzuc
+category
+AT → RR
+Extract select .name + lowercase
+✅ Synced
+Sub-Category
+fldeW5BvDgSp1bLNX
+sub_category
+AT → RR
+None
+✅ Synced
+Alliance Lead
+fldN2yZtjwetyHJwI
+alliance_lead
+AT → RR
+None
+✅ Synced
+Alliance Lead Email
+fldgoSc6QMl6l1303
+alliance_lead_email
+AT → RR
+None
+✅ Synced (📝 Data entry needed — most records empty)
+PSA
+fldNRDPljDlJZkbds
+psa
+AT → RR
+Extract select .name
+✅ Synced
+SPMS ID
+fld9gzD2CRM9NApUH
+spms_id
+AT → RR
+Integer
+✅ Synced
+Partner Contact Emails
+fldAEQSbi448tEjff
+partner_contact_emails
+AT → RR
+Split semicolons → text[]
+✅ Synced (📝 Data entry needed — most records empty)
+record ID
+—
+airtable_record_id
+AT → RR
+Stored on first sync
+✅ Synced
+ISVa Status
+fldM2AUCPOOplwXvO
+—
+🚫
+—
+Airtable-only — program enrollment status
+PRM
+fld0kKJXqOQVzimXH
+—
+🚫
+—
+Airtable-only — portal status
+AWS AM
+fld7xhTjYAxVzR0xw
+—
+🚫
+—
+Airtable-only — account manager info
+PMM
+fldD8VFChPxERtlDo
+—
+🚫
+—
+Airtable-only — partner marketing manager
+Financials (Revenue, Pipeline, etc.)
+various
+—
+🚫
+—
+Airtable-only — financial tracking
+MDF/MPOPP link fields
+various
+—
+🚫
+—
+Airtable-only — funding program links
+Partner Programs (link)
+various
+—
+🚫
+—
+Airtable-only — Tier 2 enrollment links
+Partner Events (link)
+various
+—
+🚫
+—
+Airtable-only — Tier 2 event status links
+—
+—
+id (UUID)
+Supabase-only
+—
+Internal primary key
+—
+—
+created_at / updated_at
+Supabase-only
+—
+Auto-managed timestamps
+
+Gaps:
+📝 ALLIANCE LEAD EMAIL + PARTNER CONTACT EMAILS — Empty on most records. This is a key data entry task. The classifier cannot match partner email addresses to specific partners until these are populated. Populate in Airtable, then run sync to pull into Supabase.
+
+Partners also provide partner_id FK on engagements and meetings tables (migration 027-028). The FK enables hub-style queries: "show all engagements and meetings for this partner." During transition, queries use partner_id FK first with partner_name text fallback.
+
 
 Entities NOT Synced (Airtable-Only)
 These tables exist only in Airtable and have no Roadrunner equivalent. They are strategic/operational tables managed entirely through the Airtable UI.
 Airtable Table
 Purpose
 Why Not Synced
-Partners
-Master partner records
-Roadrunner uses partner_name text field — resolved to Partner record ID during sync push. No need for full partner records in Supabase.
 Partner Programs (Tier 2)
 Partner × Program enrollment status
 Tracks which partners are pursuing which programs and their progress. Strategic tracking managed in Airtable.
@@ -822,28 +948,21 @@ Meeting Source
 Values match directly in both systems: manual, ics_parsed
 
 Action Items
-Immediate (Before Next Build Session)
-📝 Populate AWS Contact Emails — Add email addresses to all 7 AWS Relationships records in Airtable (Primary Contact Email + AWS Contact Emails fields). Then run sync to pull into Supabase. Required for classifier email matching.
+Completed
+~~⚠️ Add "planned" and "archived" to engagement status~~ ✅ Done — Migration 025.
+~~⏳ Build ICS parsing~~ ✅ Done — body-calendar, inline VCALENDAR, .ics attachments.
+~~⏳ Build meetings sync (RR→AT)~~ ✅ Done — Full push with 3-tier match, 4 linked records, attendee split, auto-push hooks.
+~~⏳ Partners as synced catalog~~ ✅ Done — Migration 027-028. Catalog pull, API, UI, partner_id FK backfill.
 
-
-~~⚠️ Add "planned" and "archived" to engagement status~~ ✅ Done — Migration 025 aligned Supabase to 5 values (planned, active, paused, completed, archived). Status mapping updated in sync.
-
-
-Next Build Session
-⏳ Build meetings sync (RR→AT) — Follow engagement push pattern. Field mapping is fully defined above. Key challenges: attendees JSONB → split text fields, event_id resolution via airtable_record_id, engagement_id resolution.
-
-
-~~⏳ Build ICS parsing~~ ✅ Done — ICS parser extracts meetings from body-calendar field, inline VCALENDAR in body-plain, or .ics file attachments. Creates meeting records with source='ics_parsed' and message_id FK for provenance. Feeds into meetings sync.
-
-
-⏳ Classifier prompt: inject relationships context — Add aws_contact_emails to classifier prompt so Claude can match @amazon.com addresses to teams.
-
+Next Priorities
+📝 Populate Partner Contact Emails — Add alliance_lead_email and partner_contact_emails to partner records in Airtable. Required for deterministic classifier matching.
+📝 Populate AWS Contact Emails — Add email addresses to all 7 AWS Relationships records in Airtable. Required for classifier email-to-team matching.
+⏳ Classifier prompt: inject partner + relationships contact emails — Enable deterministic email-to-partner and email-to-team matching.
 
 Future Considerations
 ⏳ Push Roadrunner IDs to Airtable for catalog entities — Currently catalog sync only stores AT record IDs in Supabase, not the reverse. Low priority since airtable_record_id is the primary sync key.
-
-
 ⏳ Bidirectional strategic field sync — Should Airtable edits to Start Date, Stakeholders, etc. flow back to Roadrunner? Currently one-way. May not be needed if Airtable remains the strategic editing surface.
+⏳ Close auto-push gaps — 4 code paths create/update activity records without auto-push hooks (see docs/sync-architecture.md known gaps).
 
 
 

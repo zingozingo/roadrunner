@@ -16,7 +16,7 @@ Deployed at [roadrunner-fawn.vercel.app](https://roadrunner-fawn.vercel.app).
 | SMS notifications | Twilio |
 | Catalog sync | Airtable REST API |
 | Hosting | Vercel (git push deploy) |
-| Tests | Vitest (49 tests across 4 suites) |
+| Tests | Vitest (73 tests across 5 suites) |
 
 ## Architecture
 
@@ -53,13 +53,14 @@ Each entity type has one authoritative source. Sync never overwrites the authori
 
 | Entity | Authority | Direction | Trigger |
 |--------|-----------|-----------|---------|
+| Partners | Airtable | Airtable → Supabase | Manual button |
 | Programs | Airtable | Airtable → Supabase | Manual button |
 | Events | Airtable | Airtable → Supabase | Manual button |
 | AWS Relationships | Airtable | Airtable → Supabase | Manual button |
-| Engagements | Roadrunner | Supabase → Airtable | Auto on classify/edit |
-| Meetings | Roadrunner | (planned) | — |
+| Engagements | Roadrunner | Supabase → Airtable | Auto on classify/edit + manual button |
+| Meetings | Roadrunner | Supabase → Airtable | Auto on create/ICS/link/delete + manual button |
 
-Catalog sync is idempotent with change detection. First sync matches by name, stores `airtable_record_id`, and all subsequent syncs match by ID (rename-safe). Engagement push is fire-and-forget — Airtable being unavailable never blocks classification.
+Catalog sync is idempotent with change detection. First sync matches by name, stores `airtable_record_id`, and all subsequent syncs match by ID (rename-safe). Activity push is fire-and-forget — Airtable being unavailable never blocks classification. See `docs/sync-architecture.md` for full details.
 
 ### Classification Pipeline
 
@@ -100,19 +101,20 @@ src/
 │   │   ├── meetings/         # Meeting CRUD
 │   │   ├── participants/     # Participant edit
 │   │   ├── participant-links/# Unlink participants
+│   │   ├── partners/         # Partner CRUD
 │   │   ├── programs/         # Programs list
 │   │   ├── relationships/    # AWS Relationship read + update
 │   │   ├── reviews/resolve/  # Approval queue resolution
 │   │   ├── sms/              # SMS send + webhook
 │   │   ├── sync/             # Airtable sync trigger
-│   │   ├── tracks/           # Program edit (UI calls them "Tracks")
 │   │   ├── health/           # Health check
 │   │   └── inbox/            # Inbox count + list
 │   ├── engagements/          # Engagement list + detail pages
 │   ├── events/               # Event list + detail pages
 │   ├── meetings/             # Meeting list + detail pages
+│   ├── partners/             # Partner list + detail pages
+│   ├── programs/             # Programs list + detail pages
 │   ├── relationships/        # AWS Relationship list + detail pages
-│   ├── tracks/               # Programs list + detail (UI name)
 │   ├── inbox/                # Approval review page
 │   ├── test/                 # Classification test page
 │   ├── globals.css           # CSS variables + Tailwind v4 theme
@@ -127,15 +129,17 @@ src/
 │   └── ...
 └── lib/
     ├── types.ts              # All TypeScript interfaces
-    ├── supabase.ts           # Supabase client + all DB operations (~1400 lines)
+    ├── supabase.ts           # Supabase client + all DB operations (~1700 lines)
     ├── claude.ts             # System prompt + Claude API call + response parser
     ├── classifier.ts         # Orchestration: process → route → persist
     ├── email-parser.ts       # Outlook-style forwarded email parser
     ├── sms.ts                # Twilio SMS send + reply parsing
     ├── airtable.ts           # Airtable REST client (no SDK dependency)
-    ├── sync.ts               # Bidirectional sync: catalog pull + engagement push
-    └── __tests__/            # 4 test suites, 49 tests
-        ├── email-parser.test.ts  # 20 tests — header parsing, multi-message, edge cases
+    ├── sync.ts               # Bidirectional sync: catalog pull + activity push
+    ├── ics-parser.ts         # RFC 5545 ICS/VCALENDAR parser (no dependencies)
+    └── __tests__/            # 5 test suites, 73 tests
+        ├── email-parser.test.ts  # 26 tests — header parsing, multi-message, edge cases
+        ├── ics-parser.test.ts    # 18 tests — ICS/VCALENDAR parsing, attendee extraction
         ├── classifier.test.ts    # 9 tests — routing, auto-assign, auto-create, grouping
         ├── claude.test.ts        # 11 tests — prompt building, response parsing
         └── sms.test.ts           # 9 tests — SMS formatting, reply parsing
@@ -149,17 +153,19 @@ data/
 
 docs/
 ├── goal-state.md             # Target architecture specification
+├── field-mapping-guide.md    # Airtable ↔ Supabase field-by-field mapping
+├── sync-architecture.md      # Sync model, hooks, buttons, match strategy
 └── master-spec.md            # (deprecated) Original spec
 
 supabase/
-└── migrations/               # 25 sequential SQL migrations (001–025)
+└── migrations/               # 28 sequential SQL migrations (001–028)
 
-decisions.md                  # 30+ architecture decision records
+decisions.md                  # 90+ architecture decision records
 ```
 
 ## Database Schema
 
-13 tables in Supabase PostgreSQL, managed through 25 sequential migrations.
+14 tables in Supabase PostgreSQL, managed through 28 sequential migrations.
 
 ### Core Tables
 
@@ -177,6 +183,7 @@ decisions.md                  # 30+ architecture decision records
 
 | Table | Purpose | Records |
 |-------|---------|---------|
+| `partners` | Partner companies with contact info | ~20 |
 | `events` | Conferences, summits, deadlines | ~32 |
 | `programs` | AWS programs, competencies, motions | ~33 |
 | `aws_relationships` | AWS team contacts and org links | ~7 |
@@ -223,7 +230,7 @@ The app runs without Twilio/Mailgun/Airtable — those features degrade graceful
 
 | If you want to change... | Edit in... | Why |
 |--------------------------|-----------|-----|
-| Programs, events, AWS relationships | Airtable, then pull via Sync button | Airtable is the catalog authority |
+| Partners, programs, events, AWS relationships | Airtable, then pull via Sync button | Airtable is the catalog authority |
 | Engagement status, tags, open items | Roadrunner UI, auto-pushes to Airtable | Roadrunner is the activity authority |
 | Strategic fields (stakeholders, plans, dates) | Airtable directly | Roadrunner never touches these fields |
 | Engagement current_state | Either — Roadrunner evolves it from emails | Claude updates on each classified email |
@@ -278,10 +285,16 @@ git push origin main
 
 Completed and pending work tracked in `docs/goal-state.md` and `decisions.md`.
 
+**Completed recently:**
+- ~~Meetings sync: Roadrunner → Airtable push~~ ✅
+- ~~ICS calendar attachment parsing for meeting extraction~~ ✅
+- ~~Partners as first-class entity with catalog sync~~ ✅
+- ~~Sync architecture documented~~ ✅
+
 **Pending:**
+- Classifier prompt refinement: inject partner/relationship contact emails for deterministic matching
 - Tag filter chips on engagements list page
 - Admin page for program/event management (currently seed-only)
-- Meetings sync: Roadrunner → Airtable push
-- ICS calendar attachment parsing for meeting extraction
 - Drop legacy `summary` column (superseded by `current_state`)
 - Audit and remove unused debug routes
+- Populate partner contact emails in Airtable for deterministic matching

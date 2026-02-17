@@ -899,3 +899,75 @@ Next.js 14 App Router + TypeScript + Tailwind. Supabase Postgres for data. Singl
 **Rationale:** Align terminology with the domain. Steven uses "programs" in conversation and emails. The Airtable schema already uses "Programs." Having a different internal name creates unnecessary cognitive overhead.
 
 **Impact:** Breaking rename across ~15 files. Database migration renamed the table and updated all CHECK constraints, indexes, and foreign keys. No functional changes — pure terminology alignment.
+
+---
+
+## 2026-02-17: Partners as First-Class Entity
+
+**Decision:** Added partners table to Supabase (migration 027) with catalog sync from Airtable, API routes, list + detail UI pages, and sidebar navigation. Partners are the 4th catalog pull entity.
+
+**Context:** partner_name was a text string guessed by Claude during classification. No structured partner data existed in Roadrunner — engagements and meetings referenced partners by name only.
+
+**Rationale:** Deterministic email-to-partner matching requires structured contact data (emails, names). A real partners table enables FK relationships, contact-based routing, and a partner hub view showing all activity for one partner. Follows the established catalog sync pattern (like programs, events, relationships).
+
+**Impact:** 20 partners synced from Airtable. Partner list + detail pages in UI. Foundation for deterministic classifier matching once contact emails are populated. Partners sync first in catalog pull order since other entities reference them.
+
+---
+
+## 2026-02-17: partner_id FK with Dual-Column Transition Strategy
+
+**Decision:** Added nullable partner_id FK on engagements and meetings (migration 027) alongside existing partner_name text columns. Migration 028 backfills partner_id by matching partner_name to partners.name. Runtime auto-resolves partner_id on create/update. Queries use FK first with text fallback.
+
+**Context:** Removing partner_name immediately would break existing records and the classification pipeline (which outputs partner names, not IDs). Needed a non-breaking migration path.
+
+**Rationale:** Dual-column approach allows gradual transition. partner_id is the real relationship for queries and joins. partner_name stays as denormalized display text and backward compatibility. Belt-and-suspenders queries (FK first, text fallback for unbackfilled rows) ensure zero data loss during transition.
+
+**Impact:** All existing engagements/meetings backfilled where names match. All new records auto-resolve. Partner detail pages show linked activity via FK. Can eventually drop text fallback once all records have partner_id.
+
+---
+
+## 2026-02-17: Partner Contact Emails for Deterministic Matching
+
+**Decision:** Created two new fields in Airtable Partners table: Alliance Lead Email (email type) and Partner Contact Emails (multiline text, semicolon-separated). Synced to Supabase as alliance_lead_email (text) and partner_contact_emails (text[]).
+
+**Context:** The classifier currently guesses partner names from email content. With structured contact emails, it can match sender/recipient addresses to specific partners deterministically.
+
+**Rationale:** Same pattern as AWS Contact Emails on the relationships table. Semicolon-separated text parsed to text[] array provides flexibility without requiring a separate contacts table. Alliance lead gets a dedicated email field since every partner has exactly one.
+
+**Impact:** Once Steven populates these fields in Airtable and syncs, the classifier can match emails like jane@saltsecurity.com → Salt Security without AI guessing. Unblocks the next phase of classifier prompt refinement.
+
+---
+
+## 2026-02-17: Meetings Push to Airtable with Linked Record Resolution
+
+**Decision:** Built complete meetings push following the engagement push pattern: single fire-and-forget (pushMeetingToAirtable) + bulk sync (syncMeetingsToAirtable) + delete propagation. Resolves 4 linked records (partner, event, engagement, AWS relationships). Splits attendees JSONB into AWS Contact(s) and Partner Contact(s) text fields, filtering relay and Salesforce addresses.
+
+**Context:** Meetings existed in Roadrunner (from ICS parsing and manual creation) but didn't sync to Airtable. Engagements already had a working push pattern to replicate.
+
+**Rationale:** Exact pattern replication — same 3-tier match strategy, same change detection, same rate limiting, same error handling. The only new complexity is more linked records (4 vs 1) and the attendees split transform.
+
+**Impact:** Bidirectional sync now complete for all 6 entities. Meetings auto-push on create/ICS-parse/engagement-link/delete. Manual "Push to Airtable" button on meetings page for bulk reconciliation.
+
+---
+
+## 2026-02-17: Two-Tier Sync Model: Auto-Push + Manual Safety Net
+
+**Decision:** Documented and standardized the sync architecture. Activity entities (engagements, meetings) use auto-push fire-and-forget hooks on create/update/delete, with manual bulk push buttons as reconciliation fallback. Catalog entities (partners, programs, events, relationships) use manual pull buttons only. Created docs/sync-architecture.md.
+
+**Context:** The sync model had grown organically across sessions without a clear architectural document. Auto-push hooks existed for engagements but weren't explicitly documented as a pattern. Adding meetings push required deciding whether to replicate the same dual approach.
+
+**Rationale:** Frequently-changing activity data (emails create engagements constantly) benefits from auto-push — users shouldn't need to manually sync after every classification. Rarely-changing catalog data (programs change quarterly) only needs manual pull. The manual button on activity entities serves as a safety net for edge cases where auto-push silently failed.
+
+**Impact:** Clear mental model for sync behavior. Known gaps documented (4 code paths without auto-push hooks). Future entities follow the same pattern based on change frequency.
+
+---
+
+## 2026-02-17: Meeting Notes: Direct Overwrite (No Merge Pattern)
+
+**Decision:** Meeting notes push to Airtable as plain text overwrite, unlike engagements which use a === Roadrunner Activity Summary === marker pattern to protect manually-written Airtable notes.
+
+**Context:** Engagements needed merge logic because users actively write strategic notes in Airtable that shouldn't be overwritten by Roadrunner sync. Meetings are less likely to have manually-written Airtable notes.
+
+**Rationale:** Simpler implementation, lower risk of data loss for meetings. Notes merge is a post-MVP refinement if meeting notes in Airtable become a real workflow.
+
+**Impact:** Simpler meeting sync code. If users start manually annotating meetings in Airtable, will need to add merge logic later.
