@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { stripPRVS, isUserEmail, USER_CONFIG } from "../user-config";
+import { stripPRVS, isCorpmailAddress, isUserEmail, USER_CONFIG } from "../user-config";
 
 describe("stripPRVS", () => {
   it("strips PRVS wrapping from an email", () => {
@@ -23,6 +23,24 @@ describe("stripPRVS", () => {
   });
 });
 
+describe("isCorpmailAddress", () => {
+  it("matches SES corpmail tracking ID", () => {
+    expect(isCorpmailAddress("0100019c6800d387-6136888a-0a38-4bdc-b1a8-226845ffccf3-000000@corpmail.amazon.com")).toBe(true);
+  });
+
+  it("is case-insensitive", () => {
+    expect(isCorpmailAddress("abc@CORPMAIL.AMAZON.COM")).toBe(true);
+  });
+
+  it("rejects normal amazon.com email", () => {
+    expect(isCorpmailAddress("sterme@amazon.com")).toBe(false);
+  });
+
+  it("rejects unrelated email", () => {
+    expect(isCorpmailAddress("alice@cybershield.com")).toBe(false);
+  });
+});
+
 describe("isUserEmail", () => {
   it("matches primary email", () => {
     expect(isUserEmail("sterme@amazon.com")).toBe(true);
@@ -39,6 +57,14 @@ describe("isUserEmail", () => {
 
   it("matches PRVS-wrapped email", () => {
     expect(isUserEmail("prvs=abc123=sterme@amazon.com")).toBe(true);
+  });
+
+  it("matches SES corpmail address", () => {
+    expect(isUserEmail("0100019c6800d387-6136888a-0a38-4bdc-b1a8-226845ffccf3-000000@corpmail.amazon.com")).toBe(true);
+  });
+
+  it("matches PRVS-wrapped alias", () => {
+    expect(isUserEmail("prvs=xyz789=sromero@amazon.com")).toBe(true);
   });
 
   it("rejects unrelated email", () => {

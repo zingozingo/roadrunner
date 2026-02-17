@@ -28,12 +28,21 @@ export function stripPRVS(email: string): string {
 }
 
 /**
+ * Amazon SES rewrites From: headers with per-message tracking IDs.
+ * Format: {message-id}@corpmail.amazon.com
+ * These are all the same user (the PDM), just with different tracking IDs.
+ */
+export function isCorpmailAddress(email: string): boolean {
+  return email.toLowerCase().endsWith("@corpmail.amazon.com");
+}
+
+/**
  * Check if an email address belongs to the configured user.
- * Matches against primary email and all aliases, case-insensitive.
- * Also handles PRVS-wrapped variants.
+ * Handles: exact match, aliases, PRVS-wrapped, and SES corpmail addresses.
  */
 export function isUserEmail(email: string): boolean {
   const cleaned = stripPRVS(email).toLowerCase();
+  if (isCorpmailAddress(cleaned)) return true;
   const allEmails = [USER_CONFIG.email, ...USER_CONFIG.aliases].map((e) =>
     e.toLowerCase()
   );

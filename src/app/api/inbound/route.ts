@@ -260,6 +260,10 @@ export async function POST(request: NextRequest) {
       msg.forwarder_name = forwarderName ?? null;
       msg.to_header = msg.to_header || filteredTo || null;
       msg.cc_header = msg.cc_header || ccHeader || null;
+      // Strip PRVS from sender_email (same issue as forwarder_email)
+      if (msg.sender_email) {
+        msg.sender_email = stripPRVS(msg.sender_email);
+      }
       // forwarder_note is already set by email-parser if a preface was detected
     }
 

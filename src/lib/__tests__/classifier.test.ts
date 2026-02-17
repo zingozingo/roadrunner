@@ -154,6 +154,13 @@ vi.mock("../sms", () => ({
 
 vi.mock("../user-config", () => ({
   isUserEmail: vi.fn().mockReturnValue(false),
+  USER_CONFIG: {
+    name: "Steven Romero",
+    email: "sterme@amazon.com",
+    aliases: ["sromero@amazon.com"],
+    role: "Partner Development Manager (PDM)",
+    segment: "AWS Security, ISV Partners",
+  },
 }));
 
 // Now import the module under test

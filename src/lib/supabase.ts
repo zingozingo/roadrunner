@@ -19,6 +19,7 @@ import {
   Pillar,
   Priority,
 } from "./types";
+import { isUserEmail, USER_CONFIG } from "./user-config";
 
 let client: SupabaseClient | null = null;
 
@@ -999,8 +1000,13 @@ export async function upsertParticipants(
   for (const participant of participants) {
     if (!participant.email && !participant.name) continue;
 
-    // PDM forwarder gets role "forwarder" instead of whatever Claude extracted
-    if (pdmEmail && participant.email?.toLowerCase() === pdmEmail) {
+    // Detect if this participant is the system user (PDM)
+    const isUser = participant.email ? isUserEmail(participant.email) : false;
+
+    // PDM always gets role "forwarder"
+    if (isUser) {
+      participant.role = "forwarder";
+    } else if (pdmEmail && participant.email?.toLowerCase() === pdmEmail) {
       participant.role = "forwarder";
     }
 
@@ -1008,18 +1014,33 @@ export async function upsertParticipants(
 
     try {
       if (participant.email) {
+        // For user emails (PRVS, corpmail, aliases), always look up by canonical email
+        const lookupEmail = isUser ? USER_CONFIG.email : participant.email;
+
         // Email-based lookup
         const { data: existing } = await db
           .from("participants")
           .select("*")
-          .eq("email", participant.email)
+          .eq("email", lookupEmail)
           .limit(1);
 
         if (existing && existing.length > 0) {
           participantId = existing[0].id;
           const updates: Record<string, string> = {};
-          if (!existing[0].name && participant.name) {
-            updates.name = participant.name;
+
+          if (isUser) {
+            // Always use canonical identity for the system user
+            if (existing[0].name !== USER_CONFIG.name) {
+              updates.name = USER_CONFIG.name;
+            }
+            if (existing[0].email !== USER_CONFIG.email) {
+              updates.email = USER_CONFIG.email;
+            }
+          } else {
+            // For other participants, only fill missing fields
+            if (!existing[0].name && participant.name) {
+              updates.name = participant.name;
+            }
           }
           if (!existing[0].organization && participant.organization) {
             updates.organization = participant.organization;
@@ -1034,11 +1055,15 @@ export async function upsertParticipants(
               .eq("id", participantId);
           }
         } else {
+          // Insert new participant — use canonical email for user
+          const insertEmail = isUser ? USER_CONFIG.email : participant.email;
+          const insertName = isUser ? USER_CONFIG.name : participant.name;
+
           const { data: inserted, error: insertErr } = await db
             .from("participants")
             .insert({
-              email: participant.email,
-              name: participant.name,
+              email: insertEmail,
+              name: insertName,
               organization: participant.organization,
               title: participant.role !== "forwarder" ? participant.role : null,
             })
@@ -1046,7 +1071,7 @@ export async function upsertParticipants(
             .maybeSingle();
 
           if (insertErr) {
-            console.error(`Failed to insert participant "${participant.email}":`, insertErr.message);
+            console.error(`Failed to insert participant "${insertEmail}":`, insertErr.message);
             continue;
           }
           if (inserted) {
