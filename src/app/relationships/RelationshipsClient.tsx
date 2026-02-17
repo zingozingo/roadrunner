@@ -49,11 +49,10 @@ export default function RelationshipsClient({ relationships }: RelationshipsClie
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const matchesName = rel.name.toLowerCase().includes(q);
-        const matchesPartner = rel.partner_name?.toLowerCase().includes(q);
         const matchesOrg = rel.aws_org?.toLowerCase().includes(q);
         const matchesService = rel.aws_service?.toLowerCase().includes(q);
         const matchesContact = rel.primary_contact_name?.toLowerCase().includes(q);
-        if (!matchesName && !matchesPartner && !matchesOrg && !matchesService && !matchesContact) return false;
+        if (!matchesName && !matchesOrg && !matchesService && !matchesContact) return false;
       }
       // Type filter
       if (activeFilters.size > 0 && rel.relationship_type && !activeFilters.has(rel.relationship_type)) {
@@ -152,7 +151,7 @@ export default function RelationshipsClient({ relationships }: RelationshipsClie
                               <StrengthBadge strength={rel.strength} />
                             </div>
                             <p className="mt-1 text-sm text-muted">
-                              {[rel.partner_name, rel.aws_org, rel.aws_service]
+                              {[rel.aws_org, rel.aws_service]
                                 .filter(Boolean)
                                 .join(" · ")}
                             </p>

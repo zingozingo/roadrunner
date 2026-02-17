@@ -43,9 +43,6 @@ export default async function RelationshipDetailPage({
             <RelationshipTypeBadge type={relationship.relationship_type} />
             <StrengthBadge strength={relationship.strength} />
           </div>
-          {relationship.partner_name && (
-            <p className="mt-1 text-muted">{relationship.partner_name}</p>
-          )}
         </div>
         <div className="flex items-center gap-3">
           <RelationshipActions relationship={relationship} />
@@ -110,12 +107,6 @@ export default async function RelationshipDetailPage({
                 <div>
                   <dt className="text-muted">Type</dt>
                   <dd className="text-foreground">{relationship.relationship_type}</dd>
-                </div>
-              )}
-              {relationship.partner_name && (
-                <div>
-                  <dt className="text-muted">Partner</dt>
-                  <dd className="text-foreground">{relationship.partner_name}</dd>
                 </div>
               )}
               {relationship.aws_org && (

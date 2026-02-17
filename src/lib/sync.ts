@@ -350,8 +350,7 @@ export async function syncEvents(): Promise<SyncResult> {
 // ── AWS Relationships sync ──────────────────────────────────
 
 function mapRelationship(
-  rec: AirtableRecord,
-  partnerMap: Map<string, string>
+  rec: AirtableRecord
 ): Record<string, unknown> | null {
   const name = str(rec.fields[RF.name]);
   if (!name) return null;
@@ -361,13 +360,6 @@ function mapRelationship(
 
   const rawStrength = str(rec.fields[RF.strength]);
   const strength = rawStrength && VALID_STRENGTHS.has(rawStrength) ? rawStrength : null;
-
-  // Resolve partner linked record IDs to names
-  const partnerIds = rec.fields[RF.partners];
-  let partnerName: string | null = null;
-  if (Array.isArray(partnerIds) && partnerIds.length > 0) {
-    partnerName = partnerMap.get(partnerIds[0]) ?? null;
-  }
 
   // Parse comma-separated AWS contact emails
   const awsContactEmails = strArr(rec.fields[RF.awsContactEmails]);
@@ -382,7 +374,6 @@ function mapRelationship(
     primary_contact_email: str(rec.fields[RF.primaryContactEmail]),
     aws_contact_emails: awsContactEmails,
     notes: str(rec.fields[RF.notes]),
-    ...(partnerName ? { partner_name: partnerName } : {}),
   };
 }
 
@@ -390,12 +381,9 @@ export async function syncAwsRelationships(): Promise<SyncResult> {
   const result: SyncResult = { inserted: 0, updated: 0, unchanged: 0, deleted: 0, errors: [] };
   const supabase = getSupabaseClient();
 
-  // Fetch partner lookup map and all relationship records in parallel
-  // For the partners table, we need the "Partner Name" field.
-  // We'll fetch all partner records and use the first text field as the name.
-  const [atRecords, partnerMap, { data: dbRows, error: fetchErr }] = await Promise.all([
+  // Fetch all relationship records from Airtable and Supabase in parallel
+  const [atRecords, { data: dbRows, error: fetchErr }] = await Promise.all([
     fetchAllRecords(RELATIONSHIPS_TABLE),
-    fetchPartnerLookup(),
     supabase.from("aws_relationships").select("*"),
   ]);
 
@@ -407,7 +395,7 @@ export async function syncAwsRelationships(): Promise<SyncResult> {
 
   for (const rec of atRecords) {
     try {
-      const mapped = mapRelationship(rec, partnerMap);
+      const mapped = mapRelationship(rec);
       if (!mapped) {
         result.errors.push(`Skipped record ${rec.id}: missing name`);
         continue;
@@ -416,11 +404,7 @@ export async function syncAwsRelationships(): Promise<SyncResult> {
       const match = byAtId.get(rec.id) ?? byName.get((mapped.name as string).toLowerCase());
 
       if (match) {
-        // For existing records, don't overwrite partner_name if we didn't resolve one
         const updateFields: Record<string, unknown> = { ...mapped, airtable_record_id: rec.id };
-        if (!mapped.partner_name && match.partner_name) {
-          updateFields.partner_name = match.partner_name;
-        }
 
         if (!hasChanges(updateFields, match)) {
           result.unchanged++;

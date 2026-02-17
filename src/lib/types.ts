@@ -66,7 +66,6 @@ export type RelationshipStrength = "Strong" | "Building" | "New" | "Deferred";
 export interface AwsRelationship {
   id: string;
   name: string;
-  partner_name: string | null;
   aws_org: string | null;
   aws_service: string | null;
   relationship_type: RelationshipType | null;

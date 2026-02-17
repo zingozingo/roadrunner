@@ -134,9 +134,6 @@ export default async function MeetingDetailPage({
                     <span className="text-sm font-medium text-foreground">
                       {rel.name}
                     </span>
-                    {rel.partner_name && (
-                      <p className="mt-0.5 text-xs text-muted">{rel.partner_name}</p>
-                    )}
                   </Link>
                 ))}
               </div>
