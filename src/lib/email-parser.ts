@@ -244,12 +244,145 @@ export function findGmailQuoteMarkers(text: string): GmailQuoteMatch[] {
 }
 
 /**
+ * Generic separator patterns that indicate a quoted/forwarded message boundary.
+ * These lack structured sender metadata but still indicate a message split point.
+ */
+const GENERIC_SEPARATOR_RE =
+  /\n(----+\s*Original Message\s*----+|_{20,})\s*\n/gi;
+
+/**
+ * Recursively split a single parsed message's body on Gmail quote markers
+ * and generic separators. Returns an array of 1+ messages.
+ *
+ * Pass 2 of the two-pass architecture: runs AFTER primary Outlook/Gmail split.
+ * Each message from Pass 1 is checked for internal quoting that wasn't caught
+ * by the top-level split.
+ *
+ * @param depth Current recursion depth (max 5)
+ */
+function splitQuotedReplies(msg: ParsedMessage, depth = 0): ParsedMessage[] {
+  if (depth >= 5) return [msg];
+
+  const body = msg.body_raw || msg.body_text;
+  if (!body || body.trim().length === 0) return [msg];
+
+  // Try Gmail/Apple Mail markers first (richer metadata)
+  const markers = findGmailQuoteMarkers(body);
+  if (markers.length > 0) {
+    const firstMarker = markers[0];
+
+    // Text above the quote marker = this message's actual content
+    const parentBodyRaw = body.slice(0, firstMarker.index);
+    const parentBodyText = stripNoise(parentBodyRaw).trim();
+
+    // Text below the quote marker = the quoted reply's content.
+    // If there are multiple markers at this level, the content between
+    // marker[0] end and marker[1] start is the first quoted reply,
+    // and subsequent markers are deeper quotes within that reply.
+    // We take everything after the first marker and let recursion handle the rest.
+    const childBodyRaw = body.slice(firstMarker.fullMatchEnd);
+
+    const results: ParsedMessage[] = [];
+
+    // Parent message (only if it has real content)
+    if (parentBodyText.length > 0) {
+      results.push({
+        ...msg,
+        body_text: parentBodyText,
+        body_raw: parentBodyRaw.trim(),
+      });
+    }
+
+    // Child message from the quote marker
+    const childMsg: ParsedMessage = {
+      sender_name: firstMarker.senderName,
+      sender_email: firstMarker.senderEmail,
+      sent_at: firstMarker.dateRaw ? parseDate(firstMarker.dateRaw) : null,
+      subject: msg.subject,
+      body_text: stripNoise(childBodyRaw),
+      body_raw: childBodyRaw.trim(),
+    };
+
+    // Recursively split the child (it may contain deeper quotes)
+    results.push(...splitQuotedReplies(childMsg, depth + 1));
+
+    return results;
+  }
+
+  // Try generic separators (no sender metadata)
+  GENERIC_SEPARATOR_RE.lastIndex = 0;
+  const sepMatch = GENERIC_SEPARATOR_RE.exec(body);
+  if (sepMatch) {
+    const parentBodyRaw = body.slice(0, sepMatch.index);
+    const parentBodyText = stripNoise(parentBodyRaw).trim();
+    const childBodyRaw = body.slice(sepMatch.index + sepMatch[0].length);
+
+    const results: ParsedMessage[] = [];
+
+    if (parentBodyText.length > 0) {
+      results.push({
+        ...msg,
+        body_text: parentBodyText,
+        body_raw: parentBodyRaw.trim(),
+      });
+    }
+
+    // Child inherits parent metadata (no structured header to extract from)
+    const childMsg: ParsedMessage = {
+      sender_name: null,
+      sender_email: null,
+      sent_at: null,
+      subject: msg.subject,
+      body_text: stripNoise(childBodyRaw),
+      body_raw: childBodyRaw.trim(),
+    };
+
+    if (childMsg.body_text.trim().length > 0) {
+      results.push(...splitQuotedReplies(childMsg, depth + 1));
+    }
+
+    return results.length > 0 ? results : [msg];
+  }
+
+  // No internal quotes — return as-is (ensure noise is stripped)
+  return [{
+    ...msg,
+    body_text: stripNoise(msg.body_raw || msg.body_text),
+  }];
+}
+
+/**
+ * Sort messages chronologically by sent_at (oldest first).
+ * Messages without dates maintain their relative extraction order at the end.
+ */
+function sortChronologically(messages: ParsedMessage[]): ParsedMessage[] {
+  const withDate: ParsedMessage[] = [];
+  const withoutDate: ParsedMessage[] = [];
+
+  for (const msg of messages) {
+    if (msg.sent_at) {
+      withDate.push(msg);
+    } else {
+      withoutDate.push(msg);
+    }
+  }
+
+  withDate.sort((a, b) => {
+    const ta = new Date(a.sent_at!).getTime();
+    const tb = new Date(b.sent_at!).getTime();
+    return ta - tb;
+  });
+
+  return [...withDate, ...withoutDate];
+}
+
+/**
  * Parse a forwarded email body into individual messages.
  *
- * Strategy:
- * 1. Find all Outlook-style header blocks (From:/Sent:/To:/Subject:)
- * 2. If none, try Gmail/Apple Mail-style "On ... wrote:" markers
- * 3. If neither found, return the entire text as a single fallback message
+ * Two-pass architecture:
+ * Pass 1 — Primary split (Outlook headers OR Gmail markers OR single fallback)
+ * Pass 2 — Recursive sub-split on each message for internal Gmail quotes / generic separators
+ * Final  — Chronological sort (oldest first)
  */
 export function parseForwardedEmail(
   rawBody: string,
@@ -264,81 +397,95 @@ export function parseForwardedEmail(
   // use \n anchors and `.` (which doesn't match \r in Node.js).
   rawBody = rawBody.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
+  // ========== Pass 1: Primary split ==========
   const headers = findHeaderBlocks(rawBody);
+  let pass1Messages: ParsedMessage[];
+  let forwarderNote: string | undefined;
 
-  // No Outlook headers — try Gmail/Apple Mail "On ... wrote:" markers
-  if (headers.length === 0) {
+  if (headers.length > 0) {
+    // Outlook-style split
+    pass1Messages = [];
+
+    for (let i = 0; i < headers.length; i++) {
+      const header = headers[i];
+      const bodyStart = header.fullMatchEnd;
+      const bodyEnd = i + 1 < headers.length ? headers[i + 1].index : rawBody.length;
+      const bodySlice = rawBody.slice(bodyStart, bodyEnd);
+      const { senderName, senderEmail } = parseSenderField(header.senderRaw);
+
+      pass1Messages.push({
+        sender_name: senderName,
+        sender_email: senderEmail,
+        sent_at: parseDate(header.sentRaw),
+        subject: header.subject,
+        body_text: stripNoise(bodySlice),
+        body_raw: bodySlice.trim(),
+        to_header: header.toRaw,
+        cc_header: header.ccRaw,
+      });
+    }
+
+    // Forwarder preface handling
+    const preface = rawBody.slice(0, headers[0].index).trim();
+    const cleaned = preface
+      .replace(/^[\s_\-=*]+$/gm, "")           // separator lines
+      .replace(/^[A-Z][a-z]+ [A-Z][a-z]+\s*\|.*$/gm, "") // "Name | Title" pattern
+      .replace(/^[A-Z][a-z]+ [A-Z][a-z]+\s*$/gm, "")     // just a name on a line
+      .replace(/^\s*Sent from .+$/gm, "")       // mobile signatures
+      .trim();
+
+    if (cleaned.length > 20) {
+      forwarderNote = cleaned;
+    }
+  } else {
+    // Try Gmail/Apple Mail markers as primary split
     const gmailMarkers = findGmailQuoteMarkers(rawBody);
 
     if (gmailMarkers.length > 0) {
-      return buildGmailMessages(rawBody, gmailMarkers, envelope);
+      pass1Messages = buildGmailMessages(rawBody, gmailMarkers, envelope);
+    } else {
+      // Single message fallback — no internal split needed
+      const { senderName, senderEmail } = envelope?.sender
+        ? parseSenderField(envelope.sender)
+        : { senderName: null, senderEmail: null };
+
+      return [
+        {
+          sender_name: senderName,
+          sender_email: senderEmail,
+          sent_at: envelope?.timestamp
+            ? new Date(envelope.timestamp * 1000).toISOString()
+            : null,
+          subject: envelope?.subject ?? null,
+          body_text: stripNoise(rawBody),
+          body_raw: rawBody,
+        },
+      ];
     }
-
-    // No structured headers at all — fall back to single message from envelope
-    const { senderName, senderEmail } = envelope?.sender
-      ? parseSenderField(envelope.sender)
-      : { senderName: null, senderEmail: null };
-
-    return [
-      {
-        sender_name: senderName,
-        sender_email: senderEmail,
-        sent_at: envelope?.timestamp
-          ? new Date(envelope.timestamp * 1000).toISOString()
-          : null,
-        subject: envelope?.subject ?? null,
-        body_text: stripNoise(rawBody),
-        body_raw: rawBody,
-      },
-    ];
   }
 
-  const messages: ParsedMessage[] = [];
-
-  for (let i = 0; i < headers.length; i++) {
-    const header = headers[i];
-    const bodyStart = header.fullMatchEnd;
-    const bodyEnd = i + 1 < headers.length ? headers[i + 1].index : rawBody.length;
-    const bodySlice = rawBody.slice(bodyStart, bodyEnd);
-    const { senderName, senderEmail } = parseSenderField(header.senderRaw);
-
-    messages.push({
-      sender_name: senderName,
-      sender_email: senderEmail,
-      sent_at: parseDate(header.sentRaw),
-      subject: header.subject,
-      body_text: stripNoise(bodySlice),
-      body_raw: bodySlice.trim(),
-      to_header: header.toRaw,
-      cc_header: header.ccRaw,
-    });
+  // ========== Pass 2: Recursive sub-split on each message ==========
+  const allMessages: ParsedMessage[] = [];
+  for (const msg of pass1Messages) {
+    allMessages.push(...splitQuotedReplies(msg));
   }
 
-  // If there's text BEFORE the first header block, it's the forwarder's preface
-  // (e.g., "FYI", a signature line, or a brief note). This is forwarding metadata,
-  // not partner communication — never create a standalone message for it.
-  // If the preface contains a meaningful note (not just a signature), attach it
-  // to the first real message as forwarder_note for classification context.
-  const preface = rawBody.slice(0, headers[0].index).trim();
-  const cleaned = preface
-    .replace(/^[\s_\-=*]+$/gm, "")           // separator lines
-    .replace(/^[A-Z][a-z]+ [A-Z][a-z]+\s*\|.*$/gm, "") // "Name | Title" pattern
-    .replace(/^[A-Z][a-z]+ [A-Z][a-z]+\s*$/gm, "")     // just a name on a line
-    .replace(/^\s*Sent from .+$/gm, "")       // mobile signatures
-    .trim();
-
-  if (cleaned.length > 20 && messages.length > 0) {
-    messages[0].forwarder_note = cleaned;
+  // ========== Final: Attach forwarder_note and sort ==========
+  if (forwarderNote && allMessages.length > 0) {
+    allMessages[0].forwarder_note = forwarderNote;
   }
 
-  return messages;
+  return sortChronologically(allMessages);
 }
 
 /**
  * Build ParsedMessage[] from Gmail/Apple Mail "On ... wrote:" markers.
+ * Used for Pass 1 when Gmail is the primary split format (no Outlook headers).
  *
  * Message 0 (newest): body = text before the first marker, sender from envelope.
  * Message N (older):  body = text between marker[n] and marker[n+1], sender from marker.
+ *
+ * NOTE: These messages are NOT recursively split here — Pass 2 handles that.
  */
 function buildGmailMessages(
   rawBody: string,
@@ -352,9 +499,6 @@ function buildGmailMessages(
   const newestBody = rawBody.slice(0, markers[0].index);
   const cleanedNewest = stripNoise(newestBody).trim();
 
-  // If the preface is very short (< 20 chars), it's not a real message body —
-  // likely just "FYI" or empty. In that case, skip creating a message for it
-  // and attach as forwarder_note instead.
   const { senderName: envName, senderEmail: envEmail } = envelope?.sender
     ? parseSenderField(envelope.sender)
     : { senderName: null, senderEmail: null };
@@ -379,16 +523,14 @@ function buildGmailMessages(
     const bodyEnd = i + 1 < markers.length ? markers[i + 1].index : rawBody.length;
     const bodySlice = rawBody.slice(bodyStart, bodyEnd);
 
-    const msg: ParsedMessage = {
+    messages.push({
       sender_name: marker.senderName,
       sender_email: marker.senderEmail,
       sent_at: marker.dateRaw ? parseDate(marker.dateRaw) : null,
       subject,
       body_text: stripNoise(bodySlice),
       body_raw: bodySlice.trim(),
-    };
-
-    messages.push(msg);
+    });
   }
 
   // If we skipped the newest message (too short), attach it as forwarder_note

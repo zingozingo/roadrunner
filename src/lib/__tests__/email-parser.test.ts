@@ -444,7 +444,7 @@ Looping in Dana from our SA team.`;
     });
   });
 
-  describe("Gmail single quote → 2 messages", () => {
+  describe("Gmail single quote → 2 messages (chronological)", () => {
     const body = `Hi team, here's an update on the Spacelift integration.
 
 We finalized the architecture doc and sent it to their engineering lead.
@@ -467,30 +467,27 @@ Alice`;
       expect(messages.length).toBe(2);
     });
 
-    it("newest message has envelope sender", () => {
-      expect(messages[0].sender_name).toBe("Steven Romero");
-      expect(messages[0].sender_email).toBe("sterme@amazon.com");
-      expect(messages[0].body_text).toContain("Spacelift integration");
+    it("oldest message (Alice) is first after chronological sort", () => {
+      expect(messages[0].sender_email).toBe("alice@partnerco.com");
+      expect(messages[0].sender_name).toBe("Alice Chen");
+      expect(messages[0].body_text).toContain("reviewed the doc");
+      expect(messages[0].sent_at).not.toBeNull();
+      expect(messages[0].sent_at).toContain("2025-02-03");
     });
 
-    it("older message has Gmail-extracted sender", () => {
-      expect(messages[1].sender_email).toBe("alice@partnerco.com");
-      expect(messages[1].sender_name).toBe("Alice Chen");
-      expect(messages[1].body_text).toContain("reviewed the doc");
+    it("newest message (Steven) is last", () => {
+      expect(messages[1].sender_name).toBe("Steven Romero");
+      expect(messages[1].sender_email).toBe("sterme@amazon.com");
+      expect(messages[1].body_text).toContain("Spacelift integration");
     });
 
     it("both messages share the envelope subject", () => {
       expect(messages[0].subject).toBe("Re: Spacelift Integration");
       expect(messages[1].subject).toBe("Re: Spacelift Integration");
     });
-
-    it("parses sent_at from Gmail date", () => {
-      expect(messages[1].sent_at).not.toBeNull();
-      expect(messages[1].sent_at).toContain("2025-02-03");
-    });
   });
 
-  describe("Gmail multi-level → 3 messages", () => {
+  describe("Gmail multi-level → 3 messages (chronological)", () => {
     const body = `Got it, I'll prepare the demo environment.
 
 On Tue, Feb 4, 2025 at 2:15 PM Bob Lee <bob@partner.com> wrote:
@@ -505,13 +502,13 @@ Can we set up a demo for the client next week?`;
       timestamp: 1738700000,
     });
 
-    it("splits into 3 messages (newest → oldest)", () => {
+    it("splits into 3 messages", () => {
       expect(messages.length).toBe(3);
     });
 
-    it("newest message is from envelope sender", () => {
-      expect(messages[0].sender_email).toBe("sterme@amazon.com");
-      expect(messages[0].body_text).toContain("demo environment");
+    it("oldest message (Alice) is first", () => {
+      expect(messages[0].sender_email).toBe("alice@partnerco.com");
+      expect(messages[0].body_text).toContain("demo for the client");
     });
 
     it("middle message is from Bob", () => {
@@ -519,13 +516,13 @@ Can we set up a demo for the client next week?`;
       expect(messages[1].body_text).toContain("staging server");
     });
 
-    it("oldest message is from Alice", () => {
-      expect(messages[2].sender_email).toBe("alice@partnerco.com");
-      expect(messages[2].body_text).toContain("demo for the client");
+    it("newest message (Steven) is last", () => {
+      expect(messages[2].sender_email).toBe("sterme@amazon.com");
+      expect(messages[2].body_text).toContain("demo environment");
     });
   });
 
-  describe("Gmail + Outlook hybrid → Outlook wins", () => {
+  describe("Gmail + Outlook hybrid → two-pass splits both", () => {
     const body = `
 ________________________________
 From: Alice Chen <alice@partnerco.com>
@@ -535,21 +532,29 @@ Subject: Security Review
 
 Hi Bob, here's the security review.
 
-On Mon, Jan 27, 2025 at 3:00 PM, Carlos <carlos@vendor.com> wrote:
+On Mon, Jan 27, 2025 at 3:00 PM Carlos Ruiz <carlos@vendor.com> wrote:
 Here's the initial assessment.`;
 
     const messages = parseForwardedEmail(body);
 
-    it("uses Outlook parsing (1 message), Gmail quote stays in body", () => {
-      expect(messages.length).toBe(1);
-      expect(messages[0].sender_email).toBe("alice@partnerco.com");
-      expect(messages[0].body_text).toContain("security review");
-      // Gmail quote is part of Alice's message body, not split out
+    it("splits into 2 messages (Outlook primary + Gmail sub-split)", () => {
+      expect(messages.length).toBe(2);
+    });
+
+    it("older message (Carlos, from Gmail marker) is first", () => {
+      expect(messages[0].sender_email).toBe("carlos@vendor.com");
       expect(messages[0].body_text).toContain("initial assessment");
+      expect(messages[0].body_text).not.toContain("security review");
+    });
+
+    it("newer message (Alice, from Outlook header) is second", () => {
+      expect(messages[1].sender_email).toBe("alice@partnerco.com");
+      expect(messages[1].body_text).toContain("security review");
+      expect(messages[1].body_text).not.toContain("initial assessment");
     });
   });
 
-  describe("Gmail wrapped lines → 2 messages", () => {
+  describe("Gmail wrapped lines → 2 messages (chronological)", () => {
     const body = `Thanks for the update.
 
 On Mon, Feb 3, 2025 at 10:30 AM
@@ -562,14 +567,15 @@ Here's the latest status on the migration project.`;
       timestamp: 1738700000,
     });
 
-    it("extracts email from wrapped 2nd line", () => {
+    it("extracts email from wrapped 2nd line, oldest first", () => {
       expect(messages.length).toBe(2);
-      expect(messages[1].sender_email).toBe("alice@partnerco.com");
-      expect(messages[1].body_text).toContain("migration project");
+      expect(messages[0].sender_email).toBe("alice@partnerco.com");
+      expect(messages[0].body_text).toContain("migration project");
+      expect(messages[1].sender_email).toBe("bob@partner.com");
     });
   });
 
-  describe("Apple Mail format → 2 messages", () => {
+  describe("Apple Mail format → 2 messages (chronological)", () => {
     const body = `Confirmed, I'll be there.
 
 On Dec 10, 2025, at 7:02 PM, Jane Smith <jane@partner.com> wrote:
@@ -578,20 +584,22 @@ Can we meet tomorrow at 3pm to discuss the roadmap?`;
     const messages = parseForwardedEmail(body, {
       sender: "Steven Romero <sterme@amazon.com>",
       subject: "Re: Roadmap Discussion",
-      timestamp: 1738700000,
+      timestamp: 1765454400, // Dec 11, 2025 — after Jane's Dec 10
     });
 
     it("parses Apple Mail style quote", () => {
       expect(messages.length).toBe(2);
     });
 
-    it("extracts sender from Apple Mail format", () => {
-      expect(messages[1].sender_email).toBe("jane@partner.com");
-      expect(messages[1].sender_name).toBe("Jane Smith");
+    it("older message (Jane) is first after chronological sort", () => {
+      expect(messages[0].sender_email).toBe("jane@partner.com");
+      expect(messages[0].sender_name).toBe("Jane Smith");
+      expect(messages[0].body_text).toContain("roadmap");
     });
 
-    it("extracts body from quoted message", () => {
-      expect(messages[1].body_text).toContain("roadmap");
+    it("newer message (Steven) is second", () => {
+      expect(messages[1].sender_email).toBe("sterme@amazon.com");
+      expect(messages[1].body_text).toContain("Confirmed");
     });
   });
 
@@ -644,6 +652,256 @@ alice@partnerco.com
 
     it("preserves body_raw with full signature", () => {
       expect(messages[0].body_raw).toContain("VP Engineering");
+    });
+  });
+
+  // ================================================================
+  // Two-pass architecture tests
+  // ================================================================
+
+  describe("Two-pass: Outlook + Gmail inside → splits both levels", () => {
+    const body = `Steven Romero | Growth PDM
+
+________________________________
+From: Marcin Wyszynski <marcinw@spacelift.io>
+Sent: Tuesday, January 7, 2026 9:00 AM
+To: Julia Irion <juliai@spacelift.io>; Steven Romero <sterme@amazon.com>
+Subject: Re: Spacelift ISV Accelerate
+
+CAUTION: This email originated from outside of the organization. Do not click links or open attachments.
+
+Hi folks, now that we're presumably all back from the holidays, I wanted to follow up on this thread.
+
+Best,
+Marcin
+
+On Wed, Dec 10, 2025 at 7:02 PM Julia Irion <juliai@spacelift.io> wrote:
+Hi all, Hope everyone had a great re:Invent! I wanted to connect regarding the ISV Accelerate program.
+
+--
+Julia Irion
+Head of Channel & Alliances, Spacelift`;
+
+    const messages = parseForwardedEmail(body, {
+      sender: "Steven Romero <sterme@amazon.com>",
+      subject: "FW: Spacelift ISV Accelerate",
+    });
+
+    it("produces 2 messages from the Outlook+Gmail split", () => {
+      expect(messages.length).toBe(2);
+    });
+
+    it("Julia's older message is first (chronological)", () => {
+      expect(messages[0].sender_email).toBe("juliai@spacelift.io");
+      expect(messages[0].sender_name).toBe("Julia Irion");
+      expect(messages[0].body_text).toContain("re:Invent");
+      expect(messages[0].body_text).toContain("ISV Accelerate");
+    });
+
+    it("Marcin's newer message is second", () => {
+      expect(messages[1].sender_email).toBe("marcinw@spacelift.io");
+      expect(messages[1].sender_name).toBe("Marcin Wyszynski");
+      expect(messages[1].body_text).toContain("follow up on this thread");
+    });
+
+    it("strips CAUTION banner from Marcin's message", () => {
+      expect(messages[1].body_text).not.toContain("CAUTION");
+    });
+
+    it("strips Julia's signature from her message", () => {
+      expect(messages[0].body_text).not.toContain("Head of Channel");
+    });
+
+    it("Marcin's body does NOT contain Julia's quoted text", () => {
+      expect(messages[1].body_text).not.toContain("re:Invent");
+      expect(messages[1].body_text).not.toContain("Julia Irion");
+    });
+
+    it("does not set forwarder_note for signature-only preface", () => {
+      expect(messages[0].forwarder_note).toBeUndefined();
+      expect(messages[1].forwarder_note).toBeUndefined();
+    });
+  });
+
+  describe("Three-level deep: Outlook → Gmail → Gmail", () => {
+    const body = `
+________________________________
+From: Charlie <charlie@co.com>
+Sent: Wednesday, March 5, 2025 3:00 PM
+To: Steven <sterme@amazon.com>
+Subject: Re: Deep Thread
+
+Charlie's message here.
+
+On Tue, Mar 4, 2025 at 2:00 PM Bob Smith <bob@co.com> wrote:
+Bob's reply to Alice.
+
+On Mon, Mar 3, 2025 at 10:00 AM Alice Jones <alice@co.com> wrote:
+Alice started this thread.`;
+
+    const messages = parseForwardedEmail(body);
+
+    it("produces 3 messages from nested splits", () => {
+      expect(messages.length).toBe(3);
+    });
+
+    it("sorts chronologically: Alice, Bob, Charlie", () => {
+      expect(messages[0].sender_email).toBe("alice@co.com");
+      expect(messages[0].body_text).toContain("started this thread");
+      expect(messages[1].sender_email).toBe("bob@co.com");
+      expect(messages[1].body_text).toContain("reply to Alice");
+      expect(messages[2].sender_email).toBe("charlie@co.com");
+      expect(messages[2].body_text).toContain("Charlie's message");
+    });
+
+    it("each message body is clean (no quotes from other messages)", () => {
+      expect(messages[2].body_text).not.toContain("reply to Alice");
+      expect(messages[2].body_text).not.toContain("started this thread");
+      expect(messages[1].body_text).not.toContain("started this thread");
+    });
+  });
+
+  describe("Generic separator: ---- Original Message ----", () => {
+    const body = `
+________________________________
+From: Bob Lee <bob@partner.com>
+Sent: Monday, February 10, 2025 11:00 AM
+To: Steven <sterme@amazon.com>
+Subject: FW: Status Update
+
+Here's the forwarded thread.
+
+---- Original Message ----
+The original message content from the partner about the project timeline.`;
+
+    const messages = parseForwardedEmail(body);
+
+    it("splits at generic separator", () => {
+      expect(messages.length).toBe(2);
+    });
+
+    it("parent has Bob's content", () => {
+      const bobMsg = messages.find(m => m.sender_email === "bob@partner.com");
+      expect(bobMsg).toBeDefined();
+      expect(bobMsg!.body_text).toContain("forwarded thread");
+      expect(bobMsg!.body_text).not.toContain("project timeline");
+    });
+
+    it("child has the original message content", () => {
+      const childMsg = messages.find(m => m.sender_email === null);
+      expect(childMsg).toBeDefined();
+      expect(childMsg!.body_text).toContain("project timeline");
+    });
+  });
+
+  describe("Recursive depth limit (6+ levels stops at 5)", () => {
+    // Build a deeply nested Gmail thread (6 levels)
+    let body = "Level 6 content.\n";
+    for (let i = 5; i >= 1; i--) {
+      body = `Level ${i} content.\n\nOn Mon, Jan ${i}, 2025 at ${i}:00 PM Person${i} <p${i}@co.com> wrote:\n${body}`;
+    }
+    body = `Top level content.\n\n${body}`;
+
+    const messages = parseForwardedEmail(body, {
+      sender: "Top <top@co.com>",
+      subject: "Deep Thread",
+      timestamp: 1738700000,
+    });
+
+    it("caps at max depth (does not exceed 6 total messages)", () => {
+      // 5 levels of recursion + 1 top level = at most 6 messages
+      // Level 6 content gets merged into level 5's body
+      expect(messages.length).toBeLessThanOrEqual(6);
+      expect(messages.length).toBeGreaterThanOrEqual(5);
+    });
+  });
+
+  describe("Empty parent: quote marker at start of body", () => {
+    const body = `
+________________________________
+From: Alice <alice@co.com>
+Sent: Monday, February 3, 2025 10:30 AM
+To: Bob <bob@co.com>
+Subject: Re: Discussion
+
+On Mon, Feb 3, 2025 at 9:00 AM Bob Smith <bob@co.com> wrote:
+Hey Alice, what do you think about the proposal?`;
+
+    const messages = parseForwardedEmail(body);
+
+    it("does not create an empty parent message", () => {
+      // Alice's body is empty (all content is Bob's quote)
+      // Should produce Bob's message, possibly Alice's empty one is dropped
+      for (const msg of messages) {
+        expect(msg.body_text.trim().length).toBeGreaterThan(0);
+      }
+    });
+
+    it("Bob's quoted message is extracted", () => {
+      const bobMsg = messages.find(m => m.sender_email === "bob@co.com");
+      expect(bobMsg).toBeDefined();
+      expect(bobMsg!.body_text).toContain("proposal");
+    });
+  });
+
+  describe("Signature stripped per-message in two-pass", () => {
+    const body = `
+________________________________
+From: Marcin <marcinw@spacelift.io>
+Sent: Tuesday, January 7, 2026 9:00 AM
+To: Steven <sterme@amazon.com>
+Subject: Re: Integration
+
+Marcin's main message here.
+
+--
+Marcin Wyszynski
+CTO, Spacelift
+
+On Wed, Dec 10, 2025 at 7:02 PM Julia Irion <juliai@spacelift.io> wrote:
+Julia's original message about the integration.
+
+--
+Julia Irion
+Head of Channel & Alliances, Spacelift`;
+
+    const messages = parseForwardedEmail(body);
+
+    it("strips Marcin's signature from his message", () => {
+      const marcin = messages.find(m => m.sender_email === "marcinw@spacelift.io");
+      expect(marcin).toBeDefined();
+      expect(marcin!.body_text).toContain("main message");
+      expect(marcin!.body_text).not.toContain("CTO");
+    });
+
+    it("strips Julia's signature from her message", () => {
+      const julia = messages.find(m => m.sender_email === "juliai@spacelift.io");
+      expect(julia).toBeDefined();
+      expect(julia!.body_text).toContain("original message");
+      expect(julia!.body_text).not.toContain("Head of Channel");
+    });
+  });
+
+  describe("Chronological: messages without dates go at end", () => {
+    const body = `
+________________________________
+From: Alice <alice@co.com>
+Sent: Monday, February 3, 2025 10:30 AM
+To: Bob <bob@co.com>
+Subject: Thread
+
+Alice's message.
+
+---- Original Message ----
+Undated original content.`;
+
+    const messages = parseForwardedEmail(body);
+
+    it("dated message comes before undated message", () => {
+      expect(messages.length).toBe(2);
+      // Alice has a date, generic separator child does not
+      expect(messages[0].sent_at).not.toBeNull();
+      expect(messages[1].sent_at).toBeNull();
     });
   });
 });
