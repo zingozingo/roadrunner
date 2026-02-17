@@ -171,6 +171,7 @@ export interface Message {
   classification_result: ClassificationResult | null;
   forwarder_email: string | null;
   forwarder_name: string | null;
+  forwarder_note: string | null;
   to_header: string | null;
   cc_header: string | null;
 }
@@ -212,6 +213,7 @@ export interface ClassificationResult {
     confidence: number;
     is_new: boolean;
     partner_name: string | null;
+    partner_id?: string | null;
   };
   /** Events matched by ID from context. Claude never creates events. */
   matched_events: {
@@ -221,6 +223,12 @@ export interface ClassificationResult {
   }[];
   /** Programs matched by ID from context. Claude never creates programs. */
   matched_programs: {
+    id: string;
+    name: string;
+    relationship: string;
+  }[];
+  /** AWS relationships matched by ID from context. Claude never creates relationships. */
+  matched_relationships: {
     id: string;
     name: string;
     relationship: string;

@@ -1,9 +1,11 @@
-import { classifyMessage, ClassifyContext, ForwarderContext } from "./claude";
+import { classifyMessage, ClassifyContext } from "./claude";
 import {
   getSupabaseClient,
   getActiveEngagements,
   getActiveEvents,
   getActivePrograms,
+  getPartners,
+  getAwsRelationships,
   getUnclassifiedMessages,
   createApproval,
   createEngagement,
@@ -11,9 +13,11 @@ import {
   upsertParticipants,
   appendOpenItems,
   linkMeetingToEngagement,
+  linkEngagementAwsRelationship,
 } from "./supabase";
 import { sendClassificationPrompt } from "./sms";
 import { ClassificationResult, Message } from "./types";
+import { isUserEmail } from "./user-config";
 
 const AUTO_ASSIGN_THRESHOLD = 0.85;
 
@@ -30,32 +34,29 @@ export async function processUnclassifiedMessages(): Promise<{
   const stats = { processed: 0, autoAssigned: 0, flaggedForReview: 0, errors: 0 };
 
   // Load current state once for the batch
-  const [messages, engagements, events, programs] = await Promise.all([
+  const [messages, engagements, events, programs, partners, relationships] = await Promise.all([
     getUnclassifiedMessages(),
     getActiveEngagements(),
     getActiveEvents(),
     getActivePrograms(),
+    getPartners(),
+    getAwsRelationships(),
   ]);
 
   if (messages.length === 0) return stats;
 
-  const context: ClassifyContext = { engagements, events, programs };
+  const context: ClassifyContext = { engagements, events, programs, partners, relationships };
 
   // Group messages by forwarded_at timestamp (within 5s = same forwarded email)
   const groups = groupByForwardedAt(messages);
 
   for (const group of groups) {
     try {
-      // Recover forwarder context from stored message metadata
+      // Recover forwarder note from stored message metadata
       const representative = group[0];
-      const forwarderContext: ForwarderContext | undefined =
-        representative.forwarder_name && representative.forwarder_email
-          ? { name: representative.forwarder_name, email: representative.forwarder_email }
-          : representative.forwarder_email
-            ? { name: representative.forwarder_email, email: representative.forwarder_email }
-            : undefined;
+      const forwarderNote = representative.forwarder_note ?? null;
 
-      const result = await classifyMessage(group, context, forwarderContext);
+      const result = await classifyMessage(group, context, forwarderNote);
       const { needsReview } = await applyClassificationResult(group, result, context);
       stats.processed += group.length;
 
@@ -83,7 +84,7 @@ export async function processUnclassifiedMessages(): Promise<{
 
 export async function processSingleMessage(
   messageIds: string[],
-  forwarderContext?: ForwarderContext
+  forwarderNote?: string | null
 ): Promise<ClassificationResult | null> {
   if (messageIds.length === 0) return null;
 
@@ -101,16 +102,18 @@ export async function processSingleMessage(
   }
 
   // Load current state
-  const [engagements, events, programs] = await Promise.all([
+  const [engagements, events, programs, partners, relationships] = await Promise.all([
     getActiveEngagements(),
     getActiveEvents(),
     getActivePrograms(),
+    getPartners(),
+    getAwsRelationships(),
   ]);
 
-  const context: ClassifyContext = { engagements, events, programs };
+  const context: ClassifyContext = { engagements, events, programs, partners, relationships };
 
   try {
-    const result = await classifyMessage(messages as Message[], context, forwarderContext);
+    const result = await classifyMessage(messages as Message[], context, forwarderNote);
     await applyClassificationResult(messages as Message[], result, context);
     return result;
   } catch (error) {
@@ -165,7 +168,8 @@ function groupByForwardedAt(messages: Message[]): Message[][] {
  * 1. Update messages with classification data and engagement assignment
  * 2. Update engagement state (current_state, open_items, tags) — skip for new engagements (already set at creation)
  * 3. Create entity links (engagement↔event, engagement↔program) by ID
- * 4. Upsert participants and link to engagement
+ * 4. Create engagement↔relationship links from matched_relationships
+ * 5. Upsert participants and link to engagement
  *
  * Idempotent — safe to call multiple times with the same data.
  */
@@ -267,7 +271,16 @@ export async function persistClassificationResult(
     }
   }
 
-  // 4. Upsert participants and link to engagement
+  // 4. Create engagement↔relationship links from matched_relationships
+  for (const rel of result.matched_relationships ?? []) {
+    try {
+      await linkEngagementAwsRelationship(engagementId, rel.id);
+    } catch (err) {
+      console.error(`Failed to link engagement to relationship "${rel.name}":`, err);
+    }
+  }
+
+  // 5. Upsert participants and link to engagement
   if (result.participants.length > 0) {
     await upsertParticipants(result.participants, engagementId);
   }

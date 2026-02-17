@@ -65,6 +65,7 @@ export async function storeMessages(
     linked_entities: [],
     forwarder_email: m.forwarder_email ?? null,
     forwarder_name: m.forwarder_name ?? null,
+    forwarder_note: m.forwarder_note ?? null,
     to_header: m.to_header ?? null,
     cc_header: m.cc_header ?? null,
   }));
@@ -1173,6 +1174,16 @@ export async function appendOpenItems(
 // AWS Relationship CRUD
 // ============================================================
 
+export async function getAwsRelationships(): Promise<AwsRelationship[]> {
+  const { data, error } = await getSupabaseClient()
+    .from("aws_relationships")
+    .select("*")
+    .order("name", { ascending: true });
+
+  if (error) throw new Error(`Failed to fetch relationships: ${error.message}`);
+  return (data ?? []) as AwsRelationship[];
+}
+
 export async function getAwsRelationshipsWithCounts(): Promise<
   (AwsRelationship & { linked_count: number })[]
 > {
@@ -1520,6 +1531,29 @@ export async function linkMeetingAwsRelationship(
     .insert({ meeting_id: meetingId, aws_relationship_id: relationshipId });
 
   if (error) throw new Error(`Failed to link relationship: ${error.message}`);
+}
+
+export async function linkEngagementAwsRelationship(
+  engagementId: string,
+  relationshipId: string
+): Promise<void> {
+  const db = getSupabaseClient();
+
+  // Check for existing to avoid duplicates
+  const { data: existing } = await db
+    .from("engagement_aws_relationships")
+    .select("engagement_id")
+    .eq("engagement_id", engagementId)
+    .eq("aws_relationship_id", relationshipId)
+    .limit(1);
+
+  if (existing && existing.length > 0) return;
+
+  const { error } = await db
+    .from("engagement_aws_relationships")
+    .insert({ engagement_id: engagementId, aws_relationship_id: relationshipId });
+
+  if (error) throw new Error(`Failed to link engagement to relationship: ${error.message}`);
 }
 
 export async function unlinkMeetingAwsRelationship(

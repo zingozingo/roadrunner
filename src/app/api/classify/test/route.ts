@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { classifyMessage, ClassifyContext, ForwarderContext } from "@/lib/claude";
+import { classifyMessage, ClassifyContext } from "@/lib/claude";
 import {
   getActiveEngagements,
   getActiveEvents,
   getActivePrograms,
+  getPartners,
+  getAwsRelationships,
   getSupabaseClient,
 } from "@/lib/supabase";
 import { Message } from "@/lib/types";
@@ -118,6 +120,7 @@ export async function POST(request: NextRequest) {
           classification_result: null,
           forwarder_email: forwarderEmail ?? null,
           forwarder_name: forwarderName ?? null,
+          forwarder_note: null,
           to_header: (to as string) ?? null,
           cc_header: (cc as string) ?? null,
         },
@@ -149,24 +152,22 @@ export async function POST(request: NextRequest) {
         engagements: contextOverride.engagements ?? [],
         events: contextOverride.events ?? [],
         programs: contextOverride.programs ?? [],
+        partners: [],
+        relationships: [],
       };
     } else {
-      const [engagements, events, programs] = await Promise.all([
+      const [engagements, events, programs, partners, relationships] = await Promise.all([
         getActiveEngagements(),
         getActiveEvents(),
         getActivePrograms(),
+        getPartners(),
+        getAwsRelationships(),
       ]);
-      context = { engagements, events, programs };
+      context = { engagements, events, programs, partners, relationships };
     }
 
-    // Build forwarder context if provided
-    const forwarderContext: ForwarderContext | undefined =
-      forwarderName && forwarderEmail
-        ? { name: forwarderName, email: forwarderEmail }
-        : undefined;
-
     // Run classification — pure function, no side effects
-    const result = await classifyMessage(messages, context, forwarderContext);
+    const result = await classifyMessage(messages, context);
 
     const processingTimeMs = Math.round(performance.now() - start);
 
@@ -178,6 +179,8 @@ export async function POST(request: NextRequest) {
           engagements: context.engagements.length,
           events: context.events.length,
           programs: context.programs.length,
+          partners: context.partners.length,
+          relationships: context.relationships.length,
         },
         processingTimeMs,
       },

@@ -4,7 +4,7 @@ import { parseForwardedEmail, parseSenderField } from "@/lib/email-parser";
 import { storeMessages, checkDuplicateMessage, createMeetingFromICS } from "@/lib/supabase";
 import { extractICSFromAttachments, parseICSContent } from "@/lib/ics-parser";
 import { processSingleMessage } from "@/lib/classifier";
-import { ForwarderContext } from "@/lib/claude";
+import { stripPRVS } from "@/lib/user-config";
 
 /**
  * Verify Mailgun webhook signature.
@@ -223,16 +223,11 @@ export async function POST(request: NextRequest) {
 
     // Parse forwarder identity from Mailgun envelope sender.
     // When Steven forwards to Relay, Mailgun's "sender" = Steven's address.
-    const { senderName: forwarderName, senderEmail: forwarderEmail } =
+    const { senderName: forwarderName, senderEmail: rawForwarderEmail } =
       parseSenderField(sender);
 
-    // Build forwarder context for classification
-    const forwarderContext: ForwarderContext | undefined =
-      forwarderName && forwarderEmail
-        ? { name: forwarderName, email: forwarderEmail }
-        : forwarderEmail
-          ? { name: forwarderEmail, email: forwarderEmail }
-          : undefined;
+    // Strip Proofpoint PRVS wrapping (prvs=XXXXXX=real@email.com → real@email.com)
+    const forwarderEmail = rawForwarderEmail ? stripPRVS(rawForwarderEmail) : null;
 
     // Filter the Relay inbound address out of the To header — Claude doesn't need it
     const relayAddress = (process.env.RELAY_EMAIL_ADDRESS ?? "").toLowerCase();
@@ -265,6 +260,7 @@ export async function POST(request: NextRequest) {
       msg.forwarder_name = forwarderName ?? null;
       msg.to_header = msg.to_header || filteredTo || null;
       msg.cc_header = msg.cc_header || ccHeader || null;
+      // forwarder_note is already set by email-parser if a preface was detected
     }
 
     console.log(`Email parsing: extracted ${parsed.length} message(s) from "${subject}"`);
@@ -351,9 +347,11 @@ export async function POST(request: NextRequest) {
 
     // Trigger classification — Claude responds in 2-3s, well within
     // Vercel's serverless timeout.
+    // Pass the forwarder note from the first parsed message (if the email-parser detected one)
+    const forwarderNote = parsed[0]?.forwarder_note ?? null;
     let classified = false;
     try {
-      const result = await processSingleMessage(storedIds, forwarderContext);
+      const result = await processSingleMessage(storedIds, forwarderNote);
       classified = result !== null;
       console.log(`Classification: ${classified ? "success" : "no result"}`);
     } catch (classifyError) {

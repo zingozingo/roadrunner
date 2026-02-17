@@ -10,6 +10,8 @@ const {
   mockGetActiveEngagements,
   mockGetActiveEvents,
   mockGetActivePrograms,
+  mockGetPartners,
+  mockGetAwsRelationships,
   mockGetUnclassifiedMessages,
   mockCreateApproval,
   mockCreateEngagement,
@@ -17,6 +19,7 @@ const {
   mockSendClassificationPrompt,
   mockUpsertParticipants,
   mockAppendOpenItems,
+  mockLinkEngagementAwsRelationship,
   mockFrom,
 } = vi.hoisted(() => {
   const mockUpdate = vi.fn().mockReturnValue({
@@ -104,6 +107,8 @@ const {
     mockGetActiveEngagements: vi.fn(),
     mockGetActiveEvents: vi.fn(),
     mockGetActivePrograms: vi.fn(),
+    mockGetPartners: vi.fn().mockResolvedValue([]),
+    mockGetAwsRelationships: vi.fn().mockResolvedValue([]),
     mockGetUnclassifiedMessages: vi.fn(),
     mockCreateApproval: vi.fn().mockResolvedValue({ id: "approval-001" }),
     mockCreateEngagement: vi.fn().mockResolvedValue({ id: "init-auto", name: "Auto-Created", status: "active", summary: null, partner_name: null, pillar: null, priority: null, tags: [], created_at: "", updated_at: "", closed_at: null }),
@@ -114,6 +119,7 @@ const {
     }),
     mockUpsertParticipants: vi.fn().mockResolvedValue(undefined),
     mockAppendOpenItems: vi.fn().mockResolvedValue(null),
+    mockLinkEngagementAwsRelationship: vi.fn().mockResolvedValue(undefined),
     mockFrom,
   };
 });
@@ -131,16 +137,23 @@ vi.mock("../supabase", () => ({
   getActiveEngagements: mockGetActiveEngagements,
   getActiveEvents: mockGetActiveEvents,
   getActivePrograms: mockGetActivePrograms,
+  getPartners: mockGetPartners,
+  getAwsRelationships: mockGetAwsRelationships,
   getUnclassifiedMessages: mockGetUnclassifiedMessages,
   createApproval: mockCreateApproval,
   createEngagement: mockCreateEngagement,
   createEntityLink: mockCreateEntityLink,
   upsertParticipants: mockUpsertParticipants,
   appendOpenItems: mockAppendOpenItems,
+  linkEngagementAwsRelationship: mockLinkEngagementAwsRelationship,
 }));
 
 vi.mock("../sms", () => ({
   sendClassificationPrompt: mockSendClassificationPrompt,
+}));
+
+vi.mock("../user-config", () => ({
+  isUserEmail: vi.fn().mockReturnValue(false),
 }));
 
 // Now import the module under test
@@ -214,6 +227,7 @@ function makeMessage(overrides: Partial<Message> = {}): Message {
     classification_result: null,
     forwarder_email: null,
     forwarder_name: null,
+    forwarder_note: null,
     to_header: null,
     cc_header: null,
     ...overrides,
@@ -233,6 +247,7 @@ const HIGH_CONFIDENCE_RESULT: ClassificationResult = {
   matched_programs: [
     { id: "prog-001", name: "AWS Security Competency", relationship: "qualifies_for" },
   ],
+  matched_relationships: [],
   participants: [
     { name: "Alice Chen", email: "alice@cybershield.com", organization: "CyberShield", role: "Technical Lead" },
   ],
@@ -252,6 +267,7 @@ const LOW_CONFIDENCE_RESULT: ClassificationResult = {
   },
   matched_events: [],
   matched_programs: [],
+  matched_relationships: [],
   participants: [],
   current_state: null,
   open_items: [],
@@ -269,6 +285,7 @@ const HIGH_CONFIDENCE_NEW_RESULT: ClassificationResult = {
   },
   matched_events: [],
   matched_programs: [],
+  matched_relationships: [],
   participants: [
     { name: "Bob Smith", email: "bob@newcorp.com", organization: "NewCorp", role: "CTO" },
   ],
@@ -288,6 +305,7 @@ const NOISE_RESULT: ClassificationResult = {
   },
   matched_events: [],
   matched_programs: [],
+  matched_relationships: [],
   participants: [],
   current_state: null,
   open_items: [],
@@ -304,6 +322,8 @@ describe("processUnclassifiedMessages", () => {
     mockGetActiveEngagements.mockResolvedValue([ENGAGEMENT_FALCON]);
     mockGetActiveEvents.mockResolvedValue([EVENT_REINVENT]);
     mockGetActivePrograms.mockResolvedValue([PROGRAM_COMPETENCY]);
+    mockGetPartners.mockResolvedValue([]);
+    mockGetAwsRelationships.mockResolvedValue([]);
   });
 
   it("processes nothing when there are no unclassified messages", async () => {
@@ -328,15 +348,17 @@ describe("processUnclassifiedMessages", () => {
     expect(result.autoAssigned).toBe(1);
     expect(result.flaggedForReview).toBe(0);
 
-    // Verify classifyMessage was called with the message, full context, and no forwarder
+    // Verify classifyMessage was called with the message, full context, and no forwarder note
     expect(mockClassifyMessage).toHaveBeenCalledWith(
       [msg],
       {
         engagements: [ENGAGEMENT_FALCON],
         events: [EVENT_REINVENT],
         programs: [PROGRAM_COMPETENCY],
+        partners: [],
+        relationships: [],
       },
-      undefined
+      null
     );
   });
 
@@ -452,5 +474,24 @@ describe("processUnclassifiedMessages", () => {
 
     expect(result.autoAssigned).toBe(1);
     expect(result.flaggedForReview).toBe(0);
+  });
+
+  it("passes forwarder note from message metadata to classifyMessage", async () => {
+    const msg = makeMessage({ forwarder_note: "Important - handle ASAP" });
+    mockGetUnclassifiedMessages.mockResolvedValue([msg]);
+    mockClassifyMessage.mockResolvedValue(HIGH_CONFIDENCE_RESULT);
+
+    await processUnclassifiedMessages();
+
+    // Third arg should be the forwarder note
+    expect(mockClassifyMessage).toHaveBeenCalledWith(
+      [msg],
+      expect.objectContaining({
+        engagements: [ENGAGEMENT_FALCON],
+        partners: [],
+        relationships: [],
+      }),
+      "Important - handle ASAP"
+    );
   });
 });

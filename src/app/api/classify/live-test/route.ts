@@ -72,15 +72,10 @@ export async function POST(request: NextRequest) {
     const stored = await storeMessages(parsed);
     const messageId = stored[0].id;
 
-    // 2. Build forwarder context for classification
-    const forwarderContext =
-      forwarderName && forwarderEmail
-        ? { name: forwarderName, email: forwarderEmail }
-        : undefined;
-
-    // 3. Run the full classification pipeline
+    // 2. Run the full classification pipeline
     //    (classify → route → persist → SMS attempt)
-    const result = await processSingleMessage([messageId], forwarderContext);
+    //    Forwarder identity now comes from USER_CONFIG, not per-request context
+    const result = await processSingleMessage([messageId]);
 
     // 4. Fetch the updated message to see what engagement was assigned
     const db = getSupabaseClient();

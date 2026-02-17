@@ -2,10 +2,18 @@ import Anthropic from "@anthropic-ai/sdk";
 import {
   ClassificationResult,
   Message,
-  Engagement,
-  Event,
-  Program,
+  Partner,
+  AwsRelationship,
 } from "./types";
+import {
+  buildForwarderSection,
+  buildEngagementsSection,
+  buildEventsSection,
+  buildProgramsSection,
+  buildPartnersSection,
+  buildRelationshipsSection,
+  buildEmailSection,
+} from "./prompt-builder";
 
 let anthropicClient: Anthropic | null = null;
 
@@ -30,9 +38,13 @@ const SYSTEM_PROMPT = `You are Relay, an AI that classifies forwarded emails for
 
 **Engagements** — The core unit of work. One partner + one goal, tracked through email threads. Example: "Acme Security - FedRAMP Certification". Each has a partner_name and evolving current_state summary. Engagements are the ONLY entity you can create. If this email represents new work not matching any existing engagement, set is_new: true.
 
+**Partners** — Companies the PDM manages relationships with. Partners are REFERENCE DATA provided in the "Partner Catalog" section. When creating a new engagement, set partner_name to match an existing partner name when possible. If the partner is in the catalog, also set partner_id to their ID. If the partner is not in the catalog, set partner_id to null.
+
 **Programs** — Pre-defined AWS programs, frameworks, and motions. Examples: ISV Accelerate, Well-Architected, M-POP, Security Competency. These are REFERENCE DATA — you MUST match by ID from the provided list. Never invent a program. If no program is relevant, return an empty matched_programs array.
 
 **Events** — Pre-defined AWS events and milestones. Examples: re:Invent, re:Inforce, NY Summit. These are REFERENCE DATA — you MUST match by ID from the provided list. Never invent an event. If no event is relevant, return an empty matched_events array.
+
+**AWS Relationships** — Pre-defined AWS internal team contacts and relationships relevant to the PDM's partners. These are REFERENCE DATA provided in the "AWS Relationships" section. Match by ID when email participants correspond to known AWS contacts. If an email involves people from a known AWS relationship, include that relationship in matched_relationships. Never fabricate an ID.
 
 ## What Is NOT an Event
 
@@ -43,13 +55,15 @@ Only match to events that appear in the "Tracked Events" list provided in the co
 ## Rules
 
 1. **Prefer existing engagements.** Match to existing engagements when the partner and topic align. Only set is_new: true when nothing matches.
-2. **Match programs and events by ID only.** You are given a list of programs and events with their IDs. Return only IDs from that list. Never fabricate an ID. If unsure whether something matches, omit it.
+2. **Match programs, events, and relationships by ID only.** You are given lists with IDs. Return only IDs from those lists. Never fabricate an ID. If unsure whether something matches, omit it.
 3. **Noise.** Auto-replies, OOO, newsletters, marketing blasts = "noise". Return null current_state, empty arrays, confidence 1.0.
 4. **Mixed content.** If an email discusses multiple engagements, set content_type "mixed" and classify the primary engagement.
-5. **Forwarder.** The PDM who forwarded this email is identified in the "Forwarding Context" section. ALWAYS include them as a participant with role "forwarder". Do NOT try to identify the forwarder from the email body or greeting — use ONLY the forwarding context provided.
+5. **Forwarder.** The PDM who forwarded this email is identified in the "Forwarder Identity" section. ALWAYS include them as a participant with role "forwarder". Do NOT try to identify the forwarder from the email body or greeting — use ONLY the identity provided.
 6. **Participants.** Extract all other people from the email headers (From, To, CC) and body. Each person should appear EXACTLY ONCE in the participants array — merge information from headers and body into a single entry. If someone appears in the From header AND signs the email with a title, combine into one entry. Set email to null only if truly unavailable. The forwarder should not be duplicated — if they also appear in From/To/CC, include them once with role "forwarder".
 7. **Temporal honesty.** Only include dates that are explicitly confirmed: scheduled dates, named conference dates, explicit deadlines ("POC due March 15"). Vague intentions ("let's connect next week") go in current_state prose only, never as due_dates.
 8. **Tags.** Suggest short, lowercase labels that help categorize this engagement. Examples: "co-sell", "finserv", "poc", "migration", "marketplace", "security-review". Only suggest tags that are genuinely descriptive. Empty array is fine.
+9. **Partner matching.** Use the Partner Catalog to match email sender domains to known partners. If a sender's email domain matches a partner's known domains, use that partner's name and ID. This helps you assign partner_name and partner_id accurately.
+10. **AWS Relationship matching.** Use the AWS Relationships list to identify when known AWS contacts appear in the email (From, To, CC, or body). Match by email address or name. Include matched relationships in the matched_relationships array.
 
 ## Confidence Calibration
 
@@ -125,7 +139,8 @@ Return ONLY valid JSON. No markdown code blocks, no preamble, no explanation.
     "name": "existing name or suggested name if new",
     "confidence": 0.0-1.0,
     "is_new": true/false,
-    "partner_name": "company name or null"
+    "partner_name": "company name or null",
+    "partner_id": "uuid from Partner Catalog or null"
   },
   "matched_events": [
     {
@@ -139,6 +154,13 @@ Return ONLY valid JSON. No markdown code blocks, no preamble, no explanation.
       "id": "uuid from the Active Programs list — MUST be an ID you were given",
       "name": "program name for logging",
       "relationship": "implements | qualifies_for | enrolled_in | graduating | blocked_by"
+    }
+  ],
+  "matched_relationships": [
+    {
+      "id": "uuid from the AWS Relationships list — MUST be an ID you were given",
+      "name": "relationship name for logging",
+      "relationship": "involved_in | consulted | introduced | escalated_to"
     }
   ],
   "participants": [
@@ -160,98 +182,40 @@ Return ONLY valid JSON. No markdown code blocks, no preamble, no explanation.
   "suggested_tags": ["lowercase-tag", "another-tag"]
 }
 
-If noise: content_type "noise", engagement_match with null id, 1.0 confidence, is_new false, null current_state, all arrays empty.`;
+If noise: content_type "noise", engagement_match with null id, 1.0 confidence, is_new false, null partner_id, null current_state, all arrays empty.`;
 
 // ============================================================
 // Build the user message with current state + email content
 // ============================================================
 
-export interface ForwarderContext {
-  name: string;
-  email: string;
+export interface ClassifyContext {
+  engagements: import("./types").Engagement[];
+  events: import("./types").Event[];
+  programs: import("./types").Program[];
+  partners: Partner[];
+  relationships: AwsRelationship[];
 }
 
 function buildUserMessage(
   messages: Message[],
-  engagements: Engagement[],
-  events: Event[],
-  programs: Program[],
-  forwarderContext?: ForwarderContext
+  context: ClassifyContext,
+  forwarderNote?: string | null
 ): string {
   const parts: string[] = [];
 
-  // Forwarding context — tells Claude who the PDM/forwarder is
-  if (forwarderContext) {
-    parts.push("## Forwarding Context\n");
-    parts.push(
-      "This email was forwarded to Relay by the PDM (Partner Development Manager):"
-    );
-    parts.push(
-      `**Forwarder:** ${forwarderContext.name} <${forwarderContext.email}>`
-    );
-    parts.push(
-      'The forwarder is ALWAYS a participant with role "forwarder". Do NOT extract them from the email body — they are provided here.\n'
-    );
-  }
+  // Forwarder identity — always present (from USER_CONFIG)
+  parts.push(buildForwarderSection(forwarderNote));
 
   // Current state context
   parts.push("## Current Tracked State\n");
-
-  if (engagements.length > 0) {
-    parts.push("### Active Engagements");
-    for (const eng of engagements) {
-      parts.push(
-        `- **${eng.name}** (id: ${eng.id})${eng.partner_name ? ` — Partner: ${eng.partner_name}` : ""}${eng.current_state ? `\n  Current state: ${eng.current_state}` : ""}`
-      );
-    }
-    parts.push("");
-  } else {
-    parts.push("### Active Engagements\nNone yet.\n");
-  }
-
-  if (events.length > 0) {
-    parts.push("### Tracked Events");
-    for (const evt of events) {
-      const dateStr = evt.start_date
-        ? `${evt.start_date}${evt.end_date ? ` to ${evt.end_date}` : ""}`
-        : "date TBD";
-      const hostStr = evt.host ? `, host: ${evt.host}` : "";
-      parts.push(
-        `- **${evt.name}** (id: ${evt.id}, type: ${evt.type}${hostStr}, ${dateStr})${evt.description ? ` — ${evt.description}` : ""}`
-      );
-    }
-    parts.push("");
-  } else {
-    parts.push("### Tracked Events\nNone yet.\n");
-  }
-
-  if (programs.length > 0) {
-    parts.push("### Active Programs");
-    for (const prog of programs) {
-      const typeStr = prog.type ? `, type: ${prog.type}` : "";
-      parts.push(
-        `- **${prog.name}** (id: ${prog.id}${typeStr})${prog.description ? ` — ${prog.description}` : ""}`
-      );
-    }
-    parts.push("");
-  } else {
-    parts.push("### Active Programs\nNone yet.\n");
-  }
+  parts.push(buildEngagementsSection(context.engagements));
+  parts.push(buildEventsSection(context.events));
+  parts.push(buildProgramsSection(context.programs));
+  parts.push(buildPartnersSection(context.partners));
+  parts.push(buildRelationshipsSection(context.relationships));
 
   // Email content to classify
-  parts.push("---\n\n## Email to Classify\n");
-
-  for (const msg of messages) {
-    if (messages.length > 1) {
-      parts.push(`### Message from ${msg.sender_name || msg.sender_email || "Unknown"}`);
-    }
-    if (msg.sender_email) parts.push(`**From:** ${msg.sender_name || ""} <${msg.sender_email}>`);
-    if (msg.to_header) parts.push(`**To:** ${msg.to_header}`);
-    if (msg.cc_header) parts.push(`**CC:** ${msg.cc_header}`);
-    if (msg.subject) parts.push(`**Subject:** ${msg.subject}`);
-    if (msg.sent_at) parts.push(`**Date:** ${msg.sent_at}`);
-    parts.push(`\n${msg.body_text || msg.body_raw || "(empty body)"}\n`);
-  }
+  parts.push(buildEmailSection(messages));
 
   return parts.join("\n");
 }
@@ -270,9 +234,12 @@ function parseClassificationResponse(raw: string): ClassificationResult {
 
   const parsed = JSON.parse(cleaned);
 
-  // Default suggested_tags if Claude omits it
+  // Default arrays if Claude omits them
   if (!parsed.suggested_tags) {
     parsed.suggested_tags = [];
+  }
+  if (!parsed.matched_relationships) {
+    parsed.matched_relationships = [];
   }
 
   return parsed as ClassificationResult;
@@ -282,26 +249,14 @@ function parseClassificationResponse(raw: string): ClassificationResult {
 // Main classification function
 // ============================================================
 
-export interface ClassifyContext {
-  engagements: Engagement[];
-  events: Event[];
-  programs: Program[];
-}
-
 export async function classifyMessage(
   messages: Message[],
   context: ClassifyContext,
-  forwarderContext?: ForwarderContext
+  forwarderNote?: string | null
 ): Promise<ClassificationResult> {
   const client = getClient();
 
-  const userMessage = buildUserMessage(
-    messages,
-    context.engagements,
-    context.events,
-    context.programs,
-    forwarderContext
-  );
+  const userMessage = buildUserMessage(messages, context, forwarderNote);
 
   const response = await client.messages.create({
     model: "claude-sonnet-4-20250514",
