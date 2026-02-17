@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import EmptyState from "@/components/EmptyState";
 import FilterBar from "@/components/FilterBar";
+import SyncButton from "@/components/SyncButton";
 import { MeetingStatusBadge } from "@/components/TypeBadge";
 import { Meeting, Engagement, Event, MeetingStatus } from "@/lib/types";
 
@@ -212,12 +213,15 @@ export default function MeetingsClient({ meetings, engagements, events }: Meetin
           title="Meetings"
           subtitle={`${meetings.length} meeting${meetings.length !== 1 ? "s" : ""} tracked`}
         />
-        <button
-          onClick={() => { setShowCreate(true); resetCreateForm(); }}
-          className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
-        >
-          New Meeting
-        </button>
+        <div className="flex shrink-0 gap-2">
+          <button
+            onClick={() => { setShowCreate(true); resetCreateForm(); }}
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
+          >
+            New Meeting
+          </button>
+          <SyncButton entity="meetings" label="Push to Airtable" compact />
+        </div>
       </div>
 
       {/* Create form */}
