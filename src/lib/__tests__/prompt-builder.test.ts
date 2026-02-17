@@ -148,6 +148,39 @@ describe("buildEngagementsSection", () => {
     const result = buildEngagementsSection([]);
     expect(result).toContain("None yet.");
   });
+
+  it("renders open items with assignee and due date", () => {
+    const eng: Engagement = {
+      ...ENGAGEMENT,
+      open_items: [
+        { description: "Send GTM campaign strategy document", assignee: "Jordan Spiers", due_date: "2026-02-21", resolved: false },
+        { description: "Schedule follow-up with Ellie T", assignee: "Steven", due_date: null, resolved: true },
+      ],
+    };
+    const result = buildEngagementsSection([eng]);
+    expect(result).toContain("Open items:");
+    expect(result).toContain("- Send GTM campaign strategy document (Jordan Spiers) [due: 2026-02-21]");
+    expect(result).toContain("- Schedule follow-up with Ellie T (Steven) [RESOLVED]");
+  });
+
+  it("shows 'Open items: none' when engagement has no open items", () => {
+    const eng: Engagement = { ...ENGAGEMENT, open_items: [] };
+    const result = buildEngagementsSection([eng]);
+    expect(result).toContain("Open items: none");
+  });
+
+  it("renders open items without assignee or due date", () => {
+    const eng: Engagement = {
+      ...ENGAGEMENT,
+      open_items: [
+        { description: "Complete security review", assignee: null, due_date: null },
+      ],
+    };
+    const result = buildEngagementsSection([eng]);
+    expect(result).toContain("- Complete security review");
+    expect(result).not.toMatch(/Complete security review.*\(/);
+    expect(result).not.toMatch(/Complete security review.*\[due:/);
+  });
 });
 
 describe("buildEventsSection", () => {

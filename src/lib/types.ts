@@ -244,6 +244,8 @@ export interface ClassificationResult {
     assignee: string | null;
     due_date: string | null;
   }[];
+  /** Descriptions of existing open items that this email indicates are now complete. Match by meaning. */
+  resolved_open_items?: string[];
   suggested_tags: string[];
 }
 

@@ -12,6 +12,7 @@ import {
   createEntityLink,
   upsertParticipants,
   appendOpenItems,
+  resolveOpenItems,
   linkMeetingToEngagement,
   linkEngagementAwsRelationship,
 } from "./supabase";
@@ -216,6 +217,15 @@ export async function persistClassificationResult(
       }
     }
     // If open_items is empty, skip — nothing to append
+
+    // Auto-resolve open items that Claude identified as completed
+    const resolvedDescs = result.resolved_open_items ?? [];
+    if (resolvedDescs.length > 0) {
+      const resolvedCount = await resolveOpenItems(engagementId, resolvedDescs);
+      if (resolvedCount > 0) {
+        console.log(`Auto-resolved ${resolvedCount} open item(s) for engagement ${engagementId}`);
+      }
+    }
 
     // Merge suggested tags (deduplicated)
     if (result.suggested_tags && result.suggested_tags.length > 0) {

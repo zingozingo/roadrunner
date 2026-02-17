@@ -19,6 +19,7 @@ const {
   mockSendClassificationPrompt,
   mockUpsertParticipants,
   mockAppendOpenItems,
+  mockResolveOpenItems,
   mockLinkEngagementAwsRelationship,
   mockFrom,
 } = vi.hoisted(() => {
@@ -119,6 +120,7 @@ const {
     }),
     mockUpsertParticipants: vi.fn().mockResolvedValue(undefined),
     mockAppendOpenItems: vi.fn().mockResolvedValue(null),
+    mockResolveOpenItems: vi.fn().mockResolvedValue(0),
     mockLinkEngagementAwsRelationship: vi.fn().mockResolvedValue(undefined),
     mockFrom,
   };
@@ -145,6 +147,7 @@ vi.mock("../supabase", () => ({
   createEntityLink: mockCreateEntityLink,
   upsertParticipants: mockUpsertParticipants,
   appendOpenItems: mockAppendOpenItems,
+  resolveOpenItems: mockResolveOpenItems,
   linkEngagementAwsRelationship: mockLinkEngagementAwsRelationship,
 }));
 
@@ -500,5 +503,32 @@ describe("processUnclassifiedMessages", () => {
       }),
       "Important - handle ASAP"
     );
+  });
+
+  it("calls resolveOpenItems when resolved_open_items is present", async () => {
+    const msg = makeMessage();
+    mockGetUnclassifiedMessages.mockResolvedValue([msg]);
+    const resultWithResolved: ClassificationResult = {
+      ...HIGH_CONFIDENCE_RESULT,
+      resolved_open_items: ["Send GTM campaign strategy document"],
+    };
+    mockClassifyMessage.mockResolvedValue(resultWithResolved);
+
+    await processUnclassifiedMessages();
+
+    expect(mockResolveOpenItems).toHaveBeenCalledWith(
+      "init-001",
+      ["Send GTM campaign strategy document"]
+    );
+  });
+
+  it("does not call resolveOpenItems when resolved_open_items is empty", async () => {
+    const msg = makeMessage();
+    mockGetUnclassifiedMessages.mockResolvedValue([msg]);
+    mockClassifyMessage.mockResolvedValue(HIGH_CONFIDENCE_RESULT);
+
+    await processUnclassifiedMessages();
+
+    expect(mockResolveOpenItems).not.toHaveBeenCalled();
   });
 });

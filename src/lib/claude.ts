@@ -128,6 +128,13 @@ Extract ONLY concrete, actionable tasks explicitly stated or clearly implied in 
 
 If the email contains no actionable tasks, return an empty array. An empty array is better than fabricated items.
 
+**Existing open items visibility:**
+You can see existing open items for each engagement in the context above, including their resolved status. Rules:
+- Only return GENUINELY NEW items extracted from this email. Do not repeat existing items.
+- If this email indicates an existing open item has been completed or resolved (e.g., someone says "I sent the document" or "meeting is scheduled"), include that item's description in resolved_open_items.
+- Match by meaning, not exact wording. "Jordan sent the GTM doc" resolves "Send GTM campaign strategy document".
+- When in doubt, do NOT resolve — let the user handle it manually.
+
 ## Response Format
 
 Return ONLY valid JSON. No markdown code blocks, no preamble, no explanation.
@@ -179,6 +186,8 @@ Return ONLY valid JSON. No markdown code blocks, no preamble, no explanation.
       "due_date": "ISO date or null — ONLY if explicitly stated"
     }
   ],
+  "resolved_open_items": ["description of resolved item 1"],
+  // Array of descriptions matching existing open items that this email indicates are now complete. Match by meaning. Empty array if none.
   "suggested_tags": ["lowercase-tag", "another-tag"]
 }
 
@@ -240,6 +249,9 @@ function parseClassificationResponse(raw: string): ClassificationResult {
   }
   if (!parsed.matched_relationships) {
     parsed.matched_relationships = [];
+  }
+  if (!parsed.resolved_open_items) {
+    parsed.resolved_open_items = [];
   }
 
   return parsed as ClassificationResult;

@@ -1191,6 +1191,116 @@ export async function appendOpenItems(
   return [...existingItems, ...deduped];
 }
 
+/**
+ * Extract significant words from a string for fuzzy matching.
+ * Strips short/common words to focus on meaningful content.
+ * Exported for testing.
+ */
+export function extractKeywords(text: string): Set<string> {
+  const stopWords = new Set([
+    "the", "a", "an", "is", "was", "are", "were", "be", "been",
+    "to", "of", "in", "for", "on", "with", "at", "by", "from",
+    "and", "or", "but", "not", "this", "that", "it", "its",
+    "i", "we", "they", "he", "she", "up", "has", "had", "have",
+  ]);
+  return new Set(
+    text
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, "")
+      .split(/\s+/)
+      .filter((w) => w.length > 2 && !stopWords.has(w))
+  );
+}
+
+/**
+ * Match resolved descriptions against open items using keyword overlap.
+ * Pure function — no DB access. Exported for testing.
+ * Returns the updated items array and count of items resolved.
+ */
+export function matchResolvedItems(
+  items: (OpenItem & { resolved?: boolean })[],
+  resolvedDescriptions: string[]
+): { updatedItems: (OpenItem & { resolved?: boolean })[]; resolvedCount: number } {
+  const updatedItems = items.map((item) => ({ ...item }));
+  let resolvedCount = 0;
+
+  for (const desc of resolvedDescriptions) {
+    const resolveKeywords = extractKeywords(desc);
+    if (resolveKeywords.size === 0) continue;
+
+    let bestIdx = -1;
+    let bestScore = 0;
+
+    for (let i = 0; i < updatedItems.length; i++) {
+      if (updatedItems[i].resolved) continue;
+
+      const itemKeywords = extractKeywords(updatedItems[i].description);
+      if (itemKeywords.size === 0) continue;
+
+      // Count shared keywords
+      let shared = 0;
+      for (const kw of resolveKeywords) {
+        if (itemKeywords.has(kw)) shared++;
+      }
+
+      // Require >50% overlap in both directions
+      const overlapFromResolve = shared / resolveKeywords.size;
+      const overlapFromItem = shared / itemKeywords.size;
+
+      if (overlapFromResolve > 0.5 && overlapFromItem > 0.5) {
+        const score = overlapFromResolve + overlapFromItem;
+        if (score > bestScore) {
+          bestScore = score;
+          bestIdx = i;
+        }
+      }
+    }
+
+    if (bestIdx >= 0) {
+      updatedItems[bestIdx] = { ...updatedItems[bestIdx], resolved: true };
+      resolvedCount++;
+    }
+  }
+
+  return { updatedItems, resolvedCount };
+}
+
+/**
+ * Resolve open items that Claude indicates are complete.
+ * Uses keyword overlap to match resolved_descriptions to existing unresolved items.
+ * Conservative: requires >50% keyword overlap in both directions.
+ * Returns the number of items resolved.
+ */
+export async function resolveOpenItems(
+  engagementId: string,
+  resolvedDescriptions: string[]
+): Promise<number> {
+  if (resolvedDescriptions.length === 0) return 0;
+
+  const db = getSupabaseClient();
+  const { data: existing } = await db
+    .from("engagements")
+    .select("open_items")
+    .eq("id", engagementId)
+    .maybeSingle();
+
+  const items: (OpenItem & { resolved?: boolean })[] =
+    (existing?.open_items as (OpenItem & { resolved?: boolean })[]) ?? [];
+
+  if (items.length === 0) return 0;
+
+  const { updatedItems, resolvedCount } = matchResolvedItems(items, resolvedDescriptions);
+
+  if (resolvedCount > 0) {
+    await db
+      .from("engagements")
+      .update({ open_items: updatedItems })
+      .eq("id", engagementId);
+  }
+
+  return resolvedCount;
+}
+
 // ============================================================
 // Dashboard query helpers (continued)
 // ============================================================
