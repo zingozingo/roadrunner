@@ -156,6 +156,11 @@ export function parseForwardedEmail(
     return [];
   }
 
+  // Normalize CRLF → LF before any regex matching.
+  // Mailgun delivers body-plain with \r\n line endings, but our regexes
+  // use \n anchors and `.` (which doesn't match \r in Node.js).
+  rawBody = rawBody.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
   const headers = findHeaderBlocks(rawBody);
 
   // No structured headers found — fall back to single message from envelope

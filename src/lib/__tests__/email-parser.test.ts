@@ -301,6 +301,113 @@ Just a quick question about the timeline.`;
     });
   });
 
+  describe("CRLF line endings (Mailgun production format)", () => {
+    // Mailgun delivers body-plain with \r\n line endings.
+    // The parser must normalize these before regex matching.
+    const CRLF_THREAD = [
+      "FYI — forwarding this thread about the partnership.\r\n",
+      "\r\n",
+      "________________________________\r\n",
+      "From: Alice Chen <alice@partnerco.com>\r\n",
+      "Sent: Monday, February 3, 2025 10:30 AM\r\n",
+      "To: Bob Lee <bob@aws.example.com>\r\n",
+      "Subject: Partnership Update\r\n",
+      "\r\n",
+      "Hi Bob, here's the latest on the partnership.\r\n",
+      "\r\n",
+      "Thanks,\r\n",
+      "Alice\r\n",
+      "\r\n",
+      "________________________________\r\n",
+      "From: Bob Lee <bob@aws.example.com>\r\n",
+      "Sent: Monday, February 3, 2025 2:15 PM\r\n",
+      "To: Alice Chen <alice@partnerco.com>\r\n",
+      "Cc: Dana Wright <dana@aws.example.com>\r\n",
+      "Subject: Re: Partnership Update\r\n",
+      "\r\n",
+      "Great progress! I'll loop in Dana.\r\n",
+    ].join("");
+
+    const messages = parseForwardedEmail(CRLF_THREAD, {
+      sender: "Steven Romero <sterme@amazon.com>",
+      subject: "Fwd: Partnership Update",
+      timestamp: 1738700000,
+    });
+
+    it("splits CRLF thread into 2 messages (not fallback single)", () => {
+      expect(messages.length).toBe(2);
+    });
+
+    it("parses sender from CRLF headers", () => {
+      expect(messages[0].sender_name).toBe("Alice Chen");
+      expect(messages[0].sender_email).toBe("alice@partnerco.com");
+      expect(messages[1].sender_name).toBe("Bob Lee");
+    });
+
+    it("extracts To and Cc from CRLF headers", () => {
+      expect(messages[0].to_header).toBe("Bob Lee <bob@aws.example.com>");
+      expect(messages[0].cc_header).toBeNull();
+      expect(messages[1].cc_header).toBe("Dana Wright <dana@aws.example.com>");
+    });
+
+    it("extracts clean body_text without CRLF artifacts", () => {
+      expect(messages[0].body_text).toContain("latest on the partnership");
+      // body_text should not contain \r after normalization
+      expect(messages[0].body_text).not.toContain("\r");
+    });
+
+    it("attaches forwarder_note from CRLF preface", () => {
+      expect(messages[0].forwarder_note).toContain("forwarding this thread");
+    });
+
+    it("parses dates from CRLF headers", () => {
+      const sent = messages[0].sent_at!;
+      expect(new Date(sent).toISOString()).toBe(sent);
+      expect(sent).toContain("2025-02-03");
+    });
+  });
+
+  describe("mixed CRLF and LF line endings", () => {
+    // Some clients produce mixed line endings
+    const MIXED = [
+      "From: Carlos <carlos@partner.com>\r\n",
+      "Sent: February 5, 2025 3:00 PM\n",
+      "To: Steven <steven@example.com>\r\n",
+      "Subject: Mixed Endings\r\n",
+      "\n",
+      "Body with mixed line endings.\r\n",
+    ].join("");
+
+    const messages = parseForwardedEmail(MIXED);
+
+    it("handles mixed CRLF/LF correctly", () => {
+      expect(messages.length).toBe(1);
+      expect(messages[0].sender_name).toBe("Carlos");
+      expect(messages[0].subject).toBe("Mixed Endings");
+      expect(messages[0].body_text).toContain("mixed line endings");
+    });
+  });
+
+  describe("bare CR line endings", () => {
+    // Old Mac-style \r-only line endings (rare but possible)
+    const BARE_CR = [
+      "From: Dana <dana@example.com>\r",
+      "Sent: February 6, 2025 11:00 AM\r",
+      "To: Steven <steven@example.com>\r",
+      "Subject: Bare CR Test\r",
+      "\r",
+      "Message with bare CR line endings.\r",
+    ].join("");
+
+    const messages = parseForwardedEmail(BARE_CR);
+
+    it("normalizes bare CR to LF and parses correctly", () => {
+      expect(messages.length).toBe(1);
+      expect(messages[0].sender_name).toBe("Dana");
+      expect(messages[0].subject).toBe("Bare CR Test");
+    });
+  });
+
   describe("multi-message thread with CC on some messages", () => {
     const body = `
 ________________________________

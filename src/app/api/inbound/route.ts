@@ -4,7 +4,7 @@ import { parseForwardedEmail, parseSenderField } from "@/lib/email-parser";
 import { storeMessages, checkDuplicateMessage, createMeetingFromICS } from "@/lib/supabase";
 import { extractICSFromAttachments, parseICSContent } from "@/lib/ics-parser";
 import { processSingleMessage } from "@/lib/classifier";
-import { stripPRVS } from "@/lib/user-config";
+import { stripPRVS, isUserEmail, USER_CONFIG } from "@/lib/user-config";
 
 /**
  * Verify Mailgun webhook signature.
@@ -223,11 +223,18 @@ export async function POST(request: NextRequest) {
 
     // Parse forwarder identity from Mailgun envelope sender.
     // When Steven forwards to Relay, Mailgun's "sender" = Steven's address.
-    const { senderName: forwarderName, senderEmail: rawForwarderEmail } =
+    const { senderName: parsedForwarderName, senderEmail: rawForwarderEmail } =
       parseSenderField(sender);
 
     // Strip Proofpoint PRVS wrapping (prvs=XXXXXX=real@email.com → real@email.com)
-    const forwarderEmail = rawForwarderEmail ? stripPRVS(rawForwarderEmail) : null;
+    const strippedForwarderEmail = rawForwarderEmail ? stripPRVS(rawForwarderEmail) : null;
+
+    // When the sender is the PDM (corpmail, PRVS, or direct), use canonical identity.
+    // Amazon SES rewrites From: with tracking IDs like {id}@corpmail.amazon.com,
+    // which loses the display name — fall back to USER_CONFIG for consistent identity.
+    const senderIsUser = strippedForwarderEmail ? isUserEmail(strippedForwarderEmail) : false;
+    const forwarderName = senderIsUser ? USER_CONFIG.name : parsedForwarderName;
+    const forwarderEmail = senderIsUser ? USER_CONFIG.email : strippedForwarderEmail;
 
     // Filter the Relay inbound address out of the To header — Claude doesn't need it
     const relayAddress = (process.env.RELAY_EMAIL_ADDRESS ?? "").toLowerCase();
