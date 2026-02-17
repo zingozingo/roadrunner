@@ -971,3 +971,123 @@ Next.js 14 App Router + TypeScript + Tailwind. Supabase Postgres for data. Singl
 **Rationale:** Simpler implementation, lower risk of data loss for meetings. Notes merge is a post-MVP refinement if meeting notes in Airtable become a real workflow.
 
 **Impact:** Simpler meeting sync code. If users start manually annotating meetings in Airtable, will need to add merge logic later.
+
+---
+
+## 2025-02-17: Modular Prompt-Builder Architecture
+
+**Decision:** Context sections for the Claude classifier prompt are built by independent functions in `src/lib/prompt-builder.ts`. Seven builder functions: `buildForwarderSection`, `buildEngagementsSection`, `buildPartnerCatalog`, `buildRelationshipCatalog`, `buildProgramCatalog`, `buildEventCatalog`, `buildEmailContent`. Each returns a markdown section string that is composed into the final user message.
+
+**Context:** Previous prompt construction was monolithic in `claude.ts` — the `buildUserMessage()` function inlined all context assembly. Not reusable, hard to test, couldn't be composed for different consumers.
+
+**Rationale:** Each function is independently importable and testable. Future agents or different prompts (batch re-classification, summary generation, agent workflows) can reuse the same context builders without duplicating logic.
+
+**Impact:** Any new AI consumer calls the same builders. Classification prompt is one consumer, not the owner. `claude.ts` now delegates context assembly to prompt-builder functions.
+
+---
+
+## 2025-02-17: Canonical User Identity via USER_CONFIG
+
+**Decision:** User profile defined in `src/lib/user-config.ts` as a constant (`USER_CONFIG` with name, email, aliases, role, segment). Replaces per-email Mailgun sender inference for forwarder identity. Includes `stripPRVS()` for Proofpoint-wrapped emails, `isCorpmailAddress()` for Amazon SES tracking IDs, and `isUserEmail()` master check combining all variants.
+
+**Context:** Forwarder identity was inferred from Mailgun envelope sender, producing "Steven Terme" (from sterme alias). Amazon SES rewrites From: headers with per-message corpmail tracking IDs (e.g., `{message-id}@corpmail.amazon.com`). Proofpoint wraps addresses in PRVS format (e.g., `prvs=XXXXXX=sterme@amazon.com`).
+
+**Rationale:** Canonical identity eliminates all three failure modes. Single source of truth rather than per-email guessing. `isUserEmail()` centralizes detection for all code paths.
+
+**Impact:** One participant record for the user regardless of email variant. Prevents phantom participants. Future: can move to env vars or settings table.
+
+---
+
+## 2025-02-17: Email-Domain Matching for Partners
+
+**Decision:** Partners matched primarily by sender/recipient email domain (e.g., `@cloudaware.com` → Cloudaware). Contact emails enable specific-person matching. Partner name inference from email content as fallback. Engagement context as final fallback.
+
+**Context:** Claude was guessing partner names from email content with no reference data. 20 structured partner records existed but weren't sent to the classifier.
+
+**Rationale:** Domain matching is deterministic — no LLM inference needed. Contact emails handle edge cases (personal email, consultant). Name inference as fallback when no email matches.
+
+**Impact:** Partner resolution accuracy dramatically improved. As contact emails are populated in Airtable, matching gets progressively more precise.
+
+---
+
+## 2025-02-17: Two-Tier Entity Matching Pattern
+
+**Decision:** Email-matchable entities (Partners, AWS Relationships) use email-first deterministic matching with LLM fallback. Context-matchable entities (Programs, Events) use pure content matching. Different data sent for each: partners get domains + contact emails, relationships get contact emails + org/service, programs get name + type only, events get name + dates + host only.
+
+**Context:** All entities were being sent with full descriptions, wasting tokens on data that doesn't help matching.
+
+**Rationale:** Match the data format to the matching mechanism. Email entities need emails. Content entities need names and types. Descriptions don't help either category match better.
+
+**Impact:** Token budget stays sustainable (~4,200 at current scale, ~6,800 at 3x). Each entity type gets exactly the data Claude needs for matching, nothing more.
+
+---
+
+## 2025-02-17: Token Optimization via Compact Reference Catalogs
+
+**Decision:** Program descriptions and event descriptions/locations dropped from classifier prompt. Programs sent as `ID|Name|Type`. Events sent as `ID|Name|Dates|Host`.
+
+**Context:** Full descriptions added ~2,000 tokens at current scale (34 programs, 32 events) without improving match accuracy.
+
+**Rationale:** Claude can match "Security Competency" and "RSA Conference 2026" by name alone. Descriptions are for human comprehension, not entity matching.
+
+**Impact:** ~2,000 tokens saved at current scale. At 3x portfolio growth, still well within context window. Can re-add descriptions selectively if matching accuracy suffers.
+
+---
+
+## 2025-02-17: Active/Planned Engagement Filtering for Classifier Context
+
+**Decision:** Only engagements with status `active` or `planned` sent to Claude. Completed and archived engagements excluded from classification context.
+
+**Context:** Every engagement in the database was being sent to Claude, regardless of status. As portfolio grows, this would blow out the token budget.
+
+**Rationale:** Completed engagements shouldn't receive new emails. If an old thread resurfaces, Claude creates a new engagement rather than appending to a closed one — which is the correct behavior.
+
+**Impact:** Primary scaling lever for the classifier. 50 active engagements ≈ 2,000 tokens. 200 total engagements with 50 active = same 2,000 tokens.
+
+---
+
+## 2025-02-17: forwarder_note Pipeline Completion
+
+**Decision:** Forwarder's added text (parsed from email body, >20 chars after stripping signatures) is now stored in `messages.forwarder_note` column and included in Claude's prompt as a labeled section before the email chain. Migration 029 adds the column.
+
+**Context:** Email parser correctly extracted forwarder notes but the data was never stored in Supabase and never sent to Claude — a dead-end pipeline.
+
+**Rationale:** Forwarder notes contain intent signals ("FYI — urgent partner request") that Claude needs for accurate classification and priority inference.
+
+**Impact:** Forwarder context reaches Claude for the first time. Enables future features like automatic priority escalation based on forwarder notes.
+
+---
+
+## 2025-02-17: matched_relationships in Classification Output
+
+**Decision:** Claude's JSON response includes `matched_relationships` array with `{ id, name, relationship_type }` (involved_in, consulted, introduced, escalated_to). Persisted via `engagement_aws_relationships` junction table. Progressive linking: relationships added to Airtable and synced down are automatically linked when future emails match.
+
+**Context:** AWS relationships existed in the database but Claude couldn't link emails to them. No mechanism to associate engagements with AWS team relationships.
+
+**Rationale:** Organic, additive linking — the system gets smarter as you add data. No manual linking required. Junction table supports many-to-many (engagement ↔ relationship).
+
+**Impact:** AWS team involvement tracked automatically. Enables future reporting on which AWS teams are most active across partner engagements.
+
+---
+
+## 2025-02-17: Participant Identity Canonicalization
+
+**Decision:** `upsertParticipants` uses `isUserEmail()` to detect all user email variants (exact match, aliases, PRVS-wrapped, SES corpmail). When matched, always normalizes to `USER_CONFIG.email` and `USER_CONFIG.name`. Non-user participants retain fill-only behavior (don't overwrite existing names). Migration 030 consolidated 9 stale Steven records into 1 canonical record.
+
+**Context:** 9 duplicate participant records for Steven existed — "Steven Terme", "PDM Forwarder", PRVS addresses, SES corpmail IDs. The upsert only filled empty names, never corrected wrong ones.
+
+**Rationale:** User email appears in many forms due to Amazon infrastructure. Centralizing detection in `isUserEmail()` handles all variants. Non-user participants keep conservative fill-only to avoid overwriting correct names with typos.
+
+**Impact:** One canonical participant record per user. Prevents future fragmentation. Pattern extensible to multi-user support later.
+
+---
+
+## 2025-02-17: AWS Relationship Architecture Needs Partner Decoupling (PLANNED)
+
+**Decision:** Current Airtable schema ties AWS Relationships to a single partner. This should change — relationships should be partner-agnostic at the catalog level, with the per-partner connection happening through engagement linking (junction table).
+
+**Context:** The Multicloud Team works with multiple partners, not just Cloudaware. Tying the relationship to one partner limits scale and accuracy.
+
+**Rationale:** The `engagement_aws_relationships` junction table already supports many-to-many. The catalog record shouldn't constrain what the junction table enables.
+
+**Impact:** Deferred to next session. Requires Airtable schema discussion and migration planning. No code change yet.

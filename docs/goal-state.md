@@ -232,10 +232,14 @@ Email → Mailgun webhook → /api/inbound
   ▼
 Claude API (single call)
   │
-  ├─ Context sent: ForwarderContext { name, email },
-  │                all active engagements (with current_state),
-  │                all programs (with IDs + descriptions),
-  │                all events (with IDs + dates + host),
+  ├─ Context sent (via modular prompt-builder.ts sections):
+  │                user identity (from USER_CONFIG),
+  │                all active/planned engagements (with current_state),
+  │                partner catalog (domains + contact emails),
+  │                AWS relationship catalog (contact emails + org/service),
+  │                all programs (ID + name + type),
+  │                all events (ID + name + dates + host),
+  │                forwarder note (if present),
   │                the email content (with From, To, CC, Subject, Date)
   │
   ├─ Claude returns:
@@ -395,6 +399,8 @@ High-level steps from v0.1 to goal state. Not ordered — dependencies exist bet
 - ~~Create `partners` table with catalog sync from Airtable~~ ✅ Migration 027
 - ~~Add `partner_id` FK to engagements and meetings~~ ✅ Migration 027
 - ~~Backfill `partner_id` from `partner_name` → `partners.name`~~ ✅ Migration 028
+- ~~Add `forwarder_note` column to messages~~ ✅ Migration 029
+- ~~Consolidate duplicate Steven participant records to canonical identity~~ ✅ Migration 030
 - Drop `summary` column from engagements (or keep as computed alias for `current_state`) — pending
 
 ### Classifier
@@ -405,6 +411,14 @@ High-level steps from v0.1 to goal state. Not ordered — dependencies exist bet
 - ~~Update routing logic: no `hasNewTrackSuggestions` check~~ ✅
 - ~~Thread forwarderContext through classification pipeline~~ ✅
 - ~~Recover forwarder from stored message fields for batch reclassification~~ ✅
+- ~~Extract modular prompt-builder (7 independent context section builders)~~ ✅
+- ~~Add canonical user identity via USER_CONFIG (replaces per-email ForwarderContext inference)~~ ✅
+- ~~Inject partner catalog with domains + contact emails into classifier context~~ ✅
+- ~~Inject AWS relationship catalog with contact emails into classifier context~~ ✅
+- ~~Add matched_relationships to classification output~~ ✅
+- ~~Participant identity canonicalization via isUserEmail()~~ ✅
+- ~~Filter classifier context to active/planned engagements only~~ ✅
+- ~~Complete forwarder_note pipeline (store in DB + send to Claude)~~ ✅
 
 ### Prompt
 - ~~Remove event creation instructions and `is_new` field for events~~ ✅
@@ -412,9 +426,11 @@ High-level steps from v0.1 to goal state. Not ordered — dependencies exist bet
 - ~~Change events/programs to matched arrays with `{ id, name, relationship }`~~ ✅
 - ~~Add `suggested_tags` to response format~~ ✅
 - ~~Rename "initiative" → "engagement" throughout~~ ✅
-- ~~Add ForwarderContext section and rules 5/6 for forwarder handling~~ ✅
+- ~~Add forwarder identity section and rules 5/6 for forwarder handling~~ ✅
 - ~~Add current_state evolution instructions (evolve, not overwrite)~~ ✅
 - ~~Add open_items strict extraction with positive/negative examples~~ ✅
+- ~~Add partner catalog and relationship catalog sections to prompt~~ ✅
+- ~~Optimize token usage: compact program/event catalogs (ID + name + type only)~~ ✅
 
 ### Email parser
 - ~~Extract To header from inner Outlook headers (was being discarded)~~ ✅

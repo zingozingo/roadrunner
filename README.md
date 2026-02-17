@@ -16,7 +16,7 @@ Deployed at [roadrunner-fawn.vercel.app](https://roadrunner-fawn.vercel.app).
 | SMS notifications | Twilio |
 | Catalog sync | Airtable REST API |
 | Hosting | Vercel (git push deploy) |
-| Tests | Vitest (73 tests across 5 suites) |
+| Tests | Vitest (113 tests across 7 suites) |
 
 ## Architecture
 
@@ -73,9 +73,13 @@ Mailgun webhook → POST /api/inbound
   │
   ▼
 Claude API (single call per email group)
-  ├─ Context: all active engagements (with current_state),
-  │           all programs (with IDs), all events (with IDs),
-  │           forwarder identity, email content
+  ├─ Context: user identity (from USER_CONFIG),
+  │           all active/planned engagements (with current_state),
+  │           partner catalog (with domains + contact emails),
+  │           AWS relationship catalog (with contact emails),
+  │           all programs (ID + name + type),
+  │           all events (ID + name + dates + host),
+  │           forwarder note (if present), email content
   │
   ├─ Returns: engagement match, matched programs/events (by ID),
   │           participants, current_state update, open items, tags
@@ -131,17 +135,21 @@ src/
     ├── types.ts              # All TypeScript interfaces
     ├── supabase.ts           # Supabase client + all DB operations (~1700 lines)
     ├── claude.ts             # System prompt + Claude API call + response parser
+    ├── prompt-builder.ts     # Modular context builders (7 functions) for classifier prompt
+    ├── user-config.ts        # Canonical user identity (USER_CONFIG) + email variant detection
     ├── classifier.ts         # Orchestration: process → route → persist
     ├── email-parser.ts       # Outlook-style forwarded email parser
     ├── sms.ts                # Twilio SMS send + reply parsing
     ├── airtable.ts           # Airtable REST client (no SDK dependency)
     ├── sync.ts               # Bidirectional sync: catalog pull + activity push
     ├── ics-parser.ts         # RFC 5545 ICS/VCALENDAR parser (no dependencies)
-    └── __tests__/            # 5 test suites, 73 tests
+    └── __tests__/            # 7 test suites, 113 tests
         ├── email-parser.test.ts  # 26 tests — header parsing, multi-message, edge cases
         ├── ics-parser.test.ts    # 18 tests — ICS/VCALENDAR parsing, attendee extraction
-        ├── classifier.test.ts    # 9 tests — routing, auto-assign, auto-create, grouping
-        ├── claude.test.ts        # 11 tests — prompt building, response parsing
+        ├── classifier.test.ts    # 10 tests — routing, auto-assign, auto-create, grouping
+        ├── claude.test.ts        # 16 tests — prompt building, response parsing
+        ├── prompt-builder.test.ts # 16 tests — context section builders, token optimization
+        ├── user-config.test.ts   # 18 tests — PRVS stripping, corpmail detection, isUserEmail
         └── sms.test.ts           # 9 tests — SMS formatting, reply parsing
 
 scripts/
@@ -158,14 +166,14 @@ docs/
 └── master-spec.md            # (deprecated) Original spec
 
 supabase/
-└── migrations/               # 28 sequential SQL migrations (001–028)
+└── migrations/               # 30 sequential SQL migrations (001–030)
 
-decisions.md                  # 90+ architecture decision records
+decisions.md                  # 100+ architecture decision records
 ```
 
 ## Database Schema
 
-14 tables in Supabase PostgreSQL, managed through 28 sequential migrations.
+14 tables in Supabase PostgreSQL, managed through 30 sequential migrations.
 
 ### Core Tables
 
@@ -290,9 +298,10 @@ Completed and pending work tracked in `docs/goal-state.md` and `decisions.md`.
 - ~~ICS calendar attachment parsing for meeting extraction~~ ✅
 - ~~Partners as first-class entity with catalog sync~~ ✅
 - ~~Sync architecture documented~~ ✅
+- ~~Modular prompt architecture with partner/relationship context~~ ✅
+- ~~Canonical user identity (USER_CONFIG) + participant canonicalization~~ ✅
 
 **Pending:**
-- Classifier prompt refinement: inject partner/relationship contact emails for deterministic matching
 - Tag filter chips on engagements list page
 - Admin page for program/event management (currently seed-only)
 - Drop legacy `summary` column (superseded by `current_state`)
