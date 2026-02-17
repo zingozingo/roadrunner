@@ -226,11 +226,19 @@ export async function createEngagement(data: {
   pillar?: Pillar | null;
   priority?: Priority | null;
 }): Promise<Engagement> {
+  // Resolve partner_id from partner_name
+  let partnerId: string | null = null;
+  if (data.partner_name) {
+    const partner = await getPartnerByName(data.partner_name);
+    if (partner) partnerId = partner.id;
+  }
+
   const { data: engagement, error } = await getSupabaseClient()
     .from("engagements")
     .insert({
       name: data.name,
       partner_name: data.partner_name ?? null,
+      partner_id: partnerId,
       summary: data.summary ?? null,
       current_state: data.current_state ?? null,
       open_items: data.open_items ?? [],
@@ -287,7 +295,16 @@ export async function updateEngagement(
   const row: Record<string, unknown> = {};
 
   if (updates.name !== undefined) row.name = updates.name;
-  if (updates.partner_name !== undefined) row.partner_name = updates.partner_name;
+  if (updates.partner_name !== undefined) {
+    row.partner_name = updates.partner_name;
+    // Re-resolve partner_id when partner_name changes
+    if (updates.partner_name) {
+      const partner = await getPartnerByName(updates.partner_name);
+      row.partner_id = partner?.id ?? null;
+    } else {
+      row.partner_id = null;
+    }
+  }
   if (updates.summary !== undefined) row.summary = updates.summary;
   if (updates.current_state !== undefined) row.current_state = updates.current_state;
   if (updates.open_items !== undefined) row.open_items = updates.open_items;
@@ -1390,6 +1407,13 @@ export async function createMeeting(data: {
   notes?: string | null;
   source?: Meeting["source"];
 }): Promise<Meeting> {
+  // Resolve partner_id from partner_name
+  let partnerId: string | null = null;
+  if (data.partner_name) {
+    const partner = await getPartnerByName(data.partner_name);
+    if (partner) partnerId = partner.id;
+  }
+
   const { data: meeting, error } = await getSupabaseClient()
     .from("meetings")
     .insert({
@@ -1397,6 +1421,7 @@ export async function createMeeting(data: {
       engagement_id: data.engagement_id ?? null,
       event_id: data.event_id ?? null,
       partner_name: data.partner_name ?? null,
+      partner_id: partnerId,
       meeting_type: data.meeting_type ?? null,
       status: data.status ?? "Scheduling",
       meeting_date: data.meeting_date ?? null,
@@ -1579,10 +1604,10 @@ export async function linkMeetingToEngagement(
   try {
     const db = getSupabaseClient();
 
-    // Look up partner_name from the engagement
+    // Look up partner_name and partner_id from the engagement
     const { data: engagement } = await db
       .from("engagements")
-      .select("partner_name")
+      .select("partner_name, partner_id")
       .eq("id", engagementId)
       .maybeSingle();
 
@@ -1591,6 +1616,9 @@ export async function linkMeetingToEngagement(
     };
     if (engagement?.partner_name) {
       updates.partner_name = engagement.partner_name;
+    }
+    if (engagement?.partner_id) {
+      updates.partner_id = engagement.partner_id;
     }
 
     const { data, error } = await db
