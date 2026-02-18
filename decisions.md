@@ -1199,3 +1199,99 @@ Next.js 14 App Router + TypeScript + Tailwind. Supabase Postgres for data. Singl
 **Rationale:** Clean separation between structured calendar data (ICS) and conversational references. Parsing "let's meet" from email text is unreliable and creates low-confidence records.
 
 **Impact:** Meetings table stays high-confidence (ICS-sourced only). Meeting mentions are captured in `current_state` prose.
+
+---
+
+## 2026-02-18: Partner Classification Taxonomy: Segment + Focus Area
+
+**Decision:** Replace Category (Infrastructure/HBA/Industry Vert) and Sub-Category (freeform text) with Segment (singleSelect: Security, SecOps, DevOps, CloudOps, Observability, OT/IoT) and Focus Area (multipleSelects: 18 domain-specific options).
+
+**Context:** The old taxonomy was stale — nearly every partner was "Infrastructure" which told you nothing. Sub-Category was freeform text with inconsistent concatenated paths like "Infrastructure - Security - Network Security."
+
+**Rationale:** Two-field model separates "who buys this" (Segment = customer team) from "what they do" (Focus Area = specific niche). Segment is stable and grows slowly. Focus Area is granular and extensible. Multiple select on Focus Area allows partners like Cloudaware to span Asset Management + Compliance.
+
+**Impact:** sync.ts field mappings updated (PTRF.segment, PTRF.focusArea), partner detail page shows Segment badge + Focus Area chips in header, sidebar shows contact fields only. Partners list page filters by Segment. Prompt builder sends Segment/Focus Area context to Claude. All 20 partners backfilled.
+
+---
+
+## 2026-02-18: AWS Context Fields Synced to Roadrunner
+
+**Decision:** Sync AWS Stickiness (text) and Key AWS Services (multipleSelects) from Airtable to Roadrunner. Display as a separate "AWS Context" sidebar section on partner detail pages.
+
+**Context:** These fields existed in Airtable but were never pulled into Roadrunner. AWS Stickiness is a narrative about customer AWS adoption likelihood. Key AWS Services lists which AWS services the partner integrates with.
+
+**Rationale:** Both fields are valuable for understanding partner-AWS fit at a glance. Displaying them separately from contact info creates a clean "who are they" vs "how do they relate to AWS" grouping.
+
+**Impact:** Two new DB columns (aws_stickiness text, key_aws_services text[]), new PTRF sync constants, partner detail page has new AWS Context section. Migration 033.
+
+---
+
+## 2026-02-18: Component Directory Organization
+
+**Decision:** Reorganize src/components/ from 25 flat files into 5 subdirectories: actions/ (5), engagement/ (4), inbox/ (4), layout/ (4), shared/ (8).
+
+**Context:** Flat directory was navigable but didn't communicate component purpose. As the component count grows, grouping by function prevents the "wall of files" problem.
+
+**Rationale:** Groups map to functional areas: actions/ = entity CRUD buttons, engagement/ = engagement-specific cards, inbox/ = review queue UI, layout/ = app structure, shared/ = reusable primitives. No barrel exports — direct imports are more explicit.
+
+**Impact:** 18 files updated with new import paths. Pattern established for future component additions.
+
+---
+
+## 2026-02-18: Twilio/SMS Removal
+
+**Decision:** Remove all Twilio/SMS integration. Approval queue notifications happen exclusively via the Inbox web UI.
+
+**Context:** SMS was a convenience layer — when classifier confidence was below 0.85, it would text the user. The Inbox UI already handles review, making SMS redundant.
+
+**Rationale:** Removes a third-party dependency (31 npm packages), simplifies the classifier (no SMS branching), eliminates 4 env vars. The Inbox UI is a better review experience than SMS anyway — you can see context, modify classifications, batch resolve.
+
+**Impact:** 4 files deleted, 6 files modified, twilio package removed. Classifier creates approval_queue items but no longer sends SMS. 176 tests (down from 185 — 9 SMS tests removed). Legacy sms_sent/options_sent DB columns remain as nullable.
+
+---
+
+## 2026-02-18: Documentation Restructure: Purpose-Driven Docs
+
+**Decision:** Replace 4 outdated docs (master-spec, goal-state, sync-architecture, field-mapping-guide) with 6 purpose-driven docs: PROJECT.md, ARCHITECTURE.md, DATA-MODEL.md, CLASSIFICATION.md, DEVELOPMENT.md, FIELD-MAPPING.md.
+
+**Context:** Existing docs described what was planned, not what was built. master-spec had 70+ references to "initiatives" (now engagements) and 30+ Twilio references. No single doc could orient a fresh Claude Code session.
+
+**Rationale:** Each doc answers one question: "what is this?" (PROJECT), "how is it built?" (ARCHITECTURE), "what data exists?" (DATA-MODEL), "how does the AI work?" (CLASSIFICATION), "how do I work on it?" (DEVELOPMENT), "what are the field IDs?" (FIELD-MAPPING). Maps to the Sherpa diagnostic workflow — read the relevant doc before working.
+
+**Impact:** README updated with documentation table. Best content from old docs preserved (principles, classification rules, events ARE/ARE NOT distinction, removal rationale). All docs reflect actual implemented state as of 2026-02-18.
+
+---
+
+## 2026-02-18: AWS Relationships Decoupled from Partner-Specific Data
+
+**Decision:** Remove Strength, Partner Programs link, Partner Event Status link, and Last Touch from AWS Relationships table.
+
+**Context:** Strength (Strong/Building/New/Deferred) was originally per-partner — "how strong is this relationship for Partner X." When relationships were decoupled from single-partner ownership (can link to multiple engagements across partners), per-partner strength became meaningless. Partner Programs and Partner Event Status links were Tier 2 enrollment data that doesn't belong on AWS team records. Last Touch is redundant with meeting dates.
+
+**Rationale:** AWS Relationships should be pure team/person records. Their connection to partners flows through engagements and meetings, not through enrollment data. "Last touch" is derivable from the most recent linked meeting.
+
+**Impact:** Migration 034 drops strength column. sync.ts, types.ts, prompt-builder, detail/list pages, action components all cleaned. 13 files modified, zero TypeScript errors.
+
+---
+
+## 2026-02-18: Dead API Route Cleanup Pattern
+
+**Decision:** Delete /api/inbox/route.ts (unused GET list endpoint). Establish pattern: list pages use server components querying Supabase directly; API routes exist only for client-side mutations and external webhooks.
+
+**Context:** The inbox page queries Supabase via server component, making the API GET route redundant. Same pattern exists for partners, programs, and relationships list pages.
+
+**Rationale:** Server components are simpler and faster for reads — no API hop needed. API routes exist for: mutations (POST/PUT/DELETE from client components), webhooks (Mailgun, health check), and dev tools (classify/test).
+
+**Impact:** 1 file deleted. Pattern documented for future reference. /api/inbox/count/route.ts preserved (used by Sidebar badge).
+
+---
+
+## 2026-02-18: Meetings Primary Field: Formula → Writable Text
+
+**Decision:** Convert Meeting Name from a formula field to a writable singleLineText field. Roadrunner writes meeting.title directly.
+
+**Context:** The formula field was fragile — it concatenated partner name + event name + date, breaking when any input was missing. Roadrunner generates better titles from classification context.
+
+**Rationale:** Writable field gives Roadrunner full control over meeting display names. Backfilled all 14 existing records with clean, descriptive names (stripped leading dashes, added context in parentheses). Same field ID preserved — just type changed.
+
+**Impact:** sync.ts writes meeting.title → Meeting Name. 3-tier match strategy uses title + date as fallback. All 14 records cleaned up.

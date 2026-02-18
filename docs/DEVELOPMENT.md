@@ -41,8 +41,8 @@ npx tsc --noEmit     # TypeScript check (no output files)
 |-----------|-------|--------|
 | email-parser.test.ts | 72 | Email chain parsing, forwarded content extraction |
 | ics-parser.test.ts | 18 | ICS calendar parsing (RFC 5545) |
-| claude.test.ts | 16 | Claude API wrapper, response parsing |
-| prompt-builder.test.ts | 16 | Context section builders |
+| claude.test.ts | 18 | Claude API wrapper, response parsing |
+| prompt-builder.test.ts | 19 | Context section builders |
 | user-config.test.ts | 18 | User identity matching |
 | resolve-open-items.test.ts | 13 | Open item extraction |
 | classifier.test.ts | 12 | Classification orchestration, confidence routing |
@@ -58,7 +58,7 @@ npx vitest run --reporter=verbose            # Detailed output
 
 ## Database Migrations
 
-Migrations live in `supabase/migrations/` and are numbered sequentially (001-033).
+Migrations live in `supabase/migrations/` and are numbered sequentially (001-034).
 
 ```bash
 # Apply migrations to local Supabase
