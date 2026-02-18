@@ -83,13 +83,15 @@ export interface AwsRelationship {
 export interface Partner {
   id: string;
   name: string;
-  category: string | null;
-  sub_category: string | null;
+  segment: string | null;
+  focus_area: string[];
   alliance_lead: string | null;
   alliance_lead_email: string | null;
   psa: string | null;
   spms_id: number | null;
   partner_contact_emails: string[] | null;
+  aws_stickiness: string | null;
+  key_aws_services: string[];
   airtable_record_id: string | null;
   created_at: string;
   updated_at: string;

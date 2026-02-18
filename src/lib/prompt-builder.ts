@@ -126,7 +126,7 @@ export function buildPartnersSection(partners: Partner[]): string {
 
   for (const p of partners) {
     const parts = [`- **${p.name}** (id: ${p.id})`];
-    if (p.category) parts.push(`Category: ${p.category}`);
+    if (p.segment) parts.push(`Segment: ${p.segment}`);
     if (p.alliance_lead) parts.push(`Lead: ${p.alliance_lead}`);
 
     // Extract domains from partner contact emails for email↔partner matching

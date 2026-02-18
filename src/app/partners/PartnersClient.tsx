@@ -8,10 +8,13 @@ import FilterBar from "@/components/FilterBar";
 import SyncButton from "@/components/SyncButton";
 import { Partner } from "@/lib/types";
 
-const CATEGORY_FILTER_OPTIONS = [
-  { label: "Infrastructure", value: "infrastructure" },
-  { label: "HBA", value: "hba" },
-  { label: "Industry Vert", value: "industry_vert" },
+const SEGMENT_FILTER_OPTIONS = [
+  { label: "Security", value: "security" },
+  { label: "SecOps", value: "secops" },
+  { label: "DevOps", value: "devops" },
+  { label: "CloudOps", value: "cloudops" },
+  { label: "Observability", value: "observability" },
+  { label: "OT/IoT", value: "ot/iot" },
 ];
 
 interface PartnersClientProps {
@@ -39,48 +42,51 @@ export default function PartnersClient({ partners }: PartnersClientProps) {
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const matchesName = p.name.toLowerCase().includes(q);
-        const matchesCategory = p.category?.toLowerCase().includes(q);
-        const matchesSubCategory = p.sub_category?.toLowerCase().includes(q);
+        const matchesSegment = p.segment?.toLowerCase().includes(q);
+        const matchesFocusArea = p.focus_area.some((a) => a.toLowerCase().includes(q));
         const matchesLead = p.alliance_lead?.toLowerCase().includes(q);
         const matchesPsa = p.psa?.toLowerCase().includes(q);
-        if (!matchesName && !matchesCategory && !matchesSubCategory && !matchesLead && !matchesPsa) return false;
+        if (!matchesName && !matchesSegment && !matchesFocusArea && !matchesLead && !matchesPsa) return false;
       }
-      if (activeFilters.size > 0 && p.category && !activeFilters.has(p.category)) {
+      if (activeFilters.size > 0 && p.segment && !activeFilters.has(p.segment)) {
         return false;
       }
-      if (activeFilters.size > 0 && !p.category) {
+      if (activeFilters.size > 0 && !p.segment) {
         return false;
       }
       return true;
     });
   }, [partners, searchQuery, activeFilters]);
 
-  // Group by category
+  // Group by segment
   const grouped = useMemo(() => {
-    const categoryOrder = ["infrastructure", "hba", "industry_vert"];
-    const categoryLabels: Record<string, string> = {
-      infrastructure: "Infrastructure",
-      hba: "HBA",
-      industry_vert: "Industry Vert",
+    const segmentOrder = ["security", "secops", "devops", "cloudops", "observability", "ot/iot"];
+    const segmentLabels: Record<string, string> = {
+      security: "Security",
+      secops: "SecOps",
+      devops: "DevOps",
+      cloudops: "CloudOps",
+      observability: "Observability",
+      "ot/iot": "OT/IoT",
     };
 
-    const groups: { category: string; label: string; partners: Partner[] }[] = [];
+    const groups: { segment: string; label: string; partners: Partner[] }[] = [];
 
-    for (const cat of categoryOrder) {
+    for (const seg of segmentOrder) {
       const items = filteredPartners
-        .filter((p) => p.category === cat)
+        .filter((p) => p.segment === seg)
         .sort((a, b) => a.name.localeCompare(b.name));
       if (items.length > 0) {
-        groups.push({ category: cat, label: categoryLabels[cat] ?? cat, partners: items });
+        groups.push({ segment: seg, label: segmentLabels[seg] ?? seg, partners: items });
       }
     }
 
-    // Uncategorized
-    const uncategorized = filteredPartners
-      .filter((p) => !p.category || !categoryOrder.includes(p.category))
+    // Unsegmented
+    const unsegmented = filteredPartners
+      .filter((p) => !p.segment || !segmentOrder.includes(p.segment))
       .sort((a, b) => a.name.localeCompare(b.name));
-    if (uncategorized.length > 0) {
-      groups.push({ category: "other", label: "Other", partners: uncategorized });
+    if (unsegmented.length > 0) {
+      groups.push({ segment: "other", label: "Other", partners: unsegmented });
     }
 
     return groups;
@@ -105,7 +111,7 @@ export default function PartnersClient({ partners }: PartnersClientProps) {
         <>
           <FilterBar
             searchPlaceholder="Search partners..."
-            filterOptions={CATEGORY_FILTER_OPTIONS}
+            filterOptions={SEGMENT_FILTER_OPTIONS}
             activeFilters={activeFilters}
             onSearchChange={setSearchQuery}
             onFilterToggle={handleFilterToggle}
@@ -122,7 +128,7 @@ export default function PartnersClient({ partners }: PartnersClientProps) {
           ) : (
             <div className="space-y-8">
               {grouped.map((group) => (
-                <section key={group.category}>
+                <section key={group.segment}>
                   <div className="mb-3 flex items-center gap-2">
                     <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">
                       {group.label}
@@ -144,14 +150,14 @@ export default function PartnersClient({ partners }: PartnersClientProps) {
                               <h3 className="font-medium text-foreground">
                                 {partner.name}
                               </h3>
-                              {partner.category && (
-                                <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent whitespace-nowrap">
-                                  {partner.category.replace("_", " ")}
+                              {partner.segment && (
+                                <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent whitespace-nowrap capitalize">
+                                  {partner.segment}
                                 </span>
                               )}
                             </div>
                             <p className="mt-1 text-sm text-muted">
-                              {[partner.sub_category, partner.psa && `PSA: ${partner.psa}`]
+                              {[partner.focus_area.join(", "), partner.psa && `PSA: ${partner.psa}`]
                                 .filter(Boolean)
                                 .join(" · ") || "\u00A0"}
                             </p>

@@ -59,13 +59,15 @@ const RF = {
 
 const PTRF = {
   name: "fldlE5L12oES6IQSO",
-  category: "fldSoIAhWfmPgHzuc",
-  subCategory: "fldeW5BvDgSp1bLNX",
+  segment: "fldSoIAhWfmPgHzuc",
+  focusArea: "fldeW5BvDgSp1bLNX",
   allianceLead: "fldN2yZtjwetyHJwI",
   psa: "fldNRDPljDlJZkbds",
   spmsId: "fld9gzD2CRM9NApUH",
   allianceLeadEmail: "fldgoSc6QMl6l1303",
   partnerContactEmails: "fldAEQSbi448tEjff",
+  awsStickiness: "fldlCzNjHA3Ziuqtv",
+  keyAwsServices: "fldQwm8UtaNxAa9dI",
 } as const;
 
 export interface SyncResult {
@@ -487,6 +489,13 @@ async function fetchPartnerLookup(): Promise<Map<string, string>> {
 
 // ── Partners sync ───────────────────────────────────────────
 
+/** Coerce Airtable multipleSelects (string[]) to string[]; wraps a single string; defaults to [] */
+function arr(val: unknown): string[] {
+  if (Array.isArray(val)) return val.filter((v): v is string => typeof v === "string");
+  if (typeof val === "string" && val.trim()) return [val.trim()];
+  return [];
+}
+
 /** Extract .name from Airtable single-select object, or return string as-is */
 function selectName(val: unknown): string | null {
   if (val === undefined || val === null) return null;
@@ -502,8 +511,8 @@ function mapPartner(rec: AirtableRecord): Record<string, unknown> | null {
   const name = str(rec.fields[PTRF.name]);
   if (!name) return null;
 
-  const rawCategory = selectName(rec.fields[PTRF.category]);
-  const category = rawCategory ? rawCategory.toLowerCase() : null;
+  const rawSegment = selectName(rec.fields[PTRF.segment]);
+  const segment = rawSegment ? rawSegment.toLowerCase() : null;
 
   // Split semicolon-delimited contact emails into string[]
   const rawEmails = str(rec.fields[PTRF.partnerContactEmails]);
@@ -516,13 +525,15 @@ function mapPartner(rec: AirtableRecord): Record<string, unknown> | null {
 
   return {
     name,
-    category,
-    sub_category: str(rec.fields[PTRF.subCategory]),
+    segment,
+    focus_area: arr(rec.fields[PTRF.focusArea]),
     alliance_lead: str(rec.fields[PTRF.allianceLead]),
     alliance_lead_email: str(rec.fields[PTRF.allianceLeadEmail]),
     psa: selectName(rec.fields[PTRF.psa]),
     spms_id: spmsId,
     partner_contact_emails: partnerContactEmails,
+    aws_stickiness: str(rec.fields[PTRF.awsStickiness]),
+    key_aws_services: arr(rec.fields[PTRF.keyAwsServices]),
   };
 }
 

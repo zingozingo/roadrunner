@@ -71,14 +71,23 @@ export default async function PartnerDetailPage({
           <h1 className="text-2xl font-bold text-foreground">
             {partner.name}
           </h1>
-          {partner.category && (
-            <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent whitespace-nowrap">
-              {partner.category.replace("_", " ")}
+          {partner.segment && (
+            <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent whitespace-nowrap capitalize">
+              {partner.segment}
             </span>
           )}
         </div>
-        {partner.sub_category && (
-          <p className="mt-1 text-muted">{partner.sub_category}</p>
+        {partner.focus_area.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {partner.focus_area.map((area) => (
+              <span
+                key={area}
+                className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap"
+              >
+                {area}
+              </span>
+            ))}
+          </div>
         )}
       </div>
 
@@ -183,25 +192,14 @@ export default async function PartnerDetailPage({
           </div>
         </div>
 
-        {/* Sidebar: metadata */}
+        {/* Sidebar */}
         <div className="space-y-4">
+          {/* Partner Details */}
           <div className="rounded-xl border border-border bg-surface p-4">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-              Details
+              Partner Details
             </h2>
             <dl className="space-y-3 text-sm">
-              {partner.category && (
-                <div>
-                  <dt className="text-muted">Category</dt>
-                  <dd className="text-foreground capitalize">{partner.category.replace("_", " ")}</dd>
-                </div>
-              )}
-              {partner.sub_category && (
-                <div>
-                  <dt className="text-muted">Sub-Category</dt>
-                  <dd className="text-foreground">{partner.sub_category}</dd>
-                </div>
-              )}
               {partner.alliance_lead && (
                 <div>
                   <dt className="text-muted">Alliance Lead</dt>
@@ -245,6 +243,38 @@ export default async function PartnerDetailPage({
               </div>
             </dl>
           </div>
+
+          {/* AWS Context */}
+          {(partner.aws_stickiness || partner.key_aws_services.length > 0) && (
+            <div className="rounded-xl border border-border bg-surface p-4">
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
+                AWS Context
+              </h2>
+              <dl className="space-y-3 text-sm">
+                {partner.aws_stickiness && (
+                  <div>
+                    <dt className="text-muted">AWS Stickiness</dt>
+                    <dd className="text-foreground whitespace-pre-wrap">{partner.aws_stickiness}</dd>
+                  </div>
+                )}
+                {partner.key_aws_services.length > 0 && (
+                  <div>
+                    <dt className="text-muted mb-1.5">Key AWS Services</dt>
+                    <dd className="flex flex-wrap gap-1.5">
+                      {partner.key_aws_services.map((svc) => (
+                        <span
+                          key={svc}
+                          className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap"
+                        >
+                          {svc}
+                        </span>
+                      ))}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+          )}
         </div>
       </div>
     </div>
