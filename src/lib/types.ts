@@ -106,7 +106,10 @@ export interface Meeting {
   title: string;
   engagement_id: string | null;
   event_id: string | null;
+  program_id: string | null;
   partner_name: string | null;
+  partner_id: string | null;
+  message_id: string | null;
   meeting_type: string | null;
   status: MeetingStatus;
   meeting_date: string | null;

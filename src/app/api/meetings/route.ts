@@ -32,7 +32,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { title, engagement_id, event_id, partner_name, meeting_type, status, meeting_date, start_time, end_time, location, attendees, notes } = body;
+    const { title, engagement_id, event_id, program_id, partner_name, meeting_type, status, meeting_date, start_time, end_time, location, attendees, notes } = body;
 
     if (!title || typeof title !== "string" || !title.trim()) {
       return NextResponse.json(
@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
       title: title.trim(),
       engagement_id: engagement_id || null,
       event_id: event_id || null,
+      program_id: program_id || null,
       partner_name: partner_name?.trim() || null,
       meeting_type: meeting_type || null,
       status: status || "Scheduling",

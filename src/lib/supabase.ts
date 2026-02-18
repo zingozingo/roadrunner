@@ -1614,6 +1614,7 @@ export async function createMeeting(data: {
   title: string;
   engagement_id?: string | null;
   event_id?: string | null;
+  program_id?: string | null;
   partner_name?: string | null;
   meeting_type?: string | null;
   status?: string;
@@ -1639,6 +1640,7 @@ export async function createMeeting(data: {
       title: data.title,
       engagement_id: data.engagement_id ?? null,
       event_id: data.event_id ?? null,
+      program_id: data.program_id ?? null,
       partner_name: data.partner_name ?? null,
       partner_id: partnerId,
       meeting_type: data.meeting_type ?? null,
@@ -1672,6 +1674,7 @@ export async function updateMeeting(
     title?: string;
     engagement_id?: string | null;
     event_id?: string | null;
+    program_id?: string | null;
     partner_name?: string | null;
     meeting_type?: string | null;
     status?: string;

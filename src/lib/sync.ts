@@ -13,6 +13,7 @@ import {
   type AirtableRecord,
 } from "./airtable";
 import { getSupabaseClient } from "./supabase";
+import { isUserEmail } from "./user-config";
 import type { OpenItem } from "./types";
 
 // ── Airtable table IDs ──────────────────────────────────────
@@ -947,7 +948,9 @@ export async function syncEngagementsToAirtable(): Promise<SyncResult> {
 const MEETINGS_TABLE = "tbl6LsEqSvEZgqBdW";
 
 const MF = {
+  meetingName: "fldcbatIDunJ00dLp",
   event: "fldT96Imgc7CFDBEX",
+  program: "fldqhPAGvYppRZgCS",
   partner: "fldZjCUMpBtgpU13X",
   meetingType: "fldGWa1MFoqoc89qC",
   status: "fldpXlLugkUgQsjcr",
@@ -965,13 +968,11 @@ const MF = {
   icsUid: "fldNb83l5XLtz8J9k",
 } as const;
 
-// Read-only formula field used for title matching (never written)
-const MF_TITLE_FORMULA = "fldcbatIDunJ00dLp";
-
 interface MeetingLookups {
   partnerNameToAtId: Map<string, string>;
   partnerDbToAtId: Map<string, string>;
   eventDbToAtId: Map<string, string>;
+  programDbToAtId: Map<string, string>;
   engagementDbToAtId: Map<string, string>;
   meetingRelAtIds: Map<string, string[]>;
 }
@@ -983,6 +984,7 @@ async function buildMeetingLookups(): Promise<MeetingLookups> {
     partnerNameToAtId,
     { data: partners },
     { data: events },
+    { data: programs },
     { data: engagements },
     { data: junctions },
     { data: relationships },
@@ -990,6 +992,7 @@ async function buildMeetingLookups(): Promise<MeetingLookups> {
     fetchPartnerNameToIdMap(),
     supabase.from("partners").select("id, airtable_record_id").not("airtable_record_id", "is", null),
     supabase.from("events").select("id, airtable_record_id").not("airtable_record_id", "is", null),
+    supabase.from("programs").select("id, airtable_record_id").not("airtable_record_id", "is", null),
     supabase.from("engagements").select("id, airtable_record_id").not("airtable_record_id", "is", null),
     supabase.from("meeting_aws_relationships").select("meeting_id, aws_relationship_id"),
     supabase.from("aws_relationships").select("id, airtable_record_id").not("airtable_record_id", "is", null),
@@ -1003,6 +1006,11 @@ async function buildMeetingLookups(): Promise<MeetingLookups> {
   const eventDbToAtId = new Map<string, string>();
   for (const e of (events ?? []) as { id: string; airtable_record_id: string }[]) {
     eventDbToAtId.set(e.id, e.airtable_record_id);
+  }
+
+  const programDbToAtId = new Map<string, string>();
+  for (const p of (programs ?? []) as { id: string; airtable_record_id: string }[]) {
+    programDbToAtId.set(p.id, p.airtable_record_id);
   }
 
   const engagementDbToAtId = new Map<string, string>();
@@ -1029,6 +1037,7 @@ async function buildMeetingLookups(): Promise<MeetingLookups> {
     partnerNameToAtId,
     partnerDbToAtId,
     eventDbToAtId,
+    programDbToAtId,
     engagementDbToAtId,
     meetingRelAtIds,
   };
@@ -1039,6 +1048,7 @@ function buildMeetingFields(
   lookups: MeetingLookups
 ): Record<string, unknown> {
   const fields: Record<string, unknown> = {
+    [MF.meetingName]: meeting.title,
     [MF.roadrunnerId]: meeting.id,
     [MF.status]: meeting.status,
   };
@@ -1071,6 +1081,13 @@ function buildMeetingFields(
     if (atId) fields[MF.event] = [atId];
   }
 
+  // Program linked record
+  const programId = meeting.program_id as string | null;
+  if (programId) {
+    const atId = lookups.programDbToAtId.get(programId);
+    if (atId) fields[MF.program] = [atId];
+  }
+
   // Engagement linked record
   const engagementId = meeting.engagement_id as string | null;
   if (engagementId) {
@@ -1094,6 +1111,16 @@ function buildMeetingFields(
     const org = ((a.organization as string) || "").toLowerCase();
     const displayName = (a.name as string) || email;
 
+    // Skip system/relay addresses and user's own email variants
+    if (
+      !email ||
+      email.includes("relay.stevenromero.dev") ||
+      email.includes("salesforce") ||
+      isUserEmail(email)
+    ) {
+      continue;
+    }
+
     const isAws =
       email.includes("@amazon.com") ||
       org.includes("aws") ||
@@ -1101,10 +1128,7 @@ function buildMeetingFields(
 
     if (isAws) {
       awsNames.push(displayName);
-    } else if (
-      !email.includes("relay@stevenromero.dev") &&
-      !email.includes("salesforce")
-    ) {
+    } else {
       partnerContactNames.push(displayName);
     }
   }
@@ -1159,7 +1183,7 @@ export async function pushMeetingToAirtable(
 
     if (!match) {
       match = atRecords.find((r) => {
-        const atTitle = r.fields[MF_TITLE_FORMULA];
+        const atTitle = r.fields[MF.meetingName];
         const atDate = r.fields[MF.meetingDate];
         return (
           typeof atTitle === "string" &&
@@ -1231,7 +1255,7 @@ export async function syncMeetingsToAirtable(): Promise<SyncResult> {
   for (const rec of atRecords) {
     const rrId = rec.fields[MF.roadrunnerId];
     if (typeof rrId === "string" && rrId) atByRoadrunnerId.set(rrId, rec);
-    const title = rec.fields[MF_TITLE_FORMULA];
+    const title = rec.fields[MF.meetingName];
     const date = rec.fields[MF.meetingDate];
     if (typeof title === "string" && typeof date === "string") {
       atByTitleDate.set(`${title.toLowerCase()}|${date}`, rec);

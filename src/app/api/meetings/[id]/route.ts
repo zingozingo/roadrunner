@@ -70,7 +70,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { title, engagement_id, event_id, partner_name, meeting_type, status, meeting_date, start_time, end_time, location, attendees, notes } = body;
+    const { title, engagement_id, event_id, program_id, partner_name, meeting_type, status, meeting_date, start_time, end_time, location, attendees, notes } = body;
 
     if (title !== undefined && (typeof title !== "string" || !title.trim())) {
       return NextResponse.json(
@@ -112,6 +112,7 @@ export async function PUT(
     if (title !== undefined) updates.title = title.trim();
     if (engagement_id !== undefined) updates.engagement_id = engagement_id || null;
     if (event_id !== undefined) updates.event_id = event_id || null;
+    if (program_id !== undefined) updates.program_id = program_id || null;
     if (partner_name !== undefined) updates.partner_name = partner_name?.trim() || null;
     if (meeting_type !== undefined) updates.meeting_type = meeting_type || null;
     if (status !== undefined) updates.status = status;
