@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { parseForwardedEmail, parseSenderField } from "@/lib/email-parser";
+import { parseForwardedEmail, parseSenderField, stripExternalTag } from "@/lib/email-parser";
 import { storeMessages, checkDuplicateMessage, createMeetingFromICS } from "@/lib/supabase";
 import { extractICSFromAttachments, parseICSContent } from "@/lib/ics-parser";
 import { processSingleMessage } from "@/lib/classifier";
@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
 
     // Extract email fields from Mailgun's payload
     const sender = fields.get("sender") ?? fields.get("from") ?? "";
-    const subject = fields.get("subject") ?? "";
+    const subject = stripExternalTag(fields.get("subject") ?? "");
     const bodyPlain = fields.get("body-plain") ?? "";
     const strippedText = fields.get("stripped-text") ?? "";
     const bodyCalendar = fields.get("body-calendar") ?? "";

@@ -377,6 +377,70 @@ function sortChronologically(messages: ParsedMessage[]): ParsedMessage[] {
 }
 
 /**
+ * Patterns for individual signature lines in a forwarder preface.
+ * Applied line-by-line to strip corporate signature blocks while preserving
+ * intentional notes like "FYI — please review this thread".
+ */
+const SIGNATURE_LINE_PATTERNS = [
+  /^[\s_\-=*]+$/,                                  // separator lines (underscores, dashes, etc.)
+  // Pipe-separated identity lines: capitalized words before |
+  // Matches: "Steven Romero | Growth PDM", "Partner Development Manager | AWS"
+  // Does NOT match: "Please review this | it's urgent" (lowercase "review")
+  /^(?:[A-Z][a-zA-Z.']+)(?:\s+[A-Z][a-zA-Z.']+){0,5}\s*\|.*$/,
+  // Title/company/name lines: 1-7 capitalized words with optional connectors
+  // Matches: "Steven Romero", "Partner Development Manager", "Amazon Web Services",
+  //          "Head of Channel & Alliances", "Sr. Solutions Architect"
+  // Does NOT match sentences: "Please review and follow up" (lowercase "review" after "Please")
+  /^(?:[A-Z][a-zA-Z.']+)(?:\s+(?:[A-Z][a-zA-Z.']+|of|for|and|&|the)){0,6}\s*$/,
+  /^\s*Sent from .+$/i,                            // mobile signatures
+  /^\s*Get Outlook for .+$/i,                      // Outlook app footer
+  /^[\s()\d+\-.\x20]{7,}$/,                        // phone numbers: (206) 555-1234, +1-206-555-1234
+  /^\s*\S+@\S+\.\S+\s*$/,                          // standalone email address
+  /^\s*(?:https?:\/\/|www\.)\S+\s*$/i,             // standalone URL
+  /^\s*(?:Thanks|Thank you|Best|Regards|Cheers|Best regards|Kind regards|Warm regards)\s*,?\s*$/i,
+  /^\s*(?:V\/r|Respectfully|Sincerely)\s*,?\s*$/i,
+  /^\s*(?:He\/Him|She\/Her|They\/Them)\s*$/i,      // pronoun lines
+  /^\s*\d{1,5}\s+[A-Z].*(?:St|Ave|Blvd|Dr|Rd|Way|Ln|Ct)\.?\s*$/i, // street addresses
+  /^\s*[A-Z][a-z]+(?:,\s*[A-Z]{2})?\s+\d{5}(?:-\d{4})?\s*$/i,     // city/state/zip
+  /^\s*M:\s|^\s*O:\s|^\s*C:\s|^\s*P:\s|^\s*T:\s|^\s*F:\s/i,       // labeled phone: "M: 555..." "O: 555..."
+  /^\s*(?:this (?:email|message|communication) (?:is |are )?(?:confidential|intended)).*$/i,  // confidentiality one-liners
+  /^\s*CONFIDENTIALITY NOTICE\s*$/i,                // standalone confidentiality header
+];
+
+/**
+ * Strip corporate signature lines from a forwarder preface.
+ * Removes lines matching signature patterns and checks if meaningful content remains.
+ */
+function stripSignatureLines(preface: string): string {
+  return preface
+    .split("\n")
+    .filter((line) => {
+      const trimmed = line.trim();
+      if (trimmed.length === 0) return false;
+      return !SIGNATURE_LINE_PATTERNS.some((pat) => pat.test(trimmed));
+    })
+    .join("\n")
+    .trim();
+}
+
+/**
+ * Strip gateway-added external email tags from a subject line.
+ *
+ * Corporate email gateways (Proofpoint, Mimecast, etc.) prepend tags like:
+ *   [EXTERNAL] Re: Partnership Update
+ *   [EXT] Fwd: Meeting Notes
+ *   External : Security Review
+ *   [External Email] Partnership Proposal
+ */
+export function stripExternalTag(subject: string): string {
+  return subject
+    .replace(/^\s*\[external(?:\s+email)?\]\s*/i, "")
+    .replace(/^\s*\[ext\]\s*/i, "")
+    .replace(/^\s*external\s*:\s*/i, "")
+    .trim();
+}
+
+/**
  * Parse a forwarded email body into individual messages.
  *
  * Two-pass architecture:
@@ -425,14 +489,9 @@ export function parseForwardedEmail(
       });
     }
 
-    // Forwarder preface handling
+    // Forwarder preface handling — distinguish typed notes from signature blocks
     const preface = rawBody.slice(0, headers[0].index).trim();
-    const cleaned = preface
-      .replace(/^[\s_\-=*]+$/gm, "")           // separator lines
-      .replace(/^[A-Z][a-z]+ [A-Z][a-z]+\s*\|.*$/gm, "") // "Name | Title" pattern
-      .replace(/^[A-Z][a-z]+ [A-Z][a-z]+\s*$/gm, "")     // just a name on a line
-      .replace(/^\s*Sent from .+$/gm, "")       // mobile signatures
-      .trim();
+    const cleaned = stripSignatureLines(preface);
 
     if (cleaned.length > 20) {
       forwarderNote = cleaned;

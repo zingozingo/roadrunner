@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseForwardedEmail, findGmailQuoteMarkers } from "../email-parser";
+import { parseForwardedEmail, findGmailQuoteMarkers, stripExternalTag } from "../email-parser";
 
 // Realistic Outlook forwarded email with 3-message thread
 const OUTLOOK_THREAD = `FYI — forwarding this thread about the security review.
@@ -903,5 +903,136 @@ Undated original content.`;
       expect(messages[0].sent_at).not.toBeNull();
       expect(messages[1].sent_at).toBeNull();
     });
+  });
+
+  describe("forwarder preface: multi-line corporate signature stripped", () => {
+    const body = `Steven Romero
+Partner Development Manager
+Amazon Web Services
+sterme@amazon.com
+(206) 555-1234
+
+________________________________
+From: John Smith <john@partner.com>
+Sent: Monday, February 16, 2026 10:30 AM
+To: Romero, Steven <sterme@amazon.com>
+Subject: Partnership Update
+
+Hi Steven, let's discuss the partnership.`;
+
+    const messages = parseForwardedEmail(body, {
+      sender: "Steven Romero <sterme@amazon.com>",
+      subject: "FW: Partnership Update",
+    });
+
+    it("does not set forwarder_note for a full corporate signature", () => {
+      expect(messages.length).toBe(1);
+      expect(messages[0].forwarder_note).toBeUndefined();
+    });
+  });
+
+  describe("forwarder preface: signature with closing stripped", () => {
+    const body = `Thanks,
+Steven Romero
+
+________________________________
+From: Alice Chen <alice@partnerco.com>
+Sent: Monday, February 3, 2025 10:30 AM
+To: Bob Lee <bob@aws.example.com>
+Subject: Quick Question
+
+Just a quick question about the timeline.`;
+
+    const messages = parseForwardedEmail(body);
+
+    it("does not set forwarder_note for closing + name", () => {
+      expect(messages.length).toBe(1);
+      expect(messages[0].forwarder_note).toBeUndefined();
+    });
+  });
+
+  describe("forwarder preface: real note preserved alongside signature lines", () => {
+    const body = `Please review and follow up on this — high priority partner. We need to close this before end of quarter.
+
+Steven Romero
+sterme@amazon.com
+
+________________________________
+From: Jane Doe <jane@partner.com>
+Sent: Friday, February 14, 2026 3:00 PM
+To: Steven Romero <sterme@amazon.com>
+Subject: WAF Integration Update
+
+Here's the latest on the WAF integration.`;
+
+    const messages = parseForwardedEmail(body, {
+      sender: "Steven Romero <sterme@amazon.com>",
+      subject: "FW: WAF Integration Update",
+    });
+
+    it("preserves the typed note and strips the signature lines", () => {
+      expect(messages.length).toBe(1);
+      expect(messages[0].forwarder_note).toContain("high priority partner");
+      expect(messages[0].forwarder_note).not.toContain("sterme@amazon.com");
+    });
+  });
+
+  describe("forwarder preface: phone number and URL lines stripped", () => {
+    const body = `Steven Romero | Growth PDM
+Amazon Web Services
+(206) 555-1234
+https://aws.amazon.com
+
+________________________________
+From: Partner <partner@co.com>
+Sent: Monday, February 3, 2025 10:30 AM
+To: Steven <sterme@amazon.com>
+Subject: Update
+
+Update on the project.`;
+
+    const messages = parseForwardedEmail(body);
+
+    it("strips all signature lines including phone and URL", () => {
+      expect(messages.length).toBe(1);
+      expect(messages[0].forwarder_note).toBeUndefined();
+    });
+  });
+});
+
+describe("stripExternalTag", () => {
+  it("strips [EXTERNAL] prefix", () => {
+    expect(stripExternalTag("[EXTERNAL] Re: Partnership Update")).toBe("Re: Partnership Update");
+  });
+
+  it("strips [EXT] prefix", () => {
+    expect(stripExternalTag("[EXT] Fwd: Meeting Notes")).toBe("Fwd: Meeting Notes");
+  });
+
+  it("strips External : prefix", () => {
+    expect(stripExternalTag("External : Security Review")).toBe("Security Review");
+  });
+
+  it("strips [External Email] prefix", () => {
+    expect(stripExternalTag("[External Email] Partnership Proposal")).toBe("Partnership Proposal");
+  });
+
+  it("is case-insensitive", () => {
+    expect(stripExternalTag("[external] Test Subject")).toBe("Test Subject");
+    expect(stripExternalTag("[EXTERNAL] Test Subject")).toBe("Test Subject");
+    expect(stripExternalTag("[External] Test Subject")).toBe("Test Subject");
+  });
+
+  it("preserves subjects without external tags", () => {
+    expect(stripExternalTag("Re: Normal Subject")).toBe("Re: Normal Subject");
+    expect(stripExternalTag("FW: Partnership Update")).toBe("FW: Partnership Update");
+  });
+
+  it("handles empty string", () => {
+    expect(stripExternalTag("")).toBe("");
+  });
+
+  it("only strips from the beginning", () => {
+    expect(stripExternalTag("Re: [EXTERNAL] Deep Subject")).toBe("Re: [EXTERNAL] Deep Subject");
   });
 });

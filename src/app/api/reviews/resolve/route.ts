@@ -19,9 +19,6 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as ResolveRequest;
     const { review_id, action, option_number, engagement_name } = body;
 
-    console.log("=== RESOLVE START ===");
-    console.log("Request body:", JSON.stringify(body));
-
     if (!review_id || !action) {
       return NextResponse.json(
         { error: "review_id and action are required" },
@@ -64,18 +61,9 @@ export async function POST(request: NextRequest) {
 
     const classResult = approval.classification_result!;
 
-    console.log("Found approval:", {
-      id: approval.id,
-      message_id: approval.message_id,
-      resolved: approval.resolved,
-      options_count: approval.options_sent?.length ?? 0,
-      options: approval.options_sent,
-    });
-
     // Handle "skip"
     if (action === "skip") {
       await resolveApproval(review_id, "skipped");
-      console.log("Approval skipped:", review_id);
       return NextResponse.json({ status: "skipped" });
     }
 
@@ -95,8 +83,6 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      console.log("Selected option:", JSON.stringify(option));
-
       if (option.is_new) {
         // Create new engagement from the AI suggestion
         const engagement = await createEngagement({
@@ -107,7 +93,6 @@ export async function POST(request: NextRequest) {
           open_items: (classResult.open_items ?? []).map((i) => ({ ...i, resolved: false })),
           tags: classResult.suggested_tags ?? [],
         });
-        console.log("Created engagement:", engagement.id, engagement.name);
 
         await persistClassificationResult(
           classResult,
@@ -121,7 +106,6 @@ export async function POST(request: NextRequest) {
           `created:${engagement.id}:${engagement.name}`
         );
 
-        console.log("=== RESOLVE DONE (created) ===");
         return NextResponse.json({
           status: "created",
           engagement: engagement,
@@ -142,7 +126,6 @@ export async function POST(request: NextRequest) {
           `assigned:${option.engagement_id}:${option.label}`
         );
 
-        console.log("=== RESOLVE DONE (assigned) ===");
         return NextResponse.json({
           status: "assigned",
           engagement_id: option.engagement_id,
@@ -188,7 +171,6 @@ export async function POST(request: NextRequest) {
         `created:${engagement.id}:${engagement.name}`
       );
 
-      console.log("=== RESOLVE DONE (new) ===");
       return NextResponse.json({
         status: "created",
         engagement: engagement,
@@ -202,7 +184,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     const stack = error instanceof Error ? error.stack : "";
-    console.error("=== RESOLVE FAILED ===", message, stack);
+    console.error("Resolve approval failed:", message, stack);
     return NextResponse.json(
       { error: `Failed to resolve approval: ${message}` },
       { status: 500 }
