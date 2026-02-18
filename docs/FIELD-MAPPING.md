@@ -117,6 +117,9 @@ Catalog tables are read from Airtable into Roadrunner. Activity tables are writt
 | Notes | `flduVQ9wp3XXVUiwo` | multilineText | `ENF.notes` | Merge pattern (appends, doesn't overwrite) |
 | Roadrunner ID | `fldJJ8ZlwhePawiEl` | singleLineText | `ENF.roadrunnerId` | Sync key |
 | Partner | `fld8MJU06GPUU0iy6` | multipleRecordLinks | `ENF.partner` | Link to Partners table |
+| AWS Stakeholders | `fldLVPbg7iyz0Nli9` | multilineText | `ENF.awsStakeholders` | **New sync 2026-02-18.** Newline-separated names from participants table. `@amazon.com` email or "AWS"/"Amazon" org. |
+| Partner Stakeholders | `fldj6vaWwDKJy6aci` | multilineText | `ENF.partnerStakeholders` | **New sync 2026-02-18.** Newline-separated names from participants table. Org matches engagement partner_name. |
+| Third Parties | `flduajBotnT6x5ZXD` | multilineText | `ENF.thirdParties` | **New sync 2026-02-18.** Newline-separated names. Everyone else (excluding system/relay/user addresses). |
 
 **Airtable-only fields:** AWS Relationships (reverse link), Meetings (reverse link).
 

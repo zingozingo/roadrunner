@@ -622,6 +622,9 @@ const ENF = {
   notes: "flduVQ9wp3XXVUiwo",
   roadrunnerId: "fldJJ8ZlwhePawiEl",
   partner: "fld8MJU06GPUU0iy6",
+  awsStakeholders: "fldLVPbg7iyz0Nli9",
+  partnerStakeholders: "fldj6vaWwDKJy6aci",
+  thirdParties: "flduajBotnT6x5ZXD",
 } as const;
 
 const STATUS_TO_AIRTABLE: Record<string, string> = {
@@ -693,6 +696,68 @@ function mergeNotes(existingNotes: string | null, roadrunnerSection: string): st
   return existingNotes.trimEnd() + "\n\n" + roadrunnerSection;
 }
 
+// ── Engagement participant helpers ───────────────────────────
+
+interface EngagementParticipant {
+  name: string | null;
+  email: string | null;
+  organization: string | null;
+}
+
+/**
+ * Batch-fetch all participants linked to engagements.
+ * Returns a map of engagement_id → participant[].
+ * Used by both single-push and bulk-sync paths.
+ */
+async function fetchEngagementParticipants(
+  engagementIds?: string[]
+): Promise<Map<string, EngagementParticipant[]>> {
+  const supabase = getSupabaseClient();
+  const result = new Map<string, EngagementParticipant[]>();
+
+  // Fetch junction rows
+  let linkQuery = supabase
+    .from("participant_links")
+    .select("participant_id, entity_id")
+    .eq("entity_type", "engagement");
+
+  if (engagementIds && engagementIds.length > 0) {
+    linkQuery = linkQuery.in("entity_id", engagementIds);
+  }
+
+  const { data: links, error: linkErr } = await linkQuery;
+  if (linkErr || !links || links.length === 0) return result;
+
+  // Collect unique participant IDs
+  const participantIds = [...new Set(
+    (links as { participant_id: string; entity_id: string }[]).map((l) => l.participant_id)
+  )];
+
+  // Fetch participant records
+  const { data: participants, error: pErr } = await supabase
+    .from("participants")
+    .select("id, name, email, organization")
+    .in("id", participantIds);
+
+  if (pErr || !participants) return result;
+
+  const pById = new Map<string, EngagementParticipant>();
+  for (const p of participants as { id: string; name: string | null; email: string | null; organization: string | null }[]) {
+    pById.set(p.id, { name: p.name, email: p.email, organization: p.organization });
+  }
+
+  // Group by engagement
+  for (const link of links as { participant_id: string; entity_id: string }[]) {
+    const participant = pById.get(link.participant_id);
+    if (!participant) continue;
+    const existing = result.get(link.entity_id) ?? [];
+    existing.push(participant);
+    result.set(link.entity_id, existing);
+  }
+
+  return result;
+}
+
 /** Build name → recordId reverse lookup from the Partners table */
 async function fetchPartnerNameToIdMap(): Promise<Map<string, string>> {
   const lookup = await fetchPartnerLookup();
@@ -705,7 +770,8 @@ async function fetchPartnerNameToIdMap(): Promise<Map<string, string>> {
 
 function buildEngagementFields(
   engagement: Record<string, unknown>,
-  partnerNameToId: Map<string, string>
+  partnerNameToId: Map<string, string>,
+  participants?: EngagementParticipant[]
 ): Record<string, unknown> {
   const fields: Record<string, unknown> = {
     [ENF.name]: engagement.name,
@@ -730,6 +796,52 @@ function buildEngagementFields(
     } else {
       console.warn(`Partner "${partnerName}" not found in Airtable Partners table`);
     }
+  }
+
+  // Stakeholder split from participants (same filtering as meeting attendees)
+  if (participants && participants.length > 0) {
+    const awsNames: string[] = [];
+    const partnerNames: string[] = [];
+    const thirdPartyNames: string[] = [];
+    const partnerNameLower = partnerName?.toLowerCase() ?? "";
+
+    for (const p of participants) {
+      const email = (p.email ?? "").toLowerCase();
+      const org = (p.organization ?? "").toLowerCase();
+      const displayName = p.name || email || "Unknown";
+
+      // Skip system/relay addresses and user's own emails
+      if (
+        !email && !p.name ||
+        email.includes("relay.stevenromero.dev") ||
+        email.includes("salesforce") ||
+        (email && isUserEmail(email))
+      ) {
+        continue;
+      }
+
+      const isAws =
+        email.includes("@amazon.com") ||
+        org.includes("aws") ||
+        org.includes("amazon");
+
+      const isPartner =
+        !isAws &&
+        partnerNameLower &&
+        org.includes(partnerNameLower);
+
+      if (isAws) {
+        awsNames.push(displayName);
+      } else if (isPartner) {
+        partnerNames.push(displayName);
+      } else {
+        thirdPartyNames.push(displayName);
+      }
+    }
+
+    if (awsNames.length > 0) fields[ENF.awsStakeholders] = awsNames.join("\n");
+    if (partnerNames.length > 0) fields[ENF.partnerStakeholders] = partnerNames.join("\n");
+    if (thirdPartyNames.length > 0) fields[ENF.thirdParties] = thirdPartyNames.join("\n");
   }
 
   return fields;
@@ -759,8 +871,13 @@ export async function pushEngagementToAirtable(
     throw new Error(`Engagement ${engagementId} not found`);
   }
 
-  const partnerNameToId = await fetchPartnerNameToIdMap();
-  const fields = buildEngagementFields(engagement, partnerNameToId);
+  const [partnerNameToId, participantMap] = await Promise.all([
+    fetchPartnerNameToIdMap(),
+    fetchEngagementParticipants([engagementId]),
+  ]);
+  const fields = buildEngagementFields(
+    engagement, partnerNameToId, participantMap.get(engagementId)
+  );
   const roadrunnerNotes = buildNotesContent(
     engagement.current_state,
     engagement.open_items ?? []
@@ -849,11 +966,12 @@ export async function syncEngagementsToAirtable(): Promise<SyncResult> {
   const result: SyncResult = { inserted: 0, updated: 0, unchanged: 0, deleted: 0, errors: [] };
   const supabase = getSupabaseClient();
 
-  const [{ data: engagements, error: fetchErr }, atRecords, partnerNameToId] =
+  const [{ data: engagements, error: fetchErr }, atRecords, partnerNameToId, participantMap] =
     await Promise.all([
       supabase.from("engagements").select("*"),
       fetchAllRecords(ENGAGEMENTS_TABLE),
       fetchPartnerNameToIdMap(),
+      fetchEngagementParticipants(),
     ]);
 
   if (fetchErr) throw new Error(`Failed to fetch engagements: ${fetchErr.message}`);
@@ -870,7 +988,7 @@ export async function syncEngagementsToAirtable(): Promise<SyncResult> {
 
   for (const eng of engagements ?? []) {
     try {
-      const fields = buildEngagementFields(eng, partnerNameToId);
+      const fields = buildEngagementFields(eng, partnerNameToId, participantMap.get(eng.id));
       const roadrunnerNotes = buildNotesContent(eng.current_state, eng.open_items ?? []);
 
       // Find existing Airtable record
