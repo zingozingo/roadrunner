@@ -65,7 +65,7 @@ Catalog tables are read from Airtable into Roadrunner. Activity tables are writt
 
 ## Events (AT → RR)
 
-**Table:** `tblEEtdZRO6AD1JrU` · **Sync constant:** `EF`
+**Table:** `tblPDGUSqSvn8mflJ` · **Sync constant:** `EF`
 
 | Airtable Field | Field ID | Type | Sync Key | Notes |
 |----------------|----------|------|----------|-------|
@@ -136,7 +136,7 @@ Catalog tables are read from Airtable into Roadrunner. Activity tables are writt
 | Meeting Date | `fldx9ZrIMundEMUko` | date | `MF.meetingDate` | |
 | AWS Contact(s) | `fldOVCmwhiisY8bDo` | singleLineText | `MF.awsContacts` | Text from attendee split (system addresses filtered) |
 | Partner Contact(s) | `fldJira79g9xWNTte` | singleLineText | `MF.partnerContacts` | Text from attendee split (system addresses filtered) |
-| Notes | `fldzGUipu36EA9rax` | multilineText | `MF.notes` | |
+| Notes | `fldzGUipu36EA9rax` | multilineText | — | **Airtable-only** as of 2026-02-18. Not pushed by Roadrunner; manual scratch space. |
 | Engagement | `fld2TczwxJXZLUwpW` | multipleRecordLinks | `MF.engagement` | Link to Partner Engagements |
 | AWS Relationships | `fldeDCWtZx7YoyYR6` | multipleRecordLinks | `MF.awsRelationships` | Link to AWS Relationships |
 | Program | `fldqhPAGvYppRZgCS` | multipleRecordLinks | `MF.program` | **New 2026-02-18.** Link to Programs catalog (Tier 1). |
@@ -183,7 +183,7 @@ For reference, the Supabase `meetings` table columns and their Airtable counterp
 | `attendees` | jsonb | AWS/Partner Contact(s) split | Array of {name, email}; split into two text fields |
 | `ics_uid` | text UNIQUE | ICS UID (`MF.icsUid`) | |
 | `source` | text NOT NULL | Source (`MF.source`) | "manual" or "ics_parsed" |
-| `notes` | text | Notes (`MF.notes`) | |
+| `notes` | text | — | Not synced to AT. Used for manual meetings only; ICS-parsed meetings leave null. |
 | `airtable_record_id` | text UNIQUE | — | AT record ID for sync matching |
 | `created_at` | timestamptz | — | |
 | `updated_at` | timestamptz | — | Auto-updated via trigger |

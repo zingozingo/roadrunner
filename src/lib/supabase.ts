@@ -1904,7 +1904,7 @@ export async function createMeetingFromICS(
           organizer_email: parsed.organizer_email,
           attendees: parsed.attendees,
           ics_uid: parsed.ics_uid,
-          notes: parsed.notes,
+          // notes intentionally omitted — ICS DESCRIPTION is boilerplate (Zoom/Teams dial-in)
           source: "ics_parsed",
           status: "Confirmed",
           message_id: messageId,

@@ -717,9 +717,9 @@ function buildEngagementFields(
   if (engagement.pillar) fields[ENF.pillar] = engagement.pillar;
   if (engagement.priority) fields[ENF.priority] = engagement.priority;
 
-  // Tags: join array into comma-separated text
+  // Tags: send as string array (Airtable multipleSelects)
   const tags = engagement.tags as string[] | undefined;
-  if (tags && tags.length > 0) fields[ENF.tags] = tags.join(", ");
+  if (tags && tags.length > 0) fields[ENF.tags] = tags;
 
   // Resolve partner name to Airtable record ID
   const partnerName = engagement.partner_name as string | null;
@@ -1062,7 +1062,7 @@ function buildMeetingFields(
   if (meeting.location) fields[MF.location] = meeting.location;
   if (meeting.source) fields[MF.source] = meeting.source;
   if (meeting.ics_uid) fields[MF.icsUid] = meeting.ics_uid;
-  if (meeting.notes) fields[MF.notes] = meeting.notes;
+  // Notes: not pushed — Airtable Notes field is manual scratch space only
 
   // Partner linked record: FK lookup first, name fallback
   const partnerId = meeting.partner_id as string | null;
