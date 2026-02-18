@@ -2,12 +2,13 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { RelationshipTypeBadge, StrengthBadge } from "@/components/TypeBadge";
+import { RelationshipTypeBadge, StrengthBadge, MeetingStatusBadge } from "@/components/TypeBadge";
 import StatusBadge from "@/components/StatusBadge";
 import RelationshipActions from "@/components/RelationshipActions";
 import {
   getAwsRelationship,
   getEngagementsByAwsRelationship,
+  getMeetingsByAwsRelationship,
 } from "@/lib/supabase";
 
 export default async function RelationshipDetailPage({
@@ -20,7 +21,10 @@ export default async function RelationshipDetailPage({
   const relationship = await getAwsRelationship(id);
   if (!relationship) notFound();
 
-  const linkedEngagements = await getEngagementsByAwsRelationship(id);
+  const [linkedEngagements, linkedMeetings] = await Promise.all([
+    getEngagementsByAwsRelationship(id),
+    getMeetingsByAwsRelationship(id),
+  ]);
 
   return (
     <div className="p-6 lg:p-8">
@@ -89,6 +93,39 @@ export default async function RelationshipDetailPage({
                         {eng.partner_name}
                       </p>
                     )}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Linked Meetings */}
+          <div className="rounded-xl border border-border bg-surface p-4">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
+              Linked Meetings
+            </h2>
+            {linkedMeetings.length === 0 ? (
+              <p className="text-sm text-muted">No linked meetings yet</p>
+            ) : (
+              <div className="space-y-2">
+                {linkedMeetings.map((mtg) => (
+                  <Link
+                    key={mtg.id}
+                    href={`/meetings/${mtg.id}`}
+                    className="block rounded-lg border border-border bg-background p-3 transition-colors hover:border-accent/40"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm text-foreground">
+                        {mtg.title}
+                      </span>
+                      <MeetingStatusBadge status={mtg.status} />
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-2 text-xs text-muted">
+                      {mtg.meeting_date && (
+                        <span>{new Date(mtg.meeting_date + "T00:00:00").toLocaleDateString()}</span>
+                      )}
+                      {mtg.partner_name && <span>{mtg.partner_name}</span>}
+                    </div>
                   </Link>
                 ))}
               </div>

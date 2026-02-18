@@ -3,13 +3,14 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import StatusBadge from "@/components/StatusBadge";
-import { ProgramTypeBadge } from "@/components/TypeBadge";
+import { ProgramTypeBadge, MeetingStatusBadge } from "@/components/TypeBadge";
 import EntityLinkChip from "@/components/EntityLink";
 import ProgramActions from "@/components/ProgramActions";
 import {
   getProgramById,
   getEntityLinksForEntity,
   resolveEntityLinkNames,
+  getMeetingsByProgram,
 } from "@/lib/supabase";
 
 export default async function ProgramDetailPage({
@@ -22,7 +23,10 @@ export default async function ProgramDetailPage({
   const program = await getProgramById(id);
   if (!program) notFound();
 
-  const entityLinks = await getEntityLinksForEntity("program", id);
+  const [entityLinks, linkedMeetings] = await Promise.all([
+    getEntityLinksForEntity("program", id),
+    getMeetingsByProgram(id),
+  ]);
   const nameMap = await resolveEntityLinkNames(entityLinks);
 
   return (
@@ -46,9 +50,6 @@ export default async function ProgramDetailPage({
             <StatusBadge status={program.status} />
             <ProgramTypeBadge type={program.type} />
           </div>
-          {program.eligibility && (
-            <p className="mt-1 text-sm text-muted">Requirements: {program.eligibility}</p>
-          )}
         </div>
         <div className="flex items-center gap-3">
           <ProgramActions program={program} />
@@ -109,6 +110,40 @@ export default async function ProgramDetailPage({
               </div>
             </div>
           )}
+
+          {/* Linked Meetings */}
+          <div className="rounded-xl border border-border bg-surface p-4">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
+              Linked Meetings
+            </h2>
+            {linkedMeetings.length === 0 ? (
+              <p className="text-sm text-muted">No linked meetings yet</p>
+            ) : (
+              <div className="space-y-2">
+                {linkedMeetings.map((mtg) => (
+                  <Link
+                    key={mtg.id}
+                    href={`/meetings/${mtg.id}`}
+                    className="block rounded-lg border border-border bg-background p-3 transition-colors hover:border-accent/40"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm text-foreground">
+                        {mtg.title}
+                      </span>
+                      <MeetingStatusBadge status={mtg.status} />
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-2 text-xs text-muted">
+                      {mtg.meeting_date && (
+                        <span>{new Date(mtg.meeting_date + "T00:00:00").toLocaleDateString()}</span>
+                      )}
+                      {mtg.partner_name && <span>{mtg.partner_name}</span>}
+                      {mtg.meeting_type && <span>{mtg.meeting_type}</span>}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Sidebar: metadata */}

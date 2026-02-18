@@ -57,7 +57,15 @@ export default async function EngagementDetailPage({
             {engagement.name}
           </h1>
           {engagement.partner_name && (
-            <p className="mt-1 text-muted">{engagement.partner_name}</p>
+            <p className="mt-1 text-muted">
+              {engagement.partner_id ? (
+                <Link href={`/partners/${engagement.partner_id}`} className="text-accent hover:underline">
+                  {engagement.partner_name}
+                </Link>
+              ) : (
+                engagement.partner_name
+              )}
+            </p>
           )}
         </div>
         <div className="flex items-center gap-3">

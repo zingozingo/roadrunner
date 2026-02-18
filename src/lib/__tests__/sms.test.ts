@@ -39,6 +39,7 @@ const EXISTING_ENGAGEMENT: Engagement = {
   current_state: null,
   open_items: [],
   partner_name: "CyberShield",
+  partner_id: null,
   pillar: null,
   priority: null,
   tags: [],

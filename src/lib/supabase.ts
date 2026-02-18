@@ -1610,6 +1610,86 @@ export async function getMeetingsByEngagement(engagementId: string): Promise<Mee
   return (data ?? []) as Meeting[];
 }
 
+export async function getMeetingsByAwsRelationship(relationshipId: string): Promise<Meeting[]> {
+  const db = getSupabaseClient();
+
+  const { data: junctionRows, error: junctionErr } = await db
+    .from("meeting_aws_relationships")
+    .select("meeting_id")
+    .eq("aws_relationship_id", relationshipId);
+
+  if (junctionErr) throw new Error(`Failed to fetch meeting junctions: ${junctionErr.message}`);
+
+  const ids = (junctionRows ?? []).map((r: { meeting_id: string }) => r.meeting_id);
+  if (ids.length === 0) return [];
+
+  const { data, error } = await db
+    .from("meetings")
+    .select("*")
+    .in("id", ids)
+    .order("meeting_date", { ascending: false, nullsFirst: false });
+
+  if (error) throw new Error(`Failed to fetch meetings: ${error.message}`);
+  return (data ?? []) as Meeting[];
+}
+
+export async function getMeetingsByEvent(eventId: string): Promise<Meeting[]> {
+  const { data, error } = await getSupabaseClient()
+    .from("meetings")
+    .select("*")
+    .eq("event_id", eventId)
+    .order("meeting_date", { ascending: false, nullsFirst: false });
+
+  if (error) throw new Error(`Failed to fetch meetings: ${error.message}`);
+  return (data ?? []) as Meeting[];
+}
+
+export async function getMeetingsByProgram(programId: string): Promise<Meeting[]> {
+  const { data, error } = await getSupabaseClient()
+    .from("meetings")
+    .select("*")
+    .eq("program_id", programId)
+    .order("meeting_date", { ascending: false, nullsFirst: false });
+
+  if (error) throw new Error(`Failed to fetch meetings: ${error.message}`);
+  return (data ?? []) as Meeting[];
+}
+
+export async function getAwsRelationshipsByPartner(partnerId: string): Promise<AwsRelationship[]> {
+  const db = getSupabaseClient();
+
+  // Get all engagement IDs for this partner
+  const { data: engagements, error: engErr } = await db
+    .from("engagements")
+    .select("id")
+    .eq("partner_id", partnerId);
+
+  if (engErr) throw new Error(`Failed to fetch engagements: ${engErr.message}`);
+
+  const engIds = (engagements ?? []).map((e: { id: string }) => e.id);
+  if (engIds.length === 0) return [];
+
+  // Get all relationship IDs from the junction table
+  const { data: junctionRows, error: junctionErr } = await db
+    .from("engagement_aws_relationships")
+    .select("aws_relationship_id")
+    .in("engagement_id", engIds);
+
+  if (junctionErr) throw new Error(`Failed to fetch junction: ${junctionErr.message}`);
+
+  const relIds = [...new Set((junctionRows ?? []).map((r: { aws_relationship_id: string }) => r.aws_relationship_id))];
+  if (relIds.length === 0) return [];
+
+  const { data, error } = await db
+    .from("aws_relationships")
+    .select("*")
+    .in("id", relIds)
+    .order("name", { ascending: true });
+
+  if (error) throw new Error(`Failed to fetch relationships: ${error.message}`);
+  return (data ?? []) as AwsRelationship[];
+}
+
 export async function createMeeting(data: {
   title: string;
   engagement_id?: string | null;

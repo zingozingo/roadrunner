@@ -20,6 +20,7 @@ export interface Engagement {
   current_state: string | null;
   open_items: OpenItem[];
   partner_name: string | null;
+  partner_id: string | null;
   pillar: Pillar | null;
   priority: Priority | null;
   tags: string[];

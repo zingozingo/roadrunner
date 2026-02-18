@@ -3,8 +3,8 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import StatusBadge from "@/components/StatusBadge";
-import { MeetingStatusBadge } from "@/components/TypeBadge";
-import { getPartner, getSupabaseClient } from "@/lib/supabase";
+import { MeetingStatusBadge, RelationshipTypeBadge, StrengthBadge } from "@/components/TypeBadge";
+import { getPartner, getSupabaseClient, getAwsRelationshipsByPartner } from "@/lib/supabase";
 import type { Engagement, Meeting } from "@/lib/types";
 
 export default async function PartnerDetailPage({
@@ -52,6 +52,7 @@ export default async function PartnerDetailPage({
 
   const linkedEngagements = (engagements ?? []) as Engagement[];
   const linkedMeetings = (meetings ?? []) as Meeting[];
+  const linkedRelationships = await getAwsRelationshipsByPartner(id);
 
   return (
     <div className="p-6 lg:p-8">
@@ -140,6 +141,39 @@ export default async function PartnerDetailPage({
                       <p className="mt-0.5 text-xs text-muted">
                         {new Date(mtg.meeting_date + "T00:00:00").toLocaleDateString()}
                         {mtg.start_time && ` at ${mtg.start_time}`}
+                      </p>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Linked AWS Relationships */}
+          <div className="rounded-xl border border-border bg-surface p-4">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
+              AWS Relationships
+            </h2>
+            {linkedRelationships.length === 0 ? (
+              <p className="text-sm text-muted">No AWS relationships linked yet</p>
+            ) : (
+              <div className="space-y-2">
+                {linkedRelationships.map((rel) => (
+                  <Link
+                    key={rel.id}
+                    href={`/relationships/${rel.id}`}
+                    className="block rounded-lg border border-border bg-background p-3 transition-colors hover:border-accent/40"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm text-foreground">
+                        {rel.name}
+                      </span>
+                      <RelationshipTypeBadge type={rel.relationship_type} />
+                      <StrengthBadge strength={rel.strength} />
+                    </div>
+                    {rel.primary_contact_name && (
+                      <p className="mt-0.5 text-xs text-muted">
+                        {rel.primary_contact_name}
                       </p>
                     )}
                   </Link>

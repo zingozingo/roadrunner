@@ -18,6 +18,7 @@ const ENGAGEMENT: Engagement = {
   current_state: "Pursuing Security Competency.",
   open_items: [],
   partner_name: "CyberShield",
+  partner_id: null,
   pillar: "Co-Build",
   priority: null,
   tags: ["security", "competency"],

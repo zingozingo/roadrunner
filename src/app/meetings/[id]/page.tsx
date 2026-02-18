@@ -9,6 +9,8 @@ import {
   getAwsRelationshipsByMeeting,
   getEngagementById,
   getEventById,
+  getProgramById,
+  getPartner,
 } from "@/lib/supabase";
 
 function formatDate(dateStr: string | null): string {
@@ -30,10 +32,12 @@ export default async function MeetingDetailPage({
   const meeting = await getMeeting(id);
   if (!meeting) notFound();
 
-  const [awsRelationships, engagement, event] = await Promise.all([
+  const [awsRelationships, engagement, event, program, partner] = await Promise.all([
     getAwsRelationshipsByMeeting(id),
     meeting.engagement_id ? getEngagementById(meeting.engagement_id) : null,
     meeting.event_id ? getEventById(meeting.event_id) : null,
+    meeting.program_id ? getProgramById(meeting.program_id) : null,
+    meeting.partner_id ? getPartner(meeting.partner_id) : null,
   ]);
 
   return (
@@ -203,10 +207,40 @@ export default async function MeetingDetailPage({
                   </dd>
                 </div>
               )}
-              {meeting.partner_name && (
+              {program && (
+                <div>
+                  <dt className="text-muted">Program</dt>
+                  <dd>
+                    <Link
+                      href={`/programs/${program.id}`}
+                      className="text-accent hover:underline"
+                    >
+                      {program.name}
+                    </Link>
+                  </dd>
+                </div>
+              )}
+              {(partner || meeting.partner_name) && (
                 <div>
                   <dt className="text-muted">Partner</dt>
-                  <dd className="text-foreground">{meeting.partner_name}</dd>
+                  <dd>
+                    {partner ? (
+                      <Link
+                        href={`/partners/${partner.id}`}
+                        className="text-accent hover:underline"
+                      >
+                        {partner.name}
+                      </Link>
+                    ) : (
+                      <span className="text-foreground">{meeting.partner_name}</span>
+                    )}
+                  </dd>
+                </div>
+              )}
+              {meeting.organizer_email && (
+                <div>
+                  <dt className="text-muted">Organizer</dt>
+                  <dd className="text-foreground break-all">{meeting.organizer_email}</dd>
                 </div>
               )}
               <div>
@@ -217,6 +251,12 @@ export default async function MeetingDetailPage({
                 <dt className="text-muted">Created</dt>
                 <dd className="text-foreground">
                   {new Date(meeting.created_at).toLocaleDateString()}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted">Last Updated</dt>
+                <dd className="text-foreground">
+                  {new Date(meeting.updated_at).toLocaleDateString()}
                 </dd>
               </div>
             </dl>
