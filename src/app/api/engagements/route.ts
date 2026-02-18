@@ -59,7 +59,6 @@ export async function POST(request: NextRequest) {
     let engagement = await createEngagement({
       name: name.trim(),
       partner_name: partner_name?.trim() || null,
-      summary: current_state?.trim() || null,
       current_state: current_state?.trim() || null,
       tags: tags ?? [],
       pillar: pillar ?? null,

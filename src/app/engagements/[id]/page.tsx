@@ -36,8 +36,7 @@ export default async function EngagementDetailPage({
   // Resolve entity link target names
   const nameMap = await resolveEntityLinkNames(entityLinks);
 
-  // Use current_state if available, fall back to summary for backward compat
-  const displayState = engagement.current_state ?? engagement.summary;
+  const displayState = engagement.current_state;
 
   return (
     <div className="p-6 lg:p-8">

@@ -88,7 +88,6 @@ export async function POST(request: NextRequest) {
         const engagement = await createEngagement({
           name: option.label,
           partner_name: classResult.engagement_match.partner_name,
-          summary: classResult.current_state,
           current_state: classResult.current_state ?? null,
           open_items: (classResult.open_items ?? []).map((i) => ({ ...i, resolved: false })),
           tags: classResult.suggested_tags ?? [],
@@ -153,7 +152,6 @@ export async function POST(request: NextRequest) {
       const engagement = await createEngagement({
         name,
         partner_name: classResult.engagement_match.partner_name,
-        summary: classResult.current_state,
         current_state: classResult.current_state ?? null,
         open_items: (classResult.open_items ?? []).map((i) => ({ ...i, resolved: false })),
         tags: classResult.suggested_tags ?? [],

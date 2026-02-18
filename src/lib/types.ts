@@ -16,7 +16,6 @@ export interface Engagement {
   id: string;
   name: string;
   status: "planned" | "active" | "paused" | "completed" | "archived";
-  summary: string | null;
   current_state: string | null;
   open_items: OpenItem[];
   partner_name: string | null;

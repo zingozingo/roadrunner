@@ -27,7 +27,7 @@ export default function EngagementActions({
   const [pillar, setPillar] = useState<Pillar | null>(engagement.pillar);
   const [priority, setPriority] = useState<Priority | null>(engagement.priority);
   const [currentState, setCurrentState] = useState(
-    engagement.current_state ?? engagement.summary ?? ""
+    engagement.current_state ?? ""
   );
 
   function startEdit() {
@@ -36,7 +36,7 @@ export default function EngagementActions({
     setStatus(engagement.status);
     setPillar(engagement.pillar);
     setPriority(engagement.priority);
-    setCurrentState(engagement.current_state ?? engagement.summary ?? "");
+    setCurrentState(engagement.current_state ?? "");
     setError(null);
     setEditing(true);
   }

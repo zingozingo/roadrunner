@@ -14,7 +14,6 @@ const ENGAGEMENT: Engagement = {
   id: "eng-001",
   name: "CyberShield - Security Review",
   status: "active",
-  summary: "Pursuing Security Competency.",
   current_state: "Pursuing Security Competency.",
   open_items: [],
   partner_name: "CyberShield",
@@ -77,7 +76,6 @@ const PARTNER: Partner = {
 const RELATIONSHIP: AwsRelationship = {
   id: "rel-001",
   name: "Security Team - ISV",
-  partner_name: null,
   aws_org: "AWS Security",
   aws_service: null,
   relationship_type: "Product Team",

@@ -287,7 +287,6 @@ export async function getLatestUnresolvedEngagementApproval(): Promise<ApprovalQ
 export async function createEngagement(data: {
   name: string;
   partner_name?: string | null;
-  summary?: string | null;
   current_state?: string | null;
   open_items?: OpenItem[];
   tags?: string[];
@@ -307,7 +306,6 @@ export async function createEngagement(data: {
       name: data.name,
       partner_name: data.partner_name ?? null,
       partner_id: partnerId,
-      summary: data.summary ?? null,
       current_state: data.current_state ?? null,
       open_items: data.open_items ?? [],
       tags: data.tags ?? [],
@@ -334,25 +332,12 @@ export async function updateMessageEngagement(
   if (error) throw new Error(`Failed to update message engagement: ${error.message}`);
 }
 
-export async function updateEngagementSummary(
-  id: string,
-  summary: string
-): Promise<void> {
-  const { error } = await getSupabaseClient()
-    .from("engagements")
-    .update({ summary })
-    .eq("id", id);
-
-  if (error) throw new Error(`Failed to update engagement summary: ${error.message}`);
-}
-
 export async function updateEngagement(
   id: string,
   updates: {
     name?: string;
     partner_name?: string | null;
     status?: Engagement["status"];
-    summary?: string | null;
     current_state?: string | null;
     open_items?: OpenItem[];
     tags?: string[];
@@ -373,7 +358,6 @@ export async function updateEngagement(
       row.partner_id = null;
     }
   }
-  if (updates.summary !== undefined) row.summary = updates.summary;
   if (updates.current_state !== undefined) row.current_state = updates.current_state;
   if (updates.open_items !== undefined) row.open_items = updates.open_items;
   if (updates.tags !== undefined) row.tags = updates.tags;

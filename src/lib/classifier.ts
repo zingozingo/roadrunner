@@ -204,7 +204,6 @@ export async function persistClassificationResult(
     const updates: Record<string, unknown> = {};
 
     if (currentState) {
-      updates.summary = currentState;
       updates.current_state = currentState;
     }
 
@@ -334,7 +333,6 @@ async function applyClassificationResult(
       const engagement = await createEngagement({
         name: result.engagement_match.name,
         partner_name: result.engagement_match.partner_name,
-        summary: currentState,
         current_state: currentState,
         open_items: openItems,
         tags: result.suggested_tags ?? [],

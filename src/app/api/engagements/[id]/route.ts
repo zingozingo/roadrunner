@@ -56,14 +56,13 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, partner_name, status, summary, current_state, open_items, pillar, priority } = body;
+    const { name, partner_name, status, current_state, open_items, pillar, priority } = body;
 
     // Validate: at least one field must be provided
     if (
       name === undefined &&
       partner_name === undefined &&
       status === undefined &&
-      summary === undefined &&
       current_state === undefined &&
       open_items === undefined &&
       pillar === undefined &&
@@ -116,7 +115,6 @@ export async function PUT(
       name: name?.trim(),
       partner_name,
       status,
-      summary,
       current_state,
       open_items,
       pillar,
