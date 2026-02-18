@@ -2,10 +2,10 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import StatusBadge from "@/components/StatusBadge";
-import { EventTypeBadge, MeetingStatusBadge } from "@/components/TypeBadge";
-import EntityLinkChip from "@/components/EntityLink";
-import EventActions from "@/components/EventActions";
+import StatusBadge from "@/components/shared/StatusBadge";
+import { EventTypeBadge, MeetingStatusBadge } from "@/components/shared/TypeBadge";
+import EntityLinkChip from "@/components/shared/EntityLink";
+import EventActions from "@/components/actions/EventActions";
 import {
   getEventById,
   getEntityLinksForEntity,

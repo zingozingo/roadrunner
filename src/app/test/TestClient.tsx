@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import ConfirmDialog from "@/components/ConfirmDialog";
+import ConfirmDialog from "@/components/shared/ConfirmDialog";
 
 // ── Pre-filled example ──────────────────────────────────────────
 const DEFAULTS = {

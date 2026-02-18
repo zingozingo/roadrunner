@@ -1,9 +1,9 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import PageHeader from "@/components/PageHeader";
-import StatusBadge from "@/components/StatusBadge";
-import SyncButton from "@/components/SyncButton";
+import PageHeader from "@/components/layout/PageHeader";
+import StatusBadge from "@/components/shared/StatusBadge";
+import SyncButton from "@/components/shared/SyncButton";
 import {
   getUnresolvedApprovalCount,
   getAllEngagements,

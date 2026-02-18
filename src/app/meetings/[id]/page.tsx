@@ -2,8 +2,8 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import MeetingActions from "@/components/MeetingActions";
-import { MeetingStatusBadge } from "@/components/TypeBadge";
+import MeetingActions from "@/components/actions/MeetingActions";
+import { MeetingStatusBadge } from "@/components/shared/TypeBadge";
 import {
   getMeeting,
   getAwsRelationshipsByMeeting,

@@ -2,10 +2,10 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import PageHeader from "@/components/PageHeader";
-import EmptyState from "@/components/EmptyState";
-import FilterBar from "@/components/FilterBar";
-import SyncButton from "@/components/SyncButton";
+import PageHeader from "@/components/layout/PageHeader";
+import EmptyState from "@/components/layout/EmptyState";
+import FilterBar from "@/components/layout/FilterBar";
+import SyncButton from "@/components/shared/SyncButton";
 import { Partner } from "@/lib/types";
 
 const SEGMENT_FILTER_OPTIONS = [

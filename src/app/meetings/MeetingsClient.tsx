@@ -3,11 +3,11 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import PageHeader from "@/components/PageHeader";
-import EmptyState from "@/components/EmptyState";
-import FilterBar from "@/components/FilterBar";
-import SyncButton from "@/components/SyncButton";
-import { MeetingStatusBadge } from "@/components/TypeBadge";
+import PageHeader from "@/components/layout/PageHeader";
+import EmptyState from "@/components/layout/EmptyState";
+import FilterBar from "@/components/layout/FilterBar";
+import SyncButton from "@/components/shared/SyncButton";
+import { MeetingStatusBadge } from "@/components/shared/TypeBadge";
 import { Meeting, Engagement, Event, MeetingStatus } from "@/lib/types";
 
 type MeetingWithNames = Meeting & { engagement_name: string | null; event_name: string | null };

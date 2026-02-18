@@ -1,10 +1,10 @@
 export const dynamic = "force-dynamic";
 
-import PageHeader from "@/components/PageHeader";
-import EngagementCard from "@/components/EngagementCard";
-import EmptyState from "@/components/EmptyState";
-import SyncButton from "@/components/SyncButton";
-import CreateEngagementForm from "@/components/CreateEngagementForm";
+import PageHeader from "@/components/layout/PageHeader";
+import EngagementCard from "@/components/engagement/EngagementCard";
+import EmptyState from "@/components/layout/EmptyState";
+import SyncButton from "@/components/shared/SyncButton";
+import CreateEngagementForm from "@/components/engagement/CreateEngagementForm";
 import { getEngagementsWithMessageCounts } from "@/lib/supabase";
 import { Engagement } from "@/lib/types";
 

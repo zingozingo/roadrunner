@@ -2,9 +2,9 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { RelationshipTypeBadge, StrengthBadge, MeetingStatusBadge } from "@/components/TypeBadge";
-import StatusBadge from "@/components/StatusBadge";
-import RelationshipActions from "@/components/RelationshipActions";
+import { RelationshipTypeBadge, StrengthBadge, MeetingStatusBadge } from "@/components/shared/TypeBadge";
+import StatusBadge from "@/components/shared/StatusBadge";
+import RelationshipActions from "@/components/actions/RelationshipActions";
 import {
   getAwsRelationship,
   getEngagementsByAwsRelationship,

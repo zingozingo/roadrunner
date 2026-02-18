@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Event } from "@/lib/types";
-import ConfirmDialog from "./ConfirmDialog";
+import ConfirmDialog from "../shared/ConfirmDialog";
 
 const TYPE_OPTIONS: Event["type"][] = [
   "conference", "summit", "workshop", "kickoff",

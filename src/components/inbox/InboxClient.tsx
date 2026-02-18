@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ApprovalQueueItem, Message, Engagement } from "@/lib/types";
 import ReviewCard from "./ReviewCard";
 import OrphanedMessageCard from "./OrphanedMessageCard";
-import EmptyState from "./EmptyState";
+import EmptyState from "../layout/EmptyState";
 
 type ApprovalWithContext = ApprovalQueueItem & {
   message: Message | null;

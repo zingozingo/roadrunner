@@ -2,8 +2,8 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import StatusBadge from "@/components/StatusBadge";
-import { MeetingStatusBadge, RelationshipTypeBadge, StrengthBadge } from "@/components/TypeBadge";
+import StatusBadge from "@/components/shared/StatusBadge";
+import { MeetingStatusBadge, RelationshipTypeBadge, StrengthBadge } from "@/components/shared/TypeBadge";
 import { getPartner, getSupabaseClient, getAwsRelationshipsByPartner } from "@/lib/supabase";
 import type { Engagement, Meeting } from "@/lib/types";
 

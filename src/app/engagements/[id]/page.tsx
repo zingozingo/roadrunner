@@ -2,13 +2,13 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import StatusBadge from "@/components/StatusBadge";
-import CurrentStateCard from "@/components/CurrentStateCard";
-import OpenItemsCard from "@/components/OpenItemsCard";
-import CollapsibleEmails from "@/components/CollapsibleEmails";
-import EntityLinkChip from "@/components/EntityLink";
-import EngagementActions from "@/components/EngagementActions";
-import ParticipantList from "@/components/ParticipantList";
+import StatusBadge from "@/components/shared/StatusBadge";
+import CurrentStateCard from "@/components/engagement/CurrentStateCard";
+import OpenItemsCard from "@/components/engagement/OpenItemsCard";
+import CollapsibleEmails from "@/components/shared/CollapsibleEmails";
+import EntityLinkChip from "@/components/shared/EntityLink";
+import EngagementActions from "@/components/actions/EngagementActions";
+import ParticipantList from "@/components/shared/ParticipantList";
 import {
   getEngagementById,
   getMessagesByEngagement,

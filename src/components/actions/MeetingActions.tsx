@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Meeting, Engagement, Event, MeetingAttendee, MeetingStatus } from "@/lib/types";
-import ConfirmDialog from "./ConfirmDialog";
+import ConfirmDialog from "../shared/ConfirmDialog";
 
 const MEETING_TYPES = [
   "Executive Meeting",

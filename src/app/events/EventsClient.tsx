@@ -2,12 +2,12 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import PageHeader from "@/components/PageHeader";
-import EmptyState from "@/components/EmptyState";
-import StatusBadge from "@/components/StatusBadge";
-import FilterBar from "@/components/FilterBar";
-import { EventTypeBadge } from "@/components/TypeBadge";
-import SyncButton from "@/components/SyncButton";
+import PageHeader from "@/components/layout/PageHeader";
+import EmptyState from "@/components/layout/EmptyState";
+import StatusBadge from "@/components/shared/StatusBadge";
+import FilterBar from "@/components/layout/FilterBar";
+import { EventTypeBadge } from "@/components/shared/TypeBadge";
+import SyncButton from "@/components/shared/SyncButton";
 import { Event } from "@/lib/types";
 
 type EventWithCount = Event & { linked_count: number };

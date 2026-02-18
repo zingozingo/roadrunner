@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Program, ProgramType } from "@/lib/types";
-import ConfirmDialog from "./ConfirmDialog";
+import ConfirmDialog from "../shared/ConfirmDialog";
 
 const STATUS_OPTIONS: Program["status"][] = ["active", "archived"];
 const TYPE_OPTIONS: (ProgramType | "")[] = [

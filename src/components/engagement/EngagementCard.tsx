@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Engagement } from "@/lib/types";
-import StatusBadge from "./StatusBadge";
+import StatusBadge from "../shared/StatusBadge";
 
 export default function EngagementCard({
   engagement,

@@ -2,11 +2,11 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import PageHeader from "@/components/PageHeader";
-import EmptyState from "@/components/EmptyState";
-import { RelationshipTypeBadge, StrengthBadge } from "@/components/TypeBadge";
-import FilterBar from "@/components/FilterBar";
-import SyncButton from "@/components/SyncButton";
+import PageHeader from "@/components/layout/PageHeader";
+import EmptyState from "@/components/layout/EmptyState";
+import { RelationshipTypeBadge, StrengthBadge } from "@/components/shared/TypeBadge";
+import FilterBar from "@/components/layout/FilterBar";
+import SyncButton from "@/components/shared/SyncButton";
 import { AwsRelationship, RelationshipType } from "@/lib/types";
 
 type RelationshipWithCount = AwsRelationship & { linked_count: number };
