@@ -1449,7 +1449,6 @@ export async function getEngagementsByAwsRelationship(relationshipId: string): P
 export async function updateAwsRelationship(
   id: string,
   updates: {
-    strength?: AwsRelationship["strength"];
     notes?: string | null;
     primary_contact_email?: string | null;
     aws_contact_emails?: string[];

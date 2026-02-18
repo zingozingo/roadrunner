@@ -5,8 +5,6 @@ import {
   updateAwsRelationship,
 } from "@/lib/supabase";
 
-const VALID_STRENGTHS = new Set(["Strong", "Building", "New", "Deferred"]);
-
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -41,14 +39,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { strength, notes, primary_contact_email, aws_contact_emails } = body;
-
-    if (strength !== undefined && strength !== null && !VALID_STRENGTHS.has(strength)) {
-      return NextResponse.json(
-        { error: `Invalid strength "${strength}". Must be one of: Strong, Building, New, Deferred` },
-        { status: 400 }
-      );
-    }
+    const { notes, primary_contact_email, aws_contact_emails } = body;
 
     const existing = await getAwsRelationship(id);
     if (!existing) {
@@ -66,7 +57,6 @@ export async function PUT(
     }
 
     const updates: Record<string, unknown> = {};
-    if (strength !== undefined) updates.strength = strength || null;
     if (notes !== undefined) updates.notes = notes || null;
     if (primary_contact_email !== undefined) updates.primary_contact_email = primary_contact_email || null;
     if (aws_contact_emails !== undefined) updates.aws_contact_emails = aws_contact_emails;

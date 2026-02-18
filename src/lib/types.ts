@@ -62,7 +62,6 @@ export interface Program {
 }
 
 export type RelationshipType = "Exec/Leader" | "Product Team" | "Program Team" | "Seller";
-export type RelationshipStrength = "Strong" | "Building" | "New" | "Deferred";
 
 export interface AwsRelationship {
   id: string;
@@ -73,7 +72,6 @@ export interface AwsRelationship {
   primary_contact_name: string | null;
   primary_contact_email: string | null;
   aws_contact_emails: string[];
-  strength: RelationshipStrength | null;
   notes: string | null;
   airtable_record_id: string | null;
   created_at: string;

@@ -53,7 +53,6 @@ const RF = {
   primaryContact: "fldhCrECNQ0uBA2tD",
   primaryContactEmail: "fldoWXiosjUJBPDqF",
   awsContactEmails: "fldEu6kRhcn1929CA",
-  strength: "fld5nwBVIb7rKBUhj",
   notes: "fldOcbNUrtfxjqiW5",
 } as const;
 
@@ -127,10 +126,6 @@ const VALID_EVENT_TYPES = new Set([
 
 const VALID_RELATIONSHIP_TYPES = new Set([
   "Exec/Leader", "Product Team", "Program Team", "Seller",
-]);
-
-const VALID_STRENGTHS = new Set([
-  "Strong", "Building", "New", "Deferred",
 ]);
 
 const VALID_LIFECYCLE_TYPES = new Set([
@@ -361,16 +356,12 @@ function mapRelationship(
   const rawType = str(rec.fields[RF.type]);
   const relationshipType = rawType && VALID_RELATIONSHIP_TYPES.has(rawType) ? rawType : null;
 
-  const rawStrength = str(rec.fields[RF.strength]);
-  const strength = rawStrength && VALID_STRENGTHS.has(rawStrength) ? rawStrength : null;
-
   // Parse comma-separated AWS contact emails
   const awsContactEmails = strArr(rec.fields[RF.awsContactEmails]);
 
   return {
     name,
     relationship_type: relationshipType,
-    strength,
     aws_org: str(rec.fields[RF.awsOrg]),
     aws_service: str(rec.fields[RF.awsService]),
     primary_contact_name: str(rec.fields[RF.primaryContact]),

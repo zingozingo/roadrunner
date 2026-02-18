@@ -94,7 +94,6 @@ Catalog tables are read from Airtable into Roadrunner. Activity tables are writt
 | Primary Contact(s) | `fldhCrECNQ0uBA2tD` | singleLineText | `RF.primaryContact` | |
 | Primary Contact Email | `fldoWXiosjUJBPDqF` | email | `RF.primaryContactEmail` | Used for email matching |
 | AWS Contact Emails | `fldEu6kRhcn1929CA` | singleLineText | `RF.awsContactEmails` | Comma-separated; used for email matching |
-| Strength | `fld5nwBVIb7rKBUhj` | singleSelect | `RF.strength` | Strong, Building, New, Deferred |
 | Notes | `fldOcbNUrtfxjqiW5` | multilineText | `RF.notes` | |
 | Roadrunner ID | `fldfZksUDfLbvVQMT` | singleLineText | — | Sync key written by RR |
 

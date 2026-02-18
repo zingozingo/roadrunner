@@ -2,9 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AwsRelationship, RelationshipStrength } from "@/lib/types";
-
-const STRENGTH_OPTIONS: RelationshipStrength[] = ["Strong", "Building", "New", "Deferred"];
+import { AwsRelationship } from "@/lib/types";
 
 export default function RelationshipActions({
   relationship,
@@ -17,7 +15,6 @@ export default function RelationshipActions({
   const [error, setError] = useState<string | null>(null);
 
   // Edit form state
-  const [strength, setStrength] = useState<RelationshipStrength | null>(relationship.strength);
   const [notes, setNotes] = useState(relationship.notes ?? "");
   const [primaryContactEmail, setPrimaryContactEmail] = useState(
     relationship.primary_contact_email ?? ""
@@ -27,7 +24,6 @@ export default function RelationshipActions({
   );
 
   function startEdit() {
-    setStrength(relationship.strength);
     setNotes(relationship.notes ?? "");
     setPrimaryContactEmail(relationship.primary_contact_email ?? "");
     setAwsContactEmails(relationship.aws_contact_emails.join(", "));
@@ -53,7 +49,6 @@ export default function RelationshipActions({
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          strength,
           notes: notes.trim() || null,
           primary_contact_email: primaryContactEmail.trim() || null,
           aws_contact_emails: emailArray,
@@ -84,26 +79,6 @@ export default function RelationshipActions({
     return (
       <div className="rounded-xl border border-border bg-surface p-5">
         <div className="space-y-4">
-          {/* Strength */}
-          <div>
-            <label className={labelClass}>Strength</label>
-            <div className="flex gap-2">
-              {STRENGTH_OPTIONS.map((opt) => (
-                <button
-                  key={opt}
-                  onClick={() => setStrength(strength === opt ? null : opt)}
-                  className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
-                    strength === opt
-                      ? "border-accent bg-accent/10 text-accent"
-                      : "border-border bg-background text-muted hover:text-foreground"
-                  }`}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Primary Contact Email */}
           <div>
             <label className={labelClass}>Primary Contact Email</label>

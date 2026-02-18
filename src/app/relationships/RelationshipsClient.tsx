@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
-import { RelationshipTypeBadge, StrengthBadge } from "@/components/shared/TypeBadge";
+import { RelationshipTypeBadge } from "@/components/shared/TypeBadge";
 import FilterBar from "@/components/layout/FilterBar";
 import SyncButton from "@/components/shared/SyncButton";
 import { AwsRelationship, RelationshipType } from "@/lib/types";
@@ -148,7 +148,6 @@ export default function RelationshipsClient({ relationships }: RelationshipsClie
                                 {rel.name}
                               </h3>
                               <RelationshipTypeBadge type={rel.relationship_type} />
-                              <StrengthBadge strength={rel.strength} />
                             </div>
                             <p className="mt-1 text-sm text-muted">
                               {[rel.aws_org, rel.aws_service]

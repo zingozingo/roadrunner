@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { RelationshipTypeBadge, StrengthBadge, MeetingStatusBadge } from "@/components/shared/TypeBadge";
+import { RelationshipTypeBadge, MeetingStatusBadge } from "@/components/shared/TypeBadge";
 import StatusBadge from "@/components/shared/StatusBadge";
 import RelationshipActions from "@/components/actions/RelationshipActions";
 import {
@@ -45,7 +45,6 @@ export default async function RelationshipDetailPage({
               {relationship.name}
             </h1>
             <RelationshipTypeBadge type={relationship.relationship_type} />
-            <StrengthBadge strength={relationship.strength} />
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -156,12 +155,6 @@ export default async function RelationshipDetailPage({
                 <div>
                   <dt className="text-muted">AWS Service</dt>
                   <dd className="text-foreground">{relationship.aws_service}</dd>
-                </div>
-              )}
-              {relationship.strength && (
-                <div>
-                  <dt className="text-muted">Strength</dt>
-                  <dd className="text-foreground">{relationship.strength}</dd>
                 </div>
               )}
               {relationship.primary_contact_name && (

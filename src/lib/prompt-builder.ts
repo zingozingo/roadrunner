@@ -169,8 +169,6 @@ export function buildRelationshipsSection(
     if (r.aws_service) parts.push(`Service: ${r.aws_service}`);
     if (r.primary_contact_name)
       parts.push(`Contact: ${r.primary_contact_name}`);
-    if (r.strength) parts.push(`Strength: ${r.strength}`);
-
     // Include contact emails so Claude can match email participants to relationships
     if (r.aws_contact_emails.length > 0) {
       parts.push(`Emails: ${r.aws_contact_emails.join(", ")}`);

@@ -84,7 +84,6 @@ const RELATIONSHIP: AwsRelationship = {
   primary_contact_name: "Jane Doe",
   primary_contact_email: "janedoe@amazon.com",
   aws_contact_emails: ["janedoe@amazon.com"],
-  strength: "Strong",
   notes: null,
   airtable_record_id: null,
   created_at: "2025-01-01T00:00:00Z",
@@ -243,7 +242,6 @@ describe("buildRelationshipsSection", () => {
     expect(result).toContain("Product Team");
     expect(result).toContain("Jane Doe");
     expect(result).toContain("janedoe@amazon.com");
-    expect(result).toContain("Strength: Strong");
   });
 
   it("shows 'None yet' for empty list", () => {
