@@ -138,3 +138,4 @@ The email parser handles several edge cases:
 - **Quoted replies:** Strips "On [date], [person] wrote:" blocks.
 - **Mailgun field hierarchy:** Uses `body-plain` for email content (not `stripped-text`, which removes forwarded content). Calendar data comes from Mailgun's `body-calendar` field, not file attachments.
 - **System address filtering:** Strips relay addresses, Salesforce system emails, and user aliases before participant extraction.
+- **Forwarder note signature filtering:** When the forwarding user adds a note above the forwarded content, `stripSignatureLines()` removes corporate signature blocks (title lines, phone numbers, addresses, disclaimers — 14 patterns). Only substantive text (sentences with lowercase words) is captured as `forwarder_note` and sent to Claude as editorial context. This prevents contact-card boilerplate from polluting classification.

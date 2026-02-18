@@ -70,7 +70,7 @@ roadrunner/
 │       ├── user-config.ts         #   Canonical user identity config
 │       └── __tests__/             #   176 tests across 8 test files
 ├── supabase/
-│   └── migrations/                # 34 migration files (001-034)
+│   └── migrations/                # 35 migration files (001-035)
 ├── scripts/
 │   └── seed-data.ts               # CLI script to seed events/programs
 ├── data/
