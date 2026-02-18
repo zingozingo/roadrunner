@@ -1,6 +1,6 @@
 # Relay (Roadrunner)
 
-AI-powered engagement tracker for an AWS Partner Development Manager. Forward an email to the relay address and the system parses, classifies, and organizes it into an engagement — a tracked workstream with a specific partner toward a specific goal.
+AI-powered email classification and partner engagement management system for AWS Partner Development Managers. Forward a partner email → Claude AI classifies it → structured engagements appear on a dashboard.
 
 Deployed at [roadrunner-fawn.vercel.app](https://roadrunner-fawn.vercel.app).
 
@@ -13,242 +13,51 @@ Deployed at [roadrunner-fawn.vercel.app](https://roadrunner-fawn.vercel.app).
 | Database | Supabase (PostgreSQL) |
 | AI | Anthropic Claude API (Sonnet) |
 | Email ingest | Mailgun inbound webhooks |
-| SMS notifications | Twilio |
 | Catalog sync | Airtable REST API |
 | Hosting | Vercel (git push deploy) |
-| Tests | Vitest (113 tests across 7 suites) |
+| Tests | Vitest |
 
-## Architecture
-
-### Constrained Intelligence Pattern
-
-Claude operates within a closed vocabulary of known entities. Programs, events, and AWS relationships are human-curated reference data synced from Airtable. Claude receives their UUIDs in context and matches against them by ID — it never creates programs or events, never fabricates IDs, and never does fuzzy name resolution.
-
-Engagements are the only entity Claude can create.
-
-### Data Flow
+## How It Works
 
 ```
-                    ┌─────────────────────────────┐
-                    │          Airtable            │
-                    │   (strategic portfolio hub)  │
-                    └──────┬──────────────▲────────┘
-                   pull    │              │  push
-                (catalogs) │              │ (activity)
-                    ┌──────▼──────────────┴────────┐
-                    │         Roadrunner            │
-                    │   (email classification hub)  │
-                    └──────▲──────────────┬────────┘
-                           │              │
-                     inbound│         SMS  │
-                     webhook│    notification
-                    ┌──────┴──────────────▼────────┐
-                    │    Mailgun      Twilio        │
-                    └─────────────────────────────┘
-```
-
-### Sync Directions
-
-Each entity type has one authoritative source. Sync never overwrites the authority.
-
-| Entity | Authority | Direction | Trigger |
-|--------|-----------|-----------|---------|
-| Partners | Airtable | Airtable → Supabase | Manual button |
-| Programs | Airtable | Airtable → Supabase | Manual button |
-| Events | Airtable | Airtable → Supabase | Manual button |
-| AWS Relationships | Airtable | Airtable → Supabase | Manual button |
-| Engagements | Roadrunner | Supabase → Airtable | Auto on classify/edit + manual button |
-| Meetings | Roadrunner | Supabase → Airtable | Auto on create/ICS/link/delete + manual button |
-
-Catalog sync is idempotent with change detection. First sync matches by name, stores `airtable_record_id`, and all subsequent syncs match by ID (rename-safe). Activity push is fire-and-forget — Airtable being unavailable never blocks classification. See `docs/sync-architecture.md` for full details.
-
-### Classification Pipeline
-
-```
-Mailgun webhook → POST /api/inbound
-  ├─ Parse Outlook-style forwarded headers (From/Sent/To/CC/Subject)
-  ├─ Extract forwarder identity from Mailgun envelope
-  ├─ Dedup check (sender + subject + first 100 chars)
-  ├─ Store messages in Supabase (unclassified)
+Forward email → inbox@relay.stevenromero.dev
   │
   ▼
-Claude API (single call per email group)
-  ├─ Context: user identity (from USER_CONFIG),
-  │           all active/planned engagements (with current_state),
-  │           partner catalog (with domains + contact emails),
-  │           AWS relationship catalog (with contact emails),
-  │           all programs (ID + name + type),
-  │           all events (ID + name + dates + host),
-  │           forwarder note (if present), email content
+Mailgun webhook → Parse forwarded thread → Store messages
   │
-  ├─ Returns: engagement match, matched programs/events (by ID),
-  │           participants, current_state update, open items, tags
+  ▼
+Claude API (single call)
+  ├─ Context: engagements, partners, programs, events, relationships
+  ├─ Returns: engagement match, participants, state update, open items
   │
   ▼
 Routing
-  ├─ Noise → skip
-  ├─ ≥0.85 confidence + existing engagement → auto-assign
-  ├─ ≥0.85 confidence + new engagement → auto-create
-  └─ <0.85 confidence → approval queue + SMS notification
+  ├─ ≥0.85 confidence → auto-assign to engagement
+  ├─ <0.85 confidence → approval queue (resolved via Inbox UI)
+  └─ Noise → skip
 ```
 
-## Project Structure
+Airtable serves as the strategic portfolio hub. Catalog data (partners, programs, events, AWS relationships) is pulled from Airtable. Activity data (engagements, meetings) is pushed back.
 
-```
-src/
-├── app/
-│   ├── api/
-│   │   ├── inbound/          # Mailgun webhook endpoint
-│   │   ├── classify/         # Classification test endpoints
-│   │   ├── engagements/      # Engagement CRUD
-│   │   ├── events/           # Event read + update
-│   │   ├── meetings/         # Meeting CRUD
-│   │   ├── participants/     # Participant edit
-│   │   ├── participant-links/# Unlink participants
-│   │   ├── partners/         # Partner CRUD
-│   │   ├── programs/         # Programs list
-│   │   ├── relationships/    # AWS Relationship read + update
-│   │   ├── reviews/resolve/  # Approval queue resolution
-│   │   ├── sms/              # SMS send + webhook
-│   │   ├── sync/             # Airtable sync trigger
-│   │   ├── health/           # Health check
-│   │   └── inbox/            # Inbox count + list
-│   ├── engagements/          # Engagement list + detail pages
-│   ├── events/               # Event list + detail pages
-│   ├── meetings/             # Meeting list + detail pages
-│   ├── partners/             # Partner list + detail pages
-│   ├── programs/             # Programs list + detail pages
-│   ├── relationships/        # AWS Relationship list + detail pages
-│   ├── inbox/                # Approval review page
-│   ├── test/                 # Classification test page
-│   ├── globals.css           # CSS variables + Tailwind v4 theme
-│   ├── layout.tsx            # Root layout with sidebar
-│   └── page.tsx              # Dashboard home
-├── components/               # 22 React components (mix of server + client)
-│   ├── Sidebar.tsx           # Navigation with inbox badge
-│   ├── StatusBadge.tsx       # Status pill (planned/active/paused/completed/archived)
-│   ├── EngagementActions.tsx  # Edit form with 5-status selector
-│   ├── InboxClient.tsx       # Approval review cards
-│   ├── SyncButton.tsx        # Airtable sync trigger
-│   └── ...
-└── lib/
-    ├── types.ts              # All TypeScript interfaces
-    ├── supabase.ts           # Supabase client + all DB operations (~1700 lines)
-    ├── claude.ts             # System prompt + Claude API call + response parser
-    ├── prompt-builder.ts     # Modular context builders (7 functions) for classifier prompt
-    ├── user-config.ts        # Canonical user identity (USER_CONFIG) + email variant detection
-    ├── classifier.ts         # Orchestration: process → route → persist
-    ├── email-parser.ts       # Outlook-style forwarded email parser
-    ├── sms.ts                # Twilio SMS send + reply parsing
-    ├── airtable.ts           # Airtable REST client (no SDK dependency)
-    ├── sync.ts               # Bidirectional sync: catalog pull + activity push
-    ├── ics-parser.ts         # RFC 5545 ICS/VCALENDAR parser (no dependencies)
-    └── __tests__/            # 7 test suites, 113 tests
-        ├── email-parser.test.ts  # 26 tests — header parsing, multi-message, edge cases
-        ├── ics-parser.test.ts    # 18 tests — ICS/VCALENDAR parsing, attendee extraction
-        ├── classifier.test.ts    # 10 tests — routing, auto-assign, auto-create, grouping
-        ├── claude.test.ts        # 16 tests — prompt building, response parsing
-        ├── prompt-builder.test.ts # 16 tests — context section builders, token optimization
-        ├── user-config.test.ts   # 18 tests — PRVS stripping, corpmail detection, isUserEmail
-        └── sms.test.ts           # 9 tests — SMS formatting, reply parsing
+## Documentation
 
-scripts/
-└── seed-data.ts              # Idempotent seed loader (npm run seed -- data/file.json)
+| Doc | Purpose |
+|-----|---------|
+| [PROJECT.md](docs/PROJECT.md) | Business context, principles, terminology |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Tech stack, directory structure, data flow |
+| [DATA-MODEL.md](docs/DATA-MODEL.md) | Entity schemas, relationships, sync architecture |
+| [CLASSIFICATION.md](docs/CLASSIFICATION.md) | AI pipeline, prompt architecture, confidence routing |
+| [DEVELOPMENT.md](docs/DEVELOPMENT.md) | Setup, testing, adding fields/entities, workflows |
+| [FIELD-MAPPING.md](docs/FIELD-MAPPING.md) | Airtable ↔ Supabase field ID reference |
 
-data/
-├── seed-events.json          # 32+ event records
-└── seed-programs-v2.json     # 33 program records
-
-docs/
-├── goal-state.md             # Target architecture specification
-├── field-mapping-guide.md    # Airtable ↔ Supabase field-by-field mapping
-├── sync-architecture.md      # Sync model, hooks, buttons, match strategy
-└── master-spec.md            # (deprecated) Original spec
-
-supabase/
-└── migrations/               # 30 sequential SQL migrations (001–030)
-
-decisions.md                  # 100+ architecture decision records
-```
-
-## Database Schema
-
-14 tables in Supabase PostgreSQL, managed through 30 sequential migrations.
-
-### Core Tables
-
-| Table | Purpose | Key Constraints |
-|-------|---------|-----------------|
-| `engagements` | Partner workstreams — the primary entity | `status CHECK (planned, active, paused, completed, archived)` |
-| `messages` | Inbound parsed emails | FK → engagements (SET NULL on delete) |
-| `participants` | People extracted from emails | email UNIQUE (nullable) |
-| `participant_links` | Connects participants ↔ engagements | UNIQUE(participant_id, entity_type, entity_id) |
-| `entity_links` | Polymorphic engagement ↔ event/program links | Deduplicated on insert |
-| `approval_queue` | Low-confidence classification reviews | `type CHECK ('engagement_assignment')` |
-| `notes` | User notes on engagements | FK → engagements (CASCADE) |
-
-### Reference Data (Airtable-sourced)
-
-| Table | Purpose | Records |
-|-------|---------|---------|
-| `partners` | Partner companies with contact info | ~20 |
-| `events` | Conferences, summits, deadlines | ~32 |
-| `programs` | AWS programs, competencies, motions | ~33 |
-| `aws_relationships` | AWS team contacts and org links | ~7 |
-
-### Junction Tables
-
-| Table | Purpose |
-|-------|---------|
-| `engagement_aws_relationships` | Many-to-many: engagements ↔ AWS relationships |
-| `meeting_aws_relationships` | Many-to-many: meetings ↔ AWS relationships |
-
-### Activity Tables
-
-| Table | Purpose |
-|-------|---------|
-| `meetings` | Meetings linked to engagements and/or events |
-
-All tables use UUID primary keys (`gen_random_uuid()`). `engagements` has an `updated_at` trigger. No RLS — single-user app with service key auth.
-
-## Environment Variables
-
-Copy `.env.example` to `.env.local`:
-
-```bash
-cp .env.example .env.local
-```
-
-| Variable | Required | Purpose |
-|----------|----------|---------|
-| `SUPABASE_URL` | Yes | Supabase project URL |
-| `SUPABASE_SERVICE_KEY` | Yes | Supabase service role key (bypasses RLS) |
-| `ANTHROPIC_API_KEY` | Yes | Claude API key for classification |
-| `TWILIO_ACCOUNT_SID` | For SMS | Twilio account SID |
-| `TWILIO_AUTH_TOKEN` | For SMS | Twilio auth token |
-| `TWILIO_PHONE_NUMBER` | For SMS | Twilio sender number |
-| `USER_PHONE_NUMBER` | For SMS | PDM phone number for review notifications |
-| `MAILGUN_WEBHOOK_SIGNING_KEY` | For inbound | Mailgun webhook signature verification |
-| `RELAY_EMAIL_ADDRESS` | For inbound | The forwarding address (filtered from To/CC) |
-| `AIRTABLE_API_KEY` | For sync | Airtable personal access token |
-
-The app runs without Twilio/Mailgun/Airtable — those features degrade gracefully. Supabase and Anthropic are required.
-
-## Sync Rules — What to Edit Where
-
-| If you want to change... | Edit in... | Why |
-|--------------------------|-----------|-----|
-| Partners, programs, events, AWS relationships | Airtable, then pull via Sync button | Airtable is the catalog authority |
-| Engagement status, tags, open items | Roadrunner UI, auto-pushes to Airtable | Roadrunner is the activity authority |
-| Strategic fields (stakeholders, plans, dates) | Airtable directly | Roadrunner never touches these fields |
-| Engagement current_state | Either — Roadrunner evolves it from emails | Claude updates on each classified email |
-| Notes on Airtable Partner Engagements | Both — marker-separated sections | `=== Roadrunner Activity Summary ===` markers protect manual content |
-
-## Development
+## Quick Start
 
 ```bash
 # Install dependencies
 npm install
+
+# Copy env template and fill in values
+cp .env.example .env.local
 
 # Start dev server
 npm run dev
@@ -256,54 +65,27 @@ npm run dev
 # Run tests
 npm test
 
-# Run tests in watch mode
-npm run test:watch
-
 # Type check
 npx tsc --noEmit
-
-# Lint
-npm run lint
-
-# Seed reference data
-npm run seed -- data/seed-programs-v2.json
-npm run seed -- data/seed-events.json
-
-# Build for production
-npm run build
 ```
 
-### Migrations
+## Environment Variables
 
-Migrations are in `supabase/migrations/` numbered sequentially. Apply via the Supabase SQL editor or CLI:
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `SUPABASE_URL` | Yes | Supabase project URL |
+| `SUPABASE_SERVICE_KEY` | Yes | Supabase service role key |
+| `ANTHROPIC_API_KEY` | Yes | Claude API key for classification |
+| `MAILGUN_WEBHOOK_SIGNING_KEY` | For inbound | Mailgun webhook signature verification |
+| `RELAY_EMAIL_ADDRESS` | For inbound | The forwarding address (filtered from To/CC) |
+| `AIRTABLE_API_KEY` | For sync | Airtable personal access token |
 
-```bash
-supabase db push
-```
+The app runs without Mailgun/Airtable — those features degrade gracefully. Supabase and Anthropic are required.
 
-### Deploy
+## Deploy
 
 Push to `main` triggers Vercel auto-deploy:
 
 ```bash
 git push origin main
 ```
-
-## Roadmap
-
-Completed and pending work tracked in `docs/goal-state.md` and `decisions.md`.
-
-**Completed recently:**
-- ~~Meetings sync: Roadrunner → Airtable push~~ ✅
-- ~~ICS calendar attachment parsing for meeting extraction~~ ✅
-- ~~Partners as first-class entity with catalog sync~~ ✅
-- ~~Sync architecture documented~~ ✅
-- ~~Modular prompt architecture with partner/relationship context~~ ✅
-- ~~Canonical user identity (USER_CONFIG) + participant canonicalization~~ ✅
-
-**Pending:**
-- Tag filter chips on engagements list page
-- Admin page for program/event management (currently seed-only)
-- Drop legacy `summary` column (superseded by `current_state`)
-- Audit and remove unused debug routes
-- Populate partner contact emails in Airtable for deterministic matching
