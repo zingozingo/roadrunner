@@ -29,15 +29,17 @@ Catalog tables are read from Airtable into Roadrunner. Activity tables are writt
 | Airtable Field | Field ID | Type | Sync Key | Notes |
 |----------------|----------|------|----------|-------|
 | Partner Name | `fldlE5L12oES6IQSO` | multilineText | `PTRF.name` | Primary field |
-| Category | `fldSoIAhWfmPgHzuc` | singleSelect | `PTRF.category` | Infrastructure, HBA, Industry Vert |
-| Sub-Category | `fldeW5BvDgSp1bLNX` | singleLineText | `PTRF.subCategory` | |
+| Segment | `fldSoIAhWfmPgHzuc` | singleSelect | `PTRF.segment` | Security, SecOps, DevOps, CloudOps, Observability, OT/IoT. **Renamed from Category 2026-02-18.** |
+| Focus Area | `fldeW5BvDgSp1bLNX` | multipleSelects | `PTRF.focusArea` | Network Security, API Security, IaC, IT Management, etc. **Renamed from Sub-Category, converted text→multipleSelects 2026-02-18.** DB stores as text[]. |
 | Alliance Lead | `fldN2yZtjwetyHJwI` | singleLineText | `PTRF.allianceLead` | |
 | PSA | `fldNRDPljDlJZkbds` | singleSelect | `PTRF.psa` | 5 options |
 | SPMS ID | `fld9gzD2CRM9NApUH` | number | `PTRF.spmsId` | |
 | Alliance Lead Email | `fldgoSc6QMl6l1303` | email | `PTRF.allianceLeadEmail` | Used for email matching |
 | Partner Contact Emails | `fldAEQSbi448tEjff` | multilineText | `PTRF.partnerContactEmails` | Semicolon-separated; used for email-to-partner matching |
+| AWS Stickiness | `fldlCzNjHA3Ziuqtv` | multilineText | `PTRF.awsStickiness` | **New sync 2026-02-18.** Narrative text about customer AWS adoption likelihood. |
+| Key AWS Services | `fldQwm8UtaNxAa9dI` | multipleSelects | `PTRF.keyAwsServices` | **New sync 2026-02-18.** EC2, S3, Lambda, IAM, VPC, EKS, CloudWatch, etc. DB stores as text[]. |
 
-**Airtable-only fields (not synced):** AWS Account Manager, PMM, Trailing 12 Months, AWS Stickiness, Key AWS Services, Deployed on AWS, ISVa Status/Notes, PRM Status, all financial metrics (TCV, LARR, MDF), 2026 Partner Plans, MPOPP Funding, Partner Programs (link), Partner Event Status (link), Meetings (reverse link), ARCH. (legacy link), Partner Engagements (reverse link).
+**Airtable-only fields (not synced):** AWS Account Manager, PMM, Trailing 12 Months, Deployed on AWS, ISVa Status/Notes, PRM Status, all financial metrics (TCV, LARR, MDF), 2026 Partner Plans, MPOPP Funding, Partner Programs (link), Partner Event Status (link), Meetings (reverse link), ARCH. (legacy link), Partner Engagements (reverse link).
 
 **Note:** The `ARCH.` link field connects to the archived Partner Initiatives table. This is legacy — initiatives were replaced by engagements. Not breaking anything but is clutter you can delete when ready.
 
