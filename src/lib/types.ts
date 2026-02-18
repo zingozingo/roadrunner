@@ -276,20 +276,16 @@ export interface ApprovalQueueItem {
   message_id: string | null;
   engagement_id: string | null;
   classification_result: ClassificationResult | null;
-  options_sent: SMSOption[] | null;
-  sms_sent: boolean;
-  sms_sent_at: string | null;
+  /** @deprecated Legacy SMS field — no longer written, may exist on old rows */
+  options_sent?: { number: number; label: string; engagement_id: string | null; is_new: boolean }[] | null;
+  /** @deprecated Legacy SMS field — no longer written, may exist on old rows */
+  sms_sent?: boolean;
+  /** @deprecated Legacy SMS field — no longer written, may exist on old rows */
+  sms_sent_at?: string | null;
   resolved: boolean;
   resolved_at: string | null;
   resolution: string | null;
   created_at: string;
-}
-
-export interface SMSOption {
-  number: number;
-  label: string;
-  engagement_id: string | null;
-  is_new: boolean;
 }
 
 

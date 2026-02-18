@@ -14,7 +14,6 @@ import {
   Participant,
   EntityLink,
   ClassificationResult,
-  SMSOption,
   OpenItem,
   Pillar,
   Priority,
@@ -210,9 +209,6 @@ export async function createApproval(data: {
   message_id?: string | null;
   engagement_id?: string | null;
   classification_result?: ClassificationResult | null;
-  options_sent?: SMSOption[] | null;
-  sms_sent?: boolean;
-  sms_sent_at?: string | null;
 }): Promise<ApprovalQueueItem> {
   const { data: row, error } = await getSupabaseClient()
     .from("approval_queue")
@@ -221,9 +217,6 @@ export async function createApproval(data: {
       message_id: data.message_id ?? null,
       engagement_id: data.engagement_id ?? null,
       classification_result: data.classification_result ?? null,
-      options_sent: data.options_sent ?? null,
-      sms_sent: data.sms_sent ?? false,
-      sms_sent_at: data.sms_sent_at ?? null,
     })
     .select()
     .single();

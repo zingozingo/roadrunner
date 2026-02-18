@@ -16,7 +16,6 @@ const {
   mockCreateApproval,
   mockCreateEngagement,
   mockCreateEntityLink,
-  mockSendClassificationPrompt,
   mockUpsertParticipants,
   mockAppendOpenItems,
   mockResolveOpenItems,
@@ -114,10 +113,6 @@ const {
     mockCreateApproval: vi.fn().mockResolvedValue({ id: "approval-001" }),
     mockCreateEngagement: vi.fn().mockResolvedValue({ id: "init-auto", name: "Auto-Created", status: "active", summary: null, partner_name: null, pillar: null, priority: null, tags: [], created_at: "", updated_at: "", closed_at: null }),
     mockCreateEntityLink: vi.fn().mockResolvedValue(undefined),
-    mockSendClassificationPrompt: vi.fn().mockResolvedValue({
-      sid: "SM123",
-      options: [{ number: 1, label: "Test", engagement_id: null, is_new: true }],
-    }),
     mockUpsertParticipants: vi.fn().mockResolvedValue(undefined),
     mockAppendOpenItems: vi.fn().mockResolvedValue(null),
     mockResolveOpenItems: vi.fn().mockResolvedValue(0),
@@ -149,10 +144,6 @@ vi.mock("../supabase", () => ({
   appendOpenItems: mockAppendOpenItems,
   resolveOpenItems: mockResolveOpenItems,
   linkEngagementAwsRelationship: mockLinkEngagementAwsRelationship,
-}));
-
-vi.mock("../sms", () => ({
-  sendClassificationPrompt: mockSendClassificationPrompt,
 }));
 
 vi.mock("../user-config", () => ({

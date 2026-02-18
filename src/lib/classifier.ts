@@ -16,7 +16,6 @@ import {
   linkMeetingToEngagement,
   linkEngagementAwsRelationship,
 } from "./supabase";
-import { sendClassificationPrompt } from "./sms";
 import { ClassificationResult, Message } from "./types";
 import { isUserEmail } from "./user-config";
 
@@ -396,36 +395,13 @@ async function applyClassificationResult(
     }
   }
 
-  // 4. If flagged for review, create pending review and send SMS
+  // 4. If flagged for review, create pending approval (resolved via Inbox UI)
   if (needsReview) {
-    try {
-      const engagements = context.engagements;
-      const representative = messages[0];
-      const { options } = await sendClassificationPrompt(
-        representative,
-        result,
-        engagements
-      );
-
-      await createApproval({
-        type: "engagement_assignment",
-        message_id: representative.id,
-        classification_result: result,
-        options_sent: options,
-        sms_sent: true,
-        sms_sent_at: new Date().toISOString(),
-      });
-    } catch (smsError) {
-      console.error("Failed to send classification SMS:", smsError);
-      await createApproval({
-        type: "engagement_assignment",
-        message_id: messages[0].id,
-        classification_result: result,
-        options_sent: [],
-        sms_sent: false,
-        sms_sent_at: null,
-      });
-    }
+    await createApproval({
+      type: "engagement_assignment",
+      message_id: messages[0].id,
+      classification_result: result,
+    });
   }
 
   console.log(
