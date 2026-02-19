@@ -1,142 +1,297 @@
-# Roadrunner — Architecture
+# Roadrunner — Data Model
 
-## Tech Stack
+## System Ownership
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | Next.js 15 (App Router), React 19, Tailwind CSS |
-| Backend | Next.js API Routes (serverless on Vercel) |
-| Database | Supabase PostgreSQL |
-| AI | Anthropic Claude API (claude-sonnet-4-20250514) |
-| Email Ingestion | Mailgun (inbound webhook) |
-| Partner Data | Airtable (REST API, bidirectional sync) |
-| Deployment | Vercel |
-| Domain | relay.stevenromero.dev |
+| System | Owns | Sync Direction |
+|--------|------|----------------|
+| **Airtable** | Partners, Programs, Events, AWS Relationships | AT → RR (pull) |
+| **Roadrunner** | Engagements, Meetings, Messages, Approval Queue | RR → AT (push, engagements + meetings only) |
 
-## Directory Structure
+Catalog tables are read from Airtable into Roadrunner. Activity tables are written from Roadrunner to Airtable. This one-directional ownership per entity prevents sync conflicts.
 
-```
-roadrunner/
-├── docs/                          # Project documentation
-│   ├── PROJECT.md                 #   Business context & principles
-│   ├── ARCHITECTURE.md            #   This file — tech stack & structure
-│   ├── DATA-MODEL.md              #   Entity schemas & relationships
-│   ├── FIELD-MAPPING.md           #   Airtable ↔ Supabase field IDs
-│   ├── CLASSIFICATION.md          #   AI pipeline & prompt architecture
-│   └── DEVELOPMENT.md             #   Setup, testing, workflows
-├── src/
-│   ├── app/                       # Next.js App Router
-│   │   ├── api/                   #   API routes (grouped by entity)
-│   │   │   ├── classify/          #     Classification endpoints + test routes
-│   │   │   ├── engagements/       #     CRUD + participants
-│   │   │   ├── events/            #     CRUD
-│   │   │   ├── health/            #     Health check
-│   │   │   ├── inbound/           #     Mailgun webhook
-│   │   │   ├── inbox/             #     Approval queue count (sidebar badge)
-│   │   │   ├── meetings/          #     CRUD
-│   │   │   ├── participant-links/ #     Delete link
-│   │   │   ├── participants/      #     Update participant
-│   │   │   ├── partners/          #     CRUD
-│   │   │   ├── programs/          #     CRUD
-│   │   │   ├── relationships/     #     CRUD
-│   │   │   ├── reviews/           #     Resolve approval
-│   │   │   └── sync/              #     Trigger Airtable sync
-│   │   ├── engagements/           #   Engagement list + detail pages
-│   │   ├── events/                #   Event list + detail pages
-│   │   ├── inbox/                 #   Approval review queue
-│   │   ├── meetings/              #   Meeting list + detail pages
-│   │   ├── partners/              #   Partner list + detail pages
-│   │   ├── programs/              #   Program list + detail pages
-│   │   ├── relationships/         #   AWS Relationship list + detail pages
-│   │   ├── test/                  #   Dev-only classification test page
-│   │   ├── layout.tsx             #   Root layout + sidebar
-│   │   └── page.tsx               #   Dashboard home
-│   ├── components/                # React components (organized by function)
-│   │   ├── actions/               #   Entity action buttons (5 files)
-│   │   ├── engagement/            #   Engagement-specific cards/forms (4 files)
-│   │   ├── inbox/                 #   Review queue UI (4 files)
-│   │   ├── layout/                #   App structure — sidebar, headers (4 files)
-│   │   └── shared/                #   Reusable primitives (8 files)
-│   └── lib/                       # Core business logic
-│       ├── airtable.ts            #   Airtable REST API client
-│       ├── classifier.ts          #   Email classification orchestrator
-│       ├── claude.ts              #   Claude API wrapper
-│       ├── email-parser.ts        #   Forwarded email chain parser
-│       ├── ics-parser.ts          #   ICS calendar event parser (RFC 5545)
-│       ├── prompt-builder.ts      #   Modular context builders for Claude
-│       ├── supabase.ts            #   Database client + 80+ query functions
-│       ├── sync.ts                #   Airtable ↔ Supabase sync engine
-│       ├── types.ts               #   Shared TypeScript interfaces
-│       ├── user-config.ts         #   Canonical user identity config
-│       └── __tests__/             #   176 tests across 8 test files
-├── supabase/
-│   └── migrations/                # 34 migration files (001-034)
-├── scripts/
-│   └── seed-data.ts               # CLI script to seed events/programs
-├── data/
-│   ├── seed-events.json           # Event catalog seed data
-│   └── seed-programs-v2.json      # Program catalog seed data
-└── .claude/                       # Claude Code memory + settings
-```
+For the complete field-level mapping between Airtable and Supabase, see [FIELD-MAPPING.md](FIELD-MAPPING.md).
 
-## Data Flow — Email to Dashboard
+---
 
-```
-1. USER FORWARDS EMAIL
-   ↓
-2. MAILGUN WEBHOOK → POST /api/inbound
-   Receives raw email (body-plain, headers, calendar attachments)
-   ↓
-3. EMAIL PARSER (email-parser.ts)
-   Extracts: sender, recipients, subject, body, forwarded content
-   Strips: quoted replies, signatures, forwarding headers
-   ↓
-4. ICS PARSER (ics-parser.ts) — if calendar data present
-   Extracts: meeting title, date, time, location, attendees, UID
-   Source: Mailgun body-calendar field (NOT file attachments)
-   ↓
-5. MESSAGE STORED (supabase.ts)
-   Raw email saved to messages table with parsed metadata
-   ↓
-6. CLASSIFIER (classifier.ts → claude.ts → prompt-builder.ts)
-   Builds context: partner list, programs, events, relationships, existing engagements
-   Sends to Claude API with modular prompt sections
-   Returns: engagement match/create, participants, entity links, meetings, confidence score
-   ↓
-7. CONFIDENCE CHECK
-   ≥ 0.85 → auto-persist (step 8)
-   < 0.85 → create approval_queue item → appears in Inbox UI
-   ↓
-8. PERSIST (supabase.ts → persistClassificationResult)
-   Single function handles both auto-assign and approval-resolve paths:
-   - Create or update engagement (current_state, open_items, tags)
-   - Create participants + participant_links
-   - Create entity_links (programs, events, relationships)
-   - Create meetings (if ICS data present)
-   - Link message to engagement
-   ↓
-9. SYNC TO AIRTABLE (sync.ts)
-   Push: engagements → Partner Engagements table
-   Push: meetings → Meetings table
-   Pull: partners, programs, events, relationships ← catalog tables
-   ↓
-10. DASHBOARD (Next.js pages)
-    Server components query Supabase directly
-    Client components use API routes for mutations
-```
+## Catalog Entities (Airtable → Roadrunner)
 
-## API Route Patterns
+### Partners
 
-The app uses two data access patterns:
+ISV companies in the portfolio. Classified by operational segment and focus area.
 
-**Server Components (reads):** List and detail pages query Supabase directly via server-side functions in supabase.ts. No API route involved — the component IS the server.
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| name | text NOT NULL | |
+| segment | text | Security, SecOps, DevOps, CloudOps, Observability, OT/IoT |
+| focus_area | text[] | Multiple select: Network Security, API Security, IaC, IT Management, etc. |
+| alliance_lead | text | Partner-side alliance manager |
+| alliance_lead_email | text | Used for email-to-partner matching |
+| psa | text | AWS Partner Solutions Architect |
+| spms_id | integer | AWS SPMS identifier |
+| partner_contact_emails | text | Semicolon-separated; used for email-to-partner matching |
+| aws_stickiness | text | Narrative: how likely is a customer to use more AWS services |
+| key_aws_services | text[] | EC2, S3, Lambda, Security Hub, etc. |
+| airtable_record_id | text UNIQUE | Airtable record ID for sync |
+| created_at / updated_at | timestamptz | |
 
-**Client Components (writes):** Action buttons, forms, and mutations call API routes. The routes validate input and call supabase.ts functions.
+### Programs (Tier 1 — Catalog)
 
-**External Webhooks:** /api/inbound (Mailgun) and /api/health (monitoring) are called by external services, not the frontend.
+AWS partner programs. This is the canonical list of available programs.
 
-**Dev-only Routes:** /api/classify/test, /api/classify/live-test, /api/classify/test-cleanup are used by the /test page for classification pipeline testing.
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| name | text NOT NULL | |
+| type | text | singleSelect from Airtable |
+| status | text | |
+| description | text | |
+| eligibility | text | Requirements/eligibility criteria |
+| lifecycle_type | text | |
+| lifecycle_duration | text | |
+| url | text | Program documentation URL |
+| airtable_record_id | text UNIQUE | |
+| created_at / updated_at | timestamptz | |
 
-## Deployment
+**Note:** There is also a Tier 2 "Partner Programs" table in Airtable (per-partner enrollment status). This is NOT synced to Roadrunner — it's Airtable-only.
 
-Vercel handles deployment automatically from the main branch. Environment variables are configured in Vercel's dashboard. The Supabase database is a hosted instance. Mailgun is configured to forward emails to relay.stevenromero.dev → POST /api/inbound webhook.
+### Events
+
+Shared calendar anchors: conferences, summits, workshops, partner days.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| name | text NOT NULL | |
+| type | text | Conference, Summit, Workshop, Partner Day, etc. |
+| description | text | |
+| start_date / end_date | date | |
+| location | text | |
+| host | text | |
+| source | text | "seed", "email_extracted", or "user_created" |
+| verified | boolean DEFAULT false | |
+| airtable_record_id | text UNIQUE | |
+| created_at / updated_at | timestamptz | |
+
+**Events ARE:** Shared calendar anchors that multiple partners might attend — re:Invent, AWS Summits, partner-hosted conferences, industry events.
+
+**Events are NOT:** Meetings within a single engagement (a call, a review, a demo), vague future intentions ("we should meet next week"), or unconfirmed scheduling negotiations.
+
+### AWS Relationships
+
+Named relationships with AWS people or teams. Decoupled from single-partner ownership — a relationship can be linked to multiple engagements across partners.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| name | text NOT NULL | e.g., "Taylor Murphy - ISV SA" |
+| relationship_type | text | Exec/Leader, Product Team, Program Team, Seller |
+| aws_org | text | |
+| aws_service | text | |
+| primary_contact_name | text | |
+| primary_contact_email | text | Used for email matching |
+| aws_contact_emails | text[] | Array; used for email matching |
+| notes | text | |
+| airtable_record_id | text UNIQUE | |
+| created_at / updated_at | timestamptz | |
+
+---
+
+## Activity Entities (Roadrunner → Airtable)
+
+### Engagements
+
+The core entity. A trackable workstream with a partner, created and evolved by AI classification.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| name | text NOT NULL | AI-generated, user-editable |
+| partner_id | uuid FK→partners | |
+| partner_name | text | Denormalized; used when partner_id is null |
+| status | text NOT NULL | planned, active, paused, completed, archived |
+| current_state | text | Living summary — updated with each new email |
+| open_items | jsonb | Array of {description, assignee, due_date} extracted from emails |
+| pillar | text | Co-Sell, Co-Market, Co-Build |
+| priority | text | Mandated, High, Normal, Opportunistic |
+| tags | jsonb | Freeform string array — the escape valve for anything that doesn't fit the entity model |
+| closed_at | timestamptz | |
+| airtable_record_id | text UNIQUE | |
+| created_at / updated_at | timestamptz | |
+
+**Tags usage:** Campaigns ("FinServ Q2"), partner events ("Wiz Innovation Summit"), strategic labels ("exec-sponsored"), workflow states ("waiting-on-legal"), segments ("public-sector"). Not a table — a JSONB string array on the engagement.
+
+### Meetings
+
+Calendar events extracted from ICS attachments or created manually. Three types supported:
+
+1. **Event meetings** — linked to Event + Partner (re:Invent prep, summit follow-up)
+2. **Program meetings** — linked to Program + Partner (competency reviews, program calls)
+3. **Standalone engagement meetings** — linked to Engagement + Partner only
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| title | text NOT NULL | Written to Airtable "Meeting Name" primary field |
+| engagement_id | uuid FK→engagements | ON DELETE SET NULL |
+| event_id | uuid FK→events | ON DELETE SET NULL |
+| partner_id | uuid FK→partners | ON DELETE SET NULL |
+| partner_name | text | Denormalized; used when partner_id is null |
+| program_id | uuid FK→programs | ON DELETE SET NULL |
+| message_id | uuid FK→messages | Source email; not synced to AT |
+| meeting_type | text | Executive, Specialized, GTM, Product Team Relationship |
+| status | text NOT NULL | Scheduling, Invites Sent, Confirmed, Completed, Did Not Occur |
+| meeting_date | date | |
+| start_time / end_time | text | |
+| location | text | |
+| organizer_email | text | |
+| attendees | jsonb | Array of {name, email} |
+| ics_uid | text UNIQUE | Calendar event unique ID for dedup |
+| source | text NOT NULL | "manual" or "ics_parsed" |
+| notes | text | Not synced to AT (see ADR-001). ICS-parsed meetings leave null; manual-only scratch space. |
+| airtable_record_id | text UNIQUE | |
+| created_at / updated_at | timestamptz | |
+
+---
+
+## Internal Entities (Roadrunner Only — Not Synced)
+
+### Messages
+
+Raw emails stored for reference and audit trail. Deduplication is handled at the application layer via Mailgun message ID checks before insertion.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| engagement_id | uuid FK→engagements | Set during classification |
+| sender_name | text | Parsed from email headers |
+| sender_email | text | |
+| sent_at | timestamptz | |
+| subject | text | |
+| body_text | text | Cleaned email body |
+| body_raw | text | Full email body (body-plain from Mailgun) |
+| content_type | text | engagement_email, meeting_invite, mixed, noise |
+| classification_confidence | float | Claude's self-assessed confidence |
+| linked_entities | jsonb | Array of {type, id, relationship} |
+| forwarded_at | timestamptz | When the email was received by Roadrunner |
+| pending_review | boolean | True if in approval queue |
+| classification_result | jsonb | Full Claude response stored for debugging |
+| forwarder_email | text | Email of the person who forwarded to Roadrunner |
+| forwarder_name | text | Name of the forwarder |
+| forwarder_note | text | Substantive text added by forwarder (signature-stripped) |
+| to_header | text | Original To header |
+| cc_header | text | Original CC header |
+| created_at | timestamptz | |
+
+### Approval Queue
+
+Low-confidence classifications waiting for human review.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| type | text NOT NULL | Always 'engagement_assignment' (CHECK constraint) |
+| message_id | uuid FK→messages | ON DELETE SET NULL |
+| engagement_id | uuid FK→engagements | ON DELETE SET NULL |
+| classification_result | jsonb | The proposed classification |
+| options_sent | jsonb | Legacy (Twilio removed) — always null on new rows |
+| sms_sent | boolean | Legacy — always false on new rows |
+| sms_sent_at | timestamptz | Legacy |
+| resolved | boolean NOT NULL | False = pending review |
+| resolved_at | timestamptz | |
+| resolution | text | How it was resolved |
+| created_at | timestamptz | |
+
+### Participants
+
+People mentioned in emails. Shared across engagements via participant_links. Participant type (aws, partner, other) is not stored — it's inferred from email domain during classification and sync.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| name | text | |
+| email | text | Nullable (migration 007); UNIQUE when present |
+| organization | text | Company or org name |
+| title | text | Job title |
+| notes | text | |
+| created_at | timestamptz | |
+
+### Participant Links
+
+Polymorphic junction table: which participants are involved in which engagements or events.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| participant_id | uuid FK→participants | |
+| entity_type | text NOT NULL | 'engagement' or 'event' |
+| entity_id | uuid NOT NULL | FK to engagements or events |
+| role | text | Role in the context of this entity |
+| created_at | timestamptz | |
+
+### Entity Links
+
+Generic many-to-many junction between engagements, events, and programs.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| source_type | text NOT NULL | 'engagement', 'event', or 'program' |
+| source_id | uuid NOT NULL | |
+| target_type | text NOT NULL | 'engagement', 'event', or 'program' |
+| target_id | uuid NOT NULL | |
+| relationship | text NOT NULL | Describes the link (e.g., "preparation", "follow-up") |
+| context | text | Optional context for why entities are linked |
+| created_by | text NOT NULL | 'ai' or 'user' |
+| created_at | timestamptz | |
+
+### Meeting ↔ AWS Relationships (Junction)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| meeting_id | uuid FK→meetings | ON DELETE CASCADE |
+| aws_relationship_id | uuid FK→aws_relationships | ON DELETE CASCADE |
+| created_at | timestamptz | |
+
+---
+
+## Sync Architecture
+
+### Sync Order
+
+1. **Pull catalog** (AT → RR): Partners → Programs → Events → AWS Relationships
+2. **Push activity** (RR → AT): Engagements → Meetings
+
+### Match Strategies
+
+**Engagements:** Match by `airtable_record_id` (existing) or `roadrunnerId` field in Airtable + partner resolution.
+
+**Meetings (3-tier):**
+1. `airtable_record_id` — exact record match
+2. `roadrunnerId` — Roadrunner UUID match
+3. `title + meeting_date` — fallback for manually-created Airtable records
+
+### Auto-Push Hooks
+
+Engagements auto-push to Airtable on: create, update (name/status/pillar/priority/tags/notes), delete.
+
+Meetings auto-push on: create, update (any field), delete, relationship link changes.
+
+### Linked Record Resolution
+
+When pushing to Airtable, Roadrunner resolves UUIDs to Airtable record IDs:
+- `partner_id` → lookup partner's `airtable_record_id` → write to Partner link field
+- `event_id` → lookup event's `airtable_record_id` → write to Event link field
+- `program_id` → lookup program's `airtable_record_id` → write to Program link field
+- `engagement_id` → lookup engagement's `airtable_record_id` → write to Engagement link field
+- AWS Relationships → lookup via junction table → write to AWS Relationships link field
+
+### Attendee Filtering
+
+Before splitting attendees into AWS vs. partner contacts, these are filtered out:
+- `*@relay.stevenromero.dev` — Roadrunner forwarding address
+- `*salesforce*` — Salesforce system emails
+- Any email matching `isUserEmail()` from user-config.ts
+
+Remaining: `@amazon.com` → AWS Contact(s), everything else → Partner Contact(s).
