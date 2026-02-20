@@ -1295,3 +1295,27 @@ Next.js 14 App Router + TypeScript + Tailwind. Supabase Postgres for data. Singl
 **Rationale:** Writable field gives Roadrunner full control over meeting display names. Backfilled all 14 existing records with clean, descriptive names (stripped leading dashes, added context in parentheses). Same field ID preserved — just type changed.
 
 **Impact:** sync.ts writes meeting.title → Meeting Name. 3-tier match strategy uses title + date as fallback. All 14 records cleaned up.
+
+---
+
+## 2026-02-20: meetings.program_id — Decision Revised
+
+**Decision:** Earlier decision "Meetings Don't Link Directly to Programs" was revised during implementation. Migration 032 added program_id FK to meetings, and Airtable Meetings table has a Program field (fldqhPAGvYppRZgCS). The link is valid — meetings like "KnowBe4 GTM Meeting (SMB Competency)" naturally reference a program.
+
+**Context:** The original decision reflected an earlier design phase where meetings were conceptualized as purely engagement-scoped. In practice, meetings about program enrollment or compliance reviews have a direct program relationship that is a property of the meeting itself, not inherited from the engagement.
+
+**Rationale:** The implementation is correct. Updating decisions.md to match reality rather than reverting the implementation to match an outdated decision.
+
+**Impact:** No code changes. This entry corrects the decision log to reflect the implemented and correct behavior. meetings.program_id FK remains, Airtable sync writes program link.
+
+---
+
+## 2026-02-20: Legacy SMS Columns Dropped from approval_queue
+
+**Decision:** Removed `options_sent`, `sms_sent`, `sms_sent_at` from the `approval_queue` table and all code references.
+
+**Context:** These were remnants of the Twilio/SMS notification system removed in a prior session (Decision: "Twilio/SMS Removal", 2026-02-18). The columns were never written to after SMS removal. The `options_sent` field also powered a dead "select" action in the resolve route and rendered ghost buttons in ReviewCard — both paths unreachable since options_sent was never populated.
+
+**Rationale:** Dead columns and dead code paths are maintenance traps. Removing them eliminates confusion about which resolve actions are actually supported (skip, new) vs. which are legacy (select).
+
+**Impact:** Migration 036 drops 3 columns. Removed deprecated fields from ApprovalQueueItem type, dead "select" action handler from resolve route, ghost options rendering from ReviewCard. 5 files changed. No functional impact — purely schema and code hygiene.

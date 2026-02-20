@@ -9,15 +9,14 @@ import { ApprovalQueueItem } from "@/lib/types";
 
 interface ResolveRequest {
   review_id: string;
-  action: "skip" | "select" | "new";
-  option_number?: number;
+  action: "skip" | "new";
   engagement_name?: string;
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as ResolveRequest;
-    const { review_id, action, option_number, engagement_name } = body;
+    const { review_id, action, engagement_name } = body;
 
     if (!review_id || !action) {
       return NextResponse.json(
@@ -65,78 +64,6 @@ export async function POST(request: NextRequest) {
     if (action === "skip") {
       await resolveApproval(review_id, "skipped");
       return NextResponse.json({ status: "skipped" });
-    }
-
-    // Handle "select" — pick a numbered option
-    if (action === "select" && option_number != null) {
-      const option = approval.options_sent?.find(
-        (o) => o.number === option_number
-      );
-      if (!option) {
-        console.error("Invalid option:", {
-          option_number,
-          available: approval.options_sent?.map((o) => o.number),
-        });
-        return NextResponse.json(
-          { error: `Invalid option number ${option_number}. Available: ${approval.options_sent?.map((o) => o.number).join(", ") ?? "none"}` },
-          { status: 400 }
-        );
-      }
-
-      if (option.is_new) {
-        // Create new engagement from the AI suggestion
-        const engagement = await createEngagement({
-          name: option.label,
-          partner_name: classResult.engagement_match.partner_name,
-          current_state: classResult.current_state ?? null,
-          open_items: (classResult.open_items ?? []).map((i) => ({ ...i, resolved: false })),
-          tags: classResult.suggested_tags ?? [],
-        });
-
-        await persistClassificationResult(
-          classResult,
-          engagement.id,
-          approval.message_id ? [approval.message_id] : [],
-          true
-        );
-
-        await resolveApproval(
-          review_id,
-          `created:${engagement.id}:${engagement.name}`
-        );
-
-        return NextResponse.json({
-          status: "created",
-          engagement: engagement,
-        });
-      }
-
-      if (option.engagement_id) {
-        // Assign to existing engagement
-        await persistClassificationResult(
-          classResult,
-          option.engagement_id,
-          approval.message_id ? [approval.message_id] : [],
-          false
-        );
-
-        await resolveApproval(
-          review_id,
-          `assigned:${option.engagement_id}:${option.label}`
-        );
-
-        return NextResponse.json({
-          status: "assigned",
-          engagement_id: option.engagement_id,
-        });
-      }
-
-      // Edge case: option exists but is_new=false and engagement_id=null
-      console.error("Option has no engagement_id and is not new:", option);
-      return NextResponse.json(
-        { error: "Option has no target engagement" },
-        { status: 400 }
-      );
     }
 
     // Handle "new" — create engagement with user-provided name

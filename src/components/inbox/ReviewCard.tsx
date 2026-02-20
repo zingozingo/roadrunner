@@ -120,19 +120,8 @@ export default function ReviewCard({
         <ConfidenceBar confidence={match.confidence} />
       </div>
 
-      {/* Options */}
+      {/* Actions */}
       <div className="flex flex-wrap gap-2">
-        {review.options_sent?.map((opt) => (
-          <button
-            key={opt.number}
-            disabled={loading}
-            onClick={() => resolve("select", opt.number)}
-            className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
-          >
-            {loading ? "..." : `${opt.number}. ${opt.label}`}
-          </button>
-        ))}
-
         <button
           disabled={loading}
           onClick={() => setShowNewInput(!showNewInput)}
