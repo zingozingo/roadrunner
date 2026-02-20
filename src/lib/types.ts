@@ -38,13 +38,14 @@ export interface Event {
   host: string | null;
   location: string | null;
   description: string | null;
+  geo: string | null;
   source: "seed" | "email_extracted" | "user_created";
   verified: boolean;
   airtable_record_id: string | null;
   created_at: string;
 }
 
-export type ProgramType = "Competency" | "Service Ready" | "SCA" | "Program" | "Credit Program";
+export type ProgramType = "Competency" | "Service Ready" | "SCA" | "Program" | "Credit Program" | "Funding" | "Channel" | "Enablement";
 
 export interface Program {
   id: string;
@@ -86,6 +87,7 @@ export interface Partner {
   alliance_lead_email: string | null;
   psa: string | null;
   spms_id: number | null;
+  what_they_do: string | null;
   partner_contact_emails: string[] | null;
   aws_stickiness: string | null;
   key_aws_services: string[];

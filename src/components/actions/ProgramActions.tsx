@@ -13,6 +13,9 @@ const TYPE_OPTIONS: (ProgramType | "")[] = [
   "SCA",
   "Program",
   "Credit Program",
+  "Funding",
+  "Channel",
+  "Enablement",
 ];
 const LIFECYCLE_OPTIONS: Program["lifecycle_type"][] = ["indefinite", "recurring", "expiring"];
 

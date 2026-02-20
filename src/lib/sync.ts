@@ -42,6 +42,7 @@ const EF = {
   format: "fldpuxeQ5DRhMwizr",
   host: "fldaDlidcRmUCvxFK",
   description: "fldTMiRJ7mqMzGqXY",
+  geo: "fld9idvQawFVNu5sa",
 } as const;
 
 const RF = {
@@ -67,6 +68,7 @@ const PTRF = {
   partnerContactEmails: "fldAEQSbi448tEjff",
   awsStickiness: "fldlCzNjHA3Ziuqtv",
   keyAwsServices: "fldQwm8UtaNxAa9dI",
+  whatTheyDo: "fldnoDB2la8oLgrqR",
 } as const;
 
 export interface SyncResult {
@@ -116,7 +118,7 @@ function hasChanges(
 // ── Valid value sets (must match DB CHECK constraints) ───────
 
 const VALID_PROGRAM_TYPES = new Set([
-  "Competency", "Service Ready", "SCA", "Program", "Credit Program",
+  "Competency", "Service Ready", "SCA", "Program", "Credit Program", "Funding", "Channel", "Enablement",
 ]);
 
 const VALID_EVENT_TYPES = new Set([
@@ -257,6 +259,7 @@ function mapEvent(rec: AirtableRecord): Record<string, unknown> | null {
     location: str(rec.fields[EF.location]),
     host: str(rec.fields[EF.host]),
     description: str(rec.fields[EF.description]),
+    geo: str(rec.fields[EF.geo]),
   };
 }
 
@@ -525,6 +528,7 @@ function mapPartner(rec: AirtableRecord): Record<string, unknown> | null {
     partner_contact_emails: partnerContactEmails,
     aws_stickiness: str(rec.fields[PTRF.awsStickiness]),
     key_aws_services: arr(rec.fields[PTRF.keyAwsServices]),
+    what_they_do: str(rec.fields[PTRF.whatTheyDo]),
   };
 }
 

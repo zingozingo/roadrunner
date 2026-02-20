@@ -66,10 +66,10 @@ export async function PUT(
       );
     }
 
-    const VALID_TYPES = new Set(["Competency", "Service Ready", "SCA", "Program", "Credit Program"]);
+    const VALID_TYPES = new Set(["Competency", "Service Ready", "SCA", "Program", "Credit Program", "Funding", "Channel", "Enablement"]);
     if (type !== undefined && type !== null && !VALID_TYPES.has(type)) {
       return NextResponse.json(
-        { error: `Invalid type "${type}". Must be one of: Competency, Service Ready, SCA, Program, Credit Program` },
+        { error: `Invalid type "${type}". Must be one of: ${[...VALID_TYPES].join(", ")}` },
         { status: 400 }
       );
     }

@@ -18,6 +18,9 @@ const TYPE_ORDER: ProgramType[] = [
   "Program",
   "SCA",
   "Credit Program",
+  "Funding",
+  "Channel",
+  "Enablement",
 ];
 
 const TYPE_FILTER_OPTIONS = TYPE_ORDER.map((t) => ({

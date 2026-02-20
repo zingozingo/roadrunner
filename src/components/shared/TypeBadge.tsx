@@ -7,6 +7,9 @@ const programTypeColors: Record<ProgramType, string> = {
   SCA: "bg-[var(--program-sca)]/20 text-[var(--program-sca)]",
   Program: "bg-[var(--program-program)]/20 text-[var(--program-program)]",
   "Credit Program": "bg-[var(--program-credit)]/20 text-[var(--program-credit)]",
+  Funding: "bg-[var(--program-funding)]/20 text-[var(--program-funding)]",
+  Channel: "bg-[var(--program-channel)]/20 text-[var(--program-channel)]",
+  Enablement: "bg-[var(--program-enablement)]/20 text-[var(--program-enablement)]",
 };
 
 const eventTypeColors: Record<Event["type"], string> = {

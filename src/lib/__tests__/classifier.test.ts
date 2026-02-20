@@ -193,6 +193,7 @@ const EVENT_REINVENT: Event = {
   source: "seed",
   verified: true,
   airtable_record_id: null,
+  geo: null,
   created_at: "2025-01-01T00:00:00Z",
 };
 

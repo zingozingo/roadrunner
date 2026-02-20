@@ -56,6 +56,7 @@ const EVENT: Event = {
   source: "seed",
   verified: true,
   airtable_record_id: null,
+  geo: null,
   created_at: "2025-01-01T00:00:00Z",
 };
 
@@ -85,6 +86,7 @@ const PARTNER: Partner = {
   partner_contact_emails: ["alice@cybershield.com"],
   aws_stickiness: null,
   key_aws_services: [],
+  what_they_do: null,
   airtable_record_id: null,
   created_at: "2025-01-01T00:00:00Z",
   updated_at: "2025-01-01T00:00:00Z",
