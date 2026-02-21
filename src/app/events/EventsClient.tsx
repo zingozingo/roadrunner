@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
 import StatusBadge from "@/components/shared/StatusBadge";
 import FilterBar from "@/components/layout/FilterBar";
 import { EventTypeBadge } from "@/components/shared/TypeBadge";
 import SyncButton from "@/components/shared/SyncButton";
+import CompactRow from "@/components/shared/CompactRow";
 import { Event } from "@/lib/types";
 
 type EventWithCount = Event & { linked_count: number };
@@ -240,39 +240,27 @@ export default function EventsClient({ events }: { events: EventWithCount[] }) {
                         )}
                         <div className="space-y-2">
                           {group.events.map((event) => (
-                            <Link
+                            <CompactRow
                               key={event.id}
                               href={`/events/${event.id}`}
-                              className="block rounded-xl border border-border bg-surface p-4 transition-colors hover:border-accent/40"
-                            >
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <h3 className="font-medium text-foreground">
-                                      {event.name}
-                                    </h3>
-                                    <EventTypeBadge type={event.type} />
-                                    {!event.verified && (
-                                      <StatusBadge status="unverified" />
-                                    )}
-                                  </div>
-                                  <p className="mt-1 text-sm text-muted">
-                                    {formatDateRange(event.start_date, event.end_date)}
-                                    {event.location && ` · ${event.location}`}
-                                  </p>
-                                </div>
-                                {event.linked_count > 0 && (
-                                  <span className="shrink-0 text-xs text-muted">
-                                    {event.linked_count} link{event.linked_count !== 1 ? "s" : ""}
-                                  </span>
-                                )}
-                              </div>
-                              {event.description && (
-                                <p className="mt-2 line-clamp-2 text-sm text-muted">
-                                  {event.description}
-                                </p>
-                              )}
-                            </Link>
+                              primary={event.name}
+                              badges={
+                                <>
+                                  <EventTypeBadge type={event.type} />
+                                  {!event.verified && <StatusBadge status="unverified" />}
+                                </>
+                              }
+                              secondary={
+                                [formatDateRange(event.start_date, event.end_date), event.location]
+                                  .filter(Boolean)
+                                  .join(" · ") || undefined
+                              }
+                              meta={
+                                event.linked_count > 0 ? (
+                                  <span>{event.linked_count} link{event.linked_count !== 1 ? "s" : ""}</span>
+                                ) : undefined
+                              }
+                            />
                           ))}
                         </div>
                       </div>

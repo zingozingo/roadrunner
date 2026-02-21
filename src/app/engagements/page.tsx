@@ -1,8 +1,9 @@
 export const dynamic = "force-dynamic";
 
 import PageHeader from "@/components/layout/PageHeader";
-import EngagementCard from "@/components/engagement/EngagementCard";
 import EmptyState from "@/components/layout/EmptyState";
+import CompactRow from "@/components/shared/CompactRow";
+import StatusBadge from "@/components/shared/StatusBadge";
 import SyncButton from "@/components/shared/SyncButton";
 import CreateEngagementForm from "@/components/engagement/CreateEngagementForm";
 import { getEngagementsWithMessageCounts } from "@/lib/supabase";
@@ -59,12 +60,20 @@ export default async function EngagementsPage() {
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
                 {status} ({items.length})
               </h2>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="space-y-2">
                 {items.map((eng) => (
-                  <EngagementCard
+                  <CompactRow
                     key={eng.id}
-                    engagement={eng}
-                    messageCount={eng.message_count}
+                    href={`/engagements/${eng.id}`}
+                    primary={eng.name}
+                    badges={<StatusBadge status={eng.status} />}
+                    secondary={eng.partner_name ?? undefined}
+                    meta={
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span>{eng.message_count} msg{eng.message_count !== 1 ? "s" : ""}</span>
+                        <span>{new Date(eng.updated_at).toLocaleDateString()}</span>
+                      </div>
+                    }
                   />
                 ))}
               </div>

@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
 import SyncButton from "@/components/shared/SyncButton";
+import CompactRow from "@/components/shared/CompactRow";
 import { MeetingStatusBadge } from "@/components/shared/TypeBadge";
 import { Meeting, Engagement, Event, MeetingStatus } from "@/lib/types";
 
@@ -408,50 +408,52 @@ export default function MeetingsClient({ meetings, engagements, events }: Meetin
                   </h2>
                   <div className="space-y-2">
                     {section.meetings.map((m) => (
-                      <Link
+                      <CompactRow
                         key={m.id}
                         href={`/meetings/${m.id}`}
-                        className="block rounded-xl border border-border bg-surface p-4 transition-colors hover:border-accent/40"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h3 className="font-medium text-foreground">
-                                {m.title}
-                              </h3>
-                              <MeetingStatusBadge status={m.status} />
-                              {m.meeting_type && (
-                                <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-xs font-medium text-blue-400 whitespace-nowrap">
-                                  {m.meeting_type}
+                        primary={m.title}
+                        badges={
+                          <>
+                            <MeetingStatusBadge status={m.status} />
+                            {m.meeting_type && (
+                              <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-xs font-medium text-blue-400 whitespace-nowrap">
+                                {m.meeting_type}
+                              </span>
+                            )}
+                            {m.source === "ics_parsed" && (
+                              <span className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap">
+                                ICS
+                              </span>
+                            )}
+                          </>
+                        }
+                        secondary={
+                          [
+                            formatDate(m.meeting_date),
+                            (m.start_time || m.end_time) ? formatTime(m.start_time, m.end_time) : null,
+                            m.location,
+                            m.partner_name,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ") || undefined
+                        }
+                        meta={
+                          (m.engagement_name || m.event_name) ? (
+                            <div className="flex flex-col items-end gap-1">
+                              {m.engagement_name && (
+                                <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent whitespace-nowrap">
+                                  {m.engagement_name}
                                 </span>
                               )}
-                              {m.source === "ics_parsed" && (
-                                <span className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap">
-                                  ICS
+                              {m.event_name && (
+                                <span className="rounded-full bg-purple-500/10 px-2.5 py-0.5 text-xs font-medium text-purple-400 whitespace-nowrap">
+                                  {m.event_name}
                                 </span>
                               )}
                             </div>
-                            <p className="mt-1 text-sm text-muted">
-                              {formatDate(m.meeting_date)}
-                              {(m.start_time || m.end_time) && ` · ${formatTime(m.start_time, m.end_time)}`}
-                              {m.location && ` · ${m.location}`}
-                              {m.partner_name && ` · ${m.partner_name}`}
-                            </p>
-                          </div>
-                          <div className="flex shrink-0 flex-col items-end gap-1">
-                            {m.engagement_name && (
-                              <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent whitespace-nowrap">
-                                {m.engagement_name}
-                              </span>
-                            )}
-                            {m.event_name && (
-                              <span className="rounded-full bg-purple-500/10 px-2.5 py-0.5 text-xs font-medium text-purple-400 whitespace-nowrap">
-                                {m.event_name}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </Link>
+                          ) : undefined
+                        }
+                      />
                     ))}
                   </div>
                 </div>
