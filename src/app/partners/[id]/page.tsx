@@ -4,7 +4,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import DetailHeader from "@/components/shared/DetailHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
-import { MeetingStatusBadge, RelationshipTypeBadge } from "@/components/shared/TypeBadge";
+import CompactRow from "@/components/shared/CompactRow";
+import { RelationshipTypeBadge } from "@/components/shared/TypeBadge";
+import MeetingTimeline from "@/components/shared/MeetingTimeline";
 import { getPartner, getSupabaseClient, getAwsRelationshipsByPartner } from "@/lib/supabase";
 import type { Engagement, Meeting } from "@/lib/types";
 
@@ -55,6 +57,12 @@ export default async function PartnerDetailPage({
   const linkedMeetings = (meetings ?? []) as Meeting[];
   const linkedRelationships = await getAwsRelationshipsByPartner(id);
 
+  // Build engagement name map for MeetingTimeline
+  const engagementNames = new Map<string, string>();
+  for (const eng of linkedEngagements) {
+    engagementNames.set(eng.id, eng.name);
+  }
+
   return (
     <div className="p-6 lg:p-8">
       <Link
@@ -78,194 +86,147 @@ export default async function PartnerDetailPage({
         }
         subtitle={partner.what_they_do ?? undefined}
         fields={[
-          { label: "Alliance Lead", value: partner.alliance_lead ?? "—" },
+          {
+            label: "Alliance Lead",
+            value: partner.alliance_lead ? (
+              <span>
+                {partner.alliance_lead}
+                {partner.alliance_lead_email && (
+                  <span className="block text-xs text-muted break-all">
+                    {partner.alliance_lead_email}
+                  </span>
+                )}
+              </span>
+            ) : "—",
+          },
           { label: "PSA", value: partner.psa ?? "—" },
           { label: "SPMS ID", value: partner.spms_id?.toString() ?? "—" },
           { label: "Focus Areas", value: partner.focus_area.length > 0 ? partner.focus_area.join(", ") : "—" },
         ]}
       />
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-4">
-          {/* Linked Engagements */}
-          <div className="rounded-xl border border-border bg-surface p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-              Engagements
-            </h2>
-            {linkedEngagements.length === 0 ? (
-              <p className="text-sm text-muted">No engagements linked yet</p>
-            ) : (
-              <div className="space-y-2">
-                {linkedEngagements.map((eng) => (
-                  <Link
-                    key={eng.id}
-                    href={`/engagements/${eng.id}`}
-                    className="block rounded-lg border border-border bg-background p-3 transition-colors hover:border-accent/40"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm text-foreground">
-                        {eng.name}
-                      </span>
-                      <StatusBadge status={eng.status} />
-                    </div>
-                    {eng.current_state && (
-                      <p className="mt-1 text-xs text-muted line-clamp-2">
-                        {eng.current_state}
-                      </p>
-                    )}
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
+      {/* Full-width sections — no sidebar */}
+      <div className="space-y-6">
 
-          {/* Linked Meetings */}
-          <div className="rounded-xl border border-border bg-surface p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-              Meetings
+        {/* AWS Context — #1 strategic content, directly below header */}
+        {(partner.aws_stickiness || partner.key_aws_services.length > 0) && (
+          <div className="rounded-xl border border-accent/30 bg-accent/5 p-5">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-accent">
+              AWS Context
             </h2>
-            {linkedMeetings.length === 0 ? (
-              <p className="text-sm text-muted">No meetings linked yet</p>
-            ) : (
-              <div className="space-y-2">
-                {linkedMeetings.map((mtg) => (
-                  <Link
-                    key={mtg.id}
-                    href={`/meetings/${mtg.id}`}
-                    className="block rounded-lg border border-border bg-background p-3 transition-colors hover:border-accent/40"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm text-foreground">
-                        {mtg.title}
-                      </span>
-                      <MeetingStatusBadge status={mtg.status} />
-                    </div>
-                    {mtg.meeting_date && (
-                      <p className="mt-0.5 text-xs text-muted">
-                        {new Date(mtg.meeting_date + "T00:00:00").toLocaleDateString()}
-                        {mtg.start_time && ` at ${mtg.start_time}`}
-                      </p>
-                    )}
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Linked AWS Relationships */}
-          <div className="rounded-xl border border-border bg-surface p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-              AWS Relationships
-            </h2>
-            {linkedRelationships.length === 0 ? (
-              <p className="text-sm text-muted">No AWS relationships linked yet</p>
-            ) : (
-              <div className="space-y-2">
-                {linkedRelationships.map((rel) => (
-                  <Link
-                    key={rel.id}
-                    href={`/relationships/${rel.id}`}
-                    className="block rounded-lg border border-border bg-background p-3 transition-colors hover:border-accent/40"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm text-foreground">
-                        {rel.name}
-                      </span>
-                      <RelationshipTypeBadge type={rel.relationship_type} />
-                    </div>
-                    {rel.primary_contact_name && (
-                      <p className="mt-0.5 text-xs text-muted">
-                        {rel.primary_contact_name}
-                      </p>
-                    )}
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-4">
-          {/* Partner Details */}
-          <div className="rounded-xl border border-border bg-surface p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-              Partner Details
-            </h2>
-            <dl className="space-y-3 text-sm">
-              {partner.alliance_lead && (
+            <div className="space-y-4">
+              {partner.aws_stickiness && (
                 <div>
-                  <dt className="text-muted">Alliance Lead</dt>
-                  <dd className="text-foreground">
-                    {partner.alliance_lead}
-                    {partner.alliance_lead_email && (
-                      <span className="block text-xs text-muted break-all">
-                        {partner.alliance_lead_email}
-                      </span>
-                    )}
+                  <dt className="text-xs font-medium uppercase tracking-wider text-muted mb-1">
+                    AWS Stickiness
+                  </dt>
+                  <dd className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                    {partner.aws_stickiness}
                   </dd>
                 </div>
               )}
-              {partner.psa && (
+              {partner.key_aws_services.length > 0 && (
                 <div>
-                  <dt className="text-muted">PSA</dt>
-                  <dd className="text-foreground">{partner.psa}</dd>
-                </div>
-              )}
-              {partner.spms_id && (
-                <div>
-                  <dt className="text-muted">SPMS ID</dt>
-                  <dd className="text-foreground">{partner.spms_id}</dd>
-                </div>
-              )}
-              {partner.partner_contact_emails && partner.partner_contact_emails.length > 0 && (
-                <div>
-                  <dt className="text-muted">Contact Emails</dt>
-                  <dd className="text-foreground break-all">
-                    {partner.partner_contact_emails.map((email, i) => (
-                      <span key={i} className="block">{email}</span>
+                  <dt className="text-xs font-medium uppercase tracking-wider text-muted mb-1.5">
+                    Key AWS Services
+                  </dt>
+                  <dd className="flex flex-wrap gap-1.5">
+                    {partner.key_aws_services.map((svc) => (
+                      <span
+                        key={svc}
+                        className="rounded-full bg-accent/15 px-2.5 py-0.5 text-xs font-medium text-accent whitespace-nowrap"
+                      >
+                        {svc}
+                      </span>
                     ))}
                   </dd>
                 </div>
               )}
-              <div>
-                <dt className="text-muted">Created</dt>
-                <dd className="text-foreground">
-                  {new Date(partner.created_at).toLocaleDateString()}
-                </dd>
-              </div>
-            </dl>
+            </div>
           </div>
+        )}
 
-          {/* AWS Context */}
-          {(partner.aws_stickiness || partner.key_aws_services.length > 0) && (
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-                AWS Context
-              </h2>
-              <dl className="space-y-3 text-sm">
-                {partner.aws_stickiness && (
-                  <div>
-                    <dt className="text-muted">AWS Stickiness</dt>
-                    <dd className="text-foreground whitespace-pre-wrap">{partner.aws_stickiness}</dd>
-                  </div>
-                )}
-                {partner.key_aws_services.length > 0 && (
-                  <div>
-                    <dt className="text-muted mb-1.5">Key AWS Services</dt>
-                    <dd className="flex flex-wrap gap-1.5">
-                      {partner.key_aws_services.map((svc) => (
-                        <span
-                          key={svc}
-                          className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap"
-                        >
-                          {svc}
+        {/* Contact Emails — only show if present, compact inline */}
+        {partner.partner_contact_emails && partner.partner_contact_emails.length > 0 && (
+          <div className="rounded-xl border border-border bg-surface p-4">
+            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted">
+              Contact Emails
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {partner.partner_contact_emails.map((email, i) => (
+                <span key={i} className="text-sm text-foreground break-all">
+                  {email}{i < partner.partner_contact_emails!.length - 1 ? "," : ""}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Meetings Timeline — temporal entities get timeline treatment */}
+        <div className="rounded-xl border border-border bg-surface p-4">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
+            Meetings
+          </h2>
+          <MeetingTimeline
+            meetings={linkedMeetings}
+            engagementNames={engagementNames}
+          />
+        </div>
+
+        {/* Engagements — workstreams get status-driven lists */}
+        <div className="rounded-xl border border-border bg-surface p-4">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
+            Engagements
+          </h2>
+          {linkedEngagements.length === 0 ? (
+            <p className="text-sm text-muted">No engagements linked yet</p>
+          ) : (
+            <div className="space-y-2">
+              {linkedEngagements.map((eng) => (
+                <CompactRow
+                  key={eng.id}
+                  href={`/engagements/${eng.id}`}
+                  primary={eng.name}
+                  badges={
+                    <>
+                      <StatusBadge status={eng.status} />
+                      {eng.pillar && (
+                        <span className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap">
+                          {eng.pillar}
                         </span>
-                      ))}
-                    </dd>
-                  </div>
-                )}
-              </dl>
+                      )}
+                      {eng.priority && (
+                        <span className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap">
+                          {eng.priority}
+                        </span>
+                      )}
+                    </>
+                  }
+                  secondary={eng.current_state ?? undefined}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* AWS Relationships — structural entities get compact treatment */}
+        <div className="rounded-xl border border-border bg-surface p-4">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
+            AWS Relationships
+          </h2>
+          {linkedRelationships.length === 0 ? (
+            <p className="text-sm text-muted">No AWS relationships linked yet</p>
+          ) : (
+            <div className="space-y-2">
+              {linkedRelationships.map((rel) => (
+                <CompactRow
+                  key={rel.id}
+                  href={`/relationships/${rel.id}`}
+                  primary={rel.name}
+                  badges={<RelationshipTypeBadge type={rel.relationship_type} />}
+                  secondary={rel.primary_contact_name ?? undefined}
+                />
+              ))}
             </div>
           )}
         </div>

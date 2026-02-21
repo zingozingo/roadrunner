@@ -158,32 +158,31 @@ Every list page follows this structure:
 
 ## Detail Page Pattern
 
-Every detail page follows this structure:
+Detail pages use one of two layouts based on content needs:
+
+### Two-column layout (with sidebar)
+Use when the entity has participants, metadata cards, or reference info that benefits from a persistent sidebar.
+Examples: Engagement detail (participants + metadata sidebar).
 
 ```tsx
 <div className="p-6 lg:p-8">
-  <DetailHeader
-    title={entity.name}
-    badges={<>...</>}
-    subtitle={entity.description}
-    fields={[
-      { label: "Field 1", value: entity.field1 },
-      { label: "Field 2", value: entity.field2 },
-    ]}
-    actions={<ActionMenu />}
-  />
-
-  {/* Two-column layout */}
+  <DetailHeader ... />
   <div className="grid gap-6 lg:grid-cols-3">
-    {/* Main content — 2/3 width */}
-    <div className="space-y-6 lg:col-span-2">
-      {/* Content sections */}
-    </div>
+    <div className="space-y-6 lg:col-span-2">{/* Main content */}</div>
+    <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">{/* Sidebar */}</div>
+  </div>
+</div>
+```
 
-    {/* Sidebar — 1/3 width, sticky */}
-    <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
-      {/* Metadata cards */}
-    </div>
+### Full-width layout (no sidebar)
+Use when the sidebar would duplicate header metadata or bury important content. Sections stack vertically with `space-y-6`.
+Examples: Partner detail (AWS Context promoted, no sidebar duplication).
+
+```tsx
+<div className="p-6 lg:p-8">
+  <DetailHeader ... />
+  <div className="space-y-6">
+    {/* Full-width content sections */}
   </div>
 </div>
 ```
@@ -222,6 +221,29 @@ Badges are used in both CompactRow and DetailHeader badge slots.
 3. **Earned placement** — Every file, component, and CSS variable must serve a clear purpose. No dead code.
 4. **Constrained intelligence** — Match to existing entities, don't fabricate. This applies to both AI classification and UI data display.
 5. **Measure twice, cut once** — Read existing code before modifying. Generate diagnostics before fixing.
+6. **Section visual weight by entity type** — Temporal entities (meetings) get timeline treatment. Workstreams (engagements) get status-driven lists with CompactRow. Structural/reference entities (relationships, programs) get compact lists with minimal visual weight. Strategic content (AWS Context) gets accent-bordered prominent cards.
+7. **No duplicate content** — A field should render in exactly one place. If it's in the header fields, don't repeat it in a sidebar. If it's in a body card, don't also put it in the subtitle slot.
+
+## MeetingTimeline Component
+
+**Location:** `src/components/shared/MeetingTimeline.tsx`
+
+Reusable vertical timeline for displaying meetings on non-meeting detail pages (partner, engagement, event, program pages).
+
+**Props:**
+- `meetings: Meeting[]` — full meeting array; component handles filtering and sorting internally
+- `engagementNames?: Map<string, string>` — optional map of engagement_id → name for inline display
+
+**Behavior:**
+- Filters to upcoming meetings + past meetings within 90 days (older meetings are hidden)
+- Upcoming sorted soonest-first, past sorted most-recent-first
+- Upcoming meetings: accent-colored dot and date, full-brightness title
+- Past meetings: muted dot, muted title
+- Shows date (prominent), title, meeting_type badge, status badge, linked engagement name
+- Empty state: "No meetings scheduled"
+- Vertical timeline line with dot nodes
+
+**When to use:** Any detail page that shows related meetings. Use instead of flat CompactRow lists for meetings — temporal entities deserve timeline treatment.
 
 ## Reference Files
 
