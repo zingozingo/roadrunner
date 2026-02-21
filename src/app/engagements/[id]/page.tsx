@@ -37,8 +37,6 @@ export default async function EngagementDetailPage({
   // Resolve entity link target names
   const nameMap = await resolveEntityLinkNames(entityLinks);
 
-  const displayState = engagement.current_state;
-
   return (
     <div className="p-6 lg:p-8">
       <Link
@@ -54,7 +52,6 @@ export default async function EngagementDetailPage({
       <DetailHeader
         title={engagement.name}
         badges={<StatusBadge status={engagement.status} />}
-        subtitle={displayState ?? undefined}
         fields={[
           {
             label: "Partner",
@@ -78,8 +75,8 @@ export default async function EngagementDetailPage({
       <div className="lg:grid lg:grid-cols-3 lg:gap-6">
         {/* Left column: state, open items, emails, entity links */}
         <div className="lg:col-span-2 space-y-6">
-          {displayState && (
-            <CurrentStateCard text={displayState} />
+          {engagement.current_state && (
+            <CurrentStateCard text={engagement.current_state} />
           )}
 
           <OpenItemsCard
