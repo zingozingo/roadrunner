@@ -1319,3 +1319,63 @@ Next.js 14 App Router + TypeScript + Tailwind. Supabase Postgres for data. Singl
 **Rationale:** Dead columns and dead code paths are maintenance traps. Removing them eliminates confusion about which resolve actions are actually supported (skip, new) vs. which are legacy (select).
 
 **Impact:** Migration 036 drops 3 columns. Removed deprecated fields from ApprovalQueueItem type, dead "select" action handler from resolve route, ghost options rendering from ReviewCard. 5 files changed. No functional impact — purely schema and code hygiene.
+
+---
+
+## 2026-02-21: Sidebar Nav Reorder
+
+**Decision:** Reorder sidebar navigation to follow workflow adjacency: Inbox → Engagements → Partners → Meetings → Events → Programs → Relationships.
+
+**Context:** The previous order (Inbox, Engagements, Partners, Events, Relationships, Meetings, Programs) grouped entities alphabetically rather than by usage frequency. Meetings and Events are consulted together when scheduling; Programs and Relationships are reference data accessed less often.
+
+**Rationale:** Workflow-adjacent grouping reduces scroll distance for the most common navigation sequences. Meetings moves up next to Partners (the entities most often cross-referenced), while reference-only views (Programs, Relationships) move to the bottom.
+
+**Impact:** Sidebar.tsx navItems array reordered. No route or page changes.
+
+---
+
+## 2026-02-21: FilterBar v2 — Single-Select Behavior
+
+**Decision:** Replace the current multi-select toggle-pill FilterBar with a single-select dropdown/chip pattern. Only one filter value active at a time per dimension.
+
+**Context:** The existing FilterBar uses `Set<string>` to allow multiple simultaneous selections (e.g., "active" + "paused" statuses). In practice, users almost always filter to a single value. Multi-select adds visual clutter and interaction complexity with no demonstrated benefit for a single-user app.
+
+**Rationale:** Single-select is simpler to implement, easier to read at a glance, and matches the actual usage pattern. The "All" state (no filter) remains the default.
+
+**Impact:** FilterBar.tsx rewrite. All consumer pages (Engagements, Partners, Events, Programs, Meetings, Relationships) update their filter state from `Set<string>` to `string | null`. Net reduction in code complexity.
+
+---
+
+## 2026-02-21: Phase 2 Build Sequence
+
+**Decision:** Phase 2 UI foundation components will be built in this order: (1) Sidebar reorder, (2) FilterBar v2, (3) CompactRow, (4) DetailHeader.
+
+**Context:** Each component builds on the previous. Sidebar reorder is a trivial array change that validates the dev workflow. FilterBar v2 touches every list page but is self-contained. CompactRow standardizes list items across all entity pages. DetailHeader standardizes detail page headers.
+
+**Rationale:** Ordering by dependency and blast radius — smallest change first, widest-reaching last. Each step is independently shippable and testable.
+
+**Impact:** Defines the implementation sequence for the next 4 PRs.
+
+---
+
+## 2026-02-21: PostgREST Schema Cache — Restart Required
+
+**Decision:** After running Supabase migrations that add new columns, the Supabase project must be restarted (Settings → General → Restart project) before PostgREST will accept writes to those columns.
+
+**Context:** Migration 037 added `geo` to events and `what_they_do` to partners. The migration succeeded (columns exist in the database), but PostgREST continued to silently drop these fields on INSERT/UPDATE because its schema cache was stale. This produced no errors — upserts succeeded but the new columns stayed NULL.
+
+**Rationale:** PostgREST caches the database schema at startup. New columns are invisible to the API until the cache refreshes. On Supabase free tier, there is no `NOTIFY pgrst` channel to trigger a live reload — a full project restart is the only reliable method.
+
+**Impact:** Two-step deployment required for schema changes: (1) run migration + restart Supabase project, (2) deploy code to Vercel. Order matters — code deployed before restart will also silently drop the new fields.
+
+---
+
+## 2026-02-21: Canonical Event Count — 43
+
+**Decision:** The canonical event count in the system is 43 (as of 2026-02-21), not 54 as previously referenced in some planning documents.
+
+**Context:** During Airtable sync verification, the actual event count was confirmed as 43. The "54 events" figure appeared in early planning estimates before deduplication and data cleanup.
+
+**Rationale:** Accurate counts prevent confusion when debugging sync issues or validating data integrity.
+
+**Impact:** Reference data only. No code changes. Future sync validations should expect ~43 events (will grow as new events are added).
