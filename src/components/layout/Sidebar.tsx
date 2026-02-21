@@ -37,29 +37,6 @@ const navItems = [
     showBadge: false,
   },
   {
-    href: "/events",
-    label: "Events",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <rect x="3" y="4" width="14" height="13" rx="2" />
-        <path d="M3 8h14M7 2v4M13 2v4" />
-      </svg>
-    ),
-    showBadge: false,
-  },
-  {
-    href: "/relationships",
-    label: "Relationships",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <circle cx="7" cy="7" r="2.5" />
-        <circle cx="13" cy="7" r="2.5" />
-        <path d="M2 16c0-2.5 2-4 5-4M13 12c3 0 5 1.5 5 4" />
-      </svg>
-    ),
-    showBadge: false,
-  },
-  {
     href: "/meetings",
     label: "Meetings",
     icon: (
@@ -72,12 +49,35 @@ const navItems = [
     showBadge: false,
   },
   {
+    href: "/events",
+    label: "Events",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <rect x="3" y="4" width="14" height="13" rx="2" />
+        <path d="M3 8h14M7 2v4M13 2v4" />
+      </svg>
+    ),
+    showBadge: false,
+  },
+  {
     href: "/programs",
     label: "Programs",
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
         <rect x="3" y="3" width="14" height="14" rx="2" />
         <path d="M7 7h6M7 10h6M7 13h4" />
+      </svg>
+    ),
+    showBadge: false,
+  },
+  {
+    href: "/relationships",
+    label: "Relationships",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <circle cx="7" cy="7" r="2.5" />
+        <circle cx="13" cy="7" r="2.5" />
+        <path d="M2 16c0-2.5 2-4 5-4M13 12c3 0 5 1.5 5 4" />
       </svg>
     ),
     showBadge: false,

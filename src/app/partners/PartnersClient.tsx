@@ -23,19 +23,7 @@ interface PartnersClientProps {
 
 export default function PartnersClient({ partners }: PartnersClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
-
-  function handleFilterToggle(value: string) {
-    setActiveFilters((prev) => {
-      const next = new Set(prev);
-      if (next.has(value)) {
-        next.delete(value);
-      } else {
-        next.add(value);
-      }
-      return next;
-    });
-  }
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
   const filteredPartners = useMemo(() => {
     return partners.filter((p) => {
@@ -48,15 +36,12 @@ export default function PartnersClient({ partners }: PartnersClientProps) {
         const matchesPsa = p.psa?.toLowerCase().includes(q);
         if (!matchesName && !matchesSegment && !matchesFocusArea && !matchesLead && !matchesPsa) return false;
       }
-      if (activeFilters.size > 0 && p.segment && !activeFilters.has(p.segment)) {
-        return false;
-      }
-      if (activeFilters.size > 0 && !p.segment) {
+      if (activeFilter && p.segment !== activeFilter) {
         return false;
       }
       return true;
     });
-  }, [partners, searchQuery, activeFilters]);
+  }, [partners, searchQuery, activeFilter]);
 
   // Group by segment
   const grouped = useMemo(() => {
@@ -112,9 +97,9 @@ export default function PartnersClient({ partners }: PartnersClientProps) {
           <FilterBar
             searchPlaceholder="Search partners..."
             filterOptions={SEGMENT_FILTER_OPTIONS}
-            activeFilters={activeFilters}
+            activeFilter={activeFilter}
             onSearchChange={setSearchQuery}
-            onFilterToggle={handleFilterToggle}
+            onFilterChange={setActiveFilter}
             resultCount={filteredPartners.length}
             totalCount={partners.length}
             entityName="partners"

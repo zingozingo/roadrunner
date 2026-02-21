@@ -58,7 +58,7 @@ interface MeetingsClientProps {
 export default function MeetingsClient({ meetings, engagements, events }: MeetingsClientProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -74,15 +74,6 @@ export default function MeetingsClient({ meetings, engagements, events }: Meetin
   const [newLocation, setNewLocation] = useState("");
   const [newStartTime, setNewStartTime] = useState("");
   const [newEndTime, setNewEndTime] = useState("");
-
-  function handleFilterToggle(value: string) {
-    setActiveFilters((prev) => {
-      const next = new Set(prev);
-      if (next.has(value)) next.delete(value);
-      else next.add(value);
-      return next;
-    });
-  }
 
   // Auto-populate partner_name when engagement changes
   function handleEngagementChange(engId: string) {
@@ -106,11 +97,10 @@ export default function MeetingsClient({ meetings, engagements, events }: Meetin
         const matchesPartner = m.partner_name?.toLowerCase().includes(q);
         if (!matchesTitle && !matchesLocation && !matchesNotes && !matchesEngagement && !matchesPartner) return false;
       }
-      if (activeFilters.size > 0 && m.meeting_type && !activeFilters.has(m.meeting_type)) return false;
-      if (activeFilters.size > 0 && !m.meeting_type) return false;
+      if (activeFilter && m.meeting_type !== activeFilter) return false;
       return true;
     });
-  }, [meetings, searchQuery, activeFilters]);
+  }, [meetings, searchQuery, activeFilter]);
 
   // Group into upcoming vs past
   const sections = useMemo(() => {
@@ -393,9 +383,9 @@ export default function MeetingsClient({ meetings, engagements, events }: Meetin
           <FilterBar
             searchPlaceholder="Search meetings..."
             filterOptions={MEETING_TYPE_OPTIONS}
-            activeFilters={activeFilters}
+            activeFilter={activeFilter}
             onSearchChange={setSearchQuery}
-            onFilterToggle={handleFilterToggle}
+            onFilterChange={setActiveFilter}
             resultCount={filteredMeetings.length}
             totalCount={meetings.length}
             entityName="meetings"

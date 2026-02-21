@@ -55,7 +55,7 @@ interface TimeSection {
 
 export default function EventsClient({ events }: { events: EventWithCount[] }) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [typeFilters, setTypeFilters] = useState<Set<string>>(new Set());
+  const [typeFilter, setTypeFilter] = useState<string | null>(null);
 
   // Collect unique years for filter pills
   const availableYears = useMemo(() => {
@@ -66,25 +66,7 @@ export default function EventsClient({ events }: { events: EventWithCount[] }) {
     return [...years].sort();
   }, [events]);
 
-  const [yearFilters, setYearFilters] = useState<Set<string>>(new Set());
-
-  function handleTypeToggle(value: string) {
-    setTypeFilters((prev) => {
-      const next = new Set(prev);
-      if (next.has(value)) next.delete(value);
-      else next.add(value);
-      return next;
-    });
-  }
-
-  function handleYearToggle(value: string) {
-    setYearFilters((prev) => {
-      const next = new Set(prev);
-      if (next.has(value)) next.delete(value);
-      else next.add(value);
-      return next;
-    });
-  }
+  const [yearFilter, setYearFilter] = useState<string | null>(null);
 
   const filteredEvents = useMemo(() => {
     return events.filter((event) => {
@@ -98,15 +80,15 @@ export default function EventsClient({ events }: { events: EventWithCount[] }) {
         if (!matchesName && !matchesHost && !matchesLocation && !matchesDesc) return false;
       }
       // Type filter
-      if (typeFilters.size > 0 && !typeFilters.has(event.type)) return false;
+      if (typeFilter && event.type !== typeFilter) return false;
       // Year filter
-      if (yearFilters.size > 0) {
+      if (yearFilter) {
         if (!event.start_date) return false;
-        if (!yearFilters.has(String(getYear(event.start_date)))) return false;
+        if (String(getYear(event.start_date)) !== yearFilter) return false;
       }
       return true;
     });
-  }, [events, searchQuery, typeFilters, yearFilters]);
+  }, [events, searchQuery, typeFilter, yearFilter]);
 
   // Organize into Upcoming / Past / Date TBD
   const sections = useMemo(() => {
@@ -170,8 +152,6 @@ export default function EventsClient({ events }: { events: EventWithCount[] }) {
     return result;
   }, [filteredEvents]);
 
-  const allYearFiltersActive = yearFilters.size === 0;
-
   return (
     <div className="p-6 lg:p-8">
       <div className="mb-6 flex items-start justify-between gap-4">
@@ -193,43 +173,44 @@ export default function EventsClient({ events }: { events: EventWithCount[] }) {
           <FilterBar
             searchPlaceholder="Search events..."
             filterOptions={TYPE_FILTER_OPTIONS}
-            activeFilters={typeFilters}
+            activeFilter={typeFilter}
             onSearchChange={setSearchQuery}
-            onFilterToggle={handleTypeToggle}
+            onFilterChange={setTypeFilter}
             resultCount={filteredEvents.length}
             totalCount={events.length}
             entityName="events"
           />
 
-          {/* Year filter pills */}
+          {/* Year filter chips */}
           {availableYears.length > 1 && (
             <div className="mb-6 flex flex-wrap items-center gap-2">
               <span className="text-xs text-muted mr-1">Year:</span>
               <button
-                onClick={() => {
-                  for (const y of yearFilters) handleYearToggle(y);
-                }}
+                onClick={() => setYearFilter(null)}
                 className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                  allYearFiltersActive
+                  yearFilter === null
                     ? "border-accent bg-accent/10 text-accent"
                     : "border-border bg-background text-muted hover:text-foreground"
                 }`}
               >
                 All
               </button>
-              {availableYears.map((year) => (
-                <button
-                  key={year}
-                  onClick={() => handleYearToggle(String(year))}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                    yearFilters.has(String(year))
-                      ? "border-accent bg-accent/10 text-accent"
-                      : "border-border bg-background text-muted hover:text-foreground"
-                  }`}
-                >
-                  {year}
-                </button>
-              ))}
+              {availableYears.map((year) => {
+                const isActive = yearFilter === String(year);
+                return (
+                  <button
+                    key={year}
+                    onClick={() => setYearFilter(isActive ? null : String(year))}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                      isActive
+                        ? "border-accent bg-accent/10 text-accent"
+                        : "border-border bg-background text-muted hover:text-foreground"
+                    }`}
+                  >
+                    {year}
+                  </button>
+                );
+              })}
             </div>
           )}
 

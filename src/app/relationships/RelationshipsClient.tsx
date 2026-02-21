@@ -29,19 +29,7 @@ interface RelationshipsClientProps {
 
 export default function RelationshipsClient({ relationships }: RelationshipsClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
-
-  function handleFilterToggle(value: string) {
-    setActiveFilters((prev) => {
-      const next = new Set(prev);
-      if (next.has(value)) {
-        next.delete(value);
-      } else {
-        next.add(value);
-      }
-      return next;
-    });
-  }
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
   const filteredRelationships = useMemo(() => {
     return relationships.filter((rel) => {
@@ -55,15 +43,12 @@ export default function RelationshipsClient({ relationships }: RelationshipsClie
         if (!matchesName && !matchesOrg && !matchesService && !matchesContact) return false;
       }
       // Type filter
-      if (activeFilters.size > 0 && rel.relationship_type && !activeFilters.has(rel.relationship_type)) {
-        return false;
-      }
-      if (activeFilters.size > 0 && !rel.relationship_type) {
+      if (activeFilter && rel.relationship_type !== activeFilter) {
         return false;
       }
       return true;
     });
-  }, [relationships, searchQuery, activeFilters]);
+  }, [relationships, searchQuery, activeFilter]);
 
   // Group by relationship_type
   const grouped = useMemo(() => {
@@ -109,9 +94,9 @@ export default function RelationshipsClient({ relationships }: RelationshipsClie
           <FilterBar
             searchPlaceholder="Search relationships..."
             filterOptions={TYPE_FILTER_OPTIONS}
-            activeFilters={activeFilters}
+            activeFilter={activeFilter}
             onSearchChange={setSearchQuery}
-            onFilterToggle={handleFilterToggle}
+            onFilterChange={setActiveFilter}
             resultCount={filteredRelationships.length}
             totalCount={relationships.length}
             entityName="relationships"

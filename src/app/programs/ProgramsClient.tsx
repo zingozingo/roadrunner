@@ -34,19 +34,7 @@ interface ProgramsClientProps {
 
 export default function ProgramsClient({ programs }: ProgramsClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
-
-  function handleFilterToggle(value: string) {
-    setActiveFilters((prev) => {
-      const next = new Set(prev);
-      if (next.has(value)) {
-        next.delete(value);
-      } else {
-        next.add(value);
-      }
-      return next;
-    });
-  }
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
   const filteredPrograms = useMemo(() => {
     return programs.filter((program) => {
@@ -58,15 +46,12 @@ export default function ProgramsClient({ programs }: ProgramsClientProps) {
         if (!matchesName && !matchesDesc) return false;
       }
       // Type filter
-      if (activeFilters.size > 0 && program.type && !activeFilters.has(program.type)) {
-        return false;
-      }
-      if (activeFilters.size > 0 && !program.type) {
+      if (activeFilter && program.type !== activeFilter) {
         return false;
       }
       return true;
     });
-  }, [programs, searchQuery, activeFilters]);
+  }, [programs, searchQuery, activeFilter]);
 
   // Group by type
   const grouped = useMemo(() => {
@@ -112,9 +97,9 @@ export default function ProgramsClient({ programs }: ProgramsClientProps) {
           <FilterBar
             searchPlaceholder="Search programs..."
             filterOptions={TYPE_FILTER_OPTIONS}
-            activeFilters={activeFilters}
+            activeFilter={activeFilter}
             onSearchChange={setSearchQuery}
-            onFilterToggle={handleFilterToggle}
+            onFilterChange={setActiveFilter}
             resultCount={filteredPrograms.length}
             totalCount={programs.length}
             entityName="programs"

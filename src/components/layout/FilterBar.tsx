@@ -11,9 +11,9 @@ interface FilterOption {
 interface FilterBarProps {
   searchPlaceholder?: string;
   filterOptions: FilterOption[];
-  activeFilters: Set<string>;
+  activeFilter: string | null;
+  onFilterChange: (value: string | null) => void;
   onSearchChange: (query: string) => void;
-  onFilterToggle: (value: string) => void;
   resultCount: number;
   totalCount: number;
   entityName?: string;
@@ -22,9 +22,9 @@ interface FilterBarProps {
 export default function FilterBar({
   searchPlaceholder = "Search...",
   filterOptions,
-  activeFilters,
+  activeFilter,
+  onFilterChange,
   onSearchChange,
-  onFilterToggle,
   resultCount,
   totalCount,
   entityName = "items",
@@ -35,8 +35,6 @@ export default function FilterBar({
     setSearchQuery(value);
     onSearchChange(value);
   }
-
-  const allActive = activeFilters.size === 0;
 
   return (
     <div className="mb-6 space-y-3">
@@ -63,17 +61,12 @@ export default function FilterBar({
         />
       </div>
 
-      {/* Filter pills */}
+      {/* Filter chips */}
       <div className="flex flex-wrap items-center gap-2">
         <button
-          onClick={() => {
-            // Clear all filters
-            for (const f of activeFilters) {
-              onFilterToggle(f);
-            }
-          }}
+          onClick={() => onFilterChange(null)}
           className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-            allActive
+            activeFilter === null
               ? "border-accent bg-accent/10 text-accent"
               : "border-border bg-background text-muted hover:text-foreground"
           }`}
@@ -81,11 +74,11 @@ export default function FilterBar({
           All
         </button>
         {filterOptions.map((opt) => {
-          const isActive = activeFilters.has(opt.value);
+          const isActive = activeFilter === opt.value;
           return (
             <button
               key={opt.value}
-              onClick={() => onFilterToggle(opt.value)}
+              onClick={() => onFilterChange(isActive ? null : opt.value)}
               className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                 isActive
                   ? "border-accent bg-accent/10 text-accent"
