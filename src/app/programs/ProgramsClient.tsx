@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
 import StatusBadge from "@/components/shared/StatusBadge";
 import FilterBar from "@/components/layout/FilterBar";
 import { ProgramTypeBadge } from "@/components/shared/TypeBadge";
 import SyncButton from "@/components/shared/SyncButton";
+import CompactRow from "@/components/shared/CompactRow";
 import { Program, ProgramType } from "@/lib/types";
 
 type ProgramWithCount = Program & { linked_count: number };
@@ -124,38 +124,24 @@ export default function ProgramsClient({ programs }: ProgramsClientProps) {
                   </div>
                   <div className="space-y-2">
                     {group.programs.map((program) => (
-                      <Link
+                      <CompactRow
                         key={program.id}
                         href={`/programs/${program.id}`}
-                        className="block rounded-xl border border-border bg-surface p-4 transition-colors hover:border-accent/40"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h3 className="font-medium text-foreground">
-                                {program.name}
-                              </h3>
-                              <StatusBadge status={program.status} />
-                              <ProgramTypeBadge type={program.type} />
-                            </div>
-                            {program.description && (
-                              <p className="mt-1 line-clamp-2 text-sm text-muted">
-                                {program.description}
-                              </p>
-                            )}
-                          </div>
-                          {program.linked_count > 0 && (
-                            <span className="shrink-0 text-xs text-muted">
-                              {program.linked_count} link{program.linked_count !== 1 ? "s" : ""}
-                            </span>
-                          )}
-                        </div>
-                        {program.eligibility && (
-                          <p className="mt-2 line-clamp-1 text-xs text-muted">
-                            Requirements: {program.eligibility}
-                          </p>
-                        )}
-                      </Link>
+                        primary={program.name}
+                        badges={
+                          <>
+                            <StatusBadge status={program.status} />
+                            <ProgramTypeBadge type={program.type} />
+                          </>
+                        }
+                        secondary={program.description ?? undefined}
+                        secondaryLineClamp={2}
+                        meta={
+                          program.linked_count > 0 ? (
+                            <span>{program.linked_count} link{program.linked_count !== 1 ? "s" : ""}</span>
+                          ) : undefined
+                        }
+                      />
                     ))}
                   </div>
                 </section>

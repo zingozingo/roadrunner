@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
 import SyncButton from "@/components/shared/SyncButton";
+import CompactRow from "@/components/shared/CompactRow";
 import { Partner } from "@/lib/types";
 
 const SEGMENT_FILTER_OPTIONS = [
@@ -124,36 +124,28 @@ export default function PartnersClient({ partners }: PartnersClientProps) {
                   </div>
                   <div className="space-y-2">
                     {group.partners.map((partner) => (
-                      <Link
+                      <CompactRow
                         key={partner.id}
                         href={`/partners/${partner.id}`}
-                        className="block rounded-xl border border-border bg-surface p-4 transition-colors hover:border-accent/40"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h3 className="font-medium text-foreground">
-                                {partner.name}
-                              </h3>
-                              {partner.segment && (
-                                <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent whitespace-nowrap capitalize">
-                                  {partner.segment}
-                                </span>
-                              )}
-                            </div>
-                            <p className="mt-1 text-sm text-muted">
-                              {[partner.focus_area.join(", "), partner.psa && `PSA: ${partner.psa}`]
-                                .filter(Boolean)
-                                .join(" · ") || "\u00A0"}
-                            </p>
-                          </div>
-                          {partner.alliance_lead && (
-                            <span className="shrink-0 text-xs text-muted">
-                              {partner.alliance_lead}
+                        primary={partner.name}
+                        badges={
+                          partner.segment ? (
+                            <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent whitespace-nowrap capitalize">
+                              {partner.segment}
                             </span>
-                          )}
-                        </div>
-                      </Link>
+                          ) : undefined
+                        }
+                        secondary={
+                          [partner.focus_area.join(", "), partner.psa && `PSA: ${partner.psa}`]
+                            .filter(Boolean)
+                            .join(" · ") || undefined
+                        }
+                        meta={
+                          partner.alliance_lead ? (
+                            <span>{partner.alliance_lead}</span>
+                          ) : undefined
+                        }
+                      />
                     ))}
                   </div>
                 </section>

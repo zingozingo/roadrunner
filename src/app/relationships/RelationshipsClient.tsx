@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
 import { RelationshipTypeBadge } from "@/components/shared/TypeBadge";
 import FilterBar from "@/components/layout/FilterBar";
 import SyncButton from "@/components/shared/SyncButton";
+import CompactRow from "@/components/shared/CompactRow";
 import { AwsRelationship, RelationshipType } from "@/lib/types";
 
 type RelationshipWithCount = AwsRelationship & { linked_count: number };
@@ -121,38 +121,20 @@ export default function RelationshipsClient({ relationships }: RelationshipsClie
                   </div>
                   <div className="space-y-2">
                     {group.relationships.map((rel) => (
-                      <Link
+                      <CompactRow
                         key={rel.id}
                         href={`/relationships/${rel.id}`}
-                        className="block rounded-xl border border-border bg-surface p-4 transition-colors hover:border-accent/40"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h3 className="font-medium text-foreground">
-                                {rel.name}
-                              </h3>
-                              <RelationshipTypeBadge type={rel.relationship_type} />
-                            </div>
-                            <p className="mt-1 text-sm text-muted">
-                              {[rel.aws_org, rel.aws_service]
-                                .filter(Boolean)
-                                .join(" · ")}
-                            </p>
-                          </div>
-                          {rel.linked_count > 0 && (
-                            <span className="shrink-0 text-xs text-muted">
-                              {rel.linked_count} link{rel.linked_count !== 1 ? "s" : ""}
-                            </span>
-                          )}
-                        </div>
-                        {rel.primary_contact_name && (
-                          <p className="mt-2 text-xs text-muted">
-                            Contact: {rel.primary_contact_name}
-                            {rel.primary_contact_email && ` (${rel.primary_contact_email})`}
-                          </p>
-                        )}
-                      </Link>
+                        primary={rel.name}
+                        badges={<RelationshipTypeBadge type={rel.relationship_type} />}
+                        secondary={
+                          [rel.aws_org, rel.aws_service].filter(Boolean).join(" · ") || undefined
+                        }
+                        meta={
+                          rel.linked_count > 0 ? (
+                            <span>{rel.linked_count} link{rel.linked_count !== 1 ? "s" : ""}</span>
+                          ) : undefined
+                        }
+                      />
                     ))}
                   </div>
                 </section>
