@@ -92,7 +92,7 @@ Slot mappings for all 6 entity types in Roadrunner. Each entity maps its fields 
 |---|---|
 | title | `partner.name` |
 | badges | Segment chip |
-| subtitle | `partner.what_they_do` |
+| subtitle | — (removed; what_they_do moved into Partner Context card) |
 | fields | Alliance Lead (with email), PSA, SPMS ID, Focus Areas |
 | actions | — (no actions currently) |
 
@@ -100,13 +100,15 @@ Slot mappings for all 6 entity types in Roadrunner. Each entity maps its fields 
 
 The partner detail page uses a **full-width layout** (no sidebar). Sections top to bottom:
 
-1. **AWS Context** — Accent-bordered card (`border-accent/30 bg-accent/5`), visually prominent. Shows AWS Stickiness narrative + Key AWS Services as accent-colored badges.
+1. **Partner Context** — Single card with two-column grid (`lg:grid-cols-2`). Left column: "What They Do" business description. Right column: "AWS Context" with stickiness narrative + Key AWS Services badges. Stacks vertically on mobile.
 2. **Contact Emails** — Compact inline display, only if present.
 3. **Meetings** — Uses `MeetingTimeline` (timeline treatment for temporal entities).
 4. **Engagements** — Uses `CompactRow` with StatusBadge + Pillar + Priority badges (status-driven list for workstreams).
 5. **AWS Relationships** — Uses `CompactRow` with RelationshipTypeBadge (compact list for structural entities).
 
-**Why no sidebar:** The previous sidebar duplicated header metadata (Alliance Lead, PSA, SPMS ID) and buried the most important strategic content (AWS Context) at the bottom. Moving to full-width promotes AWS Context to position #1 and eliminates duplication.
+**Why merged context card:** Separate "What They Do" subtitle + AWS Context card consumed ~50% of viewport before activity content. Merging into a two-column card keeps identity+context under ~1/3 viewport (principle #8).
+
+**Why no sidebar:** The previous sidebar duplicated header metadata (Alliance Lead, PSA, SPMS ID) and buried the most important strategic content (AWS Context) at the bottom. Moving to full-width eliminates duplication.
 
 ---
 

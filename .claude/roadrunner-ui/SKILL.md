@@ -223,6 +223,7 @@ Badges are used in both CompactRow and DetailHeader badge slots.
 5. **Measure twice, cut once** — Read existing code before modifying. Generate diagnostics before fixing.
 6. **Section visual weight by entity type** — Temporal entities (meetings) get timeline treatment. Workstreams (engagements) get status-driven lists with CompactRow. Structural/reference entities (relationships, programs) get compact lists with minimal visual weight. Strategic content (AWS Context) gets accent-bordered prominent cards.
 7. **No duplicate content** — A field should render in exactly one place. If it's in the header fields, don't repeat it in a sidebar. If it's in a body card, don't also put it in the subtitle slot.
+8. **Viewport budget** — Identity + context sections on detail pages should not exceed ~1/3 of viewport height. Merge related context into multi-column cards rather than stacking separate full-width sections. Activity content (meetings, engagements, relationships) should be visible without scrolling on a standard laptop screen.
 
 ## MeetingTimeline Component
 

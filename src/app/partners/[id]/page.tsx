@@ -84,7 +84,6 @@ export default async function PartnerDetailPage({
             </span>
           ) : undefined
         }
-        subtitle={partner.what_they_do ?? undefined}
         fields={[
           {
             label: "Alliance Lead",
@@ -108,38 +107,45 @@ export default async function PartnerDetailPage({
       {/* Full-width sections — no sidebar */}
       <div className="space-y-6">
 
-        {/* AWS Context — #1 strategic content, directly below header */}
-        {(partner.aws_stickiness || partner.key_aws_services.length > 0) && (
-          <div className="rounded-xl border border-accent/30 bg-accent/5 p-5">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-accent">
-              AWS Context
-            </h2>
-            <div className="space-y-4">
-              {partner.aws_stickiness && (
+        {/* Partner Context — two-column card: What They Do + AWS Context */}
+        {(partner.what_they_do || partner.aws_stickiness || partner.key_aws_services.length > 0) && (
+          <div className="rounded-xl border border-border bg-surface p-5">
+            <div className="grid gap-6 lg:grid-cols-2">
+              {/* Left: What They Do */}
+              {partner.what_they_do && (
                 <div>
-                  <dt className="text-xs font-medium uppercase tracking-wider text-muted mb-1">
-                    AWS Stickiness
-                  </dt>
-                  <dd className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-                    {partner.aws_stickiness}
-                  </dd>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted mb-1.5">
+                    What They Do
+                  </h3>
+                  <p className="text-sm text-foreground leading-relaxed">
+                    {partner.what_they_do}
+                  </p>
                 </div>
               )}
-              {partner.key_aws_services.length > 0 && (
-                <div>
-                  <dt className="text-xs font-medium uppercase tracking-wider text-muted mb-1.5">
-                    Key AWS Services
-                  </dt>
-                  <dd className="flex flex-wrap gap-1.5">
-                    {partner.key_aws_services.map((svc) => (
-                      <span
-                        key={svc}
-                        className="rounded-full bg-accent/15 px-2.5 py-0.5 text-xs font-medium text-accent whitespace-nowrap"
-                      >
-                        {svc}
-                      </span>
-                    ))}
-                  </dd>
+
+              {/* Right: AWS Context */}
+              {(partner.aws_stickiness || partner.key_aws_services.length > 0) && (
+                <div className="space-y-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-accent">
+                    AWS Context
+                  </h3>
+                  {partner.aws_stickiness && (
+                    <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                      {partner.aws_stickiness}
+                    </p>
+                  )}
+                  {partner.key_aws_services.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {partner.key_aws_services.map((svc) => (
+                        <span
+                          key={svc}
+                          className="rounded-full bg-accent/15 px-2.5 py-0.5 text-xs font-medium text-accent whitespace-nowrap"
+                        >
+                          {svc}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
