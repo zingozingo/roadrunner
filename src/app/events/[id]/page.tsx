@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import DetailHeader from "@/components/shared/DetailHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { EventTypeBadge, MeetingStatusBadge } from "@/components/shared/TypeBadge";
 import EntityLinkChip from "@/components/shared/EntityLink";
@@ -54,23 +55,28 @@ export default async function EventDetailPage({
         Back to Events
       </Link>
 
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-2xl font-bold text-foreground">
-              {event.name}
-            </h1>
+      <DetailHeader
+        title={event.name}
+        badges={
+          <>
             <EventTypeBadge type={event.type} />
+            {event.geo && (
+              <span className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap">
+                {event.geo}
+              </span>
+            )}
             {!event.verified && <StatusBadge status="unverified" />}
-          </div>
-          <p className="mt-1 text-muted">
-            {formatDateDisplay(event.start_date, event.end_date)}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <EventActions event={event} />
-        </div>
-      </div>
+          </>
+        }
+        subtitle={event.description ?? undefined}
+        fields={[
+          { label: "Dates", value: formatDateDisplay(event.start_date, event.end_date) },
+          { label: "Location", value: event.location ?? "—" },
+          { label: "Host", value: event.host ?? "—" },
+          { label: "Source", value: <span className="capitalize">{event.source.replace("_", " ")}</span> },
+        ]}
+        actions={<EventActions event={event} />}
+      />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-4">

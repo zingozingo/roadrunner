@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import DetailHeader from "@/components/shared/DetailHeader";
 import MeetingActions from "@/components/actions/MeetingActions";
 import { MeetingStatusBadge } from "@/components/shared/TypeBadge";
 import {
@@ -52,12 +53,10 @@ export default async function MeetingDetailPage({
         Back to Meetings
       </Link>
 
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-2xl font-bold text-foreground">
-              {meeting.title}
-            </h1>
+      <DetailHeader
+        title={meeting.title}
+        badges={
+          <>
             <MeetingStatusBadge status={meeting.status} />
             {meeting.meeting_type && (
               <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-xs font-medium text-blue-400 whitespace-nowrap">
@@ -69,15 +68,29 @@ export default async function MeetingDetailPage({
                 ICS
               </span>
             )}
-          </div>
-          <p className="mt-1 text-muted">
-            {formatDate(meeting.meeting_date)}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <MeetingActions meeting={meeting} />
-        </div>
-      </div>
+          </>
+        }
+        subtitle={meeting.notes ?? undefined}
+        fields={[
+          { label: "Date", value: formatDate(meeting.meeting_date) },
+          {
+            label: "Time",
+            value: meeting.start_time
+              ? `${meeting.start_time}${meeting.end_time ? ` — ${meeting.end_time}` : ""}`
+              : "—",
+          },
+          { label: "Location", value: meeting.location ?? "—" },
+          {
+            label: "Partner",
+            value: partner ? (
+              <Link href={`/partners/${partner.id}`} className="text-accent hover:underline">
+                {partner.name}
+              </Link>
+            ) : meeting.partner_name ?? "—",
+          },
+        ]}
+        actions={<MeetingActions meeting={meeting} />}
+      />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-4">

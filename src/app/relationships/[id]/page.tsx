@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import DetailHeader from "@/components/shared/DetailHeader";
 import { RelationshipTypeBadge, MeetingStatusBadge } from "@/components/shared/TypeBadge";
 import StatusBadge from "@/components/shared/StatusBadge";
 import RelationshipActions from "@/components/actions/RelationshipActions";
@@ -38,19 +39,18 @@ export default async function RelationshipDetailPage({
         Back to Relationships
       </Link>
 
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-2xl font-bold text-foreground">
-              {relationship.name}
-            </h1>
-            <RelationshipTypeBadge type={relationship.relationship_type} />
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <RelationshipActions relationship={relationship} />
-        </div>
-      </div>
+      <DetailHeader
+        title={relationship.name}
+        badges={<RelationshipTypeBadge type={relationship.relationship_type} />}
+        subtitle={relationship.notes ?? undefined}
+        fields={[
+          { label: "AWS Org", value: relationship.aws_org ?? "—" },
+          { label: "AWS Service", value: relationship.aws_service ?? "—" },
+          { label: "Primary Contact", value: relationship.primary_contact_name ?? "—" },
+          { label: "Contact Email", value: relationship.primary_contact_email ?? "—" },
+        ]}
+        actions={<RelationshipActions relationship={relationship} />}
+      />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-4">

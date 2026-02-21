@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import DetailHeader from "@/components/shared/DetailHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import CurrentStateCard from "@/components/engagement/CurrentStateCard";
 import OpenItemsCard from "@/components/engagement/OpenItemsCard";
@@ -50,28 +51,29 @@ export default async function EngagementDetailPage({
         Back to Engagements
       </Link>
 
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            {engagement.name}
-          </h1>
-          {engagement.partner_name && (
-            <p className="mt-1 text-muted">
-              {engagement.partner_id ? (
+      <DetailHeader
+        title={engagement.name}
+        badges={<StatusBadge status={engagement.status} />}
+        subtitle={displayState ?? undefined}
+        fields={[
+          {
+            label: "Partner",
+            value: engagement.partner_name ? (
+              engagement.partner_id ? (
                 <Link href={`/partners/${engagement.partner_id}`} className="text-accent hover:underline">
                   {engagement.partner_name}
                 </Link>
               ) : (
                 engagement.partner_name
-              )}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          <StatusBadge status={engagement.status} />
-          <EngagementActions engagement={engagement} />
-        </div>
-      </div>
+              )
+            ) : "—",
+          },
+          { label: "Pillar", value: engagement.pillar ?? "—" },
+          { label: "Priority", value: engagement.priority ?? "—" },
+          { label: "Updated", value: new Date(engagement.updated_at).toLocaleDateString() },
+        ]}
+        actions={<EngagementActions engagement={engagement} />}
+      />
 
       <div className="lg:grid lg:grid-cols-3 lg:gap-6">
         {/* Left column: state, open items, emails, entity links */}

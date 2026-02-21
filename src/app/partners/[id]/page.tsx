@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import DetailHeader from "@/components/shared/DetailHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { MeetingStatusBadge, RelationshipTypeBadge } from "@/components/shared/TypeBadge";
 import { getPartner, getSupabaseClient, getAwsRelationshipsByPartner } from "@/lib/supabase";
@@ -66,30 +67,23 @@ export default async function PartnerDetailPage({
         Back to Partners
       </Link>
 
-      <div className="mb-6">
-        <div className="flex items-center gap-2 flex-wrap">
-          <h1 className="text-2xl font-bold text-foreground">
-            {partner.name}
-          </h1>
-          {partner.segment && (
+      <DetailHeader
+        title={partner.name}
+        badges={
+          partner.segment ? (
             <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent whitespace-nowrap capitalize">
               {partner.segment}
             </span>
-          )}
-        </div>
-        {partner.focus_area.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {partner.focus_area.map((area) => (
-              <span
-                key={area}
-                className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap"
-              >
-                {area}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
+          ) : undefined
+        }
+        subtitle={partner.what_they_do ?? undefined}
+        fields={[
+          { label: "Alliance Lead", value: partner.alliance_lead ?? "—" },
+          { label: "PSA", value: partner.psa ?? "—" },
+          { label: "SPMS ID", value: partner.spms_id?.toString() ?? "—" },
+          { label: "Focus Areas", value: partner.focus_area.length > 0 ? partner.focus_area.join(", ") : "—" },
+        ]}
+      />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-4">

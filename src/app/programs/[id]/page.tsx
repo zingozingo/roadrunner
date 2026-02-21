@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import DetailHeader from "@/components/shared/DetailHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { ProgramTypeBadge, MeetingStatusBadge } from "@/components/shared/TypeBadge";
 import EntityLinkChip from "@/components/shared/EntityLink";
@@ -41,20 +42,32 @@ export default async function ProgramDetailPage({
         Back to Programs
       </Link>
 
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-2xl font-bold text-foreground">
-              {program.name}
-            </h1>
+      <DetailHeader
+        title={program.name}
+        badges={
+          <>
             <StatusBadge status={program.status} />
             <ProgramTypeBadge type={program.type} />
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <ProgramActions program={program} />
-        </div>
-      </div>
+          </>
+        }
+        subtitle={program.description ?? undefined}
+        fields={[
+          { label: "Lifecycle", value: <span className="capitalize">{program.lifecycle_type}</span> },
+          ...(program.lifecycle_duration ? [{ label: "Duration", value: program.lifecycle_duration }] : []),
+          ...(program.url
+            ? [{
+                label: "URL",
+                value: (
+                  <a href={program.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline break-all">
+                    Link
+                  </a>
+                ),
+              }]
+            : []),
+          { label: "Created", value: new Date(program.created_at).toLocaleDateString() },
+        ]}
+        actions={<ProgramActions program={program} />}
+      />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-4">
