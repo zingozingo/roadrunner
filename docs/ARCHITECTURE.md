@@ -4,7 +4,7 @@
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | Next.js 15 (App Router), React 19, Tailwind CSS |
+| Frontend | Next.js 16 (App Router), React 19, Tailwind CSS |
 | Backend | Next.js API Routes (serverless on Vercel) |
 | Database | Supabase PostgreSQL |
 | AI | Anthropic Claude API (claude-sonnet-4-20250514) |
@@ -48,7 +48,6 @@ roadrunner/
 │   │   ├── partners/              #   Partner list + detail pages
 │   │   ├── programs/              #   Program list + detail pages
 │   │   ├── relationships/         #   AWS Relationship list + detail pages
-│   │   ├── test/                  #   Dev-only classification test page
 │   │   ├── layout.tsx             #   Root layout + sidebar
 │   │   └── page.tsx               #   Dashboard home
 │   ├── components/                # React components (organized by function)
@@ -56,7 +55,7 @@ roadrunner/
 │   │   ├── engagement/            #   Engagement-specific cards/forms (4 files)
 │   │   ├── inbox/                 #   Review queue UI (4 files)
 │   │   ├── layout/                #   App structure — sidebar, headers (4 files)
-│   │   └── shared/                #   Reusable primitives (8 files)
+│   │   └── shared/                #   Reusable primitives — CompactRow, DetailHeader, badges (10 files)
 │   └── lib/                       # Core business logic
 │       ├── airtable.ts            #   Airtable REST API client
 │       ├── classifier.ts          #   Email classification orchestrator
@@ -68,15 +67,17 @@ roadrunner/
 │       ├── sync.ts                #   Airtable ↔ Supabase sync engine
 │       ├── types.ts               #   Shared TypeScript interfaces
 │       ├── user-config.ts         #   Canonical user identity config
-│       └── __tests__/             #   176 tests across 8 test files
+│       └── __tests__/             #   188 tests across 8 test files
 ├── supabase/
-│   └── migrations/                # 35 migration files (001-035)
+│   └── migrations/                # 37 migration files (001-037)
 ├── scripts/
 │   └── seed-data.ts               # CLI script to seed events/programs
 ├── data/
 │   ├── seed-events.json           # Event catalog seed data
 │   └── seed-programs-v2.json      # Program catalog seed data
-└── .claude/                       # Claude Code memory + settings
+├── .claude/                       # Claude Code memory + skills + settings
+│   └── roadrunner-ui/             #   UI design system skill (SKILL.md + references/)
+└── ...
 ```
 
 ## Data Flow — Email to Dashboard
@@ -135,7 +136,7 @@ The app uses two data access patterns:
 
 **External Webhooks:** /api/inbound (Mailgun) and /api/health (monitoring) are called by external services, not the frontend.
 
-**Dev-only Routes:** /api/classify/test, /api/classify/live-test, /api/classify/test-cleanup are used by the /test page for classification pipeline testing.
+**Dev-only Routes:** /api/classify/test, /api/classify/live-test, /api/classify/test-cleanup are available for classification pipeline testing via direct API calls.
 
 ## Deployment
 

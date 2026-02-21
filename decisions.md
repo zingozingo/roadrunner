@@ -1379,3 +1379,75 @@ Next.js 14 App Router + TypeScript + Tailwind. Supabase Postgres for data. Singl
 **Rationale:** Accurate counts prevent confusion when debugging sync issues or validating data integrity.
 
 **Impact:** Reference data only. No code changes. Future sync validations should expect ~43 events (will grow as new events are added).
+
+---
+
+## 2026-02-21: Composition-Based Slot Architecture for UI Components
+
+**Decision:** CompactRow (primary/badges/secondary/meta) and DetailHeader (title/badges/subtitle/fields/actions) replace all per-entity inline markup.
+
+**Context:** Six list pages and six detail pages each had their own card/header markup with inconsistent padding, badge placement, and field layouts.
+
+**Rationale:** Composition over inheritance. Components define visual slots, pages fill them. Avoids god-components with 30 props. React-idiomatic, easy to test, adding a new entity means writing one mapping function.
+
+**Impact:** All list pages use CompactRow, all detail pages use DetailHeader. Changing row/header styling is now a single-file edit. Skill doc captures slot mappings per entity for future sessions.
+
+---
+
+## 2026-02-21: FilterBar Single-Select Pattern
+
+**Decision:** One active filter at a time (string | null), click to select exclusively, click again to deselect back to All.
+
+**Context:** Multi-select filters (Set<string>) caused confusion — users could combine filters and get empty results without understanding why.
+
+**Rationale:** Chip/pill UI gives full landscape at a glance. One tap to filter, tap again to reset. Dropdown hides options behind click. Segmented control doesn't scale past 4 options.
+
+**Impact:** All 5 FilterBar consumers converted. Second filter dimensions (like Events year) use separate chip rows, not modifications to FilterBar.
+
+---
+
+## 2026-02-21: Sidebar Navigation Priority Gradient
+
+**Decision:** Nav order is Inbox → Engagements → Partners → Meetings → Events → Programs → Relationships.
+
+**Context:** Previous order didn't reflect usage patterns. Relationships were 5th despite being a reference catalog.
+
+**Rationale:** Priority gradient: action items → active work → portfolio → time-bound → reference catalogs. Meetings moved up (time-sensitive), Events/Programs/Relationships moved down (reference).
+
+**Impact:** New nav items should be inserted based on this principle.
+
+---
+
+## 2026-02-21: Detail Belongs on Detail Pages
+
+**Decision:** List rows show entity identity + one key context line only. Eligibility (programs), contact info (relationships), description (events) dropped from list rows.
+
+**Context:** List rows were trying to show too much, reducing scan density and duplicating information that has full space on detail pages.
+
+**Rationale:** Higher information density on lists. Each entity must earn its detail page visit. Detail pages now use DetailHeader subtitle for the primary descriptive text (what_they_do for partners, current_state for engagements, description for programs).
+
+**Impact:** All 6 list pages follow this pattern. Slot mappings documented in .claude/skills/roadrunner-ui/references/entity-catalog.md.
+
+---
+
+## 2026-02-21: Skill Doc as Design System Source of Truth
+
+**Decision:** roadrunner-ui skill installed in .claude/roadrunner-ui/ with SKILL.md (234 lines) + 3 reference files (component-api.md, entity-catalog.md, design-tokens.md).
+
+**Context:** Design decisions were scattered across conversation context and lost between sessions.
+
+**Rationale:** Progressive disclosure — SKILL.md body loaded on trigger, reference files loaded on demand. Under 500 lines per spec. Future sessions read the same patterns automatically.
+
+**Impact:** All future UI work in Claude Code starts from this skill. Update the skill to change conventions globally.
+
+---
+
+## 2026-02-21: Migration Verification Required After Supabase Applies
+
+**Decision:** Always verify column existence after running migrations, especially multi-statement ones.
+
+**Context:** Migration 022 partially failed — ALTER TABLE ADD COLUMN event_id silently failed while other statements succeeded. Events detail page crashed server-side on the missing column.
+
+**Rationale:** Supabase migrations can partially fail without clear error reporting. PostgREST schema cache adds another layer of silent failure.
+
+**Impact:** Add post-migration verification step to future migration workflows. Two checks: (1) column exists via SELECT, (2) PostgREST accepts the column via REST API query.

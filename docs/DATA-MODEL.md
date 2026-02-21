@@ -29,7 +29,8 @@ ISV companies in the portfolio. Classified by operational segment and focus area
 | alliance_lead_email | text | Used for email-to-partner matching |
 | psa | text | AWS Partner Solutions Architect |
 | spms_id | integer | AWS SPMS identifier |
-| partner_contact_emails | text | Semicolon-separated; used for email-to-partner matching |
+| what_they_do | text | Brief description of the partner's business |
+| partner_contact_emails | text[] | Array; used for email-to-partner matching |
 | aws_stickiness | text | Narrative: how likely is a customer to use more AWS services |
 | key_aws_services | text[] | EC2, S3, Lambda, Security Hub, etc. |
 | airtable_record_id | text UNIQUE | Airtable record ID for sync |
@@ -68,6 +69,7 @@ Shared calendar anchors: conferences, summits, workshops, partner days.
 | start_date / end_date | date | |
 | location | text | |
 | host | text | |
+| geo | text | Geographic region: NAMER, EMEA, APJ, LATAM, Global |
 | source | text | "seed", "email_extracted", or "user_created" |
 | verified | boolean DEFAULT false | |
 | airtable_record_id | text UNIQUE | |
