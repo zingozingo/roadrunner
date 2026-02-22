@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
 import StatusBadge from "@/components/shared/StatusBadge";
 import FilterBar from "@/components/layout/FilterBar";
-import { ProgramTypeBadge } from "@/components/shared/TypeBadge";
 import SyncButton from "@/components/shared/SyncButton";
-import CompactRow from "@/components/shared/CompactRow";
 import { Program, ProgramType } from "@/lib/types";
 
 type ProgramWithCount = Program & { linked_count: number };
@@ -27,6 +26,24 @@ const TYPE_FILTER_OPTIONS = TYPE_ORDER.map((t) => ({
   label: t,
   value: t,
 }));
+
+/** Plural form of a program type for group headers */
+function pluralizeType(type: ProgramType): string {
+  if (type === "Competency") return "Competencies";
+  if (type === "SCA") return "SCAs";
+  return `${type}s`;
+}
+
+/** Strip trailing type word from program name when it matches the group type */
+function stripTypeSuffix(name: string, groupType: ProgramType): string {
+  // Only strip single-word type names that appear as trailing word
+  const typeLower = groupType.toLowerCase();
+  const nameLower = name.toLowerCase();
+  if (nameLower.endsWith(` ${typeLower}`)) {
+    return name.slice(0, -(groupType.length + 1)).trim();
+  }
+  return name;
+}
 
 interface ProgramsClientProps {
   programs: ProgramWithCount[];
@@ -59,6 +76,8 @@ export default function ProgramsClient({ programs }: ProgramsClientProps) {
     });
   }, [programs, searchQuery, activeFilter]);
 
+  const isGroupedView = !searchQuery;
+
   // Group by type
   const grouped = useMemo(() => {
     const groups: { type: ProgramType; programs: ProgramWithCount[] }[] = [];
@@ -72,12 +91,18 @@ export default function ProgramsClient({ programs }: ProgramsClientProps) {
       }
     }
 
-    // Uncategorized (null type)
+    // Merge uncategorized (null type) into the "Program" group
     const uncategorized = filteredPrograms
       .filter((t) => !t.type)
       .sort((a, b) => a.name.localeCompare(b.name));
     if (uncategorized.length > 0) {
-      groups.push({ type: "Program" as ProgramType, programs: uncategorized });
+      const programGroup = groups.find((g) => g.type === "Program");
+      if (programGroup) {
+        programGroup.programs = [...programGroup.programs, ...uncategorized]
+          .sort((a, b) => a.name.localeCompare(b.name));
+      } else {
+        groups.push({ type: "Program" as ProgramType, programs: uncategorized });
+      }
     }
 
     return groups;
@@ -122,30 +147,33 @@ export default function ProgramsClient({ programs }: ProgramsClientProps) {
                 <section key={group.type}>
                   <div className="mb-3 flex items-center gap-2">
                     <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">
-                      {group.type === "Competency" ? "Competencies" : group.type === "SCA" ? "SCAs" : `${group.type}s`}
+                      {pluralizeType(group.type)}
                     </h2>
                     <span className="rounded-full bg-border px-2 py-0.5 text-xs text-muted">
                       {group.programs.length}
                     </span>
                   </div>
-                  <div className="space-y-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                     {group.programs.map((program) => (
-                      <CompactRow
+                      <Link
                         key={program.id}
                         href={`/programs/${program.id}`}
-                        primary={program.name}
-                        badges={
-                          <>
-                            {hasMultipleStatuses && <StatusBadge status={program.status} />}
-                            <ProgramTypeBadge type={program.type} />
-                          </>
-                        }
-                        meta={
-                          program.linked_count > 0 ? (
-                            <span>{program.linked_count} link{program.linked_count !== 1 ? "s" : ""}</span>
-                          ) : undefined
-                        }
-                      />
+                        className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm transition-colors hover:border-accent/40 hover:bg-surface-hover"
+                      >
+                        <span className="min-w-0 flex-1 truncate font-medium text-foreground">
+                          {isGroupedView
+                            ? stripTypeSuffix(program.name, group.type)
+                            : program.name}
+                        </span>
+                        {hasMultipleStatuses && (
+                          <StatusBadge status={program.status} />
+                        )}
+                        {program.linked_count > 0 && (
+                          <span className="shrink-0 text-xs text-muted">
+                            {program.linked_count}
+                          </span>
+                        )}
+                      </Link>
                     ))}
                   </div>
                 </section>
