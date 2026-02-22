@@ -13,8 +13,8 @@ import {
   getProgramById,
   getPartner,
 } from "@/lib/supabase";
+import { cleanMeetingTitle, formatFooterDate } from "@/lib/format-utils";
 import type { MeetingAttendee } from "@/lib/types";
-import { cleanMeetingTitle } from "@/lib/format-utils";
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "Date TBD";
@@ -272,7 +272,7 @@ export default async function MeetingDetailPage({
               Program: <Link href={`/programs/${program.id}`} className="text-accent hover:underline">{program.name}</Link> ·{" "}
             </>
           )}
-          Created {new Date(meeting.created_at).toLocaleDateString()}
+          Created {formatFooterDate(meeting.created_at)}
         </p>
       </div>
     </div>

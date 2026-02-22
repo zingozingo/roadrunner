@@ -19,6 +19,7 @@ import {
   resolveEntityLinkNames,
   getAwsRelationshipsByEngagement,
 } from "@/lib/supabase";
+import { formatFooterDate } from "@/lib/format-utils";
 import type { Meeting } from "@/lib/types";
 
 export default async function EngagementDetailPage({
@@ -88,10 +89,24 @@ export default async function EngagementDetailPage({
           },
           { label: "Pillar", value: engagement.pillar ?? "—" },
           { label: "Priority", value: engagement.priority ?? "—" },
-          { label: "Updated", value: new Date(engagement.updated_at).toLocaleDateString() },
+          { label: "Updated", value: formatFooterDate(engagement.updated_at) },
         ]}
         actions={<EngagementActions engagement={engagement} />}
       />
+
+      {/* Tag pills */}
+      {engagement.tags && engagement.tags.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {engagement.tags.map((tag) => (
+            <span
+              key={tag}
+              className="rounded-full bg-zinc-700 px-2 py-0.5 text-xs text-zinc-300 lowercase"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Full-width sections — ordered by decision-making priority */}
       <div className="space-y-6">
@@ -169,11 +184,11 @@ export default async function EngagementDetailPage({
 
         {/* Compact footer */}
         <p className="mt-6 text-xs text-muted">
-          Created {new Date(engagement.created_at).toLocaleDateString()}
+          Created {formatFooterDate(engagement.created_at)}
           {" · "}
-          Last Updated {new Date(engagement.updated_at).toLocaleDateString()}
+          Last Updated {formatFooterDate(engagement.updated_at)}
           {engagement.closed_at && (engagement.status === "completed" || engagement.status === "archived") && (
-            <> · Completed {new Date(engagement.closed_at).toLocaleDateString()}</>
+            <> · Completed {formatFooterDate(engagement.closed_at)}</>
           )}
         </p>
       </div>

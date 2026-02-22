@@ -8,6 +8,7 @@ import { RelationshipTypeBadge } from "@/components/shared/TypeBadge";
 import MeetingTimeline from "@/components/shared/MeetingTimeline";
 import ExpandableList from "@/components/shared/ExpandableList";
 import RelationshipActions from "@/components/actions/RelationshipActions";
+import { formatFooterDate } from "@/lib/format-utils";
 import {
   getAwsRelationship,
   getEngagementsByAwsRelationship,
@@ -117,7 +118,7 @@ export default async function RelationshipDetailPage({
 
         {/* Compact footer */}
         <p className="mt-6 text-xs text-muted">
-          Created {new Date(relationship.created_at).toLocaleDateString()}
+          Created {formatFooterDate(relationship.created_at)}
         </p>
       </div>
     </div>

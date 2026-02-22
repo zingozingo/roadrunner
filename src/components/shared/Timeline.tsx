@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Message, Meeting } from "@/lib/types";
-import { cleanMeetingTitle } from "@/lib/format-utils";
+import { cleanMeetingTitle, formatFooterDate, displayName } from "@/lib/format-utils";
 
 const PREVIEW_LENGTH = 200;
 
@@ -136,12 +136,10 @@ export default function Timeline({
                 <>
                   <div className="flex items-baseline justify-between gap-2">
                     <p className="truncate text-sm font-medium text-foreground">
-                      {msg.sender_name || msg.sender_email || "Unknown"}
+                      {displayName(msg.sender_name, msg.sender_email)}
                     </p>
                     <time className="shrink-0 text-xs text-muted">
-                      {msg.sent_at
-                        ? new Date(msg.sent_at).toLocaleDateString()
-                        : ""}
+                      {msg.sent_at ? formatFooterDate(msg.sent_at) : ""}
                     </time>
                   </div>
                   {msg.subject && (

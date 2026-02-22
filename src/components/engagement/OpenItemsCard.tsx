@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { OpenItem } from "@/lib/types";
+import { safeDateDisplay } from "@/lib/format-utils";
 
 export default function OpenItemsCard({
   items,
@@ -63,12 +64,9 @@ export default function OpenItemsCard({
                   <span className="ml-2 text-xs text-muted">
                     {item.assignee && <span>{item.assignee}</span>}
                     {item.assignee && item.due_date && <span> · </span>}
-                    {item.due_date && (
+                    {item.due_date && safeDateDisplay(item.due_date) && (
                       <span>
-                        due {new Date(item.due_date + "T00:00:00").toLocaleDateString(undefined, {
-                          month: "short",
-                          day: "numeric",
-                        })}
+                        due {safeDateDisplay(item.due_date)}
                       </span>
                     )}
                   </span>

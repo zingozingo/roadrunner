@@ -4,7 +4,7 @@ import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import SyncButton from "@/components/shared/SyncButton";
-import { extractCity } from "@/lib/format-utils";
+import { extractCity, formatFooterDate } from "@/lib/format-utils";
 import {
   getUnresolvedApprovalCount,
   getAllEngagements,
@@ -144,7 +144,7 @@ export default async function DashboardPage() {
                 <div className="shrink-0 ml-3 flex flex-col items-end gap-0.5">
                   <StatusBadge status={eng.status} />
                   <span className="text-xs text-muted">
-                    {new Date(eng.updated_at).toLocaleDateString()}
+                    {formatFooterDate(eng.updated_at)}
                   </span>
                 </div>
               </Link>

@@ -1,4 +1,5 @@
 import { Message } from "@/lib/types";
+import { displayName, formatFooterDate } from "@/lib/format-utils";
 
 export default function OrphanedMessageCard({
   message,
@@ -12,7 +13,7 @@ export default function OrphanedMessageCard({
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm font-medium text-foreground">
-            {message.sender_name || message.sender_email || "Unknown"}
+            {displayName(message.sender_name, message.sender_email)}
           </p>
           {message.subject && (
             <p className="mt-0.5 text-sm text-foreground/80">
@@ -21,9 +22,7 @@ export default function OrphanedMessageCard({
           )}
         </div>
         <time className="text-xs text-muted">
-          {message.sent_at
-            ? new Date(message.sent_at).toLocaleDateString()
-            : "No date"}
+          {message.sent_at ? formatFooterDate(message.sent_at) : "No date"}
         </time>
       </div>
       {bodyPreview && (

@@ -6,6 +6,7 @@ import EmptyState from "@/components/layout/EmptyState";
 import StatusBadge from "@/components/shared/StatusBadge";
 import SyncButton from "@/components/shared/SyncButton";
 import CreateEngagementForm from "@/components/engagement/CreateEngagementForm";
+import { formatFooterDate } from "@/lib/format-utils";
 import { getEngagementsWithMessageCounts } from "@/lib/supabase";
 import { Engagement } from "@/lib/types";
 
@@ -76,7 +77,7 @@ export default async function EngagementsPage() {
                       </span>
                     )}
                     <span className="shrink-0 text-xs text-muted hidden sm:block">
-                      {eng.message_count} msg{eng.message_count !== 1 ? "s" : ""} · {new Date(eng.updated_at).toLocaleDateString()}
+                      {eng.message_count} msg{eng.message_count !== 1 ? "s" : ""} · {formatFooterDate(eng.updated_at)}
                     </span>
                     <span className="shrink-0">
                       <StatusBadge status={eng.status} />

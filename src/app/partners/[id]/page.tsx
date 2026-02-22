@@ -116,7 +116,7 @@ export default async function PartnerDetailPage({
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-muted mb-1.5">
                     What They Do
                   </h3>
-                  <p className="text-sm text-foreground leading-relaxed">
+                  <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
                     {partner.what_they_do}
                   </p>
                 </div>

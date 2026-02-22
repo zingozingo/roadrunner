@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ApprovalQueueItem, Message, Engagement } from "@/lib/types";
 import ConfidenceBar from "./ConfidenceBar";
+import { displayName, formatFooterDate } from "@/lib/format-utils";
 
 type ReviewApproval = ApprovalQueueItem & {
   message: Message | null;
@@ -77,16 +78,14 @@ export default function ReviewCard({
         <div className="flex items-start justify-between">
           <div>
             <p className="font-medium text-foreground">
-              {msg?.sender_name || msg?.sender_email || "Unknown sender"}
+              {displayName(msg?.sender_name, msg?.sender_email)}
             </p>
             {msg?.sender_name && msg?.sender_email && (
               <p className="text-sm text-muted">{msg.sender_email}</p>
             )}
           </div>
           <time className="text-xs text-muted">
-            {msg?.sent_at
-              ? new Date(msg.sent_at).toLocaleDateString()
-              : "No date"}
+            {msg?.sent_at ? formatFooterDate(msg.sent_at) : "No date"}
           </time>
         </div>
         {msg?.subject && (

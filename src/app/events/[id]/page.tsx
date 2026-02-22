@@ -9,6 +9,7 @@ import MeetingTimeline from "@/components/shared/MeetingTimeline";
 import EntityLinkChip from "@/components/shared/EntityLink";
 import ExpandableList from "@/components/shared/ExpandableList";
 import EventActions from "@/components/actions/EventActions";
+import { formatFooterDate } from "@/lib/format-utils";
 import {
   getEventById,
   getEntityLinksForEntity,
@@ -172,7 +173,7 @@ export default async function EventDetailPage({
 
         {/* Compact footer */}
         <p className="mt-6 text-xs text-muted">
-          Created {new Date(event.created_at).toLocaleDateString()}
+          Created {formatFooterDate(event.created_at)}
           {" · "}
           Source: <span className="capitalize">{event.source.replace("_", " ")}</span>
           {" · "}

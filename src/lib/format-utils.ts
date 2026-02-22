@@ -117,3 +117,55 @@ export function cleanMeetingTitle(title: string): string {
   }
   return cleaned.trim();
 }
+
+/**
+ * Format a date for footer/metadata contexts.
+ * "2026-02-22T..." → "Feb 22, 2026"
+ * null/undefined → ""
+ */
+export function formatFooterDate(dateString: string | null | undefined): string {
+  if (!dateString) return "";
+  const d = new Date(dateString);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+/**
+ * Safely format an open-item due date.
+ * "2026-03-15" → "Mar 15"
+ * Malformed/null → ""
+ */
+export function safeDateDisplay(dateStr: string | null | undefined): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr + "T00:00:00");
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/**
+ * Build a display-friendly name from name/email fields.
+ * - If name exists and isn't just the email repeated → name
+ * - If only email → title-case the local part: "john.doe@acme.com" → "John Doe"
+ * - Otherwise → "Unknown"
+ */
+export function displayName(
+  name: string | null | undefined,
+  email: string | null | undefined
+): string {
+  if (name && name.trim() && name.trim() !== email?.trim()) {
+    return name.trim();
+  }
+  if (email) {
+    const local = email.split("@")[0] ?? "";
+    return local
+      .split(/[.\-_]/)
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ") || "Unknown";
+  }
+  return "Unknown";
+}
