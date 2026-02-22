@@ -6,7 +6,8 @@
  *
  * Each card features a compact date block (month + day like a
  * mini calendar page) on the left, with the entity name and
- * location on the right. Multi-day events show a day range.
+ * location on the right. Multi-day events show a day range
+ * with start day prominent and range subordinate.
  * An optional type color renders as a subtle left border on
  * the date block.
  */
@@ -36,15 +37,6 @@ function parseDateParts(dateStr: string): { month: string; day: number } {
   };
 }
 
-function formatDayRange(start: string, end?: string): string {
-  const s = parseDateParts(start);
-  if (!end) return String(s.day);
-  const e = parseDateParts(end);
-  if (s.day === e.day && s.month === e.month) return String(s.day);
-  if (s.month === e.month) return `${s.day}–${e.day}`;
-  return `${s.day}–${e.day}`;
-}
-
 export default function CalendarCard({
   items,
   columns = 2,
@@ -59,8 +51,10 @@ export default function CalendarCard({
   return (
     <div className={`grid ${colClass} gap-2`}>
       {items.map((item) => {
-        const { month } = parseDateParts(item.startDate);
-        const dayDisplay = formatDayRange(item.startDate, item.endDate);
+        const start = parseDateParts(item.startDate);
+        const end = item.endDate ? parseDateParts(item.endDate) : null;
+        const isSameDay = !end || (start.month === end.month && start.day === end.day);
+        const isSameMonth = end && start.month === end.month;
 
         return (
           <Link
@@ -70,7 +64,7 @@ export default function CalendarCard({
           >
             {/* Date block */}
             <div
-              className="flex w-12 shrink-0 flex-col items-center rounded py-1"
+              className="flex w-14 shrink-0 flex-col items-center rounded py-1"
               style={
                 item.typeColor
                   ? { borderLeft: `2px solid ${item.typeColor}`, paddingLeft: "6px" }
@@ -78,11 +72,21 @@ export default function CalendarCard({
               }
             >
               <span className="text-xs font-medium uppercase text-muted">
-                {month}
+                {start.month}
               </span>
-              <span className="text-lg font-semibold leading-tight text-foreground">
-                {dayDisplay}
+              <span className="text-xl font-bold leading-tight text-foreground">
+                {start.day}
               </span>
+              {!isSameDay && isSameMonth && (
+                <span className="text-xs text-muted leading-tight">
+                  –{end!.day}
+                </span>
+              )}
+              {!isSameDay && !isSameMonth && (
+                <span className="text-xs text-muted leading-tight text-center">
+                  –{end!.month} {end!.day}
+                </span>
+              )}
             </div>
 
             {/* Details */}

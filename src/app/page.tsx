@@ -4,11 +4,19 @@ import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import SyncButton from "@/components/shared/SyncButton";
+import { extractCity } from "@/lib/format-utils";
 import {
   getUnresolvedApprovalCount,
   getAllEngagements,
   getAllEventsWithCounts,
 } from "@/lib/supabase";
+
+function formatShortDate(dateStr: string): string {
+  return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
 
 export default async function DashboardPage() {
   const [reviewCount, engagements, events] = await Promise.all([
@@ -23,7 +31,7 @@ export default async function DashboardPage() {
   const now = new Date().toISOString();
   const upcoming = events
     .filter((e) => e.start_date && e.start_date > now)
-    .slice(0, 3);
+    .slice(0, 5);
 
   return (
     <div className="p-6 lg:p-8">
@@ -79,49 +87,51 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      {/* Upcoming events detail */}
+      {/* Upcoming events — compact date-first format */}
       {upcoming.length > 0 && (
         <section className="mb-8">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
             Upcoming Events
           </h2>
-          <div className="space-y-2">
-            {upcoming.map((event) => (
-              <div
-                key={event.id}
-                className="flex items-center justify-between rounded-lg border border-border bg-surface px-4 py-3"
-              >
-                <div>
-                  <p className="text-sm font-medium text-foreground">
+          <div>
+            {upcoming.map((event) => {
+              const city = extractCity(event.location);
+              return (
+                <Link
+                  key={event.id}
+                  href={`/events/${event.id}`}
+                  className="flex items-center px-4 py-2.5 border-b border-border/50 transition-colors duration-150 hover:bg-surface"
+                >
+                  <span className="shrink-0 w-16 text-sm font-medium text-foreground">
+                    {event.start_date ? formatShortDate(event.start_date) : "TBD"}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm text-foreground">
                     {event.name}
-                  </p>
-                  {event.location && (
-                    <p className="text-xs text-muted">{event.location}</p>
+                  </span>
+                  {city && (
+                    <span className="shrink-0 ml-3 text-xs text-muted">
+                      {city}
+                    </span>
                   )}
-                </div>
-                <time className="text-sm text-muted">
-                  {event.start_date
-                    ? new Date(event.start_date).toLocaleDateString()
-                    : "TBD"}
-                </time>
-              </div>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         </section>
       )}
 
-      {/* Recent engagements */}
+      {/* Recent engagements — status right-aligned */}
       {engagements.length > 0 && (
         <section>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
             Recent Engagements
           </h2>
-          <div className="space-y-2">
+          <div>
             {engagements.slice(0, 5).map((eng) => (
               <Link
                 key={eng.id}
                 href={`/engagements/${eng.id}`}
-                className="flex items-center justify-between rounded-lg border border-border bg-surface px-4 py-3 transition-colors hover:border-accent/40"
+                className="flex items-center justify-between px-4 py-2.5 border-b border-border/50 transition-colors duration-150 hover:bg-surface"
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-foreground">
@@ -131,7 +141,12 @@ export default async function DashboardPage() {
                     <p className="text-xs text-muted">{eng.partner_name}</p>
                   )}
                 </div>
-                <StatusBadge status={eng.status} />
+                <div className="shrink-0 ml-3 flex flex-col items-end gap-0.5">
+                  <StatusBadge status={eng.status} />
+                  <span className="text-xs text-muted">
+                    {new Date(eng.updated_at).toLocaleDateString()}
+                  </span>
+                </div>
               </Link>
             ))}
           </div>

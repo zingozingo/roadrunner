@@ -4,8 +4,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import DetailHeader from "@/components/shared/DetailHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
-import CompactRow from "@/components/shared/CompactRow";
-import { RelationshipTypeBadge } from "@/components/shared/TypeBadge";
 import CurrentStateCard from "@/components/engagement/CurrentStateCard";
 import OpenItemsCard from "@/components/engagement/OpenItemsCard";
 import CollapsibleEmails from "@/components/shared/CollapsibleEmails";
@@ -119,22 +117,29 @@ export default async function EngagementDetailPage({
         {/* Source Emails */}
         <CollapsibleEmails messages={messages} meetingsByMessageId={meetingsByMessageId} />
 
-        {/* Connections — unified section for AWS Relationships + Entity Links */}
+        {/* Connections — AWS Relationships as simple text links + Entity Links as chips */}
         {hasConnections && (
           <div className="rounded-xl border border-border bg-surface p-4">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
               Connections ({connectionCount})
             </h2>
-            <div className="space-y-2">
-              {/* AWS Relationships as CompactRows */}
+            <div className="space-y-1">
+              {/* AWS Relationships as simple text links */}
               {awsRelationships.map((rel) => (
-                <CompactRow
+                <Link
                   key={rel.id}
                   href={`/relationships/${rel.id}`}
-                  primary={rel.name}
-                  badges={<RelationshipTypeBadge type={rel.relationship_type} />}
-                  secondary={rel.primary_contact_name ?? undefined}
-                />
+                  className="flex items-baseline gap-2 rounded px-2 py-1.5 transition-colors hover:bg-surface-hover"
+                >
+                  <span className="text-sm font-medium text-foreground">
+                    {rel.name}
+                  </span>
+                  {rel.primary_contact_name && (
+                    <span className="text-xs text-muted">
+                      {rel.primary_contact_name}
+                    </span>
+                  )}
+                </Link>
               ))}
 
               {/* Entity Links as chips */}

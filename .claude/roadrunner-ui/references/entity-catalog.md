@@ -4,14 +4,14 @@ Field mappings for all 6 entity types in Roadrunner. Each entity maps its fields
 
 ## Entity → Component Mapping
 
-| Entity | List Page Component | Detail Page Linked Sections |
+| Entity | List Page Component | On Other Detail Pages |
 |---|---|---|
-| Engagements | CompactRow | CompactRow (in ExpandableList) |
+| Engagements | CompactRow (status in meta) | CompactRow with StatusBadge in meta slot, partner as secondary. No pillar/priority badges. |
 | Partners | TableList | — (Partners aren't linked from other pages) |
 | Programs | PillGrid | — (Programs aren't linked from other pages) |
 | Events | CalendarCard | — (Events aren't linked from other pages) |
 | Meetings | CompactRow (Phase 2 redesign planned) | MeetingTimeline |
-| Relationships | TableList | CompactRow (in ExpandableList) |
+| Relationships | TableList | Simple text links (name + contact), no cards or badges |
 
 ---
 
@@ -28,20 +28,21 @@ Field mappings for all 6 entity types in Roadrunner. Each entity maps its fields
 | Slot | Value |
 |---|---|
 | primary | `eng.name` |
-| badges | `<StatusBadge status={eng.status} />` |
+| badges | — (none; status moved to meta for right-alignment) |
 | secondary | `eng.partner_name` |
-| meta | Message count + updated date (stacked) |
+| meta | StatusBadge + message count · date (stacked, right-aligned) |
 
 ```tsx
 <CompactRow
   href={`/engagements/${eng.id}`}
   primary={eng.name}
-  badges={<StatusBadge status={eng.status} />}
   secondary={eng.partner_name ?? undefined}
   meta={
-    <div className="flex flex-col items-end gap-0.5">
-      <span>{eng.message_count} msg{eng.message_count !== 1 ? "s" : ""}</span>
-      <span>{new Date(eng.updated_at).toLocaleDateString()}</span>
+    <div className="flex flex-col items-end gap-1">
+      <StatusBadge status={eng.status} />
+      <span className="text-xs text-muted">
+        {eng.message_count} msg{eng.message_count !== 1 ? "s" : ""} · {new Date(eng.updated_at).toLocaleDateString()}
+      </span>
     </div>
   }
 />
@@ -95,14 +96,16 @@ Card visual treatment:
 |---|---|---|
 | 1 (name) | `partner.name` | flex-1 |
 | 2 | `partner.focus_area.join(", ")` | 200px |
-| 3 | `partner.alliance_lead` | 140px |
+| 3 | `partner.alliance_lead` | 160px |
+| 4 | `partner.psa` | 140px |
 
 ```tsx
 <TableList
   headers={[
     { label: "Partner" },
     { label: "Focus Area", width: "200px" },
-    { label: "Alliance Lead", width: "140px" },
+    { label: "Alliance Lead", width: "160px" },
+    { label: "PSA", width: "140px" },
   ]}
   items={group.partners.map((p) => ({
     id: p.id,
@@ -110,7 +113,8 @@ Card visual treatment:
     columns: [
       { value: p.name },
       { value: p.focus_area.join(", "), width: "200px" },
-      { value: p.alliance_lead ?? "", width: "140px" },
+      { value: p.alliance_lead ?? "", width: "160px" },
+      { value: p.psa ?? "", width: "140px" },
     ],
   }))}
 />
@@ -133,8 +137,8 @@ The partner detail page uses a **full-width layout** (no sidebar). Sections top 
 1. **Partner Context** — Single card with two-column grid (`lg:grid-cols-2`). Left column: "What They Do" business description. Right column: "AWS Context" with stickiness narrative + Key AWS Services badges. Stacks vertically on mobile.
 2. **Contact Emails** — Compact inline display, only if present.
 3. **Meetings** — Uses `MeetingTimeline` (timeline treatment for temporal entities).
-4. **Engagements** — Uses `CompactRow` with StatusBadge + Pillar + Priority badges (status-driven list for workstreams).
-5. **AWS Relationships** — Uses `CompactRow` with RelationshipTypeBadge (compact list for structural entities).
+4. **Engagements** — Uses `CompactRow` with StatusBadge in meta slot (right-aligned), partner as secondary. No pillar/priority badges.
+5. **AWS Relationships** — Simple text links (name + primary contact), no cards or badges. Hover highlight via `hover:bg-surface-hover`.
 
 **Why merged context card:** Separate "What They Do" subtitle + AWS Context card consumed ~50% of viewport before activity content. Merging into a two-column card keeps identity+context under ~1/3 viewport (principle #8).
 
@@ -171,8 +175,8 @@ The partner detail page uses a **full-width layout** (no sidebar). Sections top 
 | title | `program.name` |
 | badges | StatusBadge + ProgramTypeBadge |
 | subtitle | `program.description` |
-| fields | Lifecycle, Lifecycle Duration, Requirements (truncated), URL (as link) |
-| actions | SyncButton |
+| fields | Lifecycle, Duration (conditional), Status |
+| actions | ProgramActions |
 
 ### Notes
 - Programs have 8 type categories with dedicated colors in globals.css
@@ -228,8 +232,8 @@ const eventTypeColorMap: Record<Event["type"], string> = {
 | title | `event.name` |
 | badges | EventTypeBadge + GEO badge |
 | subtitle | `event.description` |
-| fields | Date Range, Location, Format, Host |
-| actions | SyncButton |
+| fields | Dates, Location, Host, Source |
+| actions | EventActions |
 
 ### Notes
 - Events have TWO filter dimensions: type (in FilterBar) + year (separate chip row below)
@@ -237,7 +241,7 @@ const eventTypeColorMap: Record<Event["type"], string> = {
 - Year sub-groups use the standard uppercase label style
 - `extractCity()` from `src/lib/format-utils.ts` extracts city from full location strings
 - `formatCompactDateRange()` from `src/lib/format-utils.ts` formats compact date ranges for cards
-- Events list currently uses custom Link cards with type-colored left borders (will migrate to CalendarCard)
+- CalendarCard date block: w-14, prominent start day (text-xl font-bold), subordinate range (text-xs text-muted). Cross-month shows "–APR 2" format.
 
 ---
 
@@ -357,23 +361,26 @@ The meeting detail page uses a **full-width layout** (no sidebar). Sections top 
 | Column | Value | Width |
 |---|---|---|
 | 1 (name) | `rel.name` | flex-1 |
-| 2 | `rel.aws_org` | 160px |
-| 3 | `rel.aws_service` | 140px |
+| 2 | `rel.aws_org` | 180px |
+| 3 | `rel.aws_service` | 160px |
+| 4 | `rel.primary_contact_name` | 140px |
 
 ```tsx
 <TableList
   headers={[
     { label: "Name" },
-    { label: "AWS Org", width: "160px" },
-    { label: "Service", width: "140px" },
+    { label: "AWS Org", width: "180px" },
+    { label: "Service", width: "160px" },
+    { label: "Contact", width: "140px" },
   ]}
   items={group.relationships.map((rel) => ({
     id: rel.id,
     href: `/relationships/${rel.id}`,
     columns: [
       { value: rel.name },
-      { value: rel.aws_org ?? "", width: "160px" },
-      { value: rel.aws_service ?? "", width: "140px" },
+      { value: rel.aws_org ?? "", width: "180px" },
+      { value: rel.aws_service ?? "", width: "160px" },
+      { value: rel.primary_contact_name ?? "", width: "140px" },
     ],
   }))}
 />
@@ -387,8 +394,8 @@ The meeting detail page uses a **full-width layout** (no sidebar). Sections top 
 | badges | RelationshipTypeBadge |
 | subtitle | Notes or description |
 | fields | AWS Org, AWS Service, Primary Contact, Contact Email |
-| actions | SyncButton |
+| actions | RelationshipActions |
 
 ### Notes
-- Contact info was dropped from list rows (detail-page concern)
+- Contact column now shown in TableList (name only, email on detail page)
 - Smallest entity set (7 records) — group header pluralizes with simple `${type}s`

@@ -5,7 +5,6 @@ import { notFound } from "next/navigation";
 import DetailHeader from "@/components/shared/DetailHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import CompactRow from "@/components/shared/CompactRow";
-import { RelationshipTypeBadge } from "@/components/shared/TypeBadge";
 import MeetingTimeline from "@/components/shared/MeetingTimeline";
 import ExpandableList from "@/components/shared/ExpandableList";
 import { getPartner, getSupabaseClient, getAwsRelationshipsByPartner } from "@/lib/supabase";
@@ -182,7 +181,7 @@ export default async function PartnerDetailPage({
           </div>
         )}
 
-        {/* Engagements — workstreams get status-driven lists */}
+        {/* Engagements — status right-aligned, no pillar/priority badges */}
         {linkedEngagements.length > 0 && (
           <div className="rounded-xl border border-border bg-surface p-4">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
@@ -195,22 +194,8 @@ export default async function PartnerDetailPage({
                     key={eng.id}
                     href={`/engagements/${eng.id}`}
                     primary={eng.name}
-                    badges={
-                      <>
-                        <StatusBadge status={eng.status} />
-                        {eng.pillar && (
-                          <span className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap">
-                            {eng.pillar}
-                          </span>
-                        )}
-                        {eng.priority && (
-                          <span className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap">
-                            {eng.priority}
-                          </span>
-                        )}
-                      </>
-                    }
-                    secondary={eng.current_state ?? undefined}
+                    secondary={eng.partner_name ?? undefined}
+                    meta={<StatusBadge status={eng.status} />}
                   />
                 ))}
               </ExpandableList>
@@ -218,24 +203,29 @@ export default async function PartnerDetailPage({
           </div>
         )}
 
-        {/* AWS Relationships — structural entities get compact treatment */}
+        {/* AWS Relationships — simple text links, no cards */}
         {linkedRelationships.length > 0 && (
           <div className="rounded-xl border border-border bg-surface p-4">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
               AWS Relationships
             </h2>
-            <div className="space-y-2">
-              <ExpandableList label="relationships">
-                {linkedRelationships.map((rel) => (
-                  <CompactRow
-                    key={rel.id}
-                    href={`/relationships/${rel.id}`}
-                    primary={rel.name}
-                    badges={<RelationshipTypeBadge type={rel.relationship_type} />}
-                    secondary={rel.primary_contact_name ?? undefined}
-                  />
-                ))}
-              </ExpandableList>
+            <div className="space-y-1">
+              {linkedRelationships.map((rel) => (
+                <Link
+                  key={rel.id}
+                  href={`/relationships/${rel.id}`}
+                  className="flex items-baseline gap-2 rounded px-2 py-1.5 transition-colors hover:bg-surface-hover"
+                >
+                  <span className="text-sm font-medium text-foreground">
+                    {rel.name}
+                  </span>
+                  {rel.primary_contact_name && (
+                    <span className="text-xs text-muted">
+                      {rel.primary_contact_name}
+                    </span>
+                  )}
+                </Link>
+              ))}
             </div>
           </div>
         )}

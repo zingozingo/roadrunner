@@ -66,12 +66,13 @@ export default async function EngagementsPage() {
                     key={eng.id}
                     href={`/engagements/${eng.id}`}
                     primary={eng.name}
-                    badges={<StatusBadge status={eng.status} />}
                     secondary={eng.partner_name ?? undefined}
                     meta={
-                      <div className="flex flex-col items-end gap-0.5">
-                        <span>{eng.message_count} msg{eng.message_count !== 1 ? "s" : ""}</span>
-                        <span>{new Date(eng.updated_at).toLocaleDateString()}</span>
+                      <div className="flex flex-col items-end gap-1">
+                        <StatusBadge status={eng.status} />
+                        <span className="text-xs text-muted">
+                          {eng.message_count} msg{eng.message_count !== 1 ? "s" : ""} · {new Date(eng.updated_at).toLocaleDateString()}
+                        </span>
                       </div>
                     }
                   />

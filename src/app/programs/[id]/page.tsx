@@ -128,7 +128,7 @@ export default async function ProgramDetailPage({
           </div>
         )}
 
-        {/* Linked Engagements */}
+        {/* Linked Engagements — status right-aligned, no pillar/priority */}
         {linkedEngagements.length > 0 && (
           <div className="rounded-xl border border-border bg-surface p-4">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
@@ -141,22 +141,8 @@ export default async function ProgramDetailPage({
                     key={eng.id}
                     href={`/engagements/${eng.id}`}
                     primary={eng.name}
-                    badges={
-                      <>
-                        <StatusBadge status={eng.status} />
-                        {eng.pillar && (
-                          <span className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap">
-                            {eng.pillar}
-                          </span>
-                        )}
-                        {eng.priority && (
-                          <span className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap">
-                            {eng.priority}
-                          </span>
-                        )}
-                      </>
-                    }
-                    secondary={eng.current_state ?? undefined}
+                    secondary={eng.partner_name ?? undefined}
+                    meta={<StatusBadge status={eng.status} />}
                   />
                 ))}
               </ExpandableList>
