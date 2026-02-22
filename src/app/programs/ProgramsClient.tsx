@@ -36,6 +36,12 @@ export default function ProgramsClient({ programs }: ProgramsClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
+  // Only show status badges if programs have mixed statuses
+  const hasMultipleStatuses = useMemo(() => {
+    const statuses = new Set(programs.map((p) => p.status));
+    return statuses.size > 1;
+  }, [programs]);
+
   const filteredPrograms = useMemo(() => {
     return programs.filter((program) => {
       // Search filter
@@ -130,12 +136,10 @@ export default function ProgramsClient({ programs }: ProgramsClientProps) {
                         primary={program.name}
                         badges={
                           <>
-                            <StatusBadge status={program.status} />
+                            {hasMultipleStatuses && <StatusBadge status={program.status} />}
                             <ProgramTypeBadge type={program.type} />
                           </>
                         }
-                        secondary={program.description ?? undefined}
-                        secondaryLineClamp={2}
                         meta={
                           program.linked_count > 0 ? (
                             <span>{program.linked_count} link{program.linked_count !== 1 ? "s" : ""}</span>

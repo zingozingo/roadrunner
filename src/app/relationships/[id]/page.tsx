@@ -7,6 +7,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import CompactRow from "@/components/shared/CompactRow";
 import { RelationshipTypeBadge } from "@/components/shared/TypeBadge";
 import MeetingTimeline from "@/components/shared/MeetingTimeline";
+import ExpandableList from "@/components/shared/ExpandableList";
 import RelationshipActions from "@/components/actions/RelationshipActions";
 import {
   getAwsRelationship,
@@ -79,29 +80,31 @@ export default async function RelationshipDetailPage({
               Linked Engagements
             </h2>
             <div className="space-y-2">
-              {linkedEngagements.map((eng) => (
-                <CompactRow
-                  key={eng.id}
-                  href={`/engagements/${eng.id}`}
-                  primary={eng.name}
-                  badges={
-                    <>
-                      <StatusBadge status={eng.status} />
-                      {eng.pillar && (
-                        <span className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap">
-                          {eng.pillar}
-                        </span>
-                      )}
-                      {eng.priority && (
-                        <span className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap">
-                          {eng.priority}
-                        </span>
-                      )}
-                    </>
-                  }
-                  secondary={eng.current_state ?? undefined}
-                />
-              ))}
+              <ExpandableList label="engagements">
+                {linkedEngagements.map((eng) => (
+                  <CompactRow
+                    key={eng.id}
+                    href={`/engagements/${eng.id}`}
+                    primary={eng.name}
+                    badges={
+                      <>
+                        <StatusBadge status={eng.status} />
+                        {eng.pillar && (
+                          <span className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap">
+                            {eng.pillar}
+                          </span>
+                        )}
+                        {eng.priority && (
+                          <span className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap">
+                            {eng.priority}
+                          </span>
+                        )}
+                      </>
+                    }
+                    secondary={eng.current_state ?? undefined}
+                  />
+                ))}
+              </ExpandableList>
             </div>
           </div>
         )}

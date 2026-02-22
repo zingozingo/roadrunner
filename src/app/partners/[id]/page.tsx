@@ -7,6 +7,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import CompactRow from "@/components/shared/CompactRow";
 import { RelationshipTypeBadge } from "@/components/shared/TypeBadge";
 import MeetingTimeline from "@/components/shared/MeetingTimeline";
+import ExpandableList from "@/components/shared/ExpandableList";
 import { getPartner, getSupabaseClient, getAwsRelationshipsByPartner } from "@/lib/supabase";
 import type { Engagement, Meeting } from "@/lib/types";
 
@@ -169,73 +170,75 @@ export default async function PartnerDetailPage({
         )}
 
         {/* Meetings Timeline — temporal entities get timeline treatment */}
-        <div className="rounded-xl border border-border bg-surface p-4">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-            Meetings
-          </h2>
-          <MeetingTimeline
-            meetings={linkedMeetings}
-            engagementNames={engagementNames}
-          />
-        </div>
+        {linkedMeetings.length > 0 && (
+          <div className="rounded-xl border border-border bg-surface p-4">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
+              Meetings
+            </h2>
+            <MeetingTimeline
+              meetings={linkedMeetings}
+              engagementNames={engagementNames}
+            />
+          </div>
+        )}
 
         {/* Engagements — workstreams get status-driven lists */}
-        <div className="rounded-xl border border-border bg-surface p-4">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-            Engagements
-          </h2>
-          {linkedEngagements.length === 0 ? (
-            <p className="text-sm text-muted">No engagements linked yet</p>
-          ) : (
+        {linkedEngagements.length > 0 && (
+          <div className="rounded-xl border border-border bg-surface p-4">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
+              Engagements
+            </h2>
             <div className="space-y-2">
-              {linkedEngagements.map((eng) => (
-                <CompactRow
-                  key={eng.id}
-                  href={`/engagements/${eng.id}`}
-                  primary={eng.name}
-                  badges={
-                    <>
-                      <StatusBadge status={eng.status} />
-                      {eng.pillar && (
-                        <span className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap">
-                          {eng.pillar}
-                        </span>
-                      )}
-                      {eng.priority && (
-                        <span className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap">
-                          {eng.priority}
-                        </span>
-                      )}
-                    </>
-                  }
-                  secondary={eng.current_state ?? undefined}
-                />
-              ))}
+              <ExpandableList label="engagements">
+                {linkedEngagements.map((eng) => (
+                  <CompactRow
+                    key={eng.id}
+                    href={`/engagements/${eng.id}`}
+                    primary={eng.name}
+                    badges={
+                      <>
+                        <StatusBadge status={eng.status} />
+                        {eng.pillar && (
+                          <span className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap">
+                            {eng.pillar}
+                          </span>
+                        )}
+                        {eng.priority && (
+                          <span className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap">
+                            {eng.priority}
+                          </span>
+                        )}
+                      </>
+                    }
+                    secondary={eng.current_state ?? undefined}
+                  />
+                ))}
+              </ExpandableList>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* AWS Relationships — structural entities get compact treatment */}
-        <div className="rounded-xl border border-border bg-surface p-4">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-            AWS Relationships
-          </h2>
-          {linkedRelationships.length === 0 ? (
-            <p className="text-sm text-muted">No AWS relationships linked yet</p>
-          ) : (
+        {linkedRelationships.length > 0 && (
+          <div className="rounded-xl border border-border bg-surface p-4">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
+              AWS Relationships
+            </h2>
             <div className="space-y-2">
-              {linkedRelationships.map((rel) => (
-                <CompactRow
-                  key={rel.id}
-                  href={`/relationships/${rel.id}`}
-                  primary={rel.name}
-                  badges={<RelationshipTypeBadge type={rel.relationship_type} />}
-                  secondary={rel.primary_contact_name ?? undefined}
-                />
-              ))}
+              <ExpandableList label="relationships">
+                {linkedRelationships.map((rel) => (
+                  <CompactRow
+                    key={rel.id}
+                    href={`/relationships/${rel.id}`}
+                    primary={rel.name}
+                    badges={<RelationshipTypeBadge type={rel.relationship_type} />}
+                    secondary={rel.primary_contact_name ?? undefined}
+                  />
+                ))}
+              </ExpandableList>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

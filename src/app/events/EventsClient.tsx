@@ -43,14 +43,25 @@ function getYear(dateStr: string): number {
   return new Date(dateStr + "T00:00:00").getFullYear();
 }
 
-interface YearGroup {
-  year: number;
+function getMonthKey(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  return `${d.getFullYear()}-${String(d.getMonth()).padStart(2, "0")}`;
+}
+
+function formatMonthLabel(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+}
+
+interface MonthGroup {
+  key: string;
+  label: string;
   events: EventWithCount[];
 }
 
 interface TimeSection {
   label: string;
-  yearGroups: YearGroup[];
+  monthGroups: MonthGroup[];
 }
 
 export default function EventsClient({ events }: { events: EventWithCount[] }) {
@@ -119,33 +130,35 @@ export default function EventsClient({ events }: { events: EventWithCount[] }) {
     // Sort TBD alphabetically
     tbd.sort((a, b) => a.name.localeCompare(b.name));
 
-    function groupByYear(items: EventWithCount[]): YearGroup[] {
-      const yearMap = new Map<number, EventWithCount[]>();
+    function groupByMonth(items: EventWithCount[]): MonthGroup[] {
+      const monthMap = new Map<string, { label: string; events: EventWithCount[] }>();
       for (const item of items) {
-        const year = getYear(item.start_date!);
-        if (!yearMap.has(year)) yearMap.set(year, []);
-        yearMap.get(year)!.push(item);
+        const key = getMonthKey(item.start_date!);
+        if (!monthMap.has(key)) {
+          monthMap.set(key, { label: formatMonthLabel(item.start_date!), events: [] });
+        }
+        monthMap.get(key)!.events.push(item);
       }
-      return [...yearMap.entries()]
-        .sort(([a], [b]) => a - b)
-        .map(([year, evts]) => ({ year, events: evts }));
+      return [...monthMap.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, { label, events: evts }]) => ({ key, label, events: evts }));
     }
 
     const result: TimeSection[] = [];
 
     if (upcoming.length > 0) {
-      result.push({ label: "Upcoming", yearGroups: groupByYear(upcoming) });
+      result.push({ label: "Upcoming", monthGroups: groupByMonth(upcoming) });
     }
     if (past.length > 0) {
-      // Reverse year order for past events (most recent year first)
-      const pastGroups = groupByYear(past);
+      // Reverse month order for past events (most recent first)
+      const pastGroups = groupByMonth(past);
       pastGroups.reverse();
-      result.push({ label: "Past", yearGroups: pastGroups });
+      result.push({ label: "Past", monthGroups: pastGroups });
     }
     if (tbd.length > 0) {
       result.push({
         label: "Date TBD",
-        yearGroups: [{ year: 0, events: tbd }],
+        monthGroups: [{ key: "tbd", label: "Date TBD", events: tbd }],
       });
     }
 
@@ -226,16 +239,16 @@ export default function EventsClient({ events }: { events: EventWithCount[] }) {
                   <h2 className="mb-4 text-lg font-semibold text-foreground">
                     {section.label}
                     <span className="ml-2 text-sm font-normal text-muted">
-                      ({section.yearGroups.reduce((sum, g) => sum + g.events.length, 0)})
+                      ({section.monthGroups.reduce((sum, g) => sum + g.events.length, 0)})
                     </span>
                   </h2>
 
                   <div className="space-y-6">
-                    {section.yearGroups.map((group) => (
-                      <div key={group.year}>
-                        {group.year > 0 && (
+                    {section.monthGroups.map((group) => (
+                      <div key={group.key}>
+                        {group.key !== "tbd" && (
                           <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-                            {group.year}
+                            {group.label}
                           </h3>
                         )}
                         <div className="space-y-2">

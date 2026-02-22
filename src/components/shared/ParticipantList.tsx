@@ -267,10 +267,7 @@ export default function ParticipantList({
   const [adding, setAdding] = useState(false);
 
   return (
-    <div className="rounded-xl border border-border bg-surface p-4">
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-        Participants ({participants.length})
-      </h2>
+    <div>
       {participants.length === 0 && !adding ? (
         <p className="text-sm text-muted">None yet</p>
       ) : (

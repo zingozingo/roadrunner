@@ -11,7 +11,7 @@ import OpenItemsCard from "@/components/engagement/OpenItemsCard";
 import CollapsibleEmails from "@/components/shared/CollapsibleEmails";
 import EntityLinkChip from "@/components/shared/EntityLink";
 import EngagementActions from "@/components/actions/EngagementActions";
-import ParticipantList from "@/components/shared/ParticipantList";
+import CollapsibleParticipants from "@/components/shared/CollapsibleParticipants";
 import {
   getEngagementById,
   getMessagesByEngagement,
@@ -42,7 +42,6 @@ export default async function EngagementDetailPage({
   ]);
 
   // Build message_id → meeting map for inline meeting cards
-  // Use plain object since Maps can't be serialized across server→client boundary
   const meetingsByMessageId: Record<string, Meeting> = {};
   for (const m of meetings) {
     if (m.message_id) meetingsByMessageId[m.message_id] = m;
@@ -50,6 +49,16 @@ export default async function EngagementDetailPage({
 
   // Resolve entity link target names
   const nameMap = await resolveEntityLinkNames(entityLinks);
+
+  // Filter valid entity links (skip orphaned)
+  const validEntityLinks = entityLinks.filter((link) => {
+    const isSource = link.source_id === id;
+    const otherId = isSource ? link.target_id : link.source_id;
+    return nameMap.has(otherId);
+  });
+
+  const hasConnections = awsRelationships.length > 0 || validEntityLinks.length > 0;
+  const connectionCount = awsRelationships.length + validEntityLinks.length;
 
   return (
     <div className="p-6 lg:p-8">
@@ -86,31 +95,38 @@ export default async function EngagementDetailPage({
         actions={<EngagementActions engagement={engagement} />}
       />
 
-      {/* Full-width sections — no sidebar */}
+      {/* Full-width sections — ordered by decision-making priority */}
       <div className="space-y-6">
 
-        {/* CurrentState + Participants side-by-side */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          {engagement.current_state && (
-            <CurrentStateCard text={engagement.current_state} />
-          )}
-          <ParticipantList participants={participants} engagementId={id} />
-        </div>
+        {/* Current State — full-width, most important */}
+        {engagement.current_state && (
+          <CurrentStateCard text={engagement.current_state} />
+        )}
 
+        {/* Open Items */}
         <OpenItemsCard
           items={engagement.open_items ?? []}
           engagementId={id}
         />
 
+        {/* Participants — collapsed by default */}
+        <CollapsibleParticipants
+          participants={participants}
+          engagementId={id}
+          partnerName={engagement.partner_name}
+        />
+
+        {/* Source Emails */}
         <CollapsibleEmails messages={messages} meetingsByMessageId={meetingsByMessageId} />
 
-        {/* AWS Relationships */}
-        {awsRelationships.length > 0 && (
+        {/* Connections — unified section for AWS Relationships + Entity Links */}
+        {hasConnections && (
           <div className="rounded-xl border border-border bg-surface p-4">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-              AWS Relationships
+              Connections ({connectionCount})
             </h2>
             <div className="space-y-2">
+              {/* AWS Relationships as CompactRows */}
               {awsRelationships.map((rel) => (
                 <CompactRow
                   key={rel.id}
@@ -120,36 +136,28 @@ export default async function EngagementDetailPage({
                   secondary={rel.primary_contact_name ?? undefined}
                 />
               ))}
-            </div>
-          </div>
-        )}
 
-        {/* Entity links */}
-        {entityLinks.length > 0 && (
-          <div className="rounded-xl border border-border bg-surface p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-              Linked Entities
-            </h2>
-            <div className="flex flex-wrap gap-2">
-              {entityLinks.map((link) => {
-                const isSource = link.source_id === id;
-                const otherId = isSource ? link.target_id : link.source_id;
-                const otherType = isSource ? link.target_type : link.source_type;
-                const otherName = nameMap.get(otherId);
+              {/* Entity Links as chips */}
+              {validEntityLinks.length > 0 && (
+                <div className={`flex flex-wrap gap-2 ${awsRelationships.length > 0 ? "pt-2" : ""}`}>
+                  {validEntityLinks.map((link) => {
+                    const isSource = link.source_id === id;
+                    const otherId = isSource ? link.target_id : link.source_id;
+                    const otherType = isSource ? link.target_type : link.source_type;
+                    const otherName = nameMap.get(otherId)!;
 
-                // Skip orphaned links (target entity was deleted)
-                if (!otherName) return null;
-
-                return (
-                  <EntityLinkChip
-                    key={link.id}
-                    link={link}
-                    entityName={otherName}
-                    entityId={otherId}
-                    entityType={otherType}
-                  />
-                );
-              })}
+                    return (
+                      <EntityLinkChip
+                        key={link.id}
+                        link={link}
+                        entityName={otherName}
+                        entityId={otherId}
+                        entityType={otherType}
+                      />
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         )}
