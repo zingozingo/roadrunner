@@ -289,15 +289,38 @@ The partner detail page uses a **full-width layout** (no sidebar). Sections top 
 | Slot | Value |
 |---|---|
 | title | `meeting.title` |
-| badges | MeetingStatusBadge + meeting_type chip |
-| subtitle | Notes (if present) |
-| fields | Date, Time, Location, Partner |
-| actions | Edit/Delete buttons |
+| badges | MeetingStatusBadge + ICS badge (if source=ics_parsed) |
+| subtitle | — (notes render in body section) |
+| fields | Date (with weekday), Time, Partner (linked), Engagement (linked) |
+| actions | MeetingActions (Edit/Delete) |
+
+### Detail Page Layout (full-width, no sidebar)
+
+The meeting detail page uses a **full-width layout** (no sidebar). Sections top to bottom:
+
+1. **Location** — Compact single-line bar. URL-aware: if location starts with `http(s)://`, renders as a styled "Join Meeting" / "Join Zoom Meeting" button. Physical addresses render as plain text. Only shown if location exists.
+2. **Notes** — Plain text with pre-wrap, only if present.
+3. **Attendees** — Grouped by organization using email domain:
+   - `@amazon.com` → "AWS" group
+   - Domain matches partner name → "[Partner Name]" group
+   - Everything else → "Other" group
+   - Each group has a header with count: "AWS (6)"
+   - Compact grid layout (`sm:grid-cols-2 lg:grid-cols-3`), name + email per row
+   - **Relay inbox filtering:** Addresses containing `relay.stevenromero.dev` are infrastructure and always filtered out — they are never shown as attendees.
+4. **AWS Relationships** — Linked relationships (if any).
+5. **Details** — Compact responsive grid (`sm:grid-cols-3 lg:grid-cols-4`) with: Type, Engagement (linked), Event (linked), Program (linked), Partner (linked), Organizer, Source, Created. Replaces the old sidebar.
+
+**Why no sidebar:** The previous sidebar duplicated header metadata (Date, Time, Location, Status, Partner all appeared in both header fields AND sidebar). Moving to full-width eliminates duplication and follows the partner detail page pattern.
+
+**Attendee grouping pattern:** Uses email domain to infer organization. `@amazon.com` = AWS. Domain substring-matches partner name = Partner group. This is a heuristic — works well for corporate meetings where attendees use company email.
+
+**URL-as-location pattern:** Meeting locations are often Zoom/Teams URLs. Detecting URLs and rendering as styled action buttons instead of raw strings saves space and improves UX. Detection: `isUrl()` checks for `http(s)://` prefix. Zoom detection: checks if URL contains "zoom".
 
 ### Notes
 - MeetingsClient includes a full create form (~150 lines) — do NOT touch when modifying list rendering
 - Meeting types: Executive Meeting, GTM Meeting, Product Team Relationship, Specialized Meeting
 - Association chips in meta use different colors: accent for engagement, purple for event
+- `meeting_type` badge removed from header (now only in Details grid) — reduces badge noise since status + ICS are higher priority
 
 ---
 

@@ -13,14 +13,67 @@ import {
   getProgramById,
   getPartner,
 } from "@/lib/supabase";
+import type { MeetingAttendee } from "@/lib/types";
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "Date TBD";
   return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
+    weekday: "short",
     month: "long",
     day: "numeric",
     year: "numeric",
   });
+}
+
+function isUrl(s: string): boolean {
+  return /^https?:\/\//i.test(s);
+}
+
+/** Filter out relay/infrastructure addresses that aren't real attendees */
+function isRelayAddress(email: string): boolean {
+  return email.toLowerCase().includes("relay.stevenromero.dev");
+}
+
+interface AttendeeGroup {
+  label: string;
+  attendees: MeetingAttendee[];
+}
+
+/** Group attendees by organization using email domain */
+function groupAttendees(
+  attendees: MeetingAttendee[],
+  partnerName: string | null
+): AttendeeGroup[] {
+  const aws: MeetingAttendee[] = [];
+  const partner: MeetingAttendee[] = [];
+  const other: MeetingAttendee[] = [];
+
+  const partnerLower = partnerName?.toLowerCase() ?? "";
+
+  for (const a of attendees) {
+    if (isRelayAddress(a.email)) continue;
+
+    const domain = a.email.toLowerCase().split("@")[1] ?? "";
+
+    if (domain === "amazon.com" || domain.endsWith(".amazon.com")) {
+      aws.push(a);
+    } else if (
+      partnerLower &&
+      (domain.includes(partnerLower.replace(/\s+/g, "")) ||
+        (a.name && a.name.toLowerCase().includes(partnerLower)))
+    ) {
+      partner.push(a);
+    } else {
+      other.push(a);
+    }
+  }
+
+  const groups: AttendeeGroup[] = [];
+  if (aws.length > 0) groups.push({ label: "AWS", attendees: aws });
+  if (partner.length > 0)
+    groups.push({ label: partnerName ?? "Partner", attendees: partner });
+  if (other.length > 0) groups.push({ label: "Other", attendees: other });
+  return groups;
 }
 
 export default async function MeetingDetailPage({
@@ -41,6 +94,12 @@ export default async function MeetingDetailPage({
     meeting.partner_id ? getPartner(meeting.partner_id) : null,
   ]);
 
+  const attendeeGroups = groupAttendees(
+    meeting.attendees,
+    partner?.name ?? meeting.partner_name
+  );
+  const totalAttendees = attendeeGroups.reduce((sum, g) => sum + g.attendees.length, 0);
+
   return (
     <div className="p-6 lg:p-8">
       <Link
@@ -58,11 +117,6 @@ export default async function MeetingDetailPage({
         badges={
           <>
             <MeetingStatusBadge status={meeting.status} />
-            {meeting.meeting_type && (
-              <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-xs font-medium text-blue-400 whitespace-nowrap">
-                {meeting.meeting_type}
-              </span>
-            )}
             {meeting.source === "ics_parsed" && (
               <span className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap">
                 ICS
@@ -70,7 +124,6 @@ export default async function MeetingDetailPage({
             )}
           </>
         }
-        subtitle={meeting.notes ?? undefined}
         fields={[
           { label: "Date", value: formatDate(meeting.meeting_date) },
           {
@@ -79,7 +132,6 @@ export default async function MeetingDetailPage({
               ? `${meeting.start_time}${meeting.end_time ? ` — ${meeting.end_time}` : ""}`
               : "—",
           },
-          { label: "Location", value: meeting.location ?? "—" },
           {
             label: "Partner",
             value: partner ? (
@@ -88,191 +140,188 @@ export default async function MeetingDetailPage({
               </Link>
             ) : meeting.partner_name ?? "—",
           },
+          {
+            label: "Engagement",
+            value: engagement ? (
+              <Link href={`/engagements/${engagement.id}`} className="text-accent hover:underline">
+                {engagement.name}
+              </Link>
+            ) : "—",
+          },
         ]}
         actions={<MeetingActions meeting={meeting} />}
       />
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-4">
-          {/* Notes */}
-          {meeting.notes && (
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-                Notes
-              </h2>
-              <p className="text-sm text-foreground whitespace-pre-wrap">
-                {meeting.notes}
-              </p>
-            </div>
-          )}
+      {/* Full-width sections — no sidebar */}
+      <div className="space-y-6">
 
-          {/* Attendees */}
-          <div className="rounded-xl border border-border bg-surface p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-              Attendees
-            </h2>
-            {meeting.attendees.length === 0 ? (
-              <p className="text-sm text-muted">No attendees listed</p>
+        {/* Location — compact, URL-aware */}
+        {meeting.location && (
+          <div className="rounded-xl border border-border bg-surface px-5 py-3 flex items-center gap-3">
+            <span className="text-xs font-medium uppercase tracking-wider text-muted shrink-0">
+              Location
+            </span>
+            {isUrl(meeting.location) ? (
+              <a
+                href={meeting.location}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-accent/15 px-3 py-1 text-sm font-medium text-accent hover:bg-accent/25 transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M6 8h4M8 6v4" />
+                  <rect x="2" y="2" width="12" height="12" rx="3" />
+                </svg>
+                {meeting.location.includes("zoom") ? "Join Zoom Meeting" : "Join Meeting"}
+              </a>
             ) : (
-              <div className="space-y-2">
-                {meeting.attendees.map((a, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-3 rounded-lg border border-border bg-background p-3"
-                  >
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent/10 text-xs font-bold text-accent">
-                      {(a.name ?? a.email).charAt(0).toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      {a.name && (
-                        <p className="text-sm font-medium text-foreground">{a.name}</p>
-                      )}
-                      <p className="text-xs text-muted break-all">{a.email}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <span className="text-sm text-foreground">{meeting.location}</span>
             )}
           </div>
+        )}
 
-          {/* Linked AWS Relationships */}
-          {awsRelationships.length > 0 && (
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-                AWS Relationships
-              </h2>
-              <div className="space-y-2">
-                {awsRelationships.map((rel) => (
-                  <Link
-                    key={rel.id}
-                    href={`/relationships/${rel.id}`}
-                    className="block rounded-lg border border-border bg-background p-3 transition-colors hover:border-accent/40"
-                  >
-                    <span className="text-sm font-medium text-foreground">
-                      {rel.name}
-                    </span>
-                  </Link>
-                ))}
-              </div>
+        {/* Notes */}
+        {meeting.notes && (
+          <div className="rounded-xl border border-border bg-surface p-4">
+            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted">
+              Notes
+            </h2>
+            <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+              {meeting.notes}
+            </p>
+          </div>
+        )}
+
+        {/* Attendees — grouped by organization */}
+        <div className="rounded-xl border border-border bg-surface p-4">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
+            Attendees{totalAttendees > 0 && ` (${totalAttendees})`}
+          </h2>
+          {totalAttendees === 0 ? (
+            <p className="text-sm text-muted">No attendees listed</p>
+          ) : (
+            <div className="space-y-4">
+              {attendeeGroups.map((group) => (
+                <div key={group.label}>
+                  <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted">
+                    {group.label}{" "}
+                    <span className="text-muted/60">({group.attendees.length})</span>
+                  </h3>
+                  <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
+                    {group.attendees.map((a, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm"
+                      >
+                        <span className="text-foreground font-medium truncate">
+                          {a.name ?? a.email.split("@")[0]}
+                        </span>
+                        {a.name && (
+                          <span className="text-xs text-muted truncate">
+                            {a.email}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
 
-        {/* Sidebar: metadata */}
-        <div className="space-y-4">
+        {/* AWS Relationships */}
+        {awsRelationships.length > 0 && (
           <div className="rounded-xl border border-border bg-surface p-4">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-              Details
+              AWS Relationships
             </h2>
-            <dl className="space-y-3 text-sm">
-              {meeting.meeting_type && (
-                <div>
-                  <dt className="text-muted">Type</dt>
-                  <dd className="text-foreground">{meeting.meeting_type}</dd>
-                </div>
-              )}
+            <div className="space-y-2">
+              {awsRelationships.map((rel) => (
+                <Link
+                  key={rel.id}
+                  href={`/relationships/${rel.id}`}
+                  className="block rounded-lg border border-border bg-background p-3 transition-colors hover:border-accent/40"
+                >
+                  <span className="text-sm font-medium text-foreground">
+                    {rel.name}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Linked Context — compact two-column layout replacing old sidebar */}
+        <div className="rounded-xl border border-border bg-surface p-4">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
+            Details
+          </h2>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3 lg:grid-cols-4">
+            {meeting.meeting_type && (
               <div>
-                <dt className="text-muted">Date</dt>
-                <dd className="text-foreground">{formatDate(meeting.meeting_date)}</dd>
+                <dt className="text-xs font-medium uppercase tracking-wider text-muted">Type</dt>
+                <dd className="mt-0.5 text-foreground">{meeting.meeting_type}</dd>
               </div>
-              {meeting.start_time && (
-                <div>
-                  <dt className="text-muted">Time</dt>
-                  <dd className="text-foreground">
-                    {meeting.start_time}
-                    {meeting.end_time && ` — ${meeting.end_time}`}
-                  </dd>
-                </div>
-              )}
-              {meeting.location && (
-                <div>
-                  <dt className="text-muted">Location</dt>
-                  <dd className="text-foreground">{meeting.location}</dd>
-                </div>
-              )}
+            )}
+            {engagement && (
               <div>
-                <dt className="text-muted">Status</dt>
-                <dd><MeetingStatusBadge status={meeting.status} /></dd>
-              </div>
-              {engagement && (
-                <div>
-                  <dt className="text-muted">Engagement</dt>
-                  <dd>
-                    <Link
-                      href={`/engagements/${engagement.id}`}
-                      className="text-accent hover:underline"
-                    >
-                      {engagement.name}
-                    </Link>
-                  </dd>
-                </div>
-              )}
-              {event && (
-                <div>
-                  <dt className="text-muted">Event</dt>
-                  <dd>
-                    <Link
-                      href={`/events/${event.id}`}
-                      className="text-accent hover:underline"
-                    >
-                      {event.name}
-                    </Link>
-                  </dd>
-                </div>
-              )}
-              {program && (
-                <div>
-                  <dt className="text-muted">Program</dt>
-                  <dd>
-                    <Link
-                      href={`/programs/${program.id}`}
-                      className="text-accent hover:underline"
-                    >
-                      {program.name}
-                    </Link>
-                  </dd>
-                </div>
-              )}
-              {(partner || meeting.partner_name) && (
-                <div>
-                  <dt className="text-muted">Partner</dt>
-                  <dd>
-                    {partner ? (
-                      <Link
-                        href={`/partners/${partner.id}`}
-                        className="text-accent hover:underline"
-                      >
-                        {partner.name}
-                      </Link>
-                    ) : (
-                      <span className="text-foreground">{meeting.partner_name}</span>
-                    )}
-                  </dd>
-                </div>
-              )}
-              {meeting.organizer_email && (
-                <div>
-                  <dt className="text-muted">Organizer</dt>
-                  <dd className="text-foreground break-all">{meeting.organizer_email}</dd>
-                </div>
-              )}
-              <div>
-                <dt className="text-muted">Source</dt>
-                <dd className="text-foreground capitalize">{meeting.source.replace("_", " ")}</dd>
-              </div>
-              <div>
-                <dt className="text-muted">Created</dt>
-                <dd className="text-foreground">
-                  {new Date(meeting.created_at).toLocaleDateString()}
+                <dt className="text-xs font-medium uppercase tracking-wider text-muted">Engagement</dt>
+                <dd className="mt-0.5">
+                  <Link href={`/engagements/${engagement.id}`} className="text-accent hover:underline">
+                    {engagement.name}
+                  </Link>
                 </dd>
               </div>
+            )}
+            {event && (
               <div>
-                <dt className="text-muted">Last Updated</dt>
-                <dd className="text-foreground">
-                  {new Date(meeting.updated_at).toLocaleDateString()}
+                <dt className="text-xs font-medium uppercase tracking-wider text-muted">Event</dt>
+                <dd className="mt-0.5">
+                  <Link href={`/events/${event.id}`} className="text-accent hover:underline">
+                    {event.name}
+                  </Link>
                 </dd>
               </div>
-            </dl>
+            )}
+            {program && (
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wider text-muted">Program</dt>
+                <dd className="mt-0.5">
+                  <Link href={`/programs/${program.id}`} className="text-accent hover:underline">
+                    {program.name}
+                  </Link>
+                </dd>
+              </div>
+            )}
+            {(partner || meeting.partner_name) && (
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wider text-muted">Partner</dt>
+                <dd className="mt-0.5">
+                  {partner ? (
+                    <Link href={`/partners/${partner.id}`} className="text-accent hover:underline">
+                      {partner.name}
+                    </Link>
+                  ) : (
+                    <span className="text-foreground">{meeting.partner_name}</span>
+                  )}
+                </dd>
+              </div>
+            )}
+            {meeting.organizer_email && (
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wider text-muted">Organizer</dt>
+                <dd className="mt-0.5 text-foreground break-all">{meeting.organizer_email}</dd>
+              </div>
+            )}
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wider text-muted">Source</dt>
+              <dd className="mt-0.5 text-foreground capitalize">{meeting.source.replace("_", " ")}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wider text-muted">Created</dt>
+              <dd className="mt-0.5 text-foreground">{new Date(meeting.created_at).toLocaleDateString()}</dd>
+            </div>
           </div>
         </div>
       </div>
