@@ -158,25 +158,7 @@ Every list page follows this structure:
 
 ## Detail Page Pattern
 
-Detail pages use one of two layouts based on content needs:
-
-### Two-column layout (with sidebar)
-Use when the entity has participants, metadata cards, or reference info that benefits from a persistent sidebar.
-Examples: Engagement detail (participants + metadata sidebar).
-
-```tsx
-<div className="p-6 lg:p-8">
-  <DetailHeader ... />
-  <div className="grid gap-6 lg:grid-cols-3">
-    <div className="space-y-6 lg:col-span-2">{/* Main content */}</div>
-    <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">{/* Sidebar */}</div>
-  </div>
-</div>
-```
-
-### Full-width layout (no sidebar)
-Use when the sidebar would duplicate header metadata or bury important content. Sections stack vertically with `space-y-6`.
-Examples: Partner detail (AWS Context promoted, no sidebar duplication).
+All detail pages use a full-width layout (no sidebar). Metadata that would duplicate header fields is eliminated; remaining dates/source info goes in a compact footer.
 
 ```tsx
 <div className="p-6 lg:p-8">
@@ -189,12 +171,41 @@ Examples: Partner detail (AWS Context promoted, no sidebar duplication).
 
 **Content section card:**
 ```tsx
-<div className="rounded-xl border border-border bg-surface p-5">
+<div className="rounded-xl border border-border bg-surface p-4">
   <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
     Section Title
   </h2>
   {/* Section content */}
 </div>
+```
+
+### Two-column context card
+Use when two related text blocks (e.g., Description + Requirements, What They Do + AWS Context) should sit side-by-side on desktop and stack on mobile.
+
+```tsx
+<div className="rounded-xl border border-border bg-surface p-5">
+  <div className="grid gap-6 lg:grid-cols-2">
+    <div>
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted mb-1.5">Left Label</h3>
+      <p className="text-sm text-foreground leading-relaxed">{leftContent}</p>
+    </div>
+    <div>
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted mb-1.5">Right Label</h3>
+      <p className="text-sm text-foreground leading-relaxed">{rightContent}</p>
+    </div>
+  </div>
+</div>
+```
+
+If only one column has content, omit the grid class to render full-width.
+
+### Compact footer
+Use for metadata that doesn't merit a card (Created date, Source, Verified status). Placed after all content sections.
+
+```tsx
+<p className="mt-6 text-xs text-muted">
+  Created {date} · Last Updated {date}
+</p>
 ```
 
 ## Badge Components

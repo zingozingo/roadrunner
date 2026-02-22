@@ -1575,6 +1575,29 @@ export async function getAwsRelationshipsByMeeting(meetingId: string): Promise<A
   return (data ?? []) as AwsRelationship[];
 }
 
+export async function getAwsRelationshipsByEngagement(engagementId: string): Promise<AwsRelationship[]> {
+  const db = getSupabaseClient();
+
+  const { data: junctionRows, error: junctionErr } = await db
+    .from("engagement_aws_relationships")
+    .select("aws_relationship_id")
+    .eq("engagement_id", engagementId);
+
+  if (junctionErr) throw new Error(`Failed to fetch engagement relationships: ${junctionErr.message}`);
+
+  const ids = (junctionRows ?? []).map((r: { aws_relationship_id: string }) => r.aws_relationship_id);
+  if (ids.length === 0) return [];
+
+  const { data, error } = await db
+    .from("aws_relationships")
+    .select("*")
+    .in("id", ids)
+    .order("name", { ascending: true });
+
+  if (error) throw new Error(`Failed to fetch relationships: ${error.message}`);
+  return (data ?? []) as AwsRelationship[];
+}
+
 export async function getMeetingsByEngagement(engagementId: string): Promise<Meeting[]> {
   const { data, error } = await getSupabaseClient()
     .from("meetings")

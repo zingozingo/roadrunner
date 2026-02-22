@@ -3,8 +3,10 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import DetailHeader from "@/components/shared/DetailHeader";
-import { RelationshipTypeBadge, MeetingStatusBadge } from "@/components/shared/TypeBadge";
 import StatusBadge from "@/components/shared/StatusBadge";
+import CompactRow from "@/components/shared/CompactRow";
+import { RelationshipTypeBadge } from "@/components/shared/TypeBadge";
+import MeetingTimeline from "@/components/shared/MeetingTimeline";
 import RelationshipActions from "@/components/actions/RelationshipActions";
 import {
   getAwsRelationship,
@@ -27,6 +29,12 @@ export default async function RelationshipDetailPage({
     getMeetingsByAwsRelationship(id),
   ]);
 
+  // Build engagement name map for MeetingTimeline
+  const engagementNames = new Map<string, string>();
+  for (const eng of linkedEngagements) {
+    engagementNames.set(eng.id, eng.name);
+  }
+
   return (
     <div className="p-6 lg:p-8">
       <Link
@@ -47,145 +55,74 @@ export default async function RelationshipDetailPage({
           { label: "AWS Org", value: relationship.aws_org ?? "—" },
           { label: "AWS Service", value: relationship.aws_service ?? "—" },
           { label: "Primary Contact", value: relationship.primary_contact_name ?? "—" },
-          { label: "Contact Email", value: relationship.primary_contact_email ?? "—" },
+          {
+            label: "Contact Email",
+            value: relationship.primary_contact_email ?? "—",
+          },
+          ...(relationship.aws_contact_emails.length > 0
+            ? [{
+                label: "AWS Contacts",
+                value: relationship.aws_contact_emails.join(", "),
+              }]
+            : []),
         ]}
         actions={<RelationshipActions relationship={relationship} />}
       />
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-4">
-          {/* Notes */}
-          {relationship.notes && (
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-                Notes
-              </h2>
-              <p className="text-sm text-foreground whitespace-pre-wrap">
-                {relationship.notes}
-              </p>
-            </div>
-          )}
+      {/* Full-width sections — no sidebar */}
+      <div className="space-y-6">
 
-          {/* Linked Engagements */}
+        {/* Linked Engagements */}
+        {linkedEngagements.length > 0 && (
           <div className="rounded-xl border border-border bg-surface p-4">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
               Linked Engagements
             </h2>
-            {linkedEngagements.length === 0 ? (
-              <p className="text-sm text-muted">No engagements linked yet</p>
-            ) : (
-              <div className="space-y-2">
-                {linkedEngagements.map((eng) => (
-                  <Link
-                    key={eng.id}
-                    href={`/engagements/${eng.id}`}
-                    className="block rounded-lg border border-border bg-background p-3 transition-colors hover:border-accent/40"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm text-foreground">
-                        {eng.name}
-                      </span>
+            <div className="space-y-2">
+              {linkedEngagements.map((eng) => (
+                <CompactRow
+                  key={eng.id}
+                  href={`/engagements/${eng.id}`}
+                  primary={eng.name}
+                  badges={
+                    <>
                       <StatusBadge status={eng.status} />
-                    </div>
-                    {eng.partner_name && (
-                      <p className="mt-0.5 text-xs text-muted">
-                        {eng.partner_name}
-                      </p>
-                    )}
-                  </Link>
-                ))}
-              </div>
-            )}
+                      {eng.pillar && (
+                        <span className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap">
+                          {eng.pillar}
+                        </span>
+                      )}
+                      {eng.priority && (
+                        <span className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap">
+                          {eng.priority}
+                        </span>
+                      )}
+                    </>
+                  }
+                  secondary={eng.current_state ?? undefined}
+                />
+              ))}
+            </div>
           </div>
+        )}
 
-          {/* Linked Meetings */}
+        {/* Linked Meetings */}
+        {linkedMeetings.length > 0 && (
           <div className="rounded-xl border border-border bg-surface p-4">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
               Linked Meetings
             </h2>
-            {linkedMeetings.length === 0 ? (
-              <p className="text-sm text-muted">No linked meetings yet</p>
-            ) : (
-              <div className="space-y-2">
-                {linkedMeetings.map((mtg) => (
-                  <Link
-                    key={mtg.id}
-                    href={`/meetings/${mtg.id}`}
-                    className="block rounded-lg border border-border bg-background p-3 transition-colors hover:border-accent/40"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm text-foreground">
-                        {mtg.title}
-                      </span>
-                      <MeetingStatusBadge status={mtg.status} />
-                    </div>
-                    <div className="mt-0.5 flex items-center gap-2 text-xs text-muted">
-                      {mtg.meeting_date && (
-                        <span>{new Date(mtg.meeting_date + "T00:00:00").toLocaleDateString()}</span>
-                      )}
-                      {mtg.partner_name && <span>{mtg.partner_name}</span>}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
+            <MeetingTimeline
+              meetings={linkedMeetings}
+              engagementNames={engagementNames}
+            />
           </div>
-        </div>
+        )}
 
-        {/* Sidebar: metadata */}
-        <div className="space-y-4">
-          <div className="rounded-xl border border-border bg-surface p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-              Details
-            </h2>
-            <dl className="space-y-3 text-sm">
-              {relationship.relationship_type && (
-                <div>
-                  <dt className="text-muted">Type</dt>
-                  <dd className="text-foreground">{relationship.relationship_type}</dd>
-                </div>
-              )}
-              {relationship.aws_org && (
-                <div>
-                  <dt className="text-muted">AWS Org</dt>
-                  <dd className="text-foreground">{relationship.aws_org}</dd>
-                </div>
-              )}
-              {relationship.aws_service && (
-                <div>
-                  <dt className="text-muted">AWS Service</dt>
-                  <dd className="text-foreground">{relationship.aws_service}</dd>
-                </div>
-              )}
-              {relationship.primary_contact_name && (
-                <div>
-                  <dt className="text-muted">Primary Contact</dt>
-                  <dd className="text-foreground">{relationship.primary_contact_name}</dd>
-                </div>
-              )}
-              {relationship.primary_contact_email && (
-                <div>
-                  <dt className="text-muted">Contact Email</dt>
-                  <dd className="text-foreground break-all">{relationship.primary_contact_email}</dd>
-                </div>
-              )}
-              {relationship.aws_contact_emails.length > 0 && (
-                <div>
-                  <dt className="text-muted">AWS Contacts</dt>
-                  <dd className="text-foreground break-all">
-                    {relationship.aws_contact_emails.join(", ")}
-                  </dd>
-                </div>
-              )}
-              <div>
-                <dt className="text-muted">Created</dt>
-                <dd className="text-foreground">
-                  {new Date(relationship.created_at).toLocaleDateString()}
-                </dd>
-              </div>
-            </dl>
-          </div>
-        </div>
+        {/* Compact footer */}
+        <p className="mt-6 text-xs text-muted">
+          Created {new Date(relationship.created_at).toLocaleDateString()}
+        </p>
       </div>
     </div>
   );

@@ -252,74 +252,22 @@ export default async function MeetingDetailPage({
           </div>
         )}
 
-        {/* Linked Context — compact two-column layout replacing old sidebar */}
-        <div className="rounded-xl border border-border bg-surface p-4">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-            Details
-          </h2>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3 lg:grid-cols-4">
-            {meeting.meeting_type && (
-              <div>
-                <dt className="text-xs font-medium uppercase tracking-wider text-muted">Type</dt>
-                <dd className="mt-0.5 text-foreground">{meeting.meeting_type}</dd>
-              </div>
-            )}
-            {engagement && (
-              <div>
-                <dt className="text-xs font-medium uppercase tracking-wider text-muted">Engagement</dt>
-                <dd className="mt-0.5">
-                  <Link href={`/engagements/${engagement.id}`} className="text-accent hover:underline">
-                    {engagement.name}
-                  </Link>
-                </dd>
-              </div>
-            )}
-            {event && (
-              <div>
-                <dt className="text-xs font-medium uppercase tracking-wider text-muted">Event</dt>
-                <dd className="mt-0.5">
-                  <Link href={`/events/${event.id}`} className="text-accent hover:underline">
-                    {event.name}
-                  </Link>
-                </dd>
-              </div>
-            )}
-            {program && (
-              <div>
-                <dt className="text-xs font-medium uppercase tracking-wider text-muted">Program</dt>
-                <dd className="mt-0.5">
-                  <Link href={`/programs/${program.id}`} className="text-accent hover:underline">
-                    {program.name}
-                  </Link>
-                </dd>
-              </div>
-            )}
-            {(partner || meeting.partner_name) && (
-              <div>
-                <dt className="text-xs font-medium uppercase tracking-wider text-muted">Partner</dt>
-                <dd className="mt-0.5">
-                  {partner ? (
-                    <Link href={`/partners/${partner.id}`} className="text-accent hover:underline">
-                      {partner.name}
-                    </Link>
-                  ) : (
-                    <span className="text-foreground">{meeting.partner_name}</span>
-                  )}
-                </dd>
-              </div>
-            )}
-            {meeting.organizer_email && (
-              <div>
-                <dt className="text-xs font-medium uppercase tracking-wider text-muted">Organizer</dt>
-                <dd className="mt-0.5 text-foreground break-all">{meeting.organizer_email}</dd>
-              </div>
-            )}
-            <div>
-              <dt className="text-xs font-medium uppercase tracking-wider text-muted">Created</dt>
-              <dd className="mt-0.5 text-foreground">{new Date(meeting.created_at).toLocaleDateString()}</dd>
-            </div>
-          </div>
-        </div>
+        {/* Compact footer */}
+        <p className="mt-6 text-xs text-muted">
+          {meeting.meeting_type && <>{meeting.meeting_type} · </>}
+          {meeting.organizer_email && <>Organizer: {meeting.organizer_email} · </>}
+          {event && (
+            <>
+              Event: <Link href={`/events/${event.id}`} className="text-accent hover:underline">{event.name}</Link> ·{" "}
+            </>
+          )}
+          {program && (
+            <>
+              Program: <Link href={`/programs/${program.id}`} className="text-accent hover:underline">{program.name}</Link> ·{" "}
+            </>
+          )}
+          Created {new Date(meeting.created_at).toLocaleDateString()}
+        </p>
       </div>
     </div>
   );
