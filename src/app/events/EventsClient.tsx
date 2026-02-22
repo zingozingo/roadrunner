@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
 import StatusBadge from "@/components/shared/StatusBadge";
 import FilterBar from "@/components/layout/FilterBar";
-import { EventTypeBadge } from "@/components/shared/TypeBadge";
 import SyncButton from "@/components/shared/SyncButton";
-import CompactRow from "@/components/shared/CompactRow";
 import { Event } from "@/lib/types";
+import { extractCity, formatCompactDateRange } from "@/lib/format-utils";
 
 type EventWithCount = Event & { linked_count: number };
 
@@ -23,21 +23,17 @@ const TYPE_FILTER_OPTIONS = [
   { label: "Review Cycle", value: "review_cycle" },
 ];
 
-function formatDateRange(start: string | null, end: string | null): string {
-  if (!start) return "Date TBD";
-  const s = new Date(start + "T00:00:00").toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-  if (!end) return s;
-  const e = new Date(end + "T00:00:00").toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-  return s === e ? s : `${s} — ${e}`;
-}
+/** CSS border color mapped to event type CSS variables */
+const typeBorderColor: Record<Event["type"], string> = {
+  conference: "border-l-[var(--event-conference)]",
+  summit: "border-l-[var(--event-summit)]",
+  workshop: "border-l-[var(--event-workshop)]",
+  kickoff: "border-l-[var(--event-kickoff)]",
+  trade_show: "border-l-[var(--event-trade-show)]",
+  deadline: "border-l-[var(--event-deadline)]",
+  review_cycle: "border-l-[var(--event-review-cycle)]",
+  training: "border-l-[var(--event-training)]",
+};
 
 function getYear(dateStr: string): number {
   return new Date(dateStr + "T00:00:00").getFullYear();
@@ -251,30 +247,32 @@ export default function EventsClient({ events }: { events: EventWithCount[] }) {
                             {group.label}
                           </h3>
                         )}
-                        <div className="space-y-2">
-                          {group.events.map((event) => (
-                            <CompactRow
-                              key={event.id}
-                              href={`/events/${event.id}`}
-                              primary={event.name}
-                              badges={
-                                <>
-                                  <EventTypeBadge type={event.type} />
-                                  {!event.verified && <StatusBadge status="unverified" />}
-                                </>
-                              }
-                              secondary={
-                                [formatDateRange(event.start_date, event.end_date), event.location]
-                                  .filter(Boolean)
-                                  .join(" · ") || undefined
-                              }
-                              meta={
-                                event.linked_count > 0 ? (
-                                  <span>{event.linked_count} link{event.linked_count !== 1 ? "s" : ""}</span>
-                                ) : undefined
-                              }
-                            />
-                          ))}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                          {group.events.map((event) => {
+                            const city = extractCity(event.location);
+                            const dateRange = formatCompactDateRange(event.start_date, event.end_date);
+                            const borderClass = typeBorderColor[event.type] ?? "border-l-border";
+
+                            return (
+                              <Link
+                                key={event.id}
+                                href={`/events/${event.id}`}
+                                className={`block rounded-lg border border-border border-l-2 ${borderClass} bg-surface px-3 py-2 transition-colors hover:border-accent/40 hover:bg-surface-hover`}
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                                    {event.name}
+                                  </span>
+                                  {!event.verified && (
+                                    <StatusBadge status="unverified" />
+                                  )}
+                                </div>
+                                <p className="mt-0.5 text-xs text-muted truncate">
+                                  {[dateRange, city].filter(Boolean).join(" · ")}
+                                </p>
+                              </Link>
+                            );
+                          })}
                         </div>
                       </div>
                     ))}

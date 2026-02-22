@@ -107,6 +107,18 @@ export default function Timeline({
       {messages.map((msg) => {
         const meeting = meetingsByMessageId?.[msg.id];
 
+        // Skip meeting_invite messages when the meeting card is already
+        // showing via a different message_id (avoids showing both the
+        // styled meeting card AND the raw invite text)
+        if (
+          msg.content_type === "meeting_invite" &&
+          !meeting &&
+          meetingsByMessageId &&
+          Object.keys(meetingsByMessageId).length > 0
+        ) {
+          return null;
+        }
+
         return (
           <div key={msg.id} className="relative flex gap-4 py-3">
             {/* Dot — accent for meetings, standard for emails */}
