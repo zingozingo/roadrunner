@@ -1,8 +1,8 @@
 export const dynamic = "force-dynamic";
 
+import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
-import CompactRow from "@/components/shared/CompactRow";
 import StatusBadge from "@/components/shared/StatusBadge";
 import SyncButton from "@/components/shared/SyncButton";
 import CreateEngagementForm from "@/components/engagement/CreateEngagementForm";
@@ -60,22 +60,28 @@ export default async function EngagementsPage() {
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
                 {status} ({items.length})
               </h2>
-              <div className="space-y-2">
+              <div>
                 {items.map((eng) => (
-                  <CompactRow
+                  <Link
                     key={eng.id}
                     href={`/engagements/${eng.id}`}
-                    primary={eng.name}
-                    secondary={eng.partner_name ?? undefined}
-                    meta={
-                      <div className="flex flex-col items-end gap-1">
-                        <StatusBadge status={eng.status} />
-                        <span className="text-xs text-muted">
-                          {eng.message_count} msg{eng.message_count !== 1 ? "s" : ""} · {new Date(eng.updated_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                    }
-                  />
+                    className="flex items-center px-4 py-2.5 border-b border-border/50 transition-colors duration-150 hover:bg-surface gap-3"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                      {eng.name}
+                    </span>
+                    {eng.partner_name && (
+                      <span className="shrink-0 text-xs text-muted hidden sm:block">
+                        {eng.partner_name}
+                      </span>
+                    )}
+                    <span className="shrink-0 text-xs text-muted hidden sm:block">
+                      {eng.message_count} msg{eng.message_count !== 1 ? "s" : ""} · {new Date(eng.updated_at).toLocaleDateString()}
+                    </span>
+                    <span className="shrink-0">
+                      <StatusBadge status={eng.status} />
+                    </span>
+                  </Link>
                 ))}
               </div>
             </section>

@@ -10,7 +10,7 @@ interface ExpandableListProps {
 
 /**
  * Shows first N children, with a "Show all X →" button if more exist.
- * Used on detail pages to prevent walls of CompactRows.
+ * Used on detail pages to prevent long lists of items.
  */
 export default function ExpandableList({
   children,

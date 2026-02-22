@@ -1,6 +1,6 @@
 ---
 name: roadrunner-ui
-description: UI design system and component patterns for Roadrunner (Relay), an AWS partner engagement management app. Use when building, modifying, or extending any Roadrunner UI — list pages, detail pages, filters, sidebar, or shared components. Also use when adding new entity types, fixing layout issues, or ensuring visual consistency across pages. Trigger on any mention of Roadrunner UI, Relay UI, list pages, detail pages, CompactRow, DetailHeader, FilterBar, PillGrid, TableList, CalendarCard, or entity-specific page work.
+description: UI design system and component patterns for Roadrunner (Relay), an AWS partner engagement management app. Use when building, modifying, or extending any Roadrunner UI — list pages, detail pages, filters, sidebar, or shared components. Also use when adding new entity types, fixing layout issues, or ensuring visual consistency across pages. Trigger on any mention of Roadrunner UI, Relay UI, list pages, detail pages, DetailHeader, FilterBar, PillGrid, TableList, CalendarCard, or entity-specific page work.
 ---
 
 # Roadrunner UI Design System
@@ -23,7 +23,7 @@ Roadrunner has two page types, each with a standardized pattern:
 
 | Entity | List Groups By | Filter Dimension | Primary Field | Visual Treatment |
 |---|---|---|---|---|
-| Engagements | status | status | name | CompactRow |
+| Engagements | status | status | name | Inline table rows |
 | Partners | segment | segment | name | TableList |
 | Programs | type | type (8 categories) | name | PillGrid |
 | Events | time (Upcoming/Past/TBD) → year | type + year | name | CalendarCard |
@@ -66,23 +66,30 @@ Date-anchored cards with a compact date text line.
 
 **Visual:** Each card shows a compact date text line (e.g. "Mar 9–12") above the event name and location. Uses `formatCompactDateRange()` from format-utils.ts. Optional type color as a left border accent on the card.
 
-### CompactRow (`src/components/shared/CompactRow.tsx`)
+### Inline Table Rows (default pattern)
 
-Status-driven list item with badges and metadata slots.
+Clean flat rows with border-bottom separators. No card wrappers, no rounded borders per row.
 
-**When to use:** Engagements on list pages and linked engagement sections on detail pages. StatusBadge goes in the `meta` slot (right-aligned), not `badges`.
+**When to use:** The default treatment for all list items — engagements, meetings, dashboard sections, and linked entity sections on detail pages. Use unless the entity type has a specific component (PillGrid, TableList, CalendarCard).
 
-**Slot model — the visual frame is universal, content varies per entity:**
-- `primary` (string) — Entity name, always shown
-- `badges` (ReactNode) — Status/type badges inline with name
-- `secondary` (string) — Description or context, line-clamped
-- `meta` (ReactNode) — Right-aligned metadata (date, count, contact)
+**CSS pattern:**
+```tsx
+<Link
+  href={`/entity/${id}`}
+  className="flex items-center px-4 py-2.5 border-b border-border/50 transition-colors duration-150 hover:bg-surface gap-3"
+>
+  <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{name}</span>
+  <span className="shrink-0 text-xs text-muted">{metadata}</span>
+  <span className="shrink-0"><StatusBadge status={status} /></span>
+</Link>
+```
 
 **Design rules:**
-- `py-3 px-4` — tighter than cards for higher scan density
-- `line-clamp-1` default on secondary (use `secondaryLineClamp={2}` sparingly)
-- Detail belongs on detail pages, not list rows. When in doubt, leave it out of the row.
-- For the slot mappings per entity, read `references/entity-catalog.md`
+- Status/badges always right-aligned as last element
+- Name takes flex-1 (remaining space)
+- Metadata columns use `shrink-0` with consistent widths for alignment
+- `hover:bg-surface` (list pages) or `hover:bg-surface-hover` (inside section cards on detail pages)
+- Detail belongs on detail pages, not list rows
 
 ### MeetingTimeline (`src/components/shared/MeetingTimeline.tsx`)
 
@@ -189,8 +196,7 @@ Every list page follows this structure:
               <PillGrid items={...} />       {/* Programs */}
               <TableList items={...} />      {/* Partners, Relationships */}
               <CalendarCard items={...} />   {/* Events */}
-              <CompactRow ... />             {/* Engagements */}
-              {/* Meetings use inline table rows (not a shared component) */}
+              {/* Engagements + Meetings use inline table rows */}
             </section>
           ))}
         </div>
@@ -259,7 +265,7 @@ Use for metadata that doesn't merit a card (Created date, Source, Verified statu
 
 ## Badge Components
 
-Badges are used in both CompactRow and DetailHeader badge slots.
+Badges are used in DetailHeader badge slots and right-aligned in inline table rows.
 
 - `StatusBadge` — engagement/program status (planned/active/paused/completed)
 - `ProgramTypeBadge` — program type with color coding
@@ -281,7 +287,7 @@ Badges are used in both CompactRow and DetailHeader badge slots.
 3. **Earned placement** — Every file, component, and CSS variable must serve a clear purpose. No dead code.
 4. **Constrained intelligence** — Match to existing entities, don't fabricate. This applies to both AI classification and UI data display.
 5. **Measure twice, cut once** — Read existing code before modifying. Generate diagnostics before fixing.
-6. **Match visual treatment to entity type** — Catalogs get PillGrid. Portfolios get TableList. Temporal items get CalendarCard. Activity items get CompactRow. Meetings on detail pages get MeetingTimeline. Don't use one component for everything.
+6. **Match visual treatment to entity type** — Catalogs get PillGrid. Portfolios get TableList. Temporal items get CalendarCard. All other list items use inline table rows. Meetings on detail pages get MeetingTimeline.
 7. **No duplicate content** — A field should render in exactly one place. If it's in the header fields, don't repeat it in a sidebar. If it's in a body card, don't also put it in the subtitle slot.
 8. **Viewport budget** — Identity + context sections on detail pages should not exceed ~1/3 of viewport height. Merge related context into multi-column cards rather than stacking separate full-width sections. Activity content (meetings, engagements, relationships) should be visible without scrolling on a standard laptop screen.
 
@@ -289,7 +295,7 @@ Badges are used in both CompactRow and DetailHeader badge slots.
 
 For detailed information, read the appropriate reference file:
 
-- **`references/component-api.md`** — Full TypeScript interfaces for all shared components (CompactRow, DetailHeader, FilterBar, PillGrid, TableList, CalendarCard)
+- **`references/component-api.md`** — Full TypeScript interfaces for all shared components (DetailHeader, FilterBar, PillGrid, TableList, CalendarCard) and the inline table row CSS pattern
 - **`references/entity-catalog.md`** — Entity-to-component mappings and slot configurations for all 6 entity types
 - **`references/design-tokens.md`** — CSS custom properties, color palette, spacing conventions, typography
 

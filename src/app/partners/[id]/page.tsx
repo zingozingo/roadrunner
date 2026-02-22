@@ -4,7 +4,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import DetailHeader from "@/components/shared/DetailHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
-import CompactRow from "@/components/shared/CompactRow";
 import MeetingTimeline from "@/components/shared/MeetingTimeline";
 import ExpandableList from "@/components/shared/ExpandableList";
 import { getPartner, getSupabaseClient, getAwsRelationshipsByPartner } from "@/lib/supabase";
@@ -187,19 +186,22 @@ export default async function PartnerDetailPage({
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
               Engagements
             </h2>
-            <div className="space-y-2">
-              <ExpandableList label="engagements">
-                {linkedEngagements.map((eng) => (
-                  <CompactRow
-                    key={eng.id}
-                    href={`/engagements/${eng.id}`}
-                    primary={eng.name}
-                    secondary={eng.partner_name ?? undefined}
-                    meta={<StatusBadge status={eng.status} />}
-                  />
-                ))}
-              </ExpandableList>
-            </div>
+            <ExpandableList label="engagements">
+              {linkedEngagements.map((eng) => (
+                <Link
+                  key={eng.id}
+                  href={`/engagements/${eng.id}`}
+                  className="flex items-center px-2 py-2 border-b border-border/50 transition-colors duration-150 hover:bg-surface-hover gap-3"
+                >
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                    {eng.name}
+                  </span>
+                  <span className="shrink-0">
+                    <StatusBadge status={eng.status} />
+                  </span>
+                </Link>
+              ))}
+            </ExpandableList>
           </div>
         )}
 

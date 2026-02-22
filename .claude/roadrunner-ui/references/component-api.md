@@ -2,45 +2,58 @@
 
 Full TypeScript interfaces and usage patterns for Roadrunner's shared UI components.
 
-## CompactRow
+## Inline Table Rows (default list pattern)
 
-**File:** `src/components/shared/CompactRow.tsx`
-
-```typescript
-interface CompactRowProps {
-  href: string;                    // Link destination
-  primary: string;                 // Entity name (always shown)
-  badges?: ReactNode;              // Status/type badges (inline with name)
-  secondary?: string;              // Description line (line-clamped)
-  meta?: ReactNode;                // Right-aligned metadata
-  secondaryLineClamp?: 1 | 2;     // Default: 1
-}
-```
+Not a shared component — a documented CSS pattern used directly in pages. This is the default visual treatment for all list items (engagements, meetings, dashboard sections, linked entity sections on detail pages).
 
 **Visual structure:**
 ```
-┌──────────────────────────────────────────────────────────┐
-│ [primary] [badge1] [badge2]                    [meta]    │
-│ [secondary text, line-clamped]                           │
-└──────────────────────────────────────────────────────────┘
+  Name                          Partner        3 msgs · 2/22   [Active]
+  ──────────────────────────────────────────────────────────────────────
+  Name                          Partner        1 msg · 2/20    [Planned]
+  ──────────────────────────────────────────────────────────────────────
+```
+
+**CSS pattern:**
+```tsx
+<Link
+  href={`/entity/${id}`}
+  className="flex items-center px-4 py-2.5 border-b border-border/50 transition-colors duration-150 hover:bg-surface gap-3"
+>
+  <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+    {name}
+  </span>
+  <span className="shrink-0 text-xs text-muted">
+    {metadata}
+  </span>
+  <span className="shrink-0">
+    <StatusBadge status={status} />
+  </span>
+</Link>
 ```
 
 **Styling constants:**
-- Wrapper: `rounded-xl border border-border bg-surface px-4 py-3`
-- Hover: `hover:border-accent/40`
-- Primary: `font-medium text-foreground`
-- Secondary: `mt-0.5 text-sm text-muted line-clamp-{1|2}`
-- Meta: `shrink-0 text-xs text-muted text-right`
-- Gap between left/right: `gap-3`
+- Row: `flex items-center px-4 py-2.5 border-b border-border/50`
+- Hover: `hover:bg-surface` (list pages) or `hover:bg-surface-hover` (detail page sections)
+- Name: `min-w-0 flex-1 truncate text-sm font-medium text-foreground`
+- Metadata: `shrink-0 text-xs text-muted`
+- Status: `shrink-0` as last element (right-aligned)
+- Gap: `gap-3` between all elements
 
 **Usage rules:**
-- `primary` is always a string, never ReactNode. The name is always plain text.
-- `badges` should use existing badge components (StatusBadge, ProgramTypeBadge, etc.) or the inline badge pattern.
-- `secondary` is a string, not ReactNode. Build it by joining fragments: `[a, b, c].filter(Boolean).join(" · ")`
-- `meta` is ReactNode for flexibility — can be a simple span, a stacked div, or association chips.
-- When `meta` has multiple lines, use: `<div className="flex flex-col items-end gap-0.5">...</div>`
+- Status/badge is always the LAST element so all badges align vertically
+- Name takes `flex-1` to fill available space
+- Use `hidden sm:block` / `hidden md:block` for responsive column visibility
+- For fixed-width columns (like dates), use `w-16` or `w-24`
+- On detail page sections, use `px-2 py-2` for tighter spacing inside cards
 
-**When to use:** Engagements on list pages and linked engagement sections on detail pages. StatusBadge goes in `meta` slot (right-aligned), not `badges`.
+**When to use:** All list items except Programs (PillGrid), Partners/Relationships (TableList), and Events (CalendarCard).
+
+## CompactRow (DEPRECATED)
+
+**File:** `src/components/shared/CompactRow.tsx`
+
+No longer imported anywhere. Kept for reference only. All surfaces now use inline table rows, TableList, CalendarCard, or PillGrid.
 
 ---
 

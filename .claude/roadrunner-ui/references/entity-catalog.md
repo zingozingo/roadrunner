@@ -6,7 +6,7 @@ Field mappings for all 6 entity types in Roadrunner. Each entity maps its fields
 
 | Entity | List Page Component | On Other Detail Pages |
 |---|---|---|
-| Engagements | CompactRow (status in meta) | CompactRow with StatusBadge in meta slot, partner as secondary. No pillar/priority badges. |
+| Engagements | Inline table rows (Name · Partner · Msgs/Date · Status) | Inline table rows (Name · Partner · Status right-aligned) |
 | Partners | TableList | — (Partners aren't linked from other pages) |
 | Programs | PillGrid | — (Programs aren't linked from other pages) |
 | Events | CalendarCard | — (Events aren't linked from other pages) |
@@ -21,31 +21,37 @@ Field mappings for all 6 entity types in Roadrunner. Each entity maps its fields
 **List page:** `src/app/engagements/page.tsx` (server component)
 **Detail page:** `src/app/engagements/[id]/page.tsx` (server component — strongest reference)
 **Groups by:** status (planned → active → paused → completed → archived)
-**Visual treatment:** CompactRow (activity item with status and message count)
+**Visual treatment:** Inline table rows (activity item, status right-aligned)
 
-### CompactRow Mapping
+### Table Row Layout
 
-| Slot | Value |
-|---|---|
-| primary | `eng.name` |
-| badges | — (none; status moved to meta for right-alignment) |
-| secondary | `eng.partner_name` |
-| meta | StatusBadge + message count · date (stacked, right-aligned) |
+| Column | Value | Width | Responsive |
+|---|---|---|---|
+| 1 | Name | flex-1 | always |
+| 2 | Partner name | shrink-0 | hidden sm:block |
+| 3 | Message count · date | shrink-0 | hidden sm:block |
+| 4 | StatusBadge | shrink-0 | always |
 
 ```tsx
-<CompactRow
+<Link
   href={`/engagements/${eng.id}`}
-  primary={eng.name}
-  secondary={eng.partner_name ?? undefined}
-  meta={
-    <div className="flex flex-col items-end gap-1">
-      <StatusBadge status={eng.status} />
-      <span className="text-xs text-muted">
-        {eng.message_count} msg{eng.message_count !== 1 ? "s" : ""} · {new Date(eng.updated_at).toLocaleDateString()}
-      </span>
-    </div>
-  }
-/>
+  className="flex items-center px-4 py-2.5 border-b border-border/50 transition-colors duration-150 hover:bg-surface gap-3"
+>
+  <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+    {eng.name}
+  </span>
+  {eng.partner_name && (
+    <span className="shrink-0 text-xs text-muted hidden sm:block">
+      {eng.partner_name}
+    </span>
+  )}
+  <span className="shrink-0 text-xs text-muted hidden sm:block">
+    {eng.message_count} msgs · {date}
+  </span>
+  <span className="shrink-0">
+    <StatusBadge status={eng.status} />
+  </span>
+</Link>
 ```
 
 ### DetailHeader Mapping
@@ -76,9 +82,10 @@ Card visual treatment:
 - Compact enough to fit the thread rhythm — not 3x taller than a regular email entry
 
 ### Notes
-- Engagement list was previously a card grid (`sm:grid-cols-2 lg:grid-cols-3`), now uses `space-y-2` vertical list
-- EngagementCard.tsx exists but is no longer used by the list page — candidate for cleanup
-- Detail page is the strongest reference for two-column layout pattern
+- Engagement list uses clean flat table rows (border-b separator, no card wrappers)
+- CompactRow.tsx is deprecated — no longer imported anywhere
+- EngagementCard.tsx exists but is unused — candidate for cleanup
+- On detail pages, linked engagements use the same inline table row pattern with `px-2 py-2` and `hover:bg-surface-hover`
 
 ---
 
