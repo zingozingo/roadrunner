@@ -9,7 +9,7 @@ Roadrunner (also called Relay) is an AI-powered email classification and partner
 
 ## Architecture Overview
 
-**Stack:** Next.js 14 (App Router) + Tailwind CSS + Supabase + TypeScript
+**Stack:** Next.js 16 (App Router) + Tailwind CSS + Supabase + TypeScript
 **Theme:** Dark mode, indigo accent (#6366f1), defined via CSS custom properties in `globals.css`
 
 ### Page Types

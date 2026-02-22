@@ -196,3 +196,63 @@
 **Rationale:** URLs are actionable (you click them to join), addresses are informational (you read them). Different data types deserve different rendering.
 
 **Impact:** Meeting detail page and meeting-in-thread cards. Pattern applies anywhere location fields are displayed.
+
+---
+
+## ADR-014: Four Visual Treatments by Entity Type
+
+**Date:** 2026-02-22
+**Status:** Implemented
+
+**Decision:** Each entity type gets a specific visual treatment instead of one universal component. PillGrid for catalogs (Programs: 70+ items), TableList for portfolios (Partners, Relationships: structured comparable data), CalendarCard for temporal items (Events: date-forward), inline table rows for activity/temporal items (Engagements, Meetings).
+
+**Context:** CompactRow was being used for everything, creating visual monotony where all 7 entity types looked identical despite serving different purposes. Badge alignment was impossible because badges rendered inline after variable-length names.
+
+**Rationale:** Different information has different scanning patterns. You scan a catalog differently than a portfolio. Forcing one layout onto everything optimized for nothing. The "desk analogy": rolodex for partners, calendar for events, reference sheet for programs, case files for engagements.
+
+**Impact:** 3 new shared components (PillGrid, TableList, CalendarCard) + 1 documented CSS pattern (inline table rows). All list pages converted. All detail page linked sections updated. Design system documented in SKILL.md.
+
+---
+
+## ADR-015: CompactRow Deprecated — Inline Table Rows as Default
+
+**Date:** 2026-02-22
+**Status:** Implemented
+
+**Decision:** CompactRow (rounded-xl card wrapper per list item) is fully deprecated with zero imports remaining. The default list item treatment is now clean flat inline table rows with border-bottom separators. No card wrappers, no bg-surface per row.
+
+**Context:** CompactRow created heavy visual weight for items that didn't need it. The rounded card wrapper per row consumed vertical space and created inconsistency between pages that used CompactRow and pages that used lighter patterns.
+
+**Rationale:** The flat row pattern (used by TableList, meetings, dashboard) is universally cleaner, more scannable, and naturally aligns columns. Cards add visual weight that should be reserved for truly important items (inbox review cards).
+
+**Impact:** CompactRow.tsx marked deprecated. All pages use inline rows, PillGrid, CalendarCard, or TableList. Future development should never import CompactRow.
+
+---
+
+## ADR-016: Context-Aware Badge Display
+
+**Date:** 2026-02-22
+**Status:** Implemented
+
+**Decision:** Badges are removed from list views when surrounding context already conveys the same information. Type badges removed from items within type-grouped sections. Status badges moved to right-aligned position for consistent alignment.
+
+**Context:** Showing "[Security]" badge on every partner under the "SECURITY" group header is redundant. Inline badges after variable-length names caused misalignment across rows.
+
+**Rationale:** Information should appear exactly once in the user's visual field. Redundant badges add noise without information. Right-aligning status badges ensures they stack vertically for easy scanning.
+
+**Impact:** All list pages and detail page linked sections follow this rule. Documented as design principle.
+
+---
+
+## ADR-017: Data Formatting Utility Layer
+
+**Date:** 2026-02-22
+**Status:** Implemented
+
+**Decision:** Raw data from the database never renders directly in the UI. Three utility functions handle all display formatting: extractCity() for locations, formatCompactDateRange() for dates, cleanMeetingTitle() for meeting names.
+
+**Context:** Postal codes, venue names, FW: prefixes, and raw URLs were leaking through to the UI because data was rendered as-is from the database.
+
+**Rationale:** Centralizing formatting in utility functions ensures consistency and makes it easy to fix formatting bugs in one place. List pages vs detail pages can use different formatting levels (compact vs full).
+
+**Impact:** src/lib/format-utils.ts contains all formatters. Applied across all pages. Documented in SKILL.md "Data Formatting Utilities" and "Data Display Rules" sections.

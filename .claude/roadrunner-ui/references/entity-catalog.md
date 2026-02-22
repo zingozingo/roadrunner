@@ -145,7 +145,7 @@ The partner detail page uses a **full-width layout** (no sidebar). Sections top 
 1. **Partner Context** — Single card with two-column grid (`lg:grid-cols-2`). Left column: "What They Do" business description. Right column: "AWS Context" with stickiness narrative + Key AWS Services badges. Stacks vertically on mobile.
 2. **Contact Emails** — Compact inline display, only if present.
 3. **Meetings** — Uses `MeetingTimeline` (timeline treatment for temporal entities).
-4. **Engagements** — Uses `CompactRow` with StatusBadge in meta slot (right-aligned), partner as secondary. No pillar/priority badges.
+4. **Engagements** — Inline table rows with StatusBadge right-aligned. No partner name shown (redundant on partner page). No pillar/priority badges.
 5. **AWS Relationships** — Simple text links (name + primary contact), no cards or badges. Hover highlight via `hover:bg-surface-hover`.
 
 **Why merged context card:** Separate "What They Do" subtitle + AWS Context card consumed ~50% of viewport before activity content. Merging into a two-column card keeps identity+context under ~1/3 viewport (principle #8).
