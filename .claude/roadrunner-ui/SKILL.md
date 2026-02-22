@@ -1,6 +1,6 @@
 ---
 name: roadrunner-ui
-description: UI design system and component patterns for Roadrunner (Relay), an AWS partner engagement management app. Use when building, modifying, or extending any Roadrunner UI — list pages, detail pages, filters, sidebar, or shared components. Also use when adding new entity types, fixing layout issues, or ensuring visual consistency across pages. Trigger on any mention of Roadrunner UI, Relay UI, list pages, detail pages, CompactRow, DetailHeader, FilterBar, or entity-specific page work.
+description: UI design system and component patterns for Roadrunner (Relay), an AWS partner engagement management app. Use when building, modifying, or extending any Roadrunner UI — list pages, detail pages, filters, sidebar, or shared components. Also use when adding new entity types, fixing layout issues, or ensuring visual consistency across pages. Trigger on any mention of Roadrunner UI, Relay UI, list pages, detail pages, CompactRow, DetailHeader, FilterBar, PillGrid, TableList, CalendarCard, or entity-specific page work.
 ---
 
 # Roadrunner UI Design System
@@ -16,21 +16,86 @@ Roadrunner (also called Relay) is an AI-powered email classification and partner
 
 Roadrunner has two page types, each with a standardized pattern:
 
-1. **List pages** — Browse and filter entities. Uses `FilterBar` + `CompactRow` inside grouped sections.
-2. **Detail pages** — View a single entity. Uses `DetailHeader` + content sections + sticky sidebar.
+1. **List pages** — Browse and filter entities. Uses `FilterBar` + entity-appropriate visual treatment inside grouped sections.
+2. **Detail pages** — View a single entity. Uses `DetailHeader` + content sections.
 
 ### Entity Types (6)
 
-| Entity | List Groups By | Filter Dimension | Primary Field |
-|---|---|---|---|
-| Engagements | status | status | name |
-| Partners | segment | segment | name |
-| Programs | type | type (8 categories) | name |
-| Events | time (Upcoming/Past/TBD) → year | type + year | name |
-| Meetings | time (Upcoming/Past/TBD) | meeting_type | title |
-| Relationships | relationship_type | relationship_type | name |
+| Entity | List Groups By | Filter Dimension | Primary Field | Visual Treatment |
+|---|---|---|---|---|
+| Engagements | status | status | name | CompactRow |
+| Partners | segment | segment | name | TableList |
+| Programs | type | type (8 categories) | name | PillGrid |
+| Events | time (Upcoming/Past/TBD) → year | type + year | name | CalendarCard |
+| Meetings | time (Upcoming/Past/TBD) | meeting_type | title | CompactRow |
+| Relationships | relationship_type | relationship_type | name | TableList |
 
 Plus **Inbox** (classification queue) and **Dashboard** (stats overview) — these don't follow the list/detail pattern.
+
+## Visual Treatments by Entity Type
+
+Different entity types have different scan patterns. The visual treatment should match.
+
+### PillGrid (`src/components/shared/PillGrid.tsx`)
+
+Compact grid of same-height pill elements. Names only, no metadata noise.
+
+**When to use:** Catalog entities with 10+ same-type items where identity (name) is the primary scan dimension. Programs are the canonical use case.
+
+**API:** `items` (id, name, href, count?), `columns` (2|3|4, default 3)
+
+**Visual:** Responsive grid of fixed-height pills. Name on left, optional count on right. No badges, descriptions, or status indicators inside pills. Tight gap-1.5 spacing for density.
+
+### TableList (`src/components/shared/TableList.tsx`)
+
+Aligned rows with consistent columns. Clean data table without heavy table chrome.
+
+**When to use:** Portfolio entities where comparable metadata across rows matters. Partners and Relationships are the canonical use cases.
+
+**API:** `items` (id, href, columns[]), `headers?` (label, width?)
+
+**Visual:** Rows separated by subtle bottom borders (no card wrappers). Column values align across all rows. First column is always the entity name (font-medium), subsequent columns are muted metadata. Optional header row with uppercase labels.
+
+### CalendarCard (`src/components/shared/CalendarCard.tsx`)
+
+Date-anchored cards with a mini calendar date block.
+
+**When to use:** Temporal/event entities where date is the primary scan dimension. Events are the canonical use case.
+
+**API:** `items` (id, href, name, startDate, endDate?, location?, typeColor?), `columns` (1|2, default 2)
+
+**Visual:** Each card has a fixed-width date block on the left (month abbreviation + day number, like a calendar page). Multi-day events show day range. Optional type color as a left border on the date block. Name + location on the right.
+
+### CompactRow (`src/components/shared/CompactRow.tsx`)
+
+Status-driven list item with badges and metadata slots.
+
+**When to use:** Activity items with status, badges, and contextual metadata. Engagements are the canonical use case on list pages. Also used for engagement/relationship items in ExpandableList on detail pages.
+
+**Slot model — the visual frame is universal, content varies per entity:**
+- `primary` (string) — Entity name, always shown
+- `badges` (ReactNode) — Status/type badges inline with name
+- `secondary` (string) — Description or context, line-clamped
+- `meta` (ReactNode) — Right-aligned metadata (date, count, contact)
+
+**Design rules:**
+- `py-3 px-4` — tighter than cards for higher scan density
+- `line-clamp-1` default on secondary (use `secondaryLineClamp={2}` sparingly)
+- Detail belongs on detail pages, not list rows. When in doubt, leave it out of the row.
+- For the slot mappings per entity, read `references/entity-catalog.md`
+
+### MeetingTimeline (`src/components/shared/MeetingTimeline.tsx`)
+
+Vertical dot timeline for meetings shown as linked items on other entity detail pages.
+
+**When to use:** Any detail page that shows related meetings. Use instead of flat list — temporal entities deserve timeline treatment.
+
+**API:** `meetings` (Meeting[]), `engagementNames?` (Map<string, string>)
+
+**Behavior:**
+- Filters to upcoming + past 90 days
+- Upcoming: accent dot/date, full-brightness title. Past: muted.
+- Shows date, title, meeting_type badge, status badge, linked engagement name
 
 ## Shared Components
 
@@ -45,22 +110,6 @@ Single-select chip filter with integrated search.
 - Shows "X of Y items" count
 
 **When extending:** If a page needs a second filter dimension (like Events has type + year), add a separate chip row below FilterBar — don't modify FilterBar itself.
-
-### CompactRow (`src/components/shared/CompactRow.tsx`)
-
-Universal list item with four composition slots.
-
-**Slot model — the visual frame is universal, content varies per entity:**
-- `primary` (string) — Entity name, always shown
-- `badges` (ReactNode) — Status/type badges inline with name
-- `secondary` (string) — Description or context, line-clamped
-- `meta` (ReactNode) — Right-aligned metadata (date, count, contact)
-
-**Design rules:**
-- `py-3 px-4` — tighter than cards for higher scan density
-- `line-clamp-1` default on secondary (use `secondaryLineClamp={2}` sparingly)
-- Detail belongs on detail pages, not list rows. When in doubt, leave it out of the row.
-- For the slot mappings per entity, read `references/entity-catalog.md`
 
 ### DetailHeader (`src/components/shared/DetailHeader.tsx`)
 
@@ -136,12 +185,11 @@ Every list page follows this structure:
                   {group.items.length}
                 </span>
               </div>
-              {/* Rows */}
-              <div className="space-y-2">
-                {group.items.map((item) => (
-                  <CompactRow key={item.id} href={`/entity/${item.id}`} ... />
-                ))}
-              </div>
+              {/* Visual treatment — varies by entity type */}
+              <PillGrid items={...} />       {/* Programs */}
+              <TableList items={...} />      {/* Partners, Relationships */}
+              <CalendarCard items={...} />   {/* Events */}
+              <CompactRow ... />             {/* Engagements, Meetings */}
             </section>
           ))}
         </div>
@@ -232,37 +280,16 @@ Badges are used in both CompactRow and DetailHeader badge slots.
 3. **Earned placement** — Every file, component, and CSS variable must serve a clear purpose. No dead code.
 4. **Constrained intelligence** — Match to existing entities, don't fabricate. This applies to both AI classification and UI data display.
 5. **Measure twice, cut once** — Read existing code before modifying. Generate diagnostics before fixing.
-6. **Section visual weight by entity type** — Temporal entities (meetings) get timeline treatment. Workstreams (engagements) get status-driven lists with CompactRow. Structural/reference entities (relationships, programs) get compact lists with minimal visual weight. Strategic content (AWS Context) gets accent-bordered prominent cards.
+6. **Match visual treatment to entity type** — Catalogs get PillGrid. Portfolios get TableList. Temporal items get CalendarCard. Activity items get CompactRow. Meetings on detail pages get MeetingTimeline. Don't use one component for everything.
 7. **No duplicate content** — A field should render in exactly one place. If it's in the header fields, don't repeat it in a sidebar. If it's in a body card, don't also put it in the subtitle slot.
 8. **Viewport budget** — Identity + context sections on detail pages should not exceed ~1/3 of viewport height. Merge related context into multi-column cards rather than stacking separate full-width sections. Activity content (meetings, engagements, relationships) should be visible without scrolling on a standard laptop screen.
-
-## MeetingTimeline Component
-
-**Location:** `src/components/shared/MeetingTimeline.tsx`
-
-Reusable vertical timeline for displaying meetings on non-meeting detail pages (partner, engagement, event, program pages).
-
-**Props:**
-- `meetings: Meeting[]` — full meeting array; component handles filtering and sorting internally
-- `engagementNames?: Map<string, string>` — optional map of engagement_id → name for inline display
-
-**Behavior:**
-- Filters to upcoming meetings + past meetings within 90 days (older meetings are hidden)
-- Upcoming sorted soonest-first, past sorted most-recent-first
-- Upcoming meetings: accent-colored dot and date, full-brightness title
-- Past meetings: muted dot, muted title
-- Shows date (prominent), title, meeting_type badge, status badge, linked engagement name
-- Empty state: "No meetings scheduled"
-- Vertical timeline line with dot nodes
-
-**When to use:** Any detail page that shows related meetings. Use instead of flat CompactRow lists for meetings — temporal entities deserve timeline treatment.
 
 ## Reference Files
 
 For detailed information, read the appropriate reference file:
 
-- **`references/component-api.md`** — Full TypeScript interfaces for CompactRow, DetailHeader, FilterBar
-- **`references/entity-catalog.md`** — Slot mappings for all 6 entity types (what goes in primary/badges/secondary/meta for each)
+- **`references/component-api.md`** — Full TypeScript interfaces for all shared components (CompactRow, DetailHeader, FilterBar, PillGrid, TableList, CalendarCard)
+- **`references/entity-catalog.md`** — Entity-to-component mappings and slot configurations for all 6 entity types
 - **`references/design-tokens.md`** — CSS custom properties, color palette, spacing conventions, typography
 
 Read these when you need exact prop types, entity-specific field mappings, or color values. Don't guess — look them up.

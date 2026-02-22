@@ -1,6 +1,19 @@
 # Entity Catalog
 
-Slot mappings for all 6 entity types in Roadrunner. Each entity maps its fields into CompactRow and DetailHeader slots.
+Field mappings for all 6 entity types in Roadrunner. Each entity maps its fields into the appropriate visual treatment component and DetailHeader slots.
+
+## Entity → Component Mapping
+
+| Entity | List Page Component | Detail Page Linked Sections |
+|---|---|---|
+| Engagements | CompactRow | CompactRow (in ExpandableList) |
+| Partners | TableList | — (Partners aren't linked from other pages) |
+| Programs | PillGrid | — (Programs aren't linked from other pages) |
+| Events | CalendarCard | — (Events aren't linked from other pages) |
+| Meetings | CompactRow (Phase 2 redesign planned) | MeetingTimeline |
+| Relationships | TableList | CompactRow (in ExpandableList) |
+
+---
 
 ## Engagements
 
@@ -8,6 +21,7 @@ Slot mappings for all 6 entity types in Roadrunner. Each entity maps its fields 
 **List page:** `src/app/engagements/page.tsx` (server component)
 **Detail page:** `src/app/engagements/[id]/page.tsx` (server component — strongest reference)
 **Groups by:** status (planned → active → paused → completed → archived)
+**Visual treatment:** CompactRow (activity item with status and message count)
 
 ### CompactRow Mapping
 
@@ -73,33 +87,32 @@ Card visual treatment:
 **List page:** `src/app/partners/PartnersClient.tsx` (client component)
 **Detail page:** `src/app/partners/[id]/page.tsx` (server component)
 **Groups by:** segment (Security, SecOps, DevOps, CloudOps, Observability, OT/IoT)
+**Visual treatment:** TableList (portfolio item with aligned metadata columns)
 
-### CompactRow Mapping
+### TableList Mapping
 
-| Slot | Value |
-|---|---|
-| primary | `partner.name` |
-| badges | Segment chip (inline badge, capitalize) |
-| secondary | focus_area joined + PSA |
-| meta | alliance_lead name |
+| Column | Value | Width |
+|---|---|---|
+| 1 (name) | `partner.name` | flex-1 |
+| 2 | `partner.focus_area.join(", ")` | 200px |
+| 3 | `partner.alliance_lead` | 140px |
 
 ```tsx
-<CompactRow
-  href={`/partners/${partner.id}`}
-  primary={partner.name}
-  badges={
-    partner.segment ? (
-      <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent whitespace-nowrap capitalize">
-        {partner.segment}
-      </span>
-    ) : undefined
-  }
-  secondary={
-    [partner.focus_area.join(", "), partner.psa && `PSA: ${partner.psa}`]
-      .filter(Boolean)
-      .join(" · ") || undefined
-  }
-  meta={partner.alliance_lead ? <span>{partner.alliance_lead}</span> : undefined}
+<TableList
+  headers={[
+    { label: "Partner" },
+    { label: "Focus Area", width: "200px" },
+    { label: "Alliance Lead", width: "140px" },
+  ]}
+  items={group.partners.map((p) => ({
+    id: p.id,
+    href: `/partners/${p.id}`,
+    columns: [
+      { value: p.name },
+      { value: p.focus_area.join(", "), width: "200px" },
+      { value: p.alliance_lead ?? "", width: "140px" },
+    ],
+  }))}
 />
 ```
 
@@ -135,33 +148,19 @@ The partner detail page uses a **full-width layout** (no sidebar). Sections top 
 **List page:** `src/app/programs/ProgramsClient.tsx` (client component)
 **Detail page:** `src/app/programs/[id]/page.tsx` (server component)
 **Groups by:** type (Competency, Service Ready, Program, SCA, Credit Program, Funding, Channel, Enablement)
+**Visual treatment:** PillGrid (catalog item, name-only scan)
 
-### CompactRow Mapping
-
-| Slot | Value |
-|---|---|
-| primary | `program.name` |
-| badges | StatusBadge + ProgramTypeBadge |
-| secondary | `program.description` (clamp 2) |
-| meta | linked_count |
+### PillGrid Mapping
 
 ```tsx
-<CompactRow
-  href={`/programs/${program.id}`}
-  primary={program.name}
-  badges={
-    <>
-      <StatusBadge status={program.status} />
-      <ProgramTypeBadge type={program.type} />
-    </>
-  }
-  secondary={program.description ?? undefined}
-  secondaryLineClamp={2}
-  meta={
-    program.linked_count > 0 ? (
-      <span>{program.linked_count} link{program.linked_count !== 1 ? "s" : ""}</span>
-    ) : undefined
-  }
+<PillGrid
+  columns={3}
+  items={group.programs.map((p) => ({
+    id: p.id,
+    name: isGroupedView ? stripTypeSuffix(p.name, group.type) : p.name,
+    href: `/programs/${p.id}`,
+    count: p.linked_count > 0 ? p.linked_count : undefined,
+  }))}
 />
 ```
 
@@ -179,6 +178,7 @@ The partner detail page uses a **full-width layout** (no sidebar). Sections top 
 - Programs have 8 type categories with dedicated colors in globals.css
 - Eligibility was dropped from list rows (detail-page concern)
 - Group header pluralizes: "Competencies", "SCAs", `${type}s`
+- Status and type badges are visible on detail pages, not in the PillGrid list
 
 ---
 
@@ -188,37 +188,37 @@ The partner detail page uses a **full-width layout** (no sidebar). Sections top 
 **List page:** `src/app/events/EventsClient.tsx` (client component)
 **Detail page:** `src/app/events/[id]/page.tsx` (server component)
 **Groups by:** time section (Upcoming/Past/TBD) → year sub-groups
+**Visual treatment:** CalendarCard (temporal item, date-anchored)
 
-### CompactRow Mapping
-
-| Slot | Value |
-|---|---|
-| primary | `event.name` |
-| badges | EventTypeBadge + unverified StatusBadge (conditional) |
-| secondary | dateRange · location |
-| meta | linked_count |
+### CalendarCard Mapping
 
 ```tsx
-<CompactRow
-  href={`/events/${event.id}`}
-  primary={event.name}
-  badges={
-    <>
-      <EventTypeBadge type={event.type} />
-      {!event.verified && <StatusBadge status="unverified" />}
-    </>
-  }
-  secondary={
-    [formatDateRange(event.start_date, event.end_date), event.location]
-      .filter(Boolean)
-      .join(" · ") || undefined
-  }
-  meta={
-    event.linked_count > 0 ? (
-      <span>{event.linked_count} link{event.linked_count !== 1 ? "s" : ""}</span>
-    ) : undefined
-  }
+<CalendarCard
+  columns={2}
+  items={group.events.map((event) => ({
+    id: event.id,
+    href: `/events/${event.id}`,
+    name: event.name,
+    startDate: event.start_date ?? "",
+    endDate: event.end_date ?? undefined,
+    location: extractCity(event.location),
+    typeColor: eventTypeColorMap[event.type],
+  }))}
 />
+```
+
+Where `eventTypeColorMap` maps event types to CSS variable values:
+```typescript
+const eventTypeColorMap: Record<Event["type"], string> = {
+  conference: "var(--event-conference)",
+  summit: "var(--event-summit)",
+  workshop: "var(--event-workshop)",
+  kickoff: "var(--event-kickoff)",
+  trade_show: "var(--event-trade-show)",
+  deadline: "var(--event-deadline)",
+  review_cycle: "var(--event-review-cycle)",
+  training: "var(--event-training)",
+};
 ```
 
 ### DetailHeader Mapping
@@ -235,7 +235,9 @@ The partner detail page uses a **full-width layout** (no sidebar). Sections top 
 - Events have TWO filter dimensions: type (in FilterBar) + year (separate chip row below)
 - Description was dropped from list rows (detail-page concern)
 - Year sub-groups use the standard uppercase label style
-- `formatDateRange()` helper formats start/end date range
+- `extractCity()` from `src/lib/format-utils.ts` extracts city from full location strings
+- `formatCompactDateRange()` from `src/lib/format-utils.ts` formats compact date ranges for cards
+- Events list currently uses custom Link cards with type-colored left borders (will migrate to CalendarCard)
 
 ---
 
@@ -245,6 +247,7 @@ The partner detail page uses a **full-width layout** (no sidebar). Sections top 
 **List page:** `src/app/meetings/MeetingsClient.tsx` (client component — 466 lines, includes create form)
 **Detail page:** `src/app/meetings/[id]/page.tsx` (server component)
 **Groups by:** time section (Upcoming/Past/TBD)
+**Visual treatment:** CompactRow (activity item with status, associations — Phase 2 redesign planned)
 
 ### CompactRow Mapping
 
@@ -347,29 +350,32 @@ The meeting detail page uses a **full-width layout** (no sidebar). Sections top 
 **List page:** `src/app/relationships/RelationshipsClient.tsx` (client component)
 **Detail page:** `src/app/relationships/[id]/page.tsx` (server component)
 **Groups by:** relationship_type (Exec/Leader, Product Team, Program Team, Seller)
+**Visual treatment:** TableList (portfolio item with aligned metadata columns)
 
-### CompactRow Mapping
+### TableList Mapping
 
-| Slot | Value |
-|---|---|
-| primary | `rel.name` |
-| badges | RelationshipTypeBadge |
-| secondary | aws_org · aws_service |
-| meta | linked_count |
+| Column | Value | Width |
+|---|---|---|
+| 1 (name) | `rel.name` | flex-1 |
+| 2 | `rel.aws_org` | 160px |
+| 3 | `rel.aws_service` | 140px |
 
 ```tsx
-<CompactRow
-  href={`/relationships/${rel.id}`}
-  primary={rel.name}
-  badges={<RelationshipTypeBadge type={rel.relationship_type} />}
-  secondary={
-    [rel.aws_org, rel.aws_service].filter(Boolean).join(" · ") || undefined
-  }
-  meta={
-    rel.linked_count > 0 ? (
-      <span>{rel.linked_count} link{rel.linked_count !== 1 ? "s" : ""}</span>
-    ) : undefined
-  }
+<TableList
+  headers={[
+    { label: "Name" },
+    { label: "AWS Org", width: "160px" },
+    { label: "Service", width: "140px" },
+  ]}
+  items={group.relationships.map((rel) => ({
+    id: rel.id,
+    href: `/relationships/${rel.id}`,
+    columns: [
+      { value: rel.name },
+      { value: rel.aws_org ?? "", width: "160px" },
+      { value: rel.aws_service ?? "", width: "140px" },
+    ],
+  }))}
 />
 ```
 

@@ -40,6 +40,171 @@ interface CompactRowProps {
 - `meta` is ReactNode for flexibility — can be a simple span, a stacked div, or association chips.
 - When `meta` has multiple lines, use: `<div className="flex flex-col items-end gap-0.5">...</div>`
 
+**When to use:** Activity items with status, badges, and contextual metadata. Engagements on list pages, engagement/relationship items in ExpandableList on detail pages.
+
+---
+
+## PillGrid
+
+**File:** `src/components/shared/PillGrid.tsx`
+
+```typescript
+interface PillGridItem {
+  id: string;
+  name: string;
+  href: string;
+  count?: number;
+}
+
+interface PillGridProps {
+  items: PillGridItem[];
+  columns?: 2 | 3 | 4;   // Default: 3
+}
+```
+
+**Visual structure:**
+```
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│ Name       3 │ │ Name         │ │ Long Na...  1 │
+└──────────────┘ └──────────────┘ └──────────────┘
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│ Name       5 │ │ Name         │ │ Name       2 │
+└──────────────┘ └──────────────┘ └──────────────┘
+```
+
+**Styling constants:**
+- Grid: `grid grid-cols-2 md:grid-cols-3 lg:grid-cols-{columns} gap-1.5`
+- Pill: `rounded-lg border border-border bg-surface px-3 py-2`
+- Hover: `hover:border-accent/50`
+- Name: `text-sm font-medium text-foreground truncate`
+- Count: `text-xs text-muted` (right-aligned, only if > 0)
+- All pills same height (fixed by flex + truncation)
+
+**Usage rules:**
+- NO badges, NO status indicators, NO descriptions inside pills. Names only.
+- `count` renders only when present and > 0. Use for linked_count or similar.
+- Long names truncate with ellipsis — detail is on the detail page.
+- Gap is intentionally tight (`gap-1.5`) for density.
+
+**When to use:** Catalog entities with 10+ same-type items. Programs are the canonical use case.
+
+---
+
+## TableList
+
+**File:** `src/components/shared/TableList.tsx`
+
+```typescript
+interface TableListColumn {
+  value: string;
+  width?: string;         // CSS width (e.g., "140px", "200px")
+  muted?: boolean;        // Reserved for future per-column color control
+}
+
+interface TableListItem {
+  id: string;
+  href: string;
+  columns: TableListColumn[];
+}
+
+interface TableListHeader {
+  label: string;
+  width?: string;         // Should match corresponding column width
+}
+
+interface TableListProps {
+  items: TableListItem[];
+  headers?: TableListHeader[];
+}
+```
+
+**Visual structure:**
+```
+  NAME              ORG             SERVICE
+  ─────────────────────────────────────────────
+  Alice Johnson     AWS Security    GuardDuty
+  ─────────────────────────────────────────────
+  Bob Smith         AWS Analytics   Athena
+  ─────────────────────────────────────────────
+  Carol Davis       AWS Compute     EC2
+```
+
+**Styling constants:**
+- Container: no spacing between rows (table-like)
+- Header row: `px-4 py-2`, labels `text-xs font-semibold uppercase tracking-wider text-muted`
+- Data row: `px-4 py-2.5 border-b border-border/50`
+- Hover: `hover:bg-surface`
+- First column: `text-sm font-medium text-foreground` (entity name, flex-1)
+- Other columns: `text-sm text-muted` (default width 140px unless overridden)
+- Entire row clickable via Link wrapper
+
+**Usage rules:**
+- NO badges. NO pills. NO colored indicators. Just text with weight/color hierarchy.
+- NO rounded cards per row. Rows separated by subtle bottom borders.
+- Column widths should be consistent — set via `width` prop so values align across rows.
+- First column is always the entity name (flex-1, takes remaining space).
+- Pass `headers` for column labels when metadata columns benefit from labeling.
+
+**When to use:** Portfolio entities where comparable metadata across rows matters. Partners and Relationships are the canonical use cases.
+
+---
+
+## CalendarCard
+
+**File:** `src/components/shared/CalendarCard.tsx`
+
+```typescript
+interface CalendarCardItem {
+  id: string;
+  href: string;
+  name: string;
+  startDate: string;      // ISO date string (YYYY-MM-DD)
+  endDate?: string;        // Optional end date for multi-day events
+  location?: string;       // City/venue (use extractCity() before passing)
+  typeColor?: string;      // CSS color for left border accent (e.g., "var(--event-conference)")
+}
+
+interface CalendarCardProps {
+  items: CalendarCardItem[];
+  columns?: 1 | 2;        // Default: 2
+}
+```
+
+**Visual structure:**
+```
+┌──────────────────────────────┐ ┌──────────────────────────────┐
+│ ┌────┐                       │ │ ┌────┐                       │
+│ │ MAR│  AWS re:Invent 2026   │ │ │ JUN│  Partner Summit        │
+│ │ 9  │  Las Vegas, NV        │ │ │ 15 │  San Francisco, CA     │
+│ └────┘                       │ │ └────┘                       │
+└──────────────────────────────┘ └──────────────────────────────┘
+┌──────────────────────────────┐ ┌──────────────────────────────┐
+│ ┌────┐                       │ │ ┌────┐                       │
+│ │ APR│  Security Workshop    │ │ │ SEP│  Channel Kickoff       │
+│ │3-5 │  Seattle, WA          │ │ │ 20 │  New York, NY          │
+│ └────┘                       │ │ └────┘                       │
+└──────────────────────────────┘ └──────────────────────────────┘
+```
+
+**Styling constants:**
+- Grid: `grid grid-cols-1 lg:grid-cols-{columns} gap-2`
+- Card: `rounded-lg border border-border bg-surface px-3 py-2.5`
+- Hover: `hover:border-accent/50`
+- Date block: `w-12` fixed width, month `text-xs font-medium uppercase text-muted`, day `text-lg font-semibold text-foreground`
+- Optional type color: `border-left: 2px solid {typeColor}` on date block
+- Name: `text-sm font-medium text-foreground truncate`
+- Location: `text-xs text-muted truncate`
+
+**Usage rules:**
+- NO type badges inside cards. The colored left accent on the date block provides sufficient type indication.
+- Pass `location` through `extractCity()` before passing — show city, not full address.
+- Multi-day events show day range (e.g., "9–12"). Cross-month events still show the start month in the block.
+- `typeColor` should reference CSS variables (e.g., `var(--event-conference)`) for consistency with EventTypeBadge colors.
+
+**When to use:** Temporal/event entities where date is the primary scan dimension. Events are the canonical use case.
+
+---
+
 ## DetailHeader
 
 **File:** `src/components/shared/DetailHeader.tsx`
