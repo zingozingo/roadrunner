@@ -1,14 +1,16 @@
 /**
- * CompactRow — Universal list item for all entity types.
+ * CompactRow — Activity list item for engagement entities.
  *
  * Slots:
  *   primary    — Entity name (string, always shown)
  *   badges     — Status/type badges (ReactNode, inline with name)
  *   secondary  — Description or context line (string, line-clamped)
- *   meta       — Right-aligned metadata (ReactNode, e.g. date, count, contact)
+ *   meta       — Right-aligned metadata (ReactNode, e.g. StatusBadge, date)
  *
- * Usage: Each list page maps its entity's fields into these slots.
- * The visual frame is universal; the content varies per entity.
+ * Used by: Engagements list, linked engagement sections on detail pages.
+ * Other entity types use their own visual treatments:
+ *   Partners/Relationships → TableList, Programs → PillGrid,
+ *   Events → CalendarCard, Meetings → inline table rows.
  */
 
 import Link from "next/link";

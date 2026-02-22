@@ -10,7 +10,7 @@ Field mappings for all 6 entity types in Roadrunner. Each entity maps its fields
 | Partners | TableList | — (Partners aren't linked from other pages) |
 | Programs | PillGrid | — (Programs aren't linked from other pages) |
 | Events | CalendarCard | — (Events aren't linked from other pages) |
-| Meetings | CompactRow (Phase 2 redesign planned) | MeetingTimeline |
+| Meetings | Inline table rows (Date · Time · Title · Partner · Status) | MeetingTimeline |
 | Relationships | TableList | Simple text links (name + contact), no cards or badges |
 
 ---
@@ -251,62 +251,48 @@ const eventTypeColorMap: Record<Event["type"], string> = {
 **List page:** `src/app/meetings/MeetingsClient.tsx` (client component — 466 lines, includes create form)
 **Detail page:** `src/app/meetings/[id]/page.tsx` (server component)
 **Groups by:** time section (Upcoming/Past/TBD)
-**Visual treatment:** CompactRow (activity item with status, associations — Phase 2 redesign planned)
+**Visual treatment:** Inline table rows (temporal item, date-first aligned columns)
 
-### CompactRow Mapping
+### Table Row Layout
 
-| Slot | Value |
-|---|---|
-| primary | `m.title` |
-| badges | MeetingStatusBadge + meeting_type chip + ICS chip (conditional) |
-| secondary | date · time · location · partner_name |
-| meta | engagement + event association chips (stacked) |
+| Column | Value | Width | Responsive |
+|---|---|---|---|
+| 1 | Short date (e.g. "Mar 9") | w-16 | always |
+| 2 | Time range (e.g. "10:00 AM – 11:00 AM") | w-24 | hidden sm:block |
+| 3 | Title | flex-1 | always |
+| 4 | Partner name | shrink-0 | hidden md:block |
+| 5 | MeetingStatusBadge | shrink-0 ml-auto | always |
 
 ```tsx
-<CompactRow
+<a
   href={`/meetings/${m.id}`}
-  primary={m.title}
-  badges={
-    <>
-      <MeetingStatusBadge status={m.status} />
-      {m.meeting_type && (
-        <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-xs font-medium text-blue-400 whitespace-nowrap">
-          {m.meeting_type}
-        </span>
-      )}
-      {m.source === "ics_parsed" && (
-        <span className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap">
-          ICS
-        </span>
-      )}
-    </>
-  }
-  secondary={
-    [
-      formatDate(m.meeting_date),
-      (m.start_time || m.end_time) ? formatTime(m.start_time, m.end_time) : null,
-      m.location,
-      m.partner_name,
-    ].filter(Boolean).join(" · ") || undefined
-  }
-  meta={
-    (m.engagement_name || m.event_name) ? (
-      <div className="flex flex-col items-end gap-1">
-        {m.engagement_name && (
-          <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent whitespace-nowrap">
-            {m.engagement_name}
-          </span>
-        )}
-        {m.event_name && (
-          <span className="rounded-full bg-purple-500/10 px-2.5 py-0.5 text-xs font-medium text-purple-400 whitespace-nowrap">
-            {m.event_name}
-          </span>
-        )}
-      </div>
-    ) : undefined
-  }
-/>
+  className="flex items-center px-4 py-2.5 border-b border-border/50 transition-colors duration-150 hover:bg-surface gap-3"
+>
+  <span className="shrink-0 w-16 text-sm font-medium text-foreground">
+    {shortDate}
+  </span>
+  <span className="shrink-0 w-24 text-xs text-muted hidden sm:block">
+    {timeStr}
+  </span>
+  <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+    {m.title}
+  </span>
+  {m.partner_name && (
+    <span className="shrink-0 text-xs text-muted hidden md:block">
+      {m.partner_name}
+    </span>
+  )}
+  <span className="shrink-0 ml-auto">
+    <MeetingStatusBadge status={m.status} />
+  </span>
+</a>
 ```
+
+**Key decisions:**
+- No inline badges (ICS, meeting_type) — those are detail page concerns
+- No raw URLs — location removed from list (Zoom links are noise)
+- Date as first column for temporal scanning
+- Status right-aligned for consistent positioning
 
 ### DetailHeader Mapping
 
@@ -343,8 +329,9 @@ The meeting detail page uses a **full-width layout** (no sidebar). Sections top 
 ### Notes
 - MeetingsClient includes a full create form (~150 lines) — do NOT touch when modifying list rendering
 - Meeting types: Executive Meeting, GTM Meeting, Product Team Relationship, Specialized Meeting
-- Association chips in meta use different colors: accent for engagement, purple for event
-- `meeting_type` badge removed from header (now only in Details grid) — reduces badge noise since status + ICS are higher priority
+- All inline badges (ICS, meeting_type, engagement/event chips) removed from list — detail page concerns
+- MeetingTimeline on detail pages shows date + title + MeetingStatusBadge (no meeting_type badge)
+- AWS Relationships on meeting detail page use simple text links (not cards)
 
 ---
 

@@ -6,7 +6,6 @@ import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
 import SyncButton from "@/components/shared/SyncButton";
-import CompactRow from "@/components/shared/CompactRow";
 import { MeetingStatusBadge } from "@/components/shared/TypeBadge";
 import { Meeting, Engagement, Event, MeetingStatus } from "@/lib/types";
 
@@ -400,61 +399,44 @@ export default function MeetingsClient({ meetings, engagements, events }: Meetin
             <div className="space-y-8">
               {sections.map((section) => (
                 <div key={section.label}>
-                  <h2 className="mb-4 text-lg font-semibold text-foreground">
-                    {section.label}
-                    <span className="ml-2 text-sm font-normal text-muted">
-                      ({section.meetings.length})
-                    </span>
+                  <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
+                    {section.label} ({section.meetings.length})
                   </h2>
-                  <div className="space-y-2">
-                    {section.meetings.map((m) => (
-                      <CompactRow
-                        key={m.id}
-                        href={`/meetings/${m.id}`}
-                        primary={m.title}
-                        badges={
-                          <>
+                  <div>
+                    {section.meetings.map((m) => {
+                      const shortDate = m.meeting_date
+                        ? new Date(m.meeting_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                        : "TBD";
+                      const timeStr = m.start_time
+                        ? m.end_time ? `${m.start_time} – ${m.end_time}` : m.start_time
+                        : "";
+
+                      return (
+                        <a
+                          key={m.id}
+                          href={`/meetings/${m.id}`}
+                          className="flex items-center px-4 py-2.5 border-b border-border/50 transition-colors duration-150 hover:bg-surface gap-3"
+                        >
+                          <span className="shrink-0 w-16 text-sm font-medium text-foreground">
+                            {shortDate}
+                          </span>
+                          <span className="shrink-0 w-24 text-xs text-muted hidden sm:block">
+                            {timeStr}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+                            {m.title}
+                          </span>
+                          {m.partner_name && (
+                            <span className="shrink-0 text-xs text-muted hidden md:block">
+                              {m.partner_name}
+                            </span>
+                          )}
+                          <span className="shrink-0 ml-auto">
                             <MeetingStatusBadge status={m.status} />
-                            {m.meeting_type && (
-                              <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-xs font-medium text-blue-400 whitespace-nowrap">
-                                {m.meeting_type}
-                              </span>
-                            )}
-                            {m.source === "ics_parsed" && (
-                              <span className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap">
-                                ICS
-                              </span>
-                            )}
-                          </>
-                        }
-                        secondary={
-                          [
-                            formatDate(m.meeting_date),
-                            (m.start_time || m.end_time) ? formatTime(m.start_time, m.end_time) : null,
-                            m.location,
-                            m.partner_name,
-                          ]
-                            .filter(Boolean)
-                            .join(" · ") || undefined
-                        }
-                        meta={
-                          (m.engagement_name || m.event_name) ? (
-                            <div className="flex flex-col items-end gap-1">
-                              {m.engagement_name && (
-                                <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent whitespace-nowrap">
-                                  {m.engagement_name}
-                                </span>
-                              )}
-                              {m.event_name && (
-                                <span className="rounded-full bg-purple-500/10 px-2.5 py-0.5 text-xs font-medium text-purple-400 whitespace-nowrap">
-                                  {m.event_name}
-                                </span>
-                              )}
-                            </div>
-                          ) : undefined
-                        }
-                      />
-                    ))}
+                          </span>
+                        </a>
+                      );
+                    })}
                   </div>
                 </div>
               ))}

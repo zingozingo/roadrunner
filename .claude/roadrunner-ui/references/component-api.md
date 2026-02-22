@@ -40,7 +40,7 @@ interface CompactRowProps {
 - `meta` is ReactNode for flexibility — can be a simple span, a stacked div, or association chips.
 - When `meta` has multiple lines, use: `<div className="flex flex-col items-end gap-0.5">...</div>`
 
-**When to use:** Activity items with status, badges, and contextual metadata. Engagements on list pages, engagement/relationship items in ExpandableList on detail pages.
+**When to use:** Engagements on list pages and linked engagement sections on detail pages. StatusBadge goes in `meta` slot (right-aligned), not `badges`.
 
 ---
 
@@ -173,32 +173,30 @@ interface CalendarCardProps {
 **Visual structure:**
 ```
 ┌──────────────────────────────┐ ┌──────────────────────────────┐
-│ ┌────┐                       │ │ ┌────┐                       │
-│ │ MAR│  AWS re:Invent 2026   │ │ │ JUN│  Partner Summit        │
-│ │ 9  │  Las Vegas, NV        │ │ │ 15 │  San Francisco, CA     │
-│ └────┘                       │ │ └────┘                       │
+│ Mar 9–12                     │ │ Jun 15                       │
+│ AWS re:Invent 2026           │ │ Partner Summit               │
+│ Las Vegas, NV                │ │ San Francisco, CA            │
 └──────────────────────────────┘ └──────────────────────────────┘
 ┌──────────────────────────────┐ ┌──────────────────────────────┐
-│ ┌────┐                       │ │ ┌────┐                       │
-│ │ APR│  Security Workshop    │ │ │ SEP│  Channel Kickoff       │
-│ │3-5 │  Seattle, WA          │ │ │ 20 │  New York, NY          │
-│ └────┘                       │ │ └────┘                       │
+│ Apr 3–5                      │ │ Sep 20                       │
+│ Security Workshop            │ │ Channel Kickoff              │
+│ Seattle, WA                  │ │ New York, NY                 │
 └──────────────────────────────┘ └──────────────────────────────┘
 ```
 
 **Styling constants:**
 - Grid: `grid grid-cols-1 lg:grid-cols-{columns} gap-2`
-- Card: `rounded-lg border border-border bg-surface px-3 py-2.5`
+- Card: `block rounded-lg border border-border bg-surface px-3 py-2.5`
 - Hover: `hover:border-accent/50`
-- Date block: `w-12` fixed width, month `text-xs font-medium uppercase text-muted`, day `text-lg font-semibold text-foreground`
-- Optional type color: `border-left: 2px solid {typeColor}` on date block
-- Name: `text-sm font-medium text-foreground truncate`
-- Location: `text-xs text-muted truncate`
+- Optional type color: `border-left: 2px solid {typeColor}` on the card itself
+- Date line: `text-xs font-medium text-muted` — uses `formatCompactDateRange()` from format-utils.ts
+- Name: `mt-0.5 text-sm font-medium text-foreground truncate`
+- Location: `mt-0.5 text-xs text-muted truncate`
 
 **Usage rules:**
-- NO type badges inside cards. The colored left accent on the date block provides sufficient type indication.
+- NO type badges inside cards. The colored left border accent provides sufficient type indication.
 - Pass `location` through `extractCity()` before passing — show city, not full address.
-- Multi-day events show day range (e.g., "9–12"). Cross-month events still show the start month in the block.
+- Date formatting handled by `formatCompactDateRange()`: "Mar 9–12", "Mar 9 – Apr 2", or "Mar 9".
 - `typeColor` should reference CSS variables (e.g., `var(--event-conference)`) for consistency with EventTypeBadge colors.
 
 **When to use:** Temporal/event entities where date is the primary scan dimension. Events are the canonical use case.

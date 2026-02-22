@@ -27,7 +27,7 @@ Roadrunner has two page types, each with a standardized pattern:
 | Partners | segment | segment | name | TableList |
 | Programs | type | type (8 categories) | name | PillGrid |
 | Events | time (Upcoming/Past/TBD) → year | type + year | name | CalendarCard |
-| Meetings | time (Upcoming/Past/TBD) | meeting_type | title | CompactRow |
+| Meetings | time (Upcoming/Past/TBD) | meeting_type | title | Inline table rows |
 | Relationships | relationship_type | relationship_type | name | TableList |
 
 Plus **Inbox** (classification queue) and **Dashboard** (stats overview) — these don't follow the list/detail pattern.
@@ -58,19 +58,19 @@ Aligned rows with consistent columns. Clean data table without heavy table chrom
 
 ### CalendarCard (`src/components/shared/CalendarCard.tsx`)
 
-Date-anchored cards with a mini calendar date block.
+Date-anchored cards with a compact date text line.
 
 **When to use:** Temporal/event entities where date is the primary scan dimension. Events are the canonical use case.
 
 **API:** `items` (id, href, name, startDate, endDate?, location?, typeColor?), `columns` (1|2, default 2)
 
-**Visual:** Each card has a fixed-width date block on the left (month abbreviation + day number, like a calendar page). Multi-day events show day range. Optional type color as a left border on the date block. Name + location on the right.
+**Visual:** Each card shows a compact date text line (e.g. "Mar 9–12") above the event name and location. Uses `formatCompactDateRange()` from format-utils.ts. Optional type color as a left border accent on the card.
 
 ### CompactRow (`src/components/shared/CompactRow.tsx`)
 
 Status-driven list item with badges and metadata slots.
 
-**When to use:** Activity items with status, badges, and contextual metadata. Engagements are the canonical use case on list pages. Also used for engagement/relationship items in ExpandableList on detail pages.
+**When to use:** Engagements on list pages and linked engagement sections on detail pages. StatusBadge goes in the `meta` slot (right-aligned), not `badges`.
 
 **Slot model — the visual frame is universal, content varies per entity:**
 - `primary` (string) — Entity name, always shown
@@ -95,7 +95,7 @@ Vertical dot timeline for meetings shown as linked items on other entity detail 
 **Behavior:**
 - Filters to upcoming + past 90 days
 - Upcoming: accent dot/date, full-brightness title. Past: muted.
-- Shows date, title, meeting_type badge, status badge, linked engagement name
+- Shows date, title, status badge, linked engagement name
 
 ## Shared Components
 
@@ -189,7 +189,8 @@ Every list page follows this structure:
               <PillGrid items={...} />       {/* Programs */}
               <TableList items={...} />      {/* Partners, Relationships */}
               <CalendarCard items={...} />   {/* Events */}
-              <CompactRow ... />             {/* Engagements, Meetings */}
+              <CompactRow ... />             {/* Engagements */}
+              {/* Meetings use inline table rows (not a shared component) */}
             </section>
           ))}
         </div>

@@ -236,16 +236,21 @@ export default async function MeetingDetailPage({
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
               AWS Relationships
             </h2>
-            <div className="space-y-2">
+            <div className="space-y-1">
               {awsRelationships.map((rel) => (
                 <Link
                   key={rel.id}
                   href={`/relationships/${rel.id}`}
-                  className="block rounded-lg border border-border bg-background p-3 transition-colors hover:border-accent/40"
+                  className="flex items-baseline gap-2 rounded px-2 py-1.5 transition-colors hover:bg-surface-hover"
                 >
                   <span className="text-sm font-medium text-foreground">
                     {rel.name}
                   </span>
+                  {rel.primary_contact_name && (
+                    <span className="text-xs text-muted">
+                      {rel.primary_contact_name}
+                    </span>
+                  )}
                 </Link>
               ))}
             </div>

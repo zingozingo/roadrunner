@@ -117,21 +117,18 @@ export default function MeetingTimeline({
                 )}
               </div>
 
-              {/* Title + badges */}
-              <div className="mt-0.5 flex items-center gap-2 flex-wrap">
+              {/* Title + status */}
+              <div className="mt-0.5 flex items-center gap-2">
                 <span
                   className={`text-sm font-medium ${
                     isUpcoming ? "text-foreground" : "text-muted"
-                  } group-hover:text-foreground`}
+                  } group-hover:text-foreground truncate`}
                 >
                   {mtg.title}
                 </span>
-                {mtg.meeting_type && (
-                  <span className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap">
-                    {mtg.meeting_type}
-                  </span>
-                )}
-                <MeetingStatusBadge status={mtg.status} />
+                <span className="shrink-0">
+                  <MeetingStatusBadge status={mtg.status} />
+                </span>
               </div>
 
               {/* Engagement link */}

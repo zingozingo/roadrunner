@@ -4,15 +4,13 @@
  * Use for entities where date is the primary scan dimension.
  * Events are the canonical use case.
  *
- * Each card features a compact date block (month + day like a
- * mini calendar page) on the left, with the entity name and
- * location on the right. Multi-day events show a day range
- * with start day prominent and range subordinate.
- * An optional type color renders as a subtle left border on
- * the date block.
+ * Each card shows a compact date text line (e.g. "Mar 9–12") above
+ * the entity name and location. An optional type color renders as
+ * a subtle left border accent.
  */
 
 import Link from "next/link";
+import { formatCompactDateRange } from "@/lib/format-utils";
 
 interface CalendarCardItem {
   id: string;
@@ -29,14 +27,6 @@ interface CalendarCardProps {
   columns?: 1 | 2;
 }
 
-function parseDateParts(dateStr: string): { month: string; day: number } {
-  const d = new Date(dateStr + "T00:00:00");
-  return {
-    month: d.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
-    day: d.getDate(),
-  };
-}
-
 export default function CalendarCard({
   items,
   columns = 2,
@@ -51,55 +41,30 @@ export default function CalendarCard({
   return (
     <div className={`grid ${colClass} gap-2`}>
       {items.map((item) => {
-        const start = parseDateParts(item.startDate);
-        const end = item.endDate ? parseDateParts(item.endDate) : null;
-        const isSameDay = !end || (start.month === end.month && start.day === end.day);
-        const isSameMonth = end && start.month === end.month;
+        const dateText = formatCompactDateRange(item.startDate, item.endDate ?? null);
 
         return (
           <Link
             key={item.id}
             href={item.href}
-            className="flex items-start gap-3 rounded-lg border border-border bg-surface px-3 py-2.5 transition-colors duration-150 hover:border-accent/50"
+            className="block rounded-lg border border-border bg-surface px-3 py-2.5 transition-colors duration-150 hover:border-accent/50"
+            style={
+              item.typeColor
+                ? { borderLeftWidth: "2px", borderLeftColor: item.typeColor }
+                : undefined
+            }
           >
-            {/* Date block */}
-            <div
-              className="flex w-14 shrink-0 flex-col items-center rounded py-1"
-              style={
-                item.typeColor
-                  ? { borderLeft: `2px solid ${item.typeColor}`, paddingLeft: "6px" }
-                  : undefined
-              }
-            >
-              <span className="text-xs font-medium uppercase text-muted">
-                {start.month}
-              </span>
-              <span className="text-xl font-bold leading-tight text-foreground">
-                {start.day}
-              </span>
-              {!isSameDay && isSameMonth && (
-                <span className="text-xs text-muted leading-tight">
-                  –{end!.day}
-                </span>
-              )}
-              {!isSameDay && !isSameMonth && (
-                <span className="text-xs text-muted leading-tight text-center">
-                  –{end!.month} {end!.day}
-                </span>
-              )}
-            </div>
-
-            {/* Details */}
-            <div className="min-w-0 flex-1 py-0.5">
-              <p className="truncate text-sm font-medium text-foreground">
-                {item.name}
+            <p className="text-xs font-medium text-muted">
+              {dateText}
+            </p>
+            <p className="mt-0.5 truncate text-sm font-medium text-foreground">
+              {item.name}
+            </p>
+            {item.location && (
+              <p className="mt-0.5 truncate text-xs text-muted">
+                {item.location}
               </p>
-              {item.location && (
-                <p className="mt-0.5 truncate text-xs text-muted">
-                  {item.location}
-                </p>
-              )}
-            </div>
+            )}
           </Link>
         );
       })}
