@@ -3,10 +3,9 @@
 import { useState, useMemo } from "react";
 import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
-import { RelationshipTypeBadge } from "@/components/shared/TypeBadge";
 import FilterBar from "@/components/layout/FilterBar";
 import SyncButton from "@/components/shared/SyncButton";
-import CompactRow from "@/components/shared/CompactRow";
+import TableList from "@/components/shared/TableList";
 import { AwsRelationship, RelationshipType } from "@/lib/types";
 
 type RelationshipWithCount = AwsRelationship & { linked_count: number };
@@ -22,6 +21,13 @@ const TYPE_FILTER_OPTIONS = TYPE_ORDER.map((t) => ({
   label: t,
   value: t,
 }));
+
+const TABLE_HEADERS = [
+  { label: "Relationship" },
+  { label: "AWS Org", width: "180px" },
+  { label: "Service", width: "160px" },
+  { label: "Contact", width: "140px" },
+];
 
 interface RelationshipsClientProps {
   relationships: RelationshipWithCount[];
@@ -108,38 +114,51 @@ export default function RelationshipsClient({ relationships }: RelationshipsClie
               description="Try adjusting your search or filters"
             />
           ) : (
-            <div className="space-y-8">
-              {grouped.map((group) => (
-                <section key={group.type}>
-                  <div className="mb-3 flex items-center gap-2">
-                    <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">
-                      {group.type}s
-                    </h2>
-                    <span className="rounded-full bg-border px-2 py-0.5 text-xs text-muted">
-                      {group.relationships.length}
-                    </span>
-                  </div>
-                  <div className="space-y-2">
-                    {group.relationships.map((rel) => (
-                      <CompactRow
-                        key={rel.id}
-                        href={`/relationships/${rel.id}`}
-                        primary={rel.name}
-                        badges={<RelationshipTypeBadge type={rel.relationship_type} />}
-                        secondary={
-                          [rel.aws_org, rel.aws_service].filter(Boolean).join(" · ") || undefined
-                        }
-                        meta={
-                          rel.linked_count > 0 ? (
-                            <span>{rel.linked_count} link{rel.linked_count !== 1 ? "s" : ""}</span>
-                          ) : undefined
-                        }
-                      />
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </div>
+            <>
+              {/* Column headers — shown once at the top */}
+              <div className="flex items-center px-4 py-2 mb-2">
+                {TABLE_HEADERS.map((header, i) => (
+                  <span
+                    key={header.label}
+                    className="text-xs font-semibold uppercase tracking-wider text-muted"
+                    style={
+                      header.width
+                        ? { width: header.width, flexShrink: 0 }
+                        : { flex: i === 0 ? 1 : undefined }
+                    }
+                  >
+                    {header.label}
+                  </span>
+                ))}
+              </div>
+
+              <div className="space-y-8">
+                {grouped.map((group) => (
+                  <section key={group.type}>
+                    <div className="mb-3 flex items-center gap-2">
+                      <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">
+                        {group.type}s
+                      </h2>
+                      <span className="rounded-full bg-border px-2 py-0.5 text-xs text-muted">
+                        {group.relationships.length}
+                      </span>
+                    </div>
+                    <TableList
+                      items={group.relationships.map((rel) => ({
+                        id: rel.id,
+                        href: `/relationships/${rel.id}`,
+                        columns: [
+                          { value: rel.name },
+                          { value: rel.aws_org ?? "", width: "180px" },
+                          { value: rel.aws_service ?? "", width: "160px" },
+                          { value: rel.primary_contact_name ?? "", width: "140px" },
+                        ],
+                      }))}
+                    />
+                  </section>
+                ))}
+              </div>
+            </>
           )}
         </>
       )}

@@ -1,14 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
-import StatusBadge from "@/components/shared/StatusBadge";
 import FilterBar from "@/components/layout/FilterBar";
 import SyncButton from "@/components/shared/SyncButton";
+import CalendarCard from "@/components/shared/CalendarCard";
 import { Event } from "@/lib/types";
-import { extractCity, formatCompactDateRange } from "@/lib/format-utils";
+import { extractCity } from "@/lib/format-utils";
 
 type EventWithCount = Event & { linked_count: number };
 
@@ -23,16 +22,16 @@ const TYPE_FILTER_OPTIONS = [
   { label: "Review Cycle", value: "review_cycle" },
 ];
 
-/** CSS border color mapped to event type CSS variables */
-const typeBorderColor: Record<Event["type"], string> = {
-  conference: "border-l-[var(--event-conference)]",
-  summit: "border-l-[var(--event-summit)]",
-  workshop: "border-l-[var(--event-workshop)]",
-  kickoff: "border-l-[var(--event-kickoff)]",
-  trade_show: "border-l-[var(--event-trade-show)]",
-  deadline: "border-l-[var(--event-deadline)]",
-  review_cycle: "border-l-[var(--event-review-cycle)]",
-  training: "border-l-[var(--event-training)]",
+/** Map event type to CSS color value for CalendarCard typeColor */
+const typeColorMap: Record<Event["type"], string> = {
+  conference: "var(--event-conference)",
+  summit: "var(--event-summit)",
+  workshop: "var(--event-workshop)",
+  kickoff: "var(--event-kickoff)",
+  trade_show: "var(--event-trade-show)",
+  deadline: "var(--event-deadline)",
+  review_cycle: "var(--event-review-cycle)",
+  training: "var(--event-training)",
 };
 
 function getYear(dateStr: string): number {
@@ -247,33 +246,18 @@ export default function EventsClient({ events }: { events: EventWithCount[] }) {
                             {group.label}
                           </h3>
                         )}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-                          {group.events.map((event) => {
-                            const city = extractCity(event.location);
-                            const dateRange = formatCompactDateRange(event.start_date, event.end_date);
-                            const borderClass = typeBorderColor[event.type] ?? "border-l-border";
-
-                            return (
-                              <Link
-                                key={event.id}
-                                href={`/events/${event.id}`}
-                                className={`block rounded-lg border border-border border-l-2 ${borderClass} bg-surface px-3 py-2 transition-colors hover:border-accent/40 hover:bg-surface-hover`}
-                              >
-                                <div className="flex items-start justify-between gap-2">
-                                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                                    {event.name}
-                                  </span>
-                                  {!event.verified && (
-                                    <StatusBadge status="unverified" />
-                                  )}
-                                </div>
-                                <p className="mt-0.5 text-xs text-muted truncate">
-                                  {[dateRange, city].filter(Boolean).join(" · ")}
-                                </p>
-                              </Link>
-                            );
-                          })}
-                        </div>
+                        <CalendarCard
+                          columns={2}
+                          items={group.events.map((event) => ({
+                            id: event.id,
+                            href: `/events/${event.id}`,
+                            name: event.name + (!event.verified ? " *" : ""),
+                            startDate: event.start_date ?? "",
+                            endDate: event.end_date ?? undefined,
+                            location: extractCity(event.location),
+                            typeColor: typeColorMap[event.type],
+                          }))}
+                        />
                       </div>
                     ))}
                   </div>

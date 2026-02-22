@@ -5,7 +5,7 @@ import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
 import SyncButton from "@/components/shared/SyncButton";
-import CompactRow from "@/components/shared/CompactRow";
+import TableList from "@/components/shared/TableList";
 import { Partner } from "@/lib/types";
 
 const SEGMENT_FILTER_OPTIONS = [
@@ -15,6 +15,13 @@ const SEGMENT_FILTER_OPTIONS = [
   { label: "CloudOps", value: "cloudops" },
   { label: "Observability", value: "observability" },
   { label: "OT/IoT", value: "ot/iot" },
+];
+
+const TABLE_HEADERS = [
+  { label: "Partner" },
+  { label: "Focus", width: "200px" },
+  { label: "Alliance Lead", width: "160px" },
+  { label: "PSA", width: "140px" },
 ];
 
 interface PartnersClientProps {
@@ -111,46 +118,51 @@ export default function PartnersClient({ partners }: PartnersClientProps) {
               description="Try adjusting your search or filters"
             />
           ) : (
-            <div className="space-y-8">
-              {grouped.map((group) => (
-                <section key={group.segment}>
-                  <div className="mb-3 flex items-center gap-2">
-                    <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">
-                      {group.label}
-                    </h2>
-                    <span className="rounded-full bg-border px-2 py-0.5 text-xs text-muted">
-                      {group.partners.length}
-                    </span>
-                  </div>
-                  <div className="space-y-2">
-                    {group.partners.map((partner) => (
-                      <CompactRow
-                        key={partner.id}
-                        href={`/partners/${partner.id}`}
-                        primary={partner.name}
-                        badges={
-                          partner.segment ? (
-                            <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent whitespace-nowrap capitalize">
-                              {partner.segment}
-                            </span>
-                          ) : undefined
-                        }
-                        secondary={
-                          [partner.focus_area.join(", "), partner.psa && `PSA: ${partner.psa}`]
-                            .filter(Boolean)
-                            .join(" · ") || undefined
-                        }
-                        meta={
-                          partner.alliance_lead ? (
-                            <span>{partner.alliance_lead}</span>
-                          ) : undefined
-                        }
-                      />
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </div>
+            <>
+              {/* Column headers — shown once at the top */}
+              <div className="flex items-center px-4 py-2 mb-2">
+                {TABLE_HEADERS.map((header, i) => (
+                  <span
+                    key={header.label}
+                    className="text-xs font-semibold uppercase tracking-wider text-muted"
+                    style={
+                      header.width
+                        ? { width: header.width, flexShrink: 0 }
+                        : { flex: i === 0 ? 1 : undefined }
+                    }
+                  >
+                    {header.label}
+                  </span>
+                ))}
+              </div>
+
+              <div className="space-y-8">
+                {grouped.map((group) => (
+                  <section key={group.segment}>
+                    <div className="mb-3 flex items-center gap-2">
+                      <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">
+                        {group.label}
+                      </h2>
+                      <span className="rounded-full bg-border px-2 py-0.5 text-xs text-muted">
+                        {group.partners.length}
+                      </span>
+                    </div>
+                    <TableList
+                      items={group.partners.map((partner) => ({
+                        id: partner.id,
+                        href: `/partners/${partner.id}`,
+                        columns: [
+                          { value: partner.name },
+                          { value: partner.focus_area[0] ?? "", width: "200px" },
+                          { value: partner.alliance_lead ?? "", width: "160px" },
+                          { value: partner.psa ?? "", width: "140px" },
+                        ],
+                      }))}
+                    />
+                  </section>
+                ))}
+              </div>
+            </>
           )}
         </>
       )}

@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
-import StatusBadge from "@/components/shared/StatusBadge";
 import FilterBar from "@/components/layout/FilterBar";
 import SyncButton from "@/components/shared/SyncButton";
+import PillGrid from "@/components/shared/PillGrid";
 import { Program, ProgramType } from "@/lib/types";
 
 type ProgramWithCount = Program & { linked_count: number };
@@ -52,12 +51,6 @@ interface ProgramsClientProps {
 export default function ProgramsClient({ programs }: ProgramsClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
-
-  // Only show status badges if programs have mixed statuses
-  const hasMultipleStatuses = useMemo(() => {
-    const statuses = new Set(programs.map((p) => p.status));
-    return statuses.size > 1;
-  }, [programs]);
 
   const filteredPrograms = useMemo(() => {
     return programs.filter((program) => {
@@ -153,29 +146,17 @@ export default function ProgramsClient({ programs }: ProgramsClientProps) {
                       {group.programs.length}
                     </span>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                    {group.programs.map((program) => (
-                      <Link
-                        key={program.id}
-                        href={`/programs/${program.id}`}
-                        className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm transition-colors hover:border-accent/40 hover:bg-surface-hover"
-                      >
-                        <span className="min-w-0 flex-1 truncate font-medium text-foreground">
-                          {isGroupedView
-                            ? stripTypeSuffix(program.name, group.type)
-                            : program.name}
-                        </span>
-                        {hasMultipleStatuses && (
-                          <StatusBadge status={program.status} />
-                        )}
-                        {program.linked_count > 0 && (
-                          <span className="shrink-0 text-xs text-muted">
-                            {program.linked_count}
-                          </span>
-                        )}
-                      </Link>
-                    ))}
-                  </div>
+                  <PillGrid
+                    columns={3}
+                    items={group.programs.map((program) => ({
+                      id: program.id,
+                      name: isGroupedView
+                        ? stripTypeSuffix(program.name, group.type)
+                        : program.name,
+                      href: `/programs/${program.id}`,
+                      count: program.linked_count > 0 ? program.linked_count : undefined,
+                    }))}
+                  />
                 </section>
               ))}
             </div>
