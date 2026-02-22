@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Message } from "@/lib/types";
+import { Message, Meeting } from "@/lib/types";
 import Timeline from "./Timeline";
 
 export default function CollapsibleEmails({
   messages,
+  meetingsByMessageId,
 }: {
   messages: Message[];
+  meetingsByMessageId?: Record<string, Meeting>;
 }) {
   const [open, setOpen] = useState(true);
 
@@ -34,7 +36,7 @@ export default function CollapsibleEmails({
       </button>
       {open && (
         <div className="mt-3">
-          <Timeline messages={messages} />
+          <Timeline messages={messages} meetingsByMessageId={meetingsByMessageId} />
         </div>
       )}
     </div>

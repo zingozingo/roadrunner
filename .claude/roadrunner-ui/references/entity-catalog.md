@@ -43,6 +43,23 @@ Slot mappings for all 6 entity types in Roadrunner. Each entity maps its fields 
 | fields | Partner (linked), Pillar, Priority, Updated date |
 | actions | EngagementActions menu |
 
+### Meeting-in-Thread Cards (Source Emails section)
+
+When a message in the engagement thread has an associated meeting (via `meetings.message_id` FK), it renders as a **distinct meeting card** instead of a plain email entry. This is a reusable pattern: **when meetings appear inside non-meeting contexts (engagement threads, partner activity), they render as distinct clickable cards with temporal data prominent.**
+
+Implementation:
+- Engagement page fetches `getMeetingsByEngagement(id)` and builds a `Record<string, Meeting>` keyed by `message_id`
+- Map is passed through `CollapsibleEmails` → `Timeline` as `meetingsByMessageId` prop
+- In Timeline, if `meetingsByMessageId[msg.id]` exists, render `MeetingCard` instead of the normal email entry
+- Card stays in chronological order within the thread — not pulled out of sequence
+
+Card visual treatment:
+- Left accent border (`border-l-2 border-l-accent`) + subtle tinted background (`bg-accent/5`)
+- Calendar icon + "MEETING" label in accent color
+- Meeting title (prominent), date + time, location (URL-aware: "Zoom Meeting" link vs plain text)
+- Entire card is a clickable `<Link>` to `/meetings/{id}`
+- Compact enough to fit the thread rhythm — not 3x taller than a regular email entry
+
 ### Notes
 - Engagement list was previously a card grid (`sm:grid-cols-2 lg:grid-cols-3`), now uses `space-y-2` vertical list
 - EngagementCard.tsx exists but is no longer used by the list page — candidate for cleanup
@@ -308,7 +325,7 @@ The meeting detail page uses a **full-width layout** (no sidebar). Sections top 
    - Compact grid layout (`sm:grid-cols-2 lg:grid-cols-3`), name + email per row
    - **Relay inbox filtering:** Addresses containing `relay.stevenromero.dev` are infrastructure and always filtered out — they are never shown as attendees.
 4. **AWS Relationships** — Linked relationships (if any).
-5. **Details** — Compact responsive grid (`sm:grid-cols-3 lg:grid-cols-4`) with: Type, Engagement (linked), Event (linked), Program (linked), Partner (linked), Organizer, Source, Created. Replaces the old sidebar.
+5. **Details** — Compact responsive grid (`sm:grid-cols-3 lg:grid-cols-4`) with: Type, Engagement (linked), Event (linked), Program (linked), Partner (linked), Organizer, Created. Replaces the old sidebar. Source field was removed (redundant — ICS badge in header already communicates this).
 
 **Why no sidebar:** The previous sidebar duplicated header metadata (Date, Time, Location, Status, Partner all appeared in both header fields AND sidebar). Moving to full-width eliminates duplication and follows the partner detail page pattern.
 

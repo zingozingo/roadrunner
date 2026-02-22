@@ -315,10 +315,6 @@ export default async function MeetingDetailPage({
               </div>
             )}
             <div>
-              <dt className="text-xs font-medium uppercase tracking-wider text-muted">Source</dt>
-              <dd className="mt-0.5 text-foreground capitalize">{meeting.source.replace("_", " ")}</dd>
-            </div>
-            <div>
               <dt className="text-xs font-medium uppercase tracking-wider text-muted">Created</dt>
               <dd className="mt-0.5 text-foreground">{new Date(meeting.created_at).toLocaleDateString()}</dd>
             </div>

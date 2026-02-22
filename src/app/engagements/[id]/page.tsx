@@ -13,10 +13,12 @@ import ParticipantList from "@/components/shared/ParticipantList";
 import {
   getEngagementById,
   getMessagesByEngagement,
+  getMeetingsByEngagement,
   getParticipantsByEngagement,
   getEntityLinksForEntity,
   resolveEntityLinkNames,
 } from "@/lib/supabase";
+import type { Meeting } from "@/lib/types";
 
 export default async function EngagementDetailPage({
   params,
@@ -28,11 +30,19 @@ export default async function EngagementDetailPage({
   const engagement = await getEngagementById(id);
   if (!engagement) notFound();
 
-  const [messages, participants, entityLinks] = await Promise.all([
+  const [messages, meetings, participants, entityLinks] = await Promise.all([
     getMessagesByEngagement(id),
+    getMeetingsByEngagement(id),
     getParticipantsByEngagement(id),
     getEntityLinksForEntity("engagement", id),
   ]);
+
+  // Build message_id → meeting map for inline meeting cards
+  // Use plain object since Maps can't be serialized across server→client boundary
+  const meetingsByMessageId: Record<string, Meeting> = {};
+  for (const m of meetings) {
+    if (m.message_id) meetingsByMessageId[m.message_id] = m;
+  }
 
   // Resolve entity link target names
   const nameMap = await resolveEntityLinkNames(entityLinks);
@@ -84,7 +94,7 @@ export default async function EngagementDetailPage({
             engagementId={id}
           />
 
-          <CollapsibleEmails messages={messages} />
+          <CollapsibleEmails messages={messages} meetingsByMessageId={meetingsByMessageId} />
 
           {/* Entity links */}
           {entityLinks.length > 0 && (
