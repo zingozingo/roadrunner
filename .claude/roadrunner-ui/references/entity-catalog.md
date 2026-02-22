@@ -86,6 +86,7 @@ Card visual treatment:
 - CompactRow.tsx is deprecated — no longer imported anywhere
 - EngagementCard.tsx exists but is unused — candidate for cleanup
 - On detail pages, linked engagements use the same inline table row pattern with `px-2 py-2` and `hover:bg-surface-hover`
+- Meeting titles in Timeline (meeting-in-thread cards) are cleaned via `cleanMeetingTitle()`
 
 ---
 
@@ -102,7 +103,7 @@ Card visual treatment:
 | Column | Value | Width |
 |---|---|---|
 | 1 (name) | `partner.name` | flex-1 |
-| 2 | `partner.focus_area.join(", ")` | 200px |
+| 2 | `partner.focus_area[0]` (first only) | 200px |
 | 3 | `partner.alliance_lead` | 160px |
 | 4 | `partner.psa` | 140px |
 
@@ -119,7 +120,7 @@ Card visual treatment:
     href: `/partners/${p.id}`,
     columns: [
       { value: p.name },
-      { value: p.focus_area.join(", "), width: "200px" },
+      { value: p.focus_area[0] ?? "", width: "200px" },
       { value: p.alliance_lead ?? "", width: "160px" },
       { value: p.psa ?? "", width: "140px" },
     ],
@@ -246,9 +247,11 @@ const eventTypeColorMap: Record<Event["type"], string> = {
 - Events have TWO filter dimensions: type (in FilterBar) + year (separate chip row below)
 - Description was dropped from list rows (detail-page concern)
 - Year sub-groups use the standard uppercase label style
-- `extractCity()` from `src/lib/format-utils.ts` extracts city from full location strings
+- `extractCity()` from `src/lib/format-utils.ts` extracts city from full location strings (strips venues, postal codes, street addresses)
 - `formatCompactDateRange()` from `src/lib/format-utils.ts` formats compact date ranges for cards
-- CalendarCard date block: w-14, prominent start day (text-xl font-bold), subordinate range (text-xs text-muted). Cross-month shows "–APR 2" format.
+- CalendarCard shows compact date text line (e.g. "Mar 9–12") above event name and location
+- Event detail page shows full location (not extracted) — detail pages get full info
+- Unverified events show " *" suffix on list page names
 
 ---
 
@@ -337,7 +340,8 @@ The meeting detail page uses a **full-width layout** (no sidebar). Sections top 
 - MeetingsClient includes a full create form (~150 lines) — do NOT touch when modifying list rendering
 - Meeting types: Executive Meeting, GTM Meeting, Product Team Relationship, Specialized Meeting
 - All inline badges (ICS, meeting_type, engagement/event chips) removed from list — detail page concerns
-- MeetingTimeline on detail pages shows date + title + MeetingStatusBadge (no meeting_type badge)
+- MeetingTimeline on detail pages shows date + title (cleaned via `cleanMeetingTitle()`) + MeetingStatusBadge (no meeting_type badge)
+- Meeting titles are always cleaned via `cleanMeetingTitle()` — strips FW:/Re:/Accepted: prefixes
 - AWS Relationships on meeting detail page use simple text links (not cards)
 
 ---

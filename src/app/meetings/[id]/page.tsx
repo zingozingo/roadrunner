@@ -14,6 +14,7 @@ import {
   getPartner,
 } from "@/lib/supabase";
 import type { MeetingAttendee } from "@/lib/types";
+import { cleanMeetingTitle } from "@/lib/format-utils";
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "Date TBD";
@@ -113,7 +114,7 @@ export default async function MeetingDetailPage({
       </Link>
 
       <DetailHeader
-        title={meeting.title}
+        title={cleanMeetingTitle(meeting.title)}
         badges={
           <>
             <MeetingStatusBadge status={meeting.status} />

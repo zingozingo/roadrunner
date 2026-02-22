@@ -72,10 +72,10 @@ Defined as CSS custom properties for ProgramTypeBadge:
 - Detail page two-column: `grid gap-6 lg:grid-cols-3`
 
 ### Cards & Rows
-- CompactRow: `px-4 py-3` (tighter for scan density)
+- Inline table rows: `px-4 py-2.5` (list pages), `px-2 py-2` (inside detail page section cards)
 - Detail cards: `p-5`
 - DetailHeader: `p-5 mb-6`
-- Border radius: `rounded-xl` (all cards and rows)
+- Border radius: `rounded-xl` (cards), `rounded-lg` (CalendarCard items, PillGrid pills)
 
 ### Group Headers
 - Margin below: `mb-3`
@@ -110,40 +110,12 @@ Defined as CSS custom properties for ProgramTypeBadge:
 
 | Element | Idle | Hover | Active/Selected |
 |---|---|---|---|
-| CompactRow | `border-border` | `border-accent/40` | N/A |
+| Inline row | `border-border/50` | `bg-surface` (list) / `bg-surface-hover` (detail) | N/A |
 | Filter chip | `border-border bg-background text-muted` | `hover:text-foreground` | `border-accent bg-accent/10 text-accent` |
 | Nav item | `text-muted` | `bg-surface-hover text-foreground` | `bg-accent/10 text-accent` |
 | Button (primary) | `bg-accent text-white` | `bg-accent-hover` | `disabled:opacity-50` |
 
 ## Common Patterns
-
-### Join-filter pattern for secondary text
-```tsx
-secondary={
-  [field1, field2, condition && `Label: ${field3}`]
-    .filter(Boolean)
-    .join(" · ") || undefined
-}
-```
-
-### Linked count in meta
-```tsx
-meta={
-  item.linked_count > 0 ? (
-    <span>{item.linked_count} link{item.linked_count !== 1 ? "s" : ""}</span>
-  ) : undefined
-}
-```
-
-### Stacked meta (multiple lines)
-```tsx
-meta={
-  <div className="flex flex-col items-end gap-0.5">
-    <span>{line1}</span>
-    <span>{line2}</span>
-  </div>
-}
-```
 
 ### Inline badge (no dedicated component)
 ```tsx
@@ -152,3 +124,16 @@ meta={
 </span>
 ```
 Replace `{color}` with the appropriate Tailwind color (accent, blue-500, purple-500, etc.).
+
+### Metadata in inline table rows
+```tsx
+<span className="shrink-0 text-xs text-muted hidden sm:block">
+  {count} msgs · {date}
+</span>
+```
+
+### Data formatting
+- Locations: `extractCity(location)` on list pages, full text on detail pages
+- Meeting titles: `cleanMeetingTitle(title)` everywhere
+- Compact dates: `formatCompactDateRange(start, end)` for cards
+- All utilities in `src/lib/format-utils.ts`

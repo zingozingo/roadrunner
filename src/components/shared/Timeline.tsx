@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Message, Meeting } from "@/lib/types";
+import { cleanMeetingTitle } from "@/lib/format-utils";
 
 const PREVIEW_LENGTH = 200;
 
@@ -62,7 +63,7 @@ function MeetingCard({ meeting }: { meeting: Meeting }) {
           Meeting
         </span>
       </div>
-      <p className="text-sm font-medium text-foreground">{meeting.title}</p>
+      <p className="text-sm font-medium text-foreground">{cleanMeetingTitle(meeting.title)}</p>
       <p className="mt-0.5 text-xs text-muted">
         {formatMeetingDate(meeting.meeting_date)}
         {timeStr && ` · ${timeStr}`}

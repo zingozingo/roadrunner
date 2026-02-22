@@ -102,7 +102,7 @@ Vertical dot timeline for meetings shown as linked items on other entity detail 
 **Behavior:**
 - Filters to upcoming + past 90 days
 - Upcoming: accent dot/date, full-brightness title. Past: muted.
-- Shows date, title, status badge, linked engagement name
+- Shows date, title (cleaned via `cleanMeetingTitle()`), status badge, linked engagement name
 
 ## Shared Components
 
@@ -279,6 +279,47 @@ Badges are used in DetailHeader badge slots and right-aligned in inline table ro
   {label}
 </span>
 ```
+
+## Data Formatting Utilities
+
+All formatting utilities live in `src/lib/format-utils.ts`.
+
+### `extractCity(location)`
+Extracts a compact city display from a full location string. Strips venue names, street addresses, postal codes, and direction suffixes.
+
+- Input: `"Venetian Expo & Convention Center, Las Vegas, NV"` → Output: `"Las Vegas, NV"`
+- Input: `"75017 Paris, France"` → Output: `"Paris, France"`
+- Input: `"London E16 1XL, UK"` → Output: `"London, UK"`
+- Input: `""` or `null` → Output: `""`
+
+**Usage:** Always call on locations before passing to CalendarCard or rendering on list pages. Detail pages show full location (not extracted).
+
+### `formatCompactDateRange(start, end)`
+Formats date ranges for compact display on cards and list rows.
+
+- `"2026-03-09"` / `"2026-03-12"` → `"Mar 9–12"` (same month, en-dash)
+- `"2026-03-09"` / `"2026-04-02"` → `"Mar 9 – Apr 2"` (cross-month, spaced dash)
+- `"2026-03-09"` / `null` → `"Mar 9"` (single date)
+- `null` / any → `"TBD"`
+
+**Usage:** CalendarCard uses this internally. Also available for any compact date display.
+
+### `cleanMeetingTitle(title)`
+Strips email-forwarding and calendar-response prefixes from meeting titles.
+
+- Removes: `FW:`, `Fwd:`, `Re:`, `RE:`, `Accepted:`, `Tentative:`, `Declined:`
+- Handles multiple layers: `"FW: FW: Re: Title"` → `"Title"`
+
+**Usage:** Apply everywhere meeting titles render — list pages, detail pages, MeetingTimeline, Timeline (meeting-in-thread cards).
+
+## Data Display Rules
+
+1. **Locations:** `extractCity()` on list pages and cards. Full address on detail pages.
+2. **Meeting titles:** Always cleaned via `cleanMeetingTitle()`.
+3. **Dates:** Use `formatCompactDateRange()` for compact display. Full format on detail pages.
+4. **Email addresses:** Never show raw angle brackets or `mailto:` prefixes.
+5. **URLs:** Never show raw URLs on list pages. Show meaningful labels ("Zoom Meeting", "Join Meeting", "Program Link").
+6. **Empty data:** Show nothing (not "N/A", not "—") in list rows. Detail page fields use "—" for missing values.
 
 ## Design Principles
 

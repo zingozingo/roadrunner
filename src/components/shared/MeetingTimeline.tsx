@@ -11,6 +11,7 @@
 import Link from "next/link";
 import { MeetingStatusBadge } from "@/components/shared/TypeBadge";
 import type { Meeting } from "@/lib/types";
+import { cleanMeetingTitle } from "@/lib/format-utils";
 
 interface MeetingTimelineProps {
   meetings: Meeting[];
@@ -124,7 +125,7 @@ export default function MeetingTimeline({
                     isUpcoming ? "text-foreground" : "text-muted"
                   } group-hover:text-foreground truncate`}
                 >
-                  {mtg.title}
+                  {cleanMeetingTitle(mtg.title)}
                 </span>
                 <span className="shrink-0">
                   <MeetingStatusBadge status={mtg.status} />

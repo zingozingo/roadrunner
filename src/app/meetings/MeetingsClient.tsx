@@ -8,6 +8,7 @@ import FilterBar from "@/components/layout/FilterBar";
 import SyncButton from "@/components/shared/SyncButton";
 import { MeetingStatusBadge } from "@/components/shared/TypeBadge";
 import { Meeting, Engagement, Event, MeetingStatus } from "@/lib/types";
+import { cleanMeetingTitle } from "@/lib/format-utils";
 
 type MeetingWithNames = Meeting & { engagement_name: string | null; event_name: string | null };
 
@@ -424,7 +425,7 @@ export default function MeetingsClient({ meetings, engagements, events }: Meetin
                             {timeStr}
                           </span>
                           <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-                            {m.title}
+                            {cleanMeetingTitle(m.title)}
                           </span>
                           {m.partner_name && (
                             <span className="shrink-0 text-xs text-muted hidden md:block">

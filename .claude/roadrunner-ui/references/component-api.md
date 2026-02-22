@@ -339,3 +339,24 @@ Centered message for empty lists or no search results. Two uses:
 **File:** `src/components/shared/SyncButton.tsx`
 
 Triggers Airtable sync for a specific entity. Props include `entity`, `label`, and `compact` boolean.
+
+---
+
+## Format Utilities
+
+**File:** `src/lib/format-utils.ts`
+
+### `extractCity(location: string | null | undefined): string`
+Extracts compact city display from full location strings. Strips venue names (Expo, Convention Center, Palais), street addresses (numbered addresses, Ave, Blvd), postal codes (75017, E16 1XL, DK-2300, 018956), and direction suffixes (S, N, E, W).
+
+Returns last 2 meaningful segments (city + state/country). Returns empty string for null/empty input.
+
+### `formatCompactDateRange(start: string | null, end: string | null): string`
+Formats ISO date strings into compact display:
+- Same month: `"Mar 9–12"` (en-dash, no spaces)
+- Cross-month: `"Mar 9 – Apr 2"` (spaced em-dash)
+- Single date: `"Mar 9"`
+- No start: `"TBD"`
+
+### `cleanMeetingTitle(title: string): string`
+Strips email-forwarding prefixes (`FW:`, `Fwd:`, `Re:`, `RE:`) and calendar-response prefixes (`Accepted:`, `Tentative:`, `Declined:`) from meeting titles. Handles multiple nested layers.
