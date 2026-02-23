@@ -1451,3 +1451,99 @@ Next.js 14 App Router + TypeScript + Tailwind. Supabase Postgres for data. Singl
 **Rationale:** Supabase migrations can partially fail without clear error reporting. PostgREST schema cache adds another layer of silent failure.
 
 **Impact:** Add post-migration verification step to future migration workflows. Two checks: (1) column exists via SELECT, (2) PostgREST accepts the column via REST API query.
+
+---
+
+## 2026-02-22: Two-Phase Classification Architecture
+
+**Decision:** Split email classification into Phase 1 (Match — lightweight routing) and Phase 2 (Analyze — deep analysis with full thread history). Phase 1 identifies which engagement an email belongs to using a compact index. Phase 2 produces current_state, open_items, participants, and entity matches with access to the engagement's complete email history.
+
+**Context:** Single-phase classification sent full engagement context (current_state, open_items for ALL engagements) on every call, wasting tokens. Claude only saw a compressed summary, never the actual source emails, leading to state drift and inability to verify previous classifications.
+
+**Rationale:** Two cognitive tasks (routing vs. analysis) deserve different context windows. Phase 1 needs breadth (see all engagements). Phase 2 needs depth (see full history of one engagement). Splitting them optimizes both. Phase 1 context: ~2K tokens. Phase 2 context: ~6-17K tokens depending on history depth.
+
+**Impact:** Every email now goes through two Claude API calls instead of one. Phase 1 is fast/cheap (~500 tokens response). Phase 2 is thorough. Total cost per email is slightly higher but accuracy is significantly better. Files: classifier.ts (orchestration), phase1-prompt.ts (new), phase2-prompt.ts (new), claude.ts (two new API functions).
+
+---
+
+## 2026-02-22: Phase 2 Receives Full Email History
+
+**Decision:** Phase 2 sees all source emails for the matched engagement (chronologically ordered, full body text) plus the existing current_state as an "anchor" to evolve.
+
+**Context:** Previously Claude only saw the current_state paragraph (which it wrote last time) plus the new email. This created a game-of-telephone effect where each update slightly drifted from reality. Claude couldn't verify what it previously summarized.
+
+**Rationale:** Even a 50-message engagement is only ~12K tokens of body text. Well within the 200K context window. Giving Claude the raw source material produces more accurate summaries and prevents information loss. The existing current_state serves as an anchor so Claude doesn't randomly restructure the summary.
+
+**Impact:** More accurate current_state evolution. Claude can detect contradictions, understand the full narrative arc, and correctly identify what's genuinely new. Token cost per Phase 2 call scales with engagement size but remains manageable.
+
+---
+
+## 2026-02-22: Open Items Threshold — Blockers and Commitments Only
+
+**Decision:** Open items must be "worth mentioning in a status update to leadership." Only concrete commitments, explicit blockers, and deadline-bearing requests qualify.
+
+**Context:** The previous prompt extracted granular tasks ("I'll update the spreadsheet", "send follow-up email") that cluttered the UI and weren't useful for strategic tracking.
+
+**Rationale:** Roadrunner is a relationship intelligence tool, not a task manager. PDMs need to see "Complete Security Competency technical review" not "send email to John." The threshold ensures open_items are actionable at the right altitude.
+
+**Impact:** Fewer, higher-quality open items per engagement. Reduces noise in the UI. May need calibration through testing.
+
+---
+
+## 2026-02-22: Tags Removed from Classification
+
+**Decision:** Removed suggested_tags from both Phase 1 and Phase 2 prompts, removed tag pills from engagement detail UI, removed tag merging from persistence layer. Tags column preserved in DB.
+
+**Context:** Tags were freeform lowercase labels with no controlled vocabulary. They overlapped with pillar (categorical classification) and current_state (descriptive context) without serving a distinct purpose.
+
+**Rationale:** Pillar (Co-Sell/Co-Build/Co-Market) handles the categorical work. Current_state handles the descriptive work. Tags were a middle ground nobody would filter by. Removing them gives Claude fewer things to generate, improving focus on what matters.
+
+**Impact:** Cleaner UI, simpler prompt, tags column still in DB for potential future use.
+
+---
+
+## 2026-02-22: Pillar Inference (Co-Sell / Co-Build / Co-Market)
+
+**Decision:** Added pillar classification to Phase 2 output. Co-Sell = revenue/deals/marketplace. Co-Build = integrations/certifications/technical. Co-Market = events/content/campaigns. Null if unclear.
+
+**Context:** Needed categorical classification to replace tags. Pillar is a well-understood AWS partner framework concept that maps directly to how PDMs think about their work.
+
+**Rationale:** Three categories are manageable, meaningful, and map to real business constructs. Claude infers from full context (history + new email). Null is acceptable for early-stage engagements.
+
+**Impact:** Engagements now have a pillar field. Enables future filtering/grouping by work type. Written to DB by persistence layer.
+
+---
+
+## 2026-02-22: Defined Participant Role Vocabulary
+
+**Decision:** Replaced freeform participant roles with a defined set: forwarder, partner_contact, aws_stakeholder, executive, technical_contact, third_party.
+
+**Context:** Previous freeform roles produced inconsistent values like "sender", "cc'd", "recipient" — routing metadata rather than meaningful relationship descriptors.
+
+**Rationale:** Constrained vocabulary produces consistent data that enables filtering and aggregation. Six roles cover all real-world cases for AWS PDM workflow.
+
+**Impact:** More useful participant data. Enables future features like "show me all executives involved in my engagements."
+
+---
+
+## 2026-02-22: Inbox Resolve Runs Phase 2
+
+**Decision:** When a user manually assigns an email to an engagement from Inbox, Phase 2 runs with the correct engagement's full history before persisting results.
+
+**Context:** Previously, the single-phase classification result (written without knowing the correct engagement) was used directly. This produced inaccurate current_state updates.
+
+**Rationale:** Phase 2 needs the correct engagement context to produce accurate analysis. Running it after user assignment ensures the current_state, open_items, and participant extraction are all informed by the right history.
+
+**Impact:** Better accuracy for manually-resolved emails. Slightly slower resolve flow (adds one API call).
+
+---
+
+## 2026-02-22: Sonnet for Both Phases Initially
+
+**Decision:** Use claude-sonnet-4-20250514 for both Phase 1 and Phase 2. May downgrade Phase 1 to Haiku after routing accuracy is proven.
+
+**Context:** Phase 1 is pure pattern matching that could work with Haiku. But getting routing wrong cascades into Phase 2 analyzing the wrong engagement.
+
+**Rationale:** Start safe, optimize later. Cost difference is negligible for single-user app. Speed difference (Haiku ~500ms vs Sonnet ~2s) is noticeable but not blocking.
+
+**Impact:** Can be changed with a single model parameter swap in claude.ts after confidence in routing accuracy.

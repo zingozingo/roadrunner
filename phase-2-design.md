@@ -1,5 +1,7 @@
 # Two-Phase Classification Architecture — Design Document
 
+> **STATUS: Implemented as of 2026-02-22.** Phase A (build alongside) and Phase C (swap classifier) complete. Phase B (debug testing) validated on Spacelift and NinjaOne engagements. Phase D (cleanup of deprecated code) pending.
+
 ## Overview
 
 The current system uses a single Claude call that does everything: match the email to an engagement, produce current_state, extract open_items, identify participants, match events/programs/relationships, and suggest tags. This works, but it has two structural problems:
