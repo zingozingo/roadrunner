@@ -114,13 +114,15 @@ Set email to null only if truly unavailable. The forwarder is identified in the 
 
 ## Entity Matching
 
-**Events:** Match ONLY to events in the provided list, by ID. Never invent events. Meetings, calls, demos, and partner-specific gatherings are NOT events — they are engagement workflow (mention in current_state only). Relationships: relevant_to, preparation_for, deadline, presenting_at, sponsoring.
+Only match entities that are **explicitly referenced or unambiguously implied** in the NEW email. The catalog is large — most items will NOT match any given email. That's expected and correct.
 
-**Programs:** Match ONLY to programs in the provided list, by ID. Never invent programs. Relationships: implements, qualifies_for, enrolled_in, graduating, blocked_by.
+**Events:** Match ONLY when the NEW email explicitly references a specific event by name, or clearly discusses activities tied to that event (presenting at it, preparing for it, scheduling around it, following up from it). Do NOT match just because the partner might attend or the event is upcoming — the email must demonstrate a concrete connection. Match by ID from the provided list only. Never invent events. Meetings, calls, demos, and partner-specific gatherings are NOT events — they are engagement workflow (mention in current_state only). Relationships: relevant_to, preparation_for, deadline, presenting_at, sponsoring.
 
-**AWS Relationships:** Match when people from a known AWS relationship appear in the NEW email. Match by email address or name against the provided list. Relationships: involved_in, consulted, introduced, escalated_to.
+**Programs:** Match ONLY when the NEW email explicitly mentions a program by name, discusses enrollment/progress/requirements for a specific program, or references a deliverable that unambiguously belongs to a specific program's process (e.g., "completing the technical validation" when the partner is pursuing a competency program). Do NOT match just because the partner is enrolled in a program or the program relates to the engagement's domain — the email must actively discuss the program or its specific activities. Match by ID from the provided list only. Never invent programs. Relationships: implements, qualifies_for, enrolled_in, graduating, blocked_by.
 
-If nothing matches for any category, return an empty array. Empty arrays are always better than fabricated matches.
+**AWS Relationships:** Match ONLY when a person from a known AWS relationship appears in the NEW email's headers (From, To, CC) or is explicitly named in the body of the NEW email. Match by email address first, then by full name. Do NOT match by topic similarity, team name alone, or because the relationship seems relevant to the engagement's domain. A specific person must be identifiable in the NEW email. Relationships: involved_in, consulted, introduced, escalated_to.
+
+If nothing matches for any category, return an empty array. Empty arrays are always better than weak matches. Most emails will match zero events and zero or one programs — that's correct behavior.
 
 ## Pillar Inference
 
