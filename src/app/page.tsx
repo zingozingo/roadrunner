@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
-import SyncButton from "@/components/shared/SyncButton";
+import SyncStatus from "@/components/shared/SyncStatus";
 import { extractCity, formatFooterDate } from "@/lib/format-utils";
 import {
   getUnresolvedApprovalCount,
@@ -35,13 +35,10 @@ export default async function DashboardPage() {
 
   return (
     <div className="p-6 lg:p-8">
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <PageHeader
-          title="Dashboard"
-          subtitle="Relay — AI-powered engagement tracker"
-        />
-        <SyncButton />
-      </div>
+      <PageHeader
+        title="Dashboard"
+        subtitle="Relay — AI-powered engagement tracker"
+      />
 
       {/* Summary cards */}
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -86,6 +83,9 @@ export default async function DashboardPage() {
           </p>
         </Link>
       </div>
+
+      {/* Sync status */}
+      <SyncStatus />
 
       {/* Upcoming events — compact date-first format */}
       {upcoming.length > 0 && (

@@ -56,14 +56,13 @@ export default async function ProgramDetailPage({
         title={program.name}
         badges={
           <>
-            <StatusBadge status={program.status} />
+            {program.status !== "active" && <StatusBadge status={program.status} />}
             <ProgramTypeBadge type={program.type} />
           </>
         }
         fields={[
           { label: "Lifecycle", value: <span className="capitalize">{program.lifecycle_type}</span> },
           ...(program.lifecycle_duration ? [{ label: "Duration", value: program.lifecycle_duration }] : []),
-          { label: "Status", value: <span className="capitalize">{program.status}</span> },
         ]}
         actions={<ProgramActions program={program} />}
       />

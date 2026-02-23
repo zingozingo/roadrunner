@@ -4,7 +4,6 @@ import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
 import StatusBadge from "@/components/shared/StatusBadge";
-import SyncButton from "@/components/shared/SyncButton";
 import CreateEngagementForm from "@/components/engagement/CreateEngagementForm";
 import { formatFooterDate } from "@/lib/format-utils";
 import { getEngagementsWithMessageCounts } from "@/lib/supabase";
@@ -43,10 +42,7 @@ export default async function EngagementsPage() {
           title="Engagements"
           subtitle={`${engagements.length} engagement${engagements.length !== 1 ? "s" : ""} tracked`}
         />
-        <div className="flex shrink-0 gap-2">
-          <CreateEngagementForm />
-          <SyncButton entity="engagements" label="Push to Airtable" compact />
-        </div>
+        <CreateEngagementForm />
       </div>
 
       {engagements.length === 0 ? (

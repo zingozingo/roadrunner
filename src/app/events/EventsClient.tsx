@@ -4,7 +4,6 @@ import { useState, useMemo } from "react";
 import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
-import SyncButton from "@/components/shared/SyncButton";
 import CalendarCard from "@/components/shared/CalendarCard";
 import { Event } from "@/lib/types";
 import { extractCity } from "@/lib/format-utils";
@@ -162,13 +161,10 @@ export default function EventsClient({ events }: { events: EventWithCount[] }) {
 
   return (
     <div className="p-6 lg:p-8">
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <PageHeader
-          title="Events"
-          subtitle={`${events.length} event${events.length !== 1 ? "s" : ""} tracked`}
-        />
-        <SyncButton entity="events" label="Sync Events" compact />
-      </div>
+      <PageHeader
+        title="Events"
+        subtitle={`${events.length} event${events.length !== 1 ? "s" : ""} tracked`}
+      />
 
       {events.length === 0 ? (
         <EmptyState

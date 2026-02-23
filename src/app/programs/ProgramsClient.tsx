@@ -4,7 +4,6 @@ import { useState, useMemo } from "react";
 import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
-import SyncButton from "@/components/shared/SyncButton";
 import PillGrid from "@/components/shared/PillGrid";
 import { Program, ProgramType } from "@/lib/types";
 
@@ -103,13 +102,10 @@ export default function ProgramsClient({ programs }: ProgramsClientProps) {
 
   return (
     <div className="p-6 lg:p-8">
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <PageHeader
-          title="Programs"
-          subtitle={`${programs.length} program${programs.length !== 1 ? "s" : ""} synced`}
-        />
-        <SyncButton entity="programs" label="Sync Programs" compact />
-      </div>
+      <PageHeader
+        title="Programs"
+        subtitle={`${programs.length} program${programs.length !== 1 ? "s" : ""} synced`}
+      />
 
       {programs.length === 0 ? (
         <EmptyState

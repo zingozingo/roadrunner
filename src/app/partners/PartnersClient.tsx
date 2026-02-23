@@ -4,7 +4,6 @@ import { useState, useMemo } from "react";
 import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
-import SyncButton from "@/components/shared/SyncButton";
 import TableList from "@/components/shared/TableList";
 import { Partner } from "@/lib/types";
 
@@ -86,13 +85,10 @@ export default function PartnersClient({ partners }: PartnersClientProps) {
 
   return (
     <div className="p-6 lg:p-8">
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <PageHeader
-          title="Partners"
-          subtitle={`${partners.length} partner${partners.length !== 1 ? "s" : ""} tracked`}
-        />
-        <SyncButton entity="partners" label="Sync Partners" compact />
-      </div>
+      <PageHeader
+        title="Partners"
+        subtitle={`${partners.length} partner${partners.length !== 1 ? "s" : ""} tracked`}
+      />
 
       {partners.length === 0 ? (
         <EmptyState
