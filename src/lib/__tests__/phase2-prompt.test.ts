@@ -286,7 +286,6 @@ describe("PHASE2_SYSTEM_PROMPT", () => {
     expect(PHASE2_SYSTEM_PROMPT).toContain("matched_events");
     expect(PHASE2_SYSTEM_PROMPT).toContain("matched_programs");
     expect(PHASE2_SYSTEM_PROMPT).toContain("matched_relationships");
-    expect(PHASE2_SYSTEM_PROMPT).toContain("suggested_tags");
     expect(PHASE2_SYSTEM_PROMPT).toContain('"pillar"');
   });
 
@@ -339,11 +338,6 @@ describe("buildPhase2Context — existing engagement", () => {
     expect(result).toContain("[UNRESOLVED]");
     expect(result).toContain("Schedule security team call");
     expect(result).toContain("[RESOLVED]");
-  });
-
-  it("includes tags", () => {
-    const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
-    expect(result).toContain("security, competency");
   });
 
   it("includes history messages in chronological order with HISTORY label", () => {
@@ -488,7 +482,6 @@ describe("parsePhase2Response", () => {
     matched_events: [],
     matched_programs: [{ id: "prog-001", name: "Security Competency", relationship: "qualifies_for" }],
     matched_relationships: [],
-    suggested_tags: ["security", "competency"],
     pillar: "Co-Build",
   });
 
@@ -501,7 +494,6 @@ describe("parsePhase2Response", () => {
     expect(result.resolved_open_items).toEqual(["Submit architecture diagram"]);
     expect(result.participants).toHaveLength(1);
     expect(result.matched_programs).toHaveLength(1);
-    expect(result.suggested_tags).toEqual(["security", "competency"]);
     expect(result.pillar).toBe("Co-Build");
   });
 

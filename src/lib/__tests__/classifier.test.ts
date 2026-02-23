@@ -1,18 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { ClassificationResult, Message, Engagement, Event, Program } from "../types";
+import type {
+  CombinedClassificationResult,
+  Message,
+  Engagement,
+  Event,
+  Program,
+} from "../types";
 
 // ============================================================
 // Hoisted mocks — vi.hoisted runs before vi.mock factories
 // ============================================================
 
 const {
-  mockClassifyMessage,
-  mockGetActiveEngagements,
+  mockClassifyPhase1,
+  mockClassifyPhase2,
+  mockBuildPhase1Context,
+  mockBuildPhase2Context,
+  mockGetUnclassifiedMessages,
+  mockGetEngagementHistory,
+  mockGetPartner,
   mockGetActiveEvents,
   mockGetActivePrograms,
-  mockGetPartners,
   mockGetAwsRelationships,
-  mockGetUnclassifiedMessages,
   mockCreateApproval,
   mockCreateEngagement,
   mockCreateEntityLink,
@@ -24,6 +33,7 @@ const {
 } = vi.hoisted(() => {
   const mockUpdate = vi.fn().mockReturnValue({
     in: vi.fn().mockResolvedValue({ error: null }),
+    eq: vi.fn().mockResolvedValue({ error: null }),
   });
   const mockInsert = vi.fn().mockReturnValue({
     select: vi.fn().mockReturnValue({
@@ -103,15 +113,22 @@ const {
   });
 
   return {
-    mockClassifyMessage: vi.fn(),
-    mockGetActiveEngagements: vi.fn(),
-    mockGetActiveEvents: vi.fn(),
-    mockGetActivePrograms: vi.fn(),
-    mockGetPartners: vi.fn().mockResolvedValue([]),
-    mockGetAwsRelationships: vi.fn().mockResolvedValue([]),
+    mockClassifyPhase1: vi.fn(),
+    mockClassifyPhase2: vi.fn(),
+    mockBuildPhase1Context: vi.fn().mockResolvedValue("phase1-context"),
+    mockBuildPhase2Context: vi.fn().mockReturnValue("phase2-context"),
     mockGetUnclassifiedMessages: vi.fn(),
+    mockGetEngagementHistory: vi.fn().mockResolvedValue(null),
+    mockGetPartner: vi.fn().mockResolvedValue(null),
+    mockGetActiveEvents: vi.fn().mockResolvedValue([]),
+    mockGetActivePrograms: vi.fn().mockResolvedValue([]),
+    mockGetAwsRelationships: vi.fn().mockResolvedValue([]),
     mockCreateApproval: vi.fn().mockResolvedValue({ id: "approval-001" }),
-    mockCreateEngagement: vi.fn().mockResolvedValue({ id: "init-auto", name: "Auto-Created", status: "active", partner_name: null, pillar: null, priority: null, tags: [], created_at: "", updated_at: "", closed_at: null }),
+    mockCreateEngagement: vi.fn().mockResolvedValue({
+      id: "init-auto", name: "Auto-Created", status: "active",
+      partner_name: null, pillar: null, priority: null, tags: [],
+      created_at: "", updated_at: "", closed_at: null,
+    }),
     mockCreateEntityLink: vi.fn().mockResolvedValue(undefined),
     mockUpsertParticipants: vi.fn().mockResolvedValue(undefined),
     mockAppendOpenItems: vi.fn().mockResolvedValue(null),
@@ -126,23 +143,33 @@ const {
 // ============================================================
 
 vi.mock("../claude", () => ({
-  classifyMessage: mockClassifyMessage,
+  classifyPhase1: mockClassifyPhase1,
+  classifyPhase2: mockClassifyPhase2,
+}));
+
+vi.mock("../phase1-prompt", () => ({
+  buildPhase1Context: mockBuildPhase1Context,
+}));
+
+vi.mock("../phase2-prompt", () => ({
+  buildPhase2Context: mockBuildPhase2Context,
 }));
 
 vi.mock("../supabase", () => ({
   getSupabaseClient: vi.fn().mockReturnValue({ from: mockFrom }),
-  getActiveEngagements: mockGetActiveEngagements,
+  getUnclassifiedMessages: mockGetUnclassifiedMessages,
+  getEngagementHistory: mockGetEngagementHistory,
+  getPartner: mockGetPartner,
   getActiveEvents: mockGetActiveEvents,
   getActivePrograms: mockGetActivePrograms,
-  getPartners: mockGetPartners,
   getAwsRelationships: mockGetAwsRelationships,
-  getUnclassifiedMessages: mockGetUnclassifiedMessages,
   createApproval: mockCreateApproval,
   createEngagement: mockCreateEngagement,
   createEntityLink: mockCreateEntityLink,
   upsertParticipants: mockUpsertParticipants,
   appendOpenItems: mockAppendOpenItems,
   resolveOpenItems: mockResolveOpenItems,
+  linkMeetingToEngagement: vi.fn().mockResolvedValue(undefined),
   linkEngagementAwsRelationship: mockLinkEngagementAwsRelationship,
 }));
 
@@ -163,53 +190,6 @@ import { processUnclassifiedMessages } from "../classifier";
 // ============================================================
 // Test fixtures
 // ============================================================
-
-const ENGAGEMENT_FALCON: Engagement = {
-  id: "init-001",
-  name: "CyberShield - Security Review",
-  status: "active",
-  current_state: null,
-  open_items: [],
-  partner_name: "CyberShield",
-  partner_id: null,
-  pillar: null,
-  priority: null,
-  tags: [],
-  airtable_record_id: null,
-  created_at: "2025-01-15T00:00:00Z",
-  updated_at: "2025-02-01T00:00:00Z",
-  closed_at: null,
-};
-
-const EVENT_REINVENT: Event = {
-  id: "evt-001",
-  name: "AWS re:Invent 2025",
-  type: "conference",
-  start_date: "2025-12-01",
-  end_date: "2025-12-05",
-  host: "AWS",
-  location: "Las Vegas, NV",
-  description: "Annual AWS conference",
-  source: "seed",
-  verified: true,
-  airtable_record_id: null,
-  geo: null,
-  created_at: "2025-01-01T00:00:00Z",
-};
-
-const PROGRAM_COMPETENCY: Program = {
-  id: "prog-001",
-  name: "AWS Security Competency",
-  type: "Competency",
-  description: "Validates partner security expertise",
-  eligibility: "Must pass technical review",
-  url: null,
-  status: "active",
-  lifecycle_type: "recurring",
-  lifecycle_duration: "1 year",
-  airtable_record_id: null,
-  created_at: "2025-01-01T00:00:00Z",
-};
 
 function makeMessage(overrides: Partial<Message> = {}): Message {
   return {
@@ -236,7 +216,57 @@ function makeMessage(overrides: Partial<Message> = {}): Message {
   };
 }
 
-const HIGH_CONFIDENCE_RESULT: ClassificationResult = {
+// Phase 1 results (routing only)
+const PHASE1_EXISTING = {
+  content_type: "engagement_email" as const,
+  engagement_match: {
+    id: "init-001",
+    name: "CyberShield - Security Review",
+    confidence: 0.95,
+    is_new: false,
+    partner_name: "CyberShield",
+    partner_id: null,
+  },
+};
+
+const PHASE1_LOW_CONFIDENCE = {
+  content_type: "engagement_email" as const,
+  engagement_match: {
+    id: null,
+    name: "Unknown Partner - Marketplace Discussion",
+    confidence: 0.55,
+    is_new: true,
+    partner_name: "Unknown Partner",
+    partner_id: null,
+  },
+};
+
+const PHASE1_NEW_HIGH = {
+  content_type: "engagement_email" as const,
+  engagement_match: {
+    id: null,
+    name: "NewCorp - Cloud Migration",
+    confidence: 0.92,
+    is_new: true,
+    partner_name: "NewCorp",
+    partner_id: null,
+  },
+};
+
+const PHASE1_NOISE = {
+  content_type: "noise" as const,
+  engagement_match: {
+    id: null,
+    name: "",
+    confidence: 1.0,
+    is_new: false,
+    partner_name: null,
+    partner_id: null,
+  },
+};
+
+// Phase 2 results (full analysis)
+const HIGH_CONFIDENCE_RESULT: CombinedClassificationResult = {
   content_type: "engagement_email",
   engagement_match: {
     id: "init-001",
@@ -251,14 +281,15 @@ const HIGH_CONFIDENCE_RESULT: ClassificationResult = {
   ],
   matched_relationships: [],
   participants: [
-    { name: "Alice Chen", email: "alice@cybershield.com", organization: "CyberShield", role: "Technical Lead" },
+    { name: "Alice Chen", email: "alice@cybershield.com", organization: "CyberShield", role: "partner_contact" },
   ],
   current_state: "CyberShield continues to pursue AWS Security Competency.",
   open_items: [],
   suggested_tags: [],
+  pillar: "Co-Build",
 };
 
-const LOW_CONFIDENCE_RESULT: ClassificationResult = {
+const LOW_CONFIDENCE_RESULT: CombinedClassificationResult = {
   content_type: "engagement_email",
   engagement_match: {
     id: null,
@@ -274,9 +305,10 @@ const LOW_CONFIDENCE_RESULT: ClassificationResult = {
   current_state: null,
   open_items: [],
   suggested_tags: [],
+  pillar: null,
 };
 
-const HIGH_CONFIDENCE_NEW_RESULT: ClassificationResult = {
+const HIGH_CONFIDENCE_NEW_RESULT: CombinedClassificationResult = {
   content_type: "engagement_email",
   engagement_match: {
     id: null,
@@ -289,29 +321,12 @@ const HIGH_CONFIDENCE_NEW_RESULT: ClassificationResult = {
   matched_programs: [],
   matched_relationships: [],
   participants: [
-    { name: "Bob Smith", email: "bob@newcorp.com", organization: "NewCorp", role: "CTO" },
+    { name: "Bob Smith", email: "bob@newcorp.com", organization: "NewCorp", role: "partner_contact" },
   ],
   current_state: "NewCorp exploring cloud migration.",
   open_items: [],
   suggested_tags: [],
-};
-
-const NOISE_RESULT: ClassificationResult = {
-  content_type: "noise",
-  engagement_match: {
-    id: null,
-    name: "",
-    confidence: 1.0,
-    is_new: false,
-    partner_name: null,
-  },
-  matched_events: [],
-  matched_programs: [],
-  matched_relationships: [],
-  participants: [],
-  current_state: null,
-  open_items: [],
-  suggested_tags: [],
+  pillar: "Co-Build",
 };
 
 // ============================================================
@@ -321,11 +336,6 @@ const NOISE_RESULT: ClassificationResult = {
 describe("processUnclassifiedMessages", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetActiveEngagements.mockResolvedValue([ENGAGEMENT_FALCON]);
-    mockGetActiveEvents.mockResolvedValue([EVENT_REINVENT]);
-    mockGetActivePrograms.mockResolvedValue([PROGRAM_COMPETENCY]);
-    mockGetPartners.mockResolvedValue([]);
-    mockGetAwsRelationships.mockResolvedValue([]);
   });
 
   it("processes nothing when there are no unclassified messages", async () => {
@@ -336,13 +346,14 @@ describe("processUnclassifiedMessages", () => {
     expect(result.processed).toBe(0);
     expect(result.autoAssigned).toBe(0);
     expect(result.flaggedForReview).toBe(0);
-    expect(mockClassifyMessage).not.toHaveBeenCalled();
+    expect(mockClassifyPhase1).not.toHaveBeenCalled();
   });
 
-  it("auto-assigns messages with high confidence matches", async () => {
+  it("auto-assigns messages with high confidence matches via two-phase", async () => {
     const msg = makeMessage();
     mockGetUnclassifiedMessages.mockResolvedValue([msg]);
-    mockClassifyMessage.mockResolvedValue(HIGH_CONFIDENCE_RESULT);
+    mockClassifyPhase1.mockResolvedValue(PHASE1_EXISTING);
+    mockClassifyPhase2.mockResolvedValue(HIGH_CONFIDENCE_RESULT);
 
     const result = await processUnclassifiedMessages();
 
@@ -350,24 +361,17 @@ describe("processUnclassifiedMessages", () => {
     expect(result.autoAssigned).toBe(1);
     expect(result.flaggedForReview).toBe(0);
 
-    // Verify classifyMessage was called with the message, full context, and no forwarder note
-    expect(mockClassifyMessage).toHaveBeenCalledWith(
-      [msg],
-      {
-        engagements: [ENGAGEMENT_FALCON],
-        events: [EVENT_REINVENT],
-        programs: [PROGRAM_COMPETENCY],
-        partners: [],
-        relationships: [],
-      },
-      null
-    );
+    // Phase 1 was called
+    expect(mockClassifyPhase1).toHaveBeenCalledTimes(1);
+    // Phase 2 was called (not noise)
+    expect(mockClassifyPhase2).toHaveBeenCalledTimes(1);
   });
 
   it("flags low confidence matches for review", async () => {
     const msg = makeMessage({ id: "msg-low" });
     mockGetUnclassifiedMessages.mockResolvedValue([msg]);
-    mockClassifyMessage.mockResolvedValue(LOW_CONFIDENCE_RESULT);
+    mockClassifyPhase1.mockResolvedValue(PHASE1_LOW_CONFIDENCE);
+    mockClassifyPhase2.mockResolvedValue(LOW_CONFIDENCE_RESULT);
 
     const result = await processUnclassifiedMessages();
 
@@ -376,16 +380,18 @@ describe("processUnclassifiedMessages", () => {
     expect(result.flaggedForReview).toBe(1);
   });
 
-  it("handles noise classification without assigning or flagging", async () => {
+  it("handles noise classification without running Phase 2", async () => {
     const msg = makeMessage({ id: "msg-noise", subject: "Out of Office" });
     mockGetUnclassifiedMessages.mockResolvedValue([msg]);
-    mockClassifyMessage.mockResolvedValue(NOISE_RESULT);
+    mockClassifyPhase1.mockResolvedValue(PHASE1_NOISE);
 
     const result = await processUnclassifiedMessages();
 
     expect(result.processed).toBe(1);
     expect(result.autoAssigned).toBe(0);
     expect(result.flaggedForReview).toBe(0);
+    // Phase 2 should NOT be called for noise
+    expect(mockClassifyPhase2).not.toHaveBeenCalled();
   });
 
   it("groups messages with close forwarded_at timestamps", async () => {
@@ -394,21 +400,13 @@ describe("processUnclassifiedMessages", () => {
     const msg3 = makeMessage({ id: "msg-c", forwarded_at: "2025-02-03T17:00:00.000Z" });
 
     mockGetUnclassifiedMessages.mockResolvedValue([msg1, msg2, msg3]);
-    mockClassifyMessage.mockResolvedValue(HIGH_CONFIDENCE_RESULT);
+    mockClassifyPhase1.mockResolvedValue(PHASE1_EXISTING);
+    mockClassifyPhase2.mockResolvedValue(HIGH_CONFIDENCE_RESULT);
 
     await processUnclassifiedMessages();
 
-    // msg1+msg2 grouped (2s apart), msg3 separate = 2 calls
-    expect(mockClassifyMessage).toHaveBeenCalledTimes(2);
-
-    const firstCallMessages = mockClassifyMessage.mock.calls[0][0];
-    expect(firstCallMessages).toHaveLength(2);
-    expect(firstCallMessages[0].id).toBe("msg-a");
-    expect(firstCallMessages[1].id).toBe("msg-b");
-
-    const secondCallMessages = mockClassifyMessage.mock.calls[1][0];
-    expect(secondCallMessages).toHaveLength(1);
-    expect(secondCallMessages[0].id).toBe("msg-c");
+    // msg1+msg2 grouped (2s apart), msg3 separate = 2 Phase 1 calls
+    expect(mockClassifyPhase1).toHaveBeenCalledTimes(2);
   });
 
   it("continues processing remaining groups when one fails", async () => {
@@ -416,21 +414,23 @@ describe("processUnclassifiedMessages", () => {
     const msg2 = makeMessage({ id: "msg-fail", forwarded_at: "2025-02-03T17:00:00.000Z" });
 
     mockGetUnclassifiedMessages.mockResolvedValue([msg1, msg2]);
-    mockClassifyMessage
-      .mockResolvedValueOnce(HIGH_CONFIDENCE_RESULT)
+    mockClassifyPhase1
+      .mockResolvedValueOnce(PHASE1_EXISTING)
       .mockRejectedValueOnce(new Error("API rate limit"));
+    mockClassifyPhase2.mockResolvedValue(HIGH_CONFIDENCE_RESULT);
 
     const result = await processUnclassifiedMessages();
 
     expect(result.processed).toBe(1);
     expect(result.errors).toBe(1);
-    expect(mockClassifyMessage).toHaveBeenCalledTimes(2);
+    expect(mockClassifyPhase1).toHaveBeenCalledTimes(2);
   });
 
   it("auto-creates new engagement at high confidence", async () => {
     const msg = makeMessage({ id: "msg-new" });
     mockGetUnclassifiedMessages.mockResolvedValue([msg]);
-    mockClassifyMessage.mockResolvedValue(HIGH_CONFIDENCE_NEW_RESULT);
+    mockClassifyPhase1.mockResolvedValue(PHASE1_NEW_HIGH);
+    mockClassifyPhase2.mockResolvedValue(HIGH_CONFIDENCE_NEW_RESULT);
 
     const result = await processUnclassifiedMessages();
 
@@ -449,7 +449,8 @@ describe("processUnclassifiedMessages", () => {
   it("falls back to review when auto-create fails", async () => {
     const msg = makeMessage({ id: "msg-fail-create" });
     mockGetUnclassifiedMessages.mockResolvedValue([msg]);
-    mockClassifyMessage.mockResolvedValue(HIGH_CONFIDENCE_NEW_RESULT);
+    mockClassifyPhase1.mockResolvedValue(PHASE1_NEW_HIGH);
+    mockClassifyPhase2.mockResolvedValue(HIGH_CONFIDENCE_NEW_RESULT);
     mockCreateEngagement.mockRejectedValueOnce(new Error("DB error"));
 
     const result = await processUnclassifiedMessages();
@@ -460,7 +461,7 @@ describe("processUnclassifiedMessages", () => {
   });
 
   it("auto-assigns with matched events at high confidence", async () => {
-    const resultWithEvent: ClassificationResult = {
+    const resultWithEvent: CombinedClassificationResult = {
       ...HIGH_CONFIDENCE_RESULT,
       matched_events: [
         { id: "evt-001", name: "AWS re:Invent 2025", relationship: "relevant_to" },
@@ -469,7 +470,8 @@ describe("processUnclassifiedMessages", () => {
 
     const msg = makeMessage();
     mockGetUnclassifiedMessages.mockResolvedValue([msg]);
-    mockClassifyMessage.mockResolvedValue(resultWithEvent);
+    mockClassifyPhase1.mockResolvedValue(PHASE1_EXISTING);
+    mockClassifyPhase2.mockResolvedValue(resultWithEvent);
 
     const result = await processUnclassifiedMessages();
 
@@ -477,21 +479,17 @@ describe("processUnclassifiedMessages", () => {
     expect(result.flaggedForReview).toBe(0);
   });
 
-  it("passes forwarder note from message metadata to classifyMessage", async () => {
+  it("passes forwarder note through two-phase pipeline", async () => {
     const msg = makeMessage({ forwarder_note: "Important - handle ASAP" });
     mockGetUnclassifiedMessages.mockResolvedValue([msg]);
-    mockClassifyMessage.mockResolvedValue(HIGH_CONFIDENCE_RESULT);
+    mockClassifyPhase1.mockResolvedValue(PHASE1_EXISTING);
+    mockClassifyPhase2.mockResolvedValue(HIGH_CONFIDENCE_RESULT);
 
     await processUnclassifiedMessages();
 
-    // Third arg should be the forwarder note
-    expect(mockClassifyMessage).toHaveBeenCalledWith(
+    // buildPhase1Context should receive the forwarder note
+    expect(mockBuildPhase1Context).toHaveBeenCalledWith(
       [msg],
-      expect.objectContaining({
-        engagements: [ENGAGEMENT_FALCON],
-        partners: [],
-        relationships: [],
-      }),
       "Important - handle ASAP"
     );
   });
@@ -499,11 +497,12 @@ describe("processUnclassifiedMessages", () => {
   it("calls resolveOpenItems when resolved_open_items is present", async () => {
     const msg = makeMessage();
     mockGetUnclassifiedMessages.mockResolvedValue([msg]);
-    const resultWithResolved: ClassificationResult = {
+    mockClassifyPhase1.mockResolvedValue(PHASE1_EXISTING);
+    const resultWithResolved: CombinedClassificationResult = {
       ...HIGH_CONFIDENCE_RESULT,
       resolved_open_items: ["Send GTM campaign strategy document"],
     };
-    mockClassifyMessage.mockResolvedValue(resultWithResolved);
+    mockClassifyPhase2.mockResolvedValue(resultWithResolved);
 
     await processUnclassifiedMessages();
 
@@ -516,7 +515,8 @@ describe("processUnclassifiedMessages", () => {
   it("does not call resolveOpenItems when resolved_open_items is empty", async () => {
     const msg = makeMessage();
     mockGetUnclassifiedMessages.mockResolvedValue([msg]);
-    mockClassifyMessage.mockResolvedValue(HIGH_CONFIDENCE_RESULT);
+    mockClassifyPhase1.mockResolvedValue(PHASE1_EXISTING);
+    mockClassifyPhase2.mockResolvedValue(HIGH_CONFIDENCE_RESULT);
 
     await processUnclassifiedMessages();
 

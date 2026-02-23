@@ -132,10 +132,6 @@ Classify the engagement's primary pillar based on ALL available context (history
 
 Return null if unclear. It's fine to not classify early-stage engagements.
 
-## Tags
-
-Suggest short, lowercase labels. Examples: "co-sell", "fedramp", "poc", "migration", "marketplace", "security-review", "nfl", "finserv". Only suggest tags genuinely descriptive of this engagement. Empty array is fine.
-
 ## Engagement Naming (new engagements only)
 
 If this is a new engagement, suggest a name in the format: "Partner Name - Descriptive Initiative"
@@ -184,7 +180,6 @@ The content_type and engagement_match fields are provided to you in the "Phase 1
   "matched_relationships": [
     { "id": "uuid", "name": "relationship name", "relationship": "involved_in | consulted | introduced | escalated_to" }
   ],
-  "suggested_tags": ["lowercase-tag"],
   "pillar": "Co-Sell" | "Co-Build" | "Co-Market" | null
 }`;
 
@@ -331,10 +326,6 @@ function buildEngagementContext(history: {
   }
   lines.push("");
 
-  // Tags
-  if (eng.tags.length > 0) {
-    lines.push(`**Tags:** ${eng.tags.join(", ")}`);
-  }
   lines.push("");
 
   return lines.join("\n");

@@ -94,20 +94,6 @@ export default async function EngagementDetailPage({
         actions={<EngagementActions engagement={engagement} />}
       />
 
-      {/* Tag pills */}
-      {engagement.tags && engagement.tags.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {engagement.tags.map((tag) => (
-            <span
-              key={tag}
-              className="rounded-full bg-zinc-700 px-2 py-0.5 text-xs text-zinc-300 lowercase"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
-
       {/* Full-width sections — ordered by decision-making priority */}
       <div className="space-y-6">
 

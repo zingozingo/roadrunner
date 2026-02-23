@@ -180,7 +180,6 @@ describe("buildEngagementIndex", () => {
     expect(result).toContain('"CyberShield - Security Review"');
     expect(result).toContain("id: eng-001");
     expect(result).toContain("Partner: CyberShield");
-    expect(result).toContain("Tags: security, competency");
     expect(result).toContain('Subject: "Re: Security Review Next Steps"');
   });
 

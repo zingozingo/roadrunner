@@ -153,7 +153,6 @@ export function buildEngagementIndex(
   for (const eng of engagements) {
     const parts: string[] = [];
     if (eng.partner_name) parts.push(`Partner: ${eng.partner_name}`);
-    if (eng.tags.length > 0) parts.push(`Tags: ${eng.tags.join(", ")}`);
 
     const subject = lastSubjects.get(eng.id) ?? "(none)";
     const meta = parts.length > 0 ? ` — ${parts.join(" | ")}` : "";

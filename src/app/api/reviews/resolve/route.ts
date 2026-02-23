@@ -4,8 +4,8 @@ import {
   resolveApproval,
   createEngagement,
 } from "@/lib/supabase";
-import { persistClassificationResult } from "@/lib/classifier";
-import { ApprovalQueueItem } from "@/lib/types";
+import { persistClassificationResult, runPhase2ForResolve } from "@/lib/classifier";
+import { ApprovalQueueItem, Message, Phase1Result } from "@/lib/types";
 
 interface ResolveRequest {
   review_id: string;
@@ -26,7 +26,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch the approval by ID
-    const { data: row, error: fetchError } = await getSupabaseClient()
+    const db = getSupabaseClient();
+    const { data: row, error: fetchError } = await db
       .from("approval_queue")
       .select("*")
       .eq("id", review_id)
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ status: "skipped" });
     }
 
-    // Handle "new" — create engagement with user-provided name
+    // Handle "new" — create engagement, then run Phase 2 for fresh analysis
     if (action === "new") {
       const name = engagement_name?.trim();
       if (!name) {
@@ -76,18 +77,54 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Fetch the original message(s) for Phase 2 analysis
+      const messageIds = approval.message_id ? [approval.message_id] : [];
+      let messages: Message[] = [];
+      if (messageIds.length > 0) {
+        const { data } = await db
+          .from("messages")
+          .select("*")
+          .in("id", messageIds);
+        messages = (data ?? []) as Message[];
+      }
+
+      // Create the engagement first
       const engagement = await createEngagement({
         name,
         partner_name: classResult.engagement_match.partner_name,
         current_state: classResult.current_state ?? null,
         open_items: (classResult.open_items ?? []).map((i) => ({ ...i, resolved: false })),
-        tags: classResult.suggested_tags ?? [],
+        tags: [],
       });
 
+      // Run Phase 2 for fresh analysis if we have messages
+      let finalResult = classResult;
+      if (messages.length > 0) {
+        try {
+          // Build a Phase 1 result pointing at the new engagement
+          const phase1ForResolve: Phase1Result = {
+            content_type: classResult.content_type ?? "engagement_email",
+            engagement_match: {
+              ...classResult.engagement_match,
+              id: engagement.id,
+              name: engagement.name,
+              is_new: true,
+              partner_id: classResult.engagement_match.partner_id ?? null,
+            },
+          };
+
+          const forwarderNote = messages[0]?.forwarder_note ?? null;
+          finalResult = await runPhase2ForResolve(messages, phase1ForResolve, forwarderNote);
+        } catch (err) {
+          console.error("Phase 2 failed during resolve, using Phase 1 result:", err);
+          // Fall back to the original classification_result from the approval
+        }
+      }
+
       await persistClassificationResult(
-        classResult,
+        finalResult,
         engagement.id,
-        approval.message_id ? [approval.message_id] : [],
+        messageIds,
         true
       );
 
