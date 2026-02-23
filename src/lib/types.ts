@@ -254,6 +254,79 @@ export interface ClassificationResult {
   suggested_tags: string[];
 }
 
+// ============================================================
+// Two-phase classification types
+// ============================================================
+
+/** Phase 1 (Match) output — lightweight routing result */
+export interface Phase1Result {
+  content_type: "engagement_email" | "meeting_invite" | "mixed" | "noise";
+  engagement_match: {
+    id: string | null;
+    name: string;
+    confidence: number;
+    is_new: boolean;
+    partner_name: string | null;
+    partner_id: string | null;
+  };
+}
+
+/** Phase 2 (Analyze) output — deep analysis with full engagement context */
+export interface Phase2Result {
+  current_state: string | null;
+  open_items: {
+    description: string;
+    assignee: string | null;
+    due_date: string | null;
+  }[];
+  resolved_open_items: string[];
+  participants: {
+    name: string;
+    email: string | null;
+    organization: string | null;
+    role: string | null;
+  }[];
+  matched_events: { id: string; name: string; relationship: string }[];
+  matched_programs: { id: string; name: string; relationship: string }[];
+  matched_relationships: { id: string; name: string; relationship: string }[];
+  suggested_tags: string[];
+  pillar: Pillar | null;
+}
+
+/**
+ * Combined result from both phases — the shape the persistence layer receives.
+ * Backwards-compatible with ClassificationResult (same fields + pillar).
+ */
+export interface CombinedClassificationResult {
+  content_type: Message["content_type"];
+  engagement_match: {
+    id: string | null;
+    name: string;
+    confidence: number;
+    is_new: boolean;
+    partner_name: string | null;
+    partner_id?: string | null;
+  };
+  matched_events: { id: string; name: string; relationship: string }[];
+  matched_programs: { id: string; name: string; relationship: string }[];
+  matched_relationships: { id: string; name: string; relationship: string }[];
+  participants: {
+    name: string;
+    email: string | null;
+    organization: string | null;
+    role: string | null;
+  }[];
+  current_state: string | null;
+  open_items: {
+    description: string;
+    assignee: string | null;
+    due_date: string | null;
+  }[];
+  resolved_open_items?: string[];
+  suggested_tags: string[];
+  pillar: Pillar | null;
+}
+
 /** The shape of a parsed message before it's inserted into the DB */
 export interface ParsedMessage {
   sender_name: string | null;

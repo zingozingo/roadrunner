@@ -2001,3 +2001,40 @@ export async function linkMeetingToEngagement(
     console.error("linkMeetingToEngagement error:", err instanceof Error ? err.message : err);
   }
 }
+
+// ============================================================
+// Phase 2 context loader — everything needed for deep analysis
+// ============================================================
+
+/**
+ * Fetch full engagement history for Phase 2 classification.
+ * Returns the engagement record plus all messages (chronological),
+ * meetings, and participants with roles.
+ */
+export async function getEngagementHistory(engagementId: string): Promise<{
+  engagement: Engagement;
+  messages: Message[];
+  meetings: Meeting[];
+  participants: (Participant & { role: string | null })[];
+} | null> {
+  const engagement = await getEngagementById(engagementId);
+  if (!engagement) return null;
+
+  const [messages, meetings, participants] = await Promise.all([
+    getMessagesByEngagement(engagementId).then((msgs) =>
+      // Re-sort ASC (oldest first) — getMessagesByEngagement returns DESC
+      msgs.sort((a, b) => {
+        const aTime = a.sent_at ? new Date(a.sent_at).getTime() : 0;
+        const bTime = b.sent_at ? new Date(b.sent_at).getTime() : 0;
+        return aTime - bTime;
+      })
+    ),
+    getMeetingsByEngagement(engagementId),
+    getParticipantsByEngagement(engagementId).then((ps) =>
+      // Strip linkId — Phase 2 doesn't need it
+      ps.map(({ linkId: _, ...rest }) => rest)
+    ),
+  ]);
+
+  return { engagement, messages, meetings, participants };
+}
