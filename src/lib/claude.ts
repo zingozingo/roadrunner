@@ -1,12 +1,14 @@
 import Anthropic from "@anthropic-ai/sdk";
 import {
   ClassificationResult,
+  CombinedClassificationResult,
   Phase1Result,
   Message,
   Partner,
   AwsRelationship,
 } from "./types";
 import { PHASE1_SYSTEM_PROMPT, parsePhase1Response } from "./phase1-prompt";
+import { PHASE2_SYSTEM_PROMPT, parsePhase2Response } from "./phase2-prompt";
 import {
   buildForwarderSection,
   buildEngagementsSection,
@@ -311,6 +313,30 @@ export async function classifyPhase1(
   }
 
   return parsePhase1Response(textBlock.text);
+}
+
+// ============================================================
+// Phase 2 classification — deep analysis with full history
+// ============================================================
+
+export async function classifyPhase2(
+  phase2Context: string
+): Promise<CombinedClassificationResult> {
+  const client = getClient();
+
+  const response = await client.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 4096,
+    system: PHASE2_SYSTEM_PROMPT,
+    messages: [{ role: "user", content: phase2Context }],
+  });
+
+  const textBlock = response.content.find((block) => block.type === "text");
+  if (!textBlock || textBlock.type !== "text") {
+    throw new Error("Claude returned no text content");
+  }
+
+  return parsePhase2Response(textBlock.text);
 }
 
 // Exported for testing
