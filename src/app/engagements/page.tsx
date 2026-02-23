@@ -4,6 +4,7 @@ import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
 import StatusBadge from "@/components/shared/StatusBadge";
+import PillarBadge from "@/components/shared/PillarBadge";
 import CreateEngagementForm from "@/components/engagement/CreateEngagementForm";
 import { formatFooterDate } from "@/lib/format-utils";
 import { getEngagementsWithMessageCounts } from "@/lib/supabase";
@@ -70,6 +71,11 @@ export default async function EngagementsPage() {
                     {eng.partner_name && (
                       <span className="shrink-0 text-xs text-muted hidden sm:block">
                         {eng.partner_name}
+                      </span>
+                    )}
+                    {eng.pillar && (
+                      <span className="shrink-0 hidden sm:inline-flex">
+                        <PillarBadge pillar={eng.pillar} />
                       </span>
                     )}
                     <span className="shrink-0 text-xs text-muted hidden sm:block">
