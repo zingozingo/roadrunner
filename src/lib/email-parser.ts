@@ -50,14 +50,47 @@ const NOISE_PATTERNS = [
   /\n--[ ]?\n[\s\S]*$/g,
 ];
 
+/** Words that indicate a company name (don't flip comma-inverted names containing these) */
+const COMPANY_SUFFIXES = /\b(inc|llc|ltd|corp|co|company|group|gmbh|plc|sa|ag)\b/i;
+
+/**
+ * Flip "Last, First" → "First Last" for comma-inverted personal names.
+ * Skips company names like "ACME, Inc." by checking for corporate suffixes.
+ */
+function flipCommaInvertedName(name: string): string {
+  const commaIdx = name.indexOf(",");
+  if (commaIdx === -1) return name;
+
+  const before = name.slice(0, commaIdx).trim();
+  const after = name.slice(commaIdx + 1).trim();
+
+  // Skip if it looks like a company: "ACME, Inc."
+  if (COMPANY_SUFFIXES.test(after) || COMPANY_SUFFIXES.test(before)) return name;
+
+  // Only flip if the part after comma is 1-3 words (a first/middle name)
+  const afterWords = after.split(/\s+/).filter(Boolean);
+  if (afterWords.length >= 1 && afterWords.length <= 3) {
+    return `${after} ${before}`;
+  }
+
+  return name;
+}
+
 /**
  * Parse a "Name <email>" string into its parts.
+ *
+ * Handles Outlook's rich-text mailto double-bracket format:
+ *   "Name <email<mailto:email>>" → { senderName: "Name", senderEmail: "email" }
  */
 export function parseSenderField(raw: string): {
   senderName: string | null;
   senderEmail: string | null;
 } {
-  const match = raw.match(/^(.+?)\s*<([^>]+)>\s*$/);
+  // Normalize: strip <mailto:...> artifacts, collapse doubled brackets
+  let normalized = raw.replace(/<mailto:[^>]*>/g, "");
+  normalized = normalized.replace(/>>/g, ">").replace(/<</g, "<").trim();
+
+  const match = normalized.match(/^(.+?)\s*<([^>]+)>\s*$/);
   if (match) {
     const name = match[1].trim();
     const email = match[2].trim();
@@ -65,13 +98,20 @@ export function parseSenderField(raw: string): {
     if (name.includes("@") || name.toLowerCase() === email.toLowerCase()) {
       return { senderName: null, senderEmail: email };
     }
-    return { senderName: name, senderEmail: email };
+    return { senderName: flipCommaInvertedName(name), senderEmail: email };
   }
-  // Might be just an email address
-  if (raw.includes("@")) {
-    return { senderName: null, senderEmail: raw.trim() };
+
+  // Regex failed — try to extract email from last <...> pair
+  const bracketMatch = normalized.match(/<([^>]+@[^>]+)>/);
+  if (bracketMatch) {
+    return { senderName: null, senderEmail: bracketMatch[1].trim() };
   }
-  return { senderName: raw.trim(), senderEmail: null };
+
+  // Bare email address
+  if (normalized.includes("@")) {
+    return { senderName: null, senderEmail: normalized };
+  }
+  return { senderName: normalized, senderEmail: null };
 }
 
 /**

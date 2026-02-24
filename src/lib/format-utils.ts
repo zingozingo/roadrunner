@@ -162,9 +162,9 @@ const LOWERCASE_PREFIXES = new Set([
 function titleCaseWord(word: string, isFirst: boolean): string {
   if (!word) return word;
 
-  // 2-letter all-caps → likely initials, keep as-is
-  if (word.length === 2 && word === word.toUpperCase() && /^[A-Z]{2}$/.test(word)) {
-    return word;
+  // 2-letter word → likely initials, uppercase them ("cj" → "CJ", "DJ" → "DJ")
+  if (word.length === 2 && /^[a-zA-Z]{2}$/.test(word)) {
+    return word.toUpperCase();
   }
 
   // Mc prefix: "mcbride" → "McBride"
@@ -230,10 +230,56 @@ function titleCaseName(name: string): string {
  * Also strips trailing angle-bracket email fragments from names:
  * "Tim wikander <tim" → "Tim Wikander"
  */
+/**
+ * Flip "Last, First" → "First Last" for display.
+ * Skips company-like names ("ACME, Inc.").
+ */
+function flipCommaName(name: string): string {
+  const commaIdx = name.indexOf(",");
+  if (commaIdx === -1) return name;
+  const before = name.slice(0, commaIdx).trim();
+  const after = name.slice(commaIdx + 1).trim();
+  if (/\b(inc|llc|ltd|corp|co|company|group|gmbh|plc|sa|ag)\b/i.test(after)) return name;
+  const afterWords = after.split(/\s+/).filter(Boolean);
+  if (afterWords.length >= 1 && afterWords.length <= 3) return `${after} ${before}`;
+  return name;
+}
+
+/**
+ * Defensive: extract name + email from a raw header string that leaked
+ * into the email field. Strips <mailto:> noise and parses "Name <email>".
+ */
+function extractFromRawHeader(raw: string): { name: string | null; email: string | null } {
+  let cleaned = raw.replace(/<mailto:[^>]*>/g, "");
+  cleaned = cleaned.replace(/>>/g, ">").replace(/<</g, "<").trim();
+  const match = cleaned.match(/^(.+?)\s*<([^>]+)>\s*$/);
+  if (match) {
+    const name = match[1].trim();
+    const email = match[2].trim();
+    if (name.includes("@") || name.toLowerCase() === email.toLowerCase()) {
+      return { name: null, email };
+    }
+    return { name: flipCommaName(name), email };
+  }
+  const bracketMatch = cleaned.match(/<([^>]+@[^>]+)>/);
+  if (bracketMatch) return { name: null, email: bracketMatch[1].trim() };
+  return { name: null, email: raw.trim() };
+}
+
 export function displayName(
   name: string | null | undefined,
   email: string | null | undefined
 ): string {
+  // Defensive: if email contains "<", it's a raw header — extract name + real email
+  if (email && email.includes("<")) {
+    const extracted = extractFromRawHeader(email);
+    // Use extracted name if we don't already have a better name
+    if (!name?.trim() && extracted.name) {
+      name = extracted.name;
+    }
+    email = extracted.email;
+  }
+
   if (name && name.trim()) {
     // Strip trailing angle-bracket email fragments: "Tim wikander <tim" or "Tim <tim@ex.com>"
     let cleaned = name.replace(/<[^>]*>?\s*$/, "").trim();
@@ -242,15 +288,16 @@ export function displayName(
     if (!cleaned || cleaned.includes("@") || cleaned.toLowerCase() === email?.trim().toLowerCase()) {
       // fall through
     } else {
+      // Flip comma-inverted names: "Sturgess, CJ" → "CJ Sturgess"
+      cleaned = flipCommaName(cleaned);
       return titleCaseName(cleaned);
     }
   }
   if (email) {
     const local = email.split("@")[0] ?? "";
-    return local
-      .split(/[.\-_]/)
-      .filter(Boolean)
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    const words = local.split(/[.\-_]/).filter(Boolean);
+    return words
+      .map((w, i) => titleCaseWord(w, i === 0))
       .join(" ") || "Unknown";
   }
   return "Unknown";

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseForwardedEmail, findGmailQuoteMarkers, stripExternalTag } from "../email-parser";
+import { parseForwardedEmail, findGmailQuoteMarkers, stripExternalTag, parseSenderField } from "../email-parser";
 
 // Realistic Outlook forwarded email with 3-message thread
 const OUTLOOK_THREAD = `FYI — forwarding this thread about the security review.
@@ -1034,5 +1034,57 @@ describe("stripExternalTag", () => {
 
   it("only strips from the beginning", () => {
     expect(stripExternalTag("Re: [EXTERNAL] Deep Subject")).toBe("Re: [EXTERNAL] Deep Subject");
+  });
+});
+
+describe("parseSenderField", () => {
+  it("handles Outlook mailto double-bracket format", () => {
+    const result = parseSenderField("Sturgess, CJ <sturgeci@amazon.com<mailto:sturgeci@amazon.com>>");
+    expect(result).toEqual({ senderName: "CJ Sturgess", senderEmail: "sturgeci@amazon.com" });
+  });
+
+  it("handles Tim Wikander mailto format", () => {
+    const result = parseSenderField("Tim Wikander <tim.wikander@opswat.com<mailto:tim.wikander@opswat.com>>");
+    expect(result).toEqual({ senderName: "Tim Wikander", senderEmail: "tim.wikander@opswat.com" });
+  });
+
+  it("handles normal Name <email> format", () => {
+    const result = parseSenderField("John Doe <john@example.com>");
+    expect(result).toEqual({ senderName: "John Doe", senderEmail: "john@example.com" });
+  });
+
+  it("handles bare angle-bracket email (no name)", () => {
+    const result = parseSenderField("<john@example.com>");
+    expect(result).toEqual({ senderName: null, senderEmail: "john@example.com" });
+  });
+
+  it("handles bare email address", () => {
+    const result = parseSenderField("john@example.com");
+    expect(result).toEqual({ senderName: null, senderEmail: "john@example.com" });
+  });
+
+  it("flips comma-inverted names from Outlook headers", () => {
+    const result = parseSenderField("Inglis, Matt <mjinglis@amazon.com<mailto:mjinglis@amazon.com>>");
+    expect(result).toEqual({ senderName: "Matt Inglis", senderEmail: "mjinglis@amazon.com" });
+  });
+
+  it("flips comma-inverted names with apostrophes", () => {
+    const result = parseSenderField("O'Brien, Pat <pat@co.com<mailto:pat@co.com>>");
+    expect(result).toEqual({ senderName: "Pat O'Brien", senderEmail: "pat@co.com" });
+  });
+
+  it("does NOT flip company names with Inc/LLC", () => {
+    const result = parseSenderField("ACME, Inc. <sales@acme.com>");
+    expect(result).toEqual({ senderName: "ACME, Inc.", senderEmail: "sales@acme.com" });
+  });
+
+  it("treats name-equals-email as no-name", () => {
+    const result = parseSenderField("john@example.com <john@example.com>");
+    expect(result).toEqual({ senderName: null, senderEmail: "john@example.com" });
+  });
+
+  it("handles plain name without email", () => {
+    const result = parseSenderField("John Doe");
+    expect(result).toEqual({ senderName: "John Doe", senderEmail: null });
   });
 });

@@ -85,6 +85,29 @@ describe("displayName", () => {
   it("handles hyphenated names", () => {
     expect(displayName("mary-jane watson", null)).toBe("Mary-Jane Watson");
   });
+
+  // Defensive: raw header leaked into email field
+  it("extracts name from Outlook mailto header in email field", () => {
+    expect(displayName(null, "Sturgess, CJ <sturgeci@amazon.com<mailto:sturgeci@amazon.com>>")).toBe("CJ Sturgess");
+  });
+
+  it("extracts name from Tim Wikander mailto header in email field", () => {
+    expect(displayName(null, "Tim Wikander <tim.wikander@opswat.com<mailto:tim.wikander@opswat.com>>")).toBe("Tim Wikander");
+  });
+
+  // Comma-inverted names
+  it("flips comma-inverted name: Sturgess, cj", () => {
+    expect(displayName("Sturgess, cj", "sturgeci@amazon.com")).toBe("CJ Sturgess");
+  });
+
+  // 2-letter lowercase initials
+  it("uppercases 2-letter lowercase initials: cj → CJ", () => {
+    expect(displayName("cj smith", null)).toBe("CJ Smith");
+  });
+
+  it("uppercases initials from email: cj.sturgess@amazon.com", () => {
+    expect(displayName(null, "cj.sturgess@amazon.com")).toBe("CJ Sturgess");
+  });
 });
 
 // Helper to build a minimal Message for timeline tests
