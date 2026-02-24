@@ -180,7 +180,7 @@ export default async function PartnerDetailPage({
           </div>
         )}
 
-        {/* Engagements — status right-aligned, no pillar/priority badges */}
+        {/* Engagements — status right-aligned */}
         {linkedEngagements.length > 0 && (
           <div className="rounded-xl border border-border bg-surface p-4">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">

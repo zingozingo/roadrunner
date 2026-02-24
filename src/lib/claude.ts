@@ -100,45 +100,6 @@ You are given the engagement's existing current_state in the context (under "Cur
 
 Return null if noise.
 
-## open_items Instructions
-
-Extract ONLY concrete, actionable tasks explicitly stated or clearly implied in the email. An open item must have a specific action someone can take.
-
-**What IS an open item:**
-- "Can you send over the architecture diagram by Friday?" → { description: "Send architecture diagram", assignee: "Steven", due_date: "2026-02-14" }
-- "We need to complete the security review" → { description: "Complete security review", assignee: null, due_date: null }
-- "Monty will set up the integration environment" → { description: "Set up integration environment", assignee: "Monty", due_date: null }
-- "The team needs to submit the PRM data by end of month" → { description: "Submit PRM data", assignee: "Contrast Security team", due_date: "2026-02-28" }
-
-**What is NOT an open item:**
-- "Let's circle back on this" — vague intention, not a task
-- "Looking forward to working together" — pleasantry
-- "We should probably think about timeline" — no specific action
-- "Great progress so far" — status commentary
-- "I'll loop in my team" — too vague unless a specific person/action is named
-
-**Assignee rules:**
-- One person: "Steven"
-- Multiple people: "Steven and CJ"
-- A team or company: "Contrast Security team" or "AWS team"
-- The PDM/forwarder: "Steven" (use their name)
-- Unknown who: null
-
-**Due date rules:**
-- ONLY if explicitly stated: "by Friday", "due March 15", "end of month", "before re:Invent"
-- Convert relative dates to ISO format using the email's date as reference
-- If no deadline is mentioned or implied, due_date is null
-- NEVER fabricate a deadline from vague language like "soon" or "ASAP"
-
-If the email contains no actionable tasks, return an empty array. An empty array is better than fabricated items.
-
-**Existing open items visibility:**
-You can see existing open items for each engagement in the context above, including their resolved status. Rules:
-- Only return GENUINELY NEW items extracted from this email. Do not repeat existing items.
-- If this email indicates an existing open item has been completed or resolved (e.g., someone says "I sent the document" or "meeting is scheduled"), include that item's description in resolved_open_items.
-- Match by meaning, not exact wording. "Jordan sent the GTM doc" resolves "Send GTM campaign strategy document".
-- When in doubt, do NOT resolve — let the user handle it manually.
-
 ## Response Format
 
 Return ONLY valid JSON. No markdown code blocks, no preamble, no explanation.
@@ -183,15 +144,6 @@ Return ONLY valid JSON. No markdown code blocks, no preamble, no explanation.
     }
   ],
   "current_state": "3-5 sentence executive briefing or null if noise",
-  "open_items": [
-    {
-      "description": "specific actionable task — not vague intentions",
-      "assignee": "person name or null",
-      "due_date": "ISO date or null — ONLY if explicitly stated"
-    }
-  ],
-  "resolved_open_items": ["description of resolved item 1"],
-  // Array of descriptions matching existing open items that this email indicates are now complete. Match by meaning. Empty array if none.
   "suggested_tags": ["lowercase-tag", "another-tag"]
 }
 
@@ -253,9 +205,6 @@ function parseClassificationResponse(raw: string): ClassificationResult {
   }
   if (!parsed.matched_relationships) {
     parsed.matched_relationships = [];
-  }
-  if (!parsed.resolved_open_items) {
-    parsed.resolved_open_items = [];
   }
 
   return parsed as ClassificationResult;

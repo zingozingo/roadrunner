@@ -2,26 +2,16 @@
 // Database row types
 // ============================================================
 
-export interface OpenItem {
-  description: string;
-  assignee: string | null;
-  due_date: string | null;
-  resolved?: boolean;
-}
-
 export type Pillar = "Co-Sell" | "Co-Market" | "Co-Build";
-export type Priority = "Mandated" | "High" | "Normal" | "Opportunistic";
 
 export interface Engagement {
   id: string;
   name: string;
-  status: "planned" | "active" | "paused" | "completed" | "archived";
+  status: "active" | "planned" | "archived";
   current_state: string | null;
-  open_items: OpenItem[];
   partner_name: string | null;
   partner_id: string | null;
   pillar: Pillar | null;
-  priority: Priority | null;
   tags: string[];
   airtable_record_id: string | null;
   created_at: string;
@@ -244,13 +234,6 @@ export interface ClassificationResult {
     role: string | null;
   }[];
   current_state: string | null;
-  open_items: {
-    description: string;
-    assignee: string | null;
-    due_date: string | null;
-  }[];
-  /** Descriptions of existing open items that this email indicates are now complete. Match by meaning. */
-  resolved_open_items?: string[];
   suggested_tags: string[];
 }
 
@@ -274,12 +257,6 @@ export interface Phase1Result {
 /** Phase 2 (Analyze) output — deep analysis with full engagement context */
 export interface Phase2Result {
   current_state: string | null;
-  open_items: {
-    description: string;
-    assignee: string | null;
-    due_date: string | null;
-  }[];
-  resolved_open_items: string[];
   participants: {
     name: string;
     email: string | null;
@@ -317,12 +294,6 @@ export interface CombinedClassificationResult {
     role: string | null;
   }[];
   current_state: string | null;
-  open_items: {
-    description: string;
-    assignee: string | null;
-    due_date: string | null;
-  }[];
-  resolved_open_items?: string[];
   suggested_tags: string[];
   pillar: Pillar | null;
 }

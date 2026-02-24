@@ -5,7 +5,6 @@ import { notFound } from "next/navigation";
 import DetailHeader from "@/components/shared/DetailHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import CurrentStateCard from "@/components/engagement/CurrentStateCard";
-import OpenItemsCard from "@/components/engagement/OpenItemsCard";
 import CollapsibleEmails from "@/components/shared/CollapsibleEmails";
 import EntityLinkChip from "@/components/shared/EntityLink";
 import EngagementActions from "@/components/actions/EngagementActions";
@@ -88,7 +87,6 @@ export default async function EngagementDetailPage({
             ) : "—",
           },
           { label: "Pillar", value: engagement.pillar ?? "—" },
-          { label: "Priority", value: engagement.priority ?? "—" },
           { label: "Updated", value: formatFooterDate(engagement.updated_at) },
         ]}
         actions={<EngagementActions engagement={engagement} />}
@@ -101,12 +99,6 @@ export default async function EngagementDetailPage({
         {engagement.current_state && (
           <CurrentStateCard text={engagement.current_state} />
         )}
-
-        {/* Open Items */}
-        <OpenItemsCard
-          items={engagement.open_items ?? []}
-          engagementId={id}
-        />
 
         {/* Participants — collapsed by default */}
         <CollapsibleParticipants
@@ -173,8 +165,8 @@ export default async function EngagementDetailPage({
           Created {formatFooterDate(engagement.created_at)}
           {" · "}
           Last Updated {formatFooterDate(engagement.updated_at)}
-          {engagement.closed_at && (engagement.status === "completed" || engagement.status === "archived") && (
-            <> · Completed {formatFooterDate(engagement.closed_at)}</>
+          {engagement.closed_at && engagement.status === "archived" && (
+            <> · Archived {formatFooterDate(engagement.closed_at)}</>
           )}
         </p>
       </div>

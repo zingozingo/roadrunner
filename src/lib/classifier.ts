@@ -13,8 +13,6 @@ import {
   createEngagement,
   createEntityLink,
   upsertParticipants,
-  appendOpenItems,
-  resolveOpenItems,
   linkMeetingToEngagement,
   linkEngagementAwsRelationship,
 } from "./supabase";
@@ -89,8 +87,6 @@ function noiseResult(phase1: Phase1Result): CombinedClassificationResult {
     matched_relationships: [],
     participants: [],
     current_state: null,
-    open_items: [],
-    resolved_open_items: [],
     suggested_tags: [],
     pillar: null,
   };
@@ -258,7 +254,7 @@ function groupByForwardedAt(messages: Message[]): Message[][] {
  *
  * Operations:
  * 1. Update messages with classification data and engagement assignment
- * 2. Update engagement state (current_state, open_items) — skip for new engagements (already set at creation)
+ * 2. Update engagement state (current_state) — skip for new engagements (already set at creation)
  * 3. Create entity links (engagement↔event, engagement↔program) by ID
  * 4. Create engagement↔relationship links from matched_relationships
  * 5. Upsert participants and link to engagement
@@ -288,33 +284,11 @@ export async function persistClassificationResult(
   // 2. Update engagement state — skip for new engagements (fields set at creation)
   if (!isNewEngagement) {
     const currentState = result.current_state ?? null;
-    const openItems = (result.open_items ?? []).map((item) => ({
-      ...item,
-      resolved: false,
-    }));
 
     const updates: Record<string, unknown> = {};
 
     if (currentState) {
       updates.current_state = currentState;
-    }
-
-    if (openItems.length > 0) {
-      // Only call appendOpenItems when there are actual items to merge
-      const merged = await appendOpenItems(engagementId, openItems);
-      if (merged) {
-        updates.open_items = merged;
-      }
-    }
-    // If open_items is empty, skip — nothing to append
-
-    // Auto-resolve open items that Claude identified as completed
-    const resolvedDescs = result.resolved_open_items ?? [];
-    if (resolvedDescs.length > 0) {
-      const resolvedCount = await resolveOpenItems(engagementId, resolvedDescs);
-      if (resolvedCount > 0) {
-        console.log(`Auto-resolved ${resolvedCount} open item(s) for engagement ${engagementId}`);
-      }
     }
 
     // Update pillar if present in the result
@@ -404,16 +378,11 @@ async function applyClassificationResult(
   if (hasHighConfidenceNew) {
     try {
       const currentState = result.current_state ?? null;
-      const openItems = (result.open_items ?? []).map((item) => ({
-        ...item,
-        resolved: false,
-      }));
 
       const engagement = await createEngagement({
         name: result.engagement_match.name,
         partner_name: result.engagement_match.partner_name,
         current_state: currentState,
-        open_items: openItems,
         tags: [],
       });
       assignedEngagementId = engagement.id;

@@ -18,14 +18,13 @@ export async function GET() {
   }
 }
 
-const VALID_STATUSES = new Set(["planned", "active", "paused", "completed", "archived"]);
+const VALID_STATUSES = new Set(["active", "planned", "archived"]);
 const VALID_PILLARS = new Set(["Co-Sell", "Co-Market", "Co-Build"]);
-const VALID_PRIORITIES = new Set(["Mandated", "High", "Normal", "Opportunistic"]);
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, partner_name, status, pillar, priority, current_state, tags } = body;
+    const { name, partner_name, status, pillar, current_state, tags } = body;
 
     // Validate name
     if (!name || typeof name !== "string" || !name.trim()) {
@@ -37,7 +36,7 @@ export async function POST(request: NextRequest) {
 
     if (status !== undefined && !VALID_STATUSES.has(status)) {
       return NextResponse.json(
-        { error: `Invalid status "${status}". Must be one of: planned, active, paused, completed, archived` },
+        { error: `Invalid status "${status}". Must be one of: active, planned, archived` },
         { status: 400 }
       );
     }
@@ -49,20 +48,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (priority !== undefined && priority !== null && !VALID_PRIORITIES.has(priority)) {
-      return NextResponse.json(
-        { error: `Invalid priority "${priority}". Must be one of: Mandated, High, Normal, Opportunistic` },
-        { status: 400 }
-      );
-    }
-
     let engagement = await createEngagement({
       name: name.trim(),
       partner_name: partner_name?.trim() || null,
       current_state: current_state?.trim() || null,
       tags: tags ?? [],
       pillar: pillar ?? null,
-      priority: priority ?? null,
     });
 
     // createEngagement() defaults to status "active" — update if different status requested

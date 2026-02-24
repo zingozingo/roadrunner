@@ -55,18 +55,6 @@ export function buildEngagementsSection(engagements: Engagement[]): string {
     if (eng.current_state) {
       line += `\n  Current state: ${eng.current_state}`;
     }
-    // Show open items so Claude can avoid duplicates and auto-resolve completed ones
-    if (eng.open_items && eng.open_items.length > 0) {
-      line += `\n  Open items:`;
-      for (const item of eng.open_items) {
-        const assigneePart = item.assignee ? ` (${item.assignee})` : "";
-        const duePart = item.due_date ? ` [due: ${item.due_date}]` : "";
-        const resolvedPart = item.resolved ? " [RESOLVED]" : "";
-        line += `\n    - ${item.description}${assigneePart}${duePart}${resolvedPart}`;
-      }
-    } else {
-      line += `\n  Open items: none`;
-    }
     lines.push(line);
   }
 

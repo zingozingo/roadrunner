@@ -14,7 +14,6 @@ import {
 } from "./airtable";
 import { getSupabaseClient } from "./supabase";
 import { isUserEmail } from "./user-config";
-import type { OpenItem } from "./types";
 
 // ── Airtable table IDs ──────────────────────────────────────
 const PROGRAMS_TABLE = "tblpnW8ibVmkWi5Dt";
@@ -620,7 +619,6 @@ const ENGAGEMENTS_TABLE = "tblTC491AUVcrKvq2";
 const ENF = {
   name: "fldxq7bsx8PuRvodp",
   pillar: "fldvxfxhOPDGr5jBA",
-  priority: "fld4N2kKPFJEqwYtN",
   status: "fldUAOu4GG1Wme5OJ",
   tags: "fldkgcbEZZSJv0cbN",
   notes: "flduVQ9wp3XXVUiwo",
@@ -634,8 +632,6 @@ const ENF = {
 const STATUS_TO_AIRTABLE: Record<string, string> = {
   planned: "Planned",
   active: "Active",
-  paused: "Blocked",
-  completed: "Completed",
   archived: "Archived",
 };
 
@@ -643,24 +639,10 @@ const NOTES_MARKER = "=== Roadrunner Activity Summary ===";
 const NOTES_FOOTER = "(Auto-synced from Roadrunner)";
 
 function buildNotesContent(
-  currentState: string | null,
-  openItems: OpenItem[]
+  currentState: string | null
 ): string {
   const parts = [NOTES_MARKER, ""];
   if (currentState) parts.push(currentState, "");
-
-  const unresolvedItems = openItems.filter((i) => !i.resolved);
-  if (unresolvedItems.length > 0) {
-    parts.push("Open Items:");
-    for (const item of unresolvedItems) {
-      let line = `- ${item.description}`;
-      if (item.assignee) line += ` (${item.assignee})`;
-      if (item.due_date) line += ` [due: ${item.due_date}]`;
-      parts.push(line);
-    }
-    parts.push("");
-  }
-
   parts.push(NOTES_FOOTER);
   return parts.join("\n");
 }
@@ -783,9 +765,8 @@ function buildEngagementFields(
     [ENF.status]: STATUS_TO_AIRTABLE[engagement.status as string] ?? "Active",
   };
 
-  // Pillar and priority: only set if present (Airtable singleSelect, case-sensitive)
+  // Pillar: only set if present (Airtable singleSelect, case-sensitive)
   if (engagement.pillar) fields[ENF.pillar] = engagement.pillar;
-  if (engagement.priority) fields[ENF.priority] = engagement.priority;
 
   // Tags: send as string array (Airtable multipleSelects)
   const tags = engagement.tags as string[] | undefined;
@@ -883,8 +864,7 @@ export async function pushEngagementToAirtable(
     engagement, partnerNameToId, participantMap.get(engagementId)
   );
   const roadrunnerNotes = buildNotesContent(
-    engagement.current_state,
-    engagement.open_items ?? []
+    engagement.current_state
   );
 
   // Try to find existing Airtable record
@@ -993,7 +973,7 @@ export async function syncEngagementsToAirtable(): Promise<SyncResult> {
   for (const eng of engagements ?? []) {
     try {
       const fields = buildEngagementFields(eng, partnerNameToId, participantMap.get(eng.id));
-      const roadrunnerNotes = buildNotesContent(eng.current_state, eng.open_items ?? []);
+      const roadrunnerNotes = buildNotesContent(eng.current_state);
 
       // Find existing Airtable record
       let atRecord: AirtableRecord | undefined;

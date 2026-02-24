@@ -93,7 +93,6 @@ export async function POST(request: NextRequest) {
         name,
         partner_name: classResult.engagement_match.partner_name,
         current_state: classResult.current_state ?? null,
-        open_items: (classResult.open_items ?? []).map((i) => ({ ...i, resolved: false })),
         tags: [],
       });
 

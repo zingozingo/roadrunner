@@ -32,11 +32,9 @@ const ENGAGEMENT: Engagement = {
   name: "CyberShield - Security Review",
   status: "active",
   current_state: "Pursuing Security Competency.",
-  open_items: [],
   partner_name: "CyberShield",
   partner_id: null,
   pillar: null,
-  priority: null,
   tags: [],
   airtable_record_id: null,
   created_at: "2025-01-15T00:00:00Z",
@@ -247,29 +245,4 @@ describe("parseClassificationResponse", () => {
     expect(result.matched_relationships).toEqual([]);
   });
 
-  it("defaults resolved_open_items to empty array when omitted", () => {
-    const json = JSON.stringify({
-      content_type: "engagement_email",
-      engagement_match: { id: "init-001", name: "Test", confidence: 0.95, is_new: false, partner_name: null },
-      matched_events: [],
-      matched_programs: [],
-      participants: [],
-    });
-    const result = parseClassificationResponse(json);
-    expect(result.resolved_open_items).toEqual([]);
-  });
-
-  it("preserves resolved_open_items when present", () => {
-    const json = JSON.stringify({
-      content_type: "engagement_email",
-      engagement_match: { id: "init-001", name: "Test", confidence: 0.95, is_new: false, partner_name: null },
-      matched_events: [],
-      matched_programs: [],
-      matched_relationships: [],
-      participants: [],
-      resolved_open_items: ["Send GTM doc"],
-    });
-    const result = parseClassificationResponse(json);
-    expect(result.resolved_open_items).toEqual(["Send GTM doc"]);
-  });
 });

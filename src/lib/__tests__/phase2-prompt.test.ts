@@ -50,14 +50,9 @@ const ENGAGEMENT: Engagement = {
   name: "CyberShield - Security Review",
   status: "active",
   current_state: "CyberShield is pursuing AWS Security Competency. Alice submitted the initial application last week. Steven connected them with the security team for technical review.",
-  open_items: [
-    { description: "Submit architecture diagram", assignee: "Alice", due_date: "2026-03-01", resolved: false },
-    { description: "Schedule security team call", assignee: "Steven", due_date: null, resolved: true },
-  ],
   partner_name: "CyberShield",
   partner_id: "partner-001",
   pillar: "Co-Build",
-  priority: null,
   tags: ["security", "competency"],
   airtable_record_id: null,
   created_at: "2026-01-15T00:00:00Z",
@@ -255,11 +250,6 @@ describe("PHASE2_SYSTEM_PROMPT", () => {
     expect(PHASE2_SYSTEM_PROMPT).toContain("last_activity");
   });
 
-  it("contains open items threshold language", () => {
-    expect(PHASE2_SYSTEM_PROMPT).toContain("leadership");
-    expect(PHASE2_SYSTEM_PROMPT).toContain("blockers and commitments");
-  });
-
   it("contains participant role vocabulary", () => {
     expect(PHASE2_SYSTEM_PROMPT).toContain("forwarder");
     expect(PHASE2_SYSTEM_PROMPT).toContain("partner_contact");
@@ -280,8 +270,6 @@ describe("PHASE2_SYSTEM_PROMPT", () => {
     expect(PHASE2_SYSTEM_PROMPT).toContain("content_type");
     expect(PHASE2_SYSTEM_PROMPT).toContain("engagement_match");
     expect(PHASE2_SYSTEM_PROMPT).toContain("current_state");
-    expect(PHASE2_SYSTEM_PROMPT).toContain("open_items");
-    expect(PHASE2_SYSTEM_PROMPT).toContain("resolved_open_items");
     expect(PHASE2_SYSTEM_PROMPT).toContain("participants");
     expect(PHASE2_SYSTEM_PROMPT).toContain("matched_events");
     expect(PHASE2_SYSTEM_PROMPT).toContain("matched_programs");
@@ -330,14 +318,6 @@ describe("buildPhase2Context — existing engagement", () => {
     expect(result).toContain("**Partner:** CyberShield");
     expect(result).toContain("Current state (anchor — evolve this):");
     expect(result).toContain("pursuing AWS Security Competency");
-  });
-
-  it("includes open items with resolved/unresolved status", () => {
-    const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
-    expect(result).toContain("Submit architecture diagram");
-    expect(result).toContain("[UNRESOLVED]");
-    expect(result).toContain("Schedule security team call");
-    expect(result).toContain("[RESOLVED]");
   });
 
   it("includes history messages in chronological order with HISTORY label", () => {
@@ -474,8 +454,6 @@ describe("parsePhase2Response", () => {
       partner_id: "partner-001",
     },
     current_state: "Alice sent the architecture diagram.",
-    open_items: [{ description: "Forward diagram to security team", assignee: "Steven", due_date: null }],
-    resolved_open_items: ["Submit architecture diagram"],
     participants: [
       { name: "Alice Chen", email: "alice@cybershield.com", organization: "CyberShield", role: "partner_contact" },
     ],
@@ -490,8 +468,6 @@ describe("parsePhase2Response", () => {
     expect(result.content_type).toBe("engagement_email");
     expect(result.engagement_match.id).toBe("eng-001");
     expect(result.current_state).toBe("Alice sent the architecture diagram.");
-    expect(result.open_items).toHaveLength(1);
-    expect(result.resolved_open_items).toEqual(["Submit architecture diagram"]);
     expect(result.participants).toHaveLength(1);
     expect(result.matched_programs).toHaveLength(1);
     expect(result.pillar).toBe("Co-Build");
@@ -531,8 +507,6 @@ describe("parsePhase2Response", () => {
     expect(result.matched_programs).toEqual([]);
     expect(result.matched_relationships).toEqual([]);
     expect(result.participants).toEqual([]);
-    expect(result.open_items).toEqual([]);
-    expect(result.resolved_open_items).toEqual([]);
     expect(result.suggested_tags).toEqual([]);
     expect(result.pillar).toBeNull();
   });

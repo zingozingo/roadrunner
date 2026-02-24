@@ -45,9 +45,8 @@ export async function GET(
   }
 }
 
-const VALID_STATUSES = new Set(["planned", "active", "paused", "completed", "archived"]);
+const VALID_STATUSES = new Set(["active", "planned", "archived"]);
 const VALID_PILLARS = new Set(["Co-Sell", "Co-Market", "Co-Build"]);
-const VALID_PRIORITIES = new Set(["Mandated", "High", "Normal", "Opportunistic"]);
 
 export async function PUT(
   request: NextRequest,
@@ -56,7 +55,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, partner_name, status, current_state, open_items, pillar, priority } = body;
+    const { name, partner_name, status, current_state, pillar } = body;
 
     // Validate: at least one field must be provided
     if (
@@ -64,9 +63,7 @@ export async function PUT(
       partner_name === undefined &&
       status === undefined &&
       current_state === undefined &&
-      open_items === undefined &&
-      pillar === undefined &&
-      priority === undefined
+      pillar === undefined
     ) {
       return NextResponse.json(
         { error: "At least one field is required" },
@@ -76,7 +73,7 @@ export async function PUT(
 
     if (status !== undefined && !VALID_STATUSES.has(status)) {
       return NextResponse.json(
-        { error: `Invalid status "${status}". Must be one of: planned, active, paused, completed, archived` },
+        { error: `Invalid status "${status}". Must be one of: active, planned, archived` },
         { status: 400 }
       );
     }
@@ -84,13 +81,6 @@ export async function PUT(
     if (pillar !== undefined && pillar !== null && !VALID_PILLARS.has(pillar)) {
       return NextResponse.json(
         { error: `Invalid pillar "${pillar}". Must be one of: Co-Sell, Co-Market, Co-Build` },
-        { status: 400 }
-      );
-    }
-
-    if (priority !== undefined && priority !== null && !VALID_PRIORITIES.has(priority)) {
-      return NextResponse.json(
-        { error: `Invalid priority "${priority}". Must be one of: Mandated, High, Normal, Opportunistic` },
         { status: 400 }
       );
     }
@@ -116,9 +106,7 @@ export async function PUT(
       partner_name,
       status,
       current_state,
-      open_items,
       pillar,
-      priority,
     });
 
     // Fire-and-forget: push update to Airtable

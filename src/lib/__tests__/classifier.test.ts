@@ -26,8 +26,6 @@ const {
   mockCreateEngagement,
   mockCreateEntityLink,
   mockUpsertParticipants,
-  mockAppendOpenItems,
-  mockResolveOpenItems,
   mockLinkEngagementAwsRelationship,
   mockFrom,
 } = vi.hoisted(() => {
@@ -126,13 +124,11 @@ const {
     mockCreateApproval: vi.fn().mockResolvedValue({ id: "approval-001" }),
     mockCreateEngagement: vi.fn().mockResolvedValue({
       id: "init-auto", name: "Auto-Created", status: "active",
-      partner_name: null, pillar: null, priority: null, tags: [],
+      partner_name: null, pillar: null, tags: [],
       created_at: "", updated_at: "", closed_at: null,
     }),
     mockCreateEntityLink: vi.fn().mockResolvedValue(undefined),
     mockUpsertParticipants: vi.fn().mockResolvedValue(undefined),
-    mockAppendOpenItems: vi.fn().mockResolvedValue(null),
-    mockResolveOpenItems: vi.fn().mockResolvedValue(0),
     mockLinkEngagementAwsRelationship: vi.fn().mockResolvedValue(undefined),
     mockFrom,
   };
@@ -167,8 +163,6 @@ vi.mock("../supabase", () => ({
   createEngagement: mockCreateEngagement,
   createEntityLink: mockCreateEntityLink,
   upsertParticipants: mockUpsertParticipants,
-  appendOpenItems: mockAppendOpenItems,
-  resolveOpenItems: mockResolveOpenItems,
   linkMeetingToEngagement: vi.fn().mockResolvedValue(undefined),
   linkEngagementAwsRelationship: mockLinkEngagementAwsRelationship,
 }));
@@ -284,7 +278,6 @@ const HIGH_CONFIDENCE_RESULT: CombinedClassificationResult = {
     { name: "Alice Chen", email: "alice@cybershield.com", organization: "CyberShield", role: "partner_contact" },
   ],
   current_state: "CyberShield continues to pursue AWS Security Competency.",
-  open_items: [],
   suggested_tags: [],
   pillar: "Co-Build",
 };
@@ -303,7 +296,6 @@ const LOW_CONFIDENCE_RESULT: CombinedClassificationResult = {
   matched_relationships: [],
   participants: [],
   current_state: null,
-  open_items: [],
   suggested_tags: [],
   pillar: null,
 };
@@ -324,7 +316,6 @@ const HIGH_CONFIDENCE_NEW_RESULT: CombinedClassificationResult = {
     { name: "Bob Smith", email: "bob@newcorp.com", organization: "NewCorp", role: "partner_contact" },
   ],
   current_state: "NewCorp exploring cloud migration.",
-  open_items: [],
   suggested_tags: [],
   pillar: "Co-Build",
 };
@@ -441,7 +432,6 @@ describe("processUnclassifiedMessages", () => {
       name: "NewCorp - Cloud Migration",
       partner_name: "NewCorp",
       current_state: "NewCorp exploring cloud migration.",
-      open_items: [],
       tags: [],
     });
   });
@@ -494,32 +484,4 @@ describe("processUnclassifiedMessages", () => {
     );
   });
 
-  it("calls resolveOpenItems when resolved_open_items is present", async () => {
-    const msg = makeMessage();
-    mockGetUnclassifiedMessages.mockResolvedValue([msg]);
-    mockClassifyPhase1.mockResolvedValue(PHASE1_EXISTING);
-    const resultWithResolved: CombinedClassificationResult = {
-      ...HIGH_CONFIDENCE_RESULT,
-      resolved_open_items: ["Send GTM campaign strategy document"],
-    };
-    mockClassifyPhase2.mockResolvedValue(resultWithResolved);
-
-    await processUnclassifiedMessages();
-
-    expect(mockResolveOpenItems).toHaveBeenCalledWith(
-      "init-001",
-      ["Send GTM campaign strategy document"]
-    );
-  });
-
-  it("does not call resolveOpenItems when resolved_open_items is empty", async () => {
-    const msg = makeMessage();
-    mockGetUnclassifiedMessages.mockResolvedValue([msg]);
-    mockClassifyPhase1.mockResolvedValue(PHASE1_EXISTING);
-    mockClassifyPhase2.mockResolvedValue(HIGH_CONFIDENCE_RESULT);
-
-    await processUnclassifiedMessages();
-
-    expect(mockResolveOpenItems).not.toHaveBeenCalled();
-  });
 });

@@ -135,7 +135,7 @@ export function formatFooterDate(dateString: string | null | undefined): string 
 }
 
 /**
- * Safely format an open-item due date.
+ * Safely format a date for compact display.
  * "2026-03-15" → "Mar 15"
  * Malformed/null → ""
  */

@@ -127,7 +127,7 @@ export default async function ProgramDetailPage({
           </div>
         )}
 
-        {/* Linked Engagements — status right-aligned, no pillar/priority */}
+        {/* Linked Engagements — status right-aligned */}
         {linkedEngagements.length > 0 && (
           <div className="rounded-xl border border-border bg-surface p-4">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">

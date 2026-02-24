@@ -27,20 +27,18 @@ export const PHASE2_SYSTEM_PROMPT = `You are Relay Analyst, an AI that analyzes 
 
 Analyze the NEW email (clearly marked below) in the context of the engagement's history. Produce:
 1. An updated current_state summary
-2. New open items (if any)
-3. Identification of resolved open items (if any)
-4. A participant list extracted from the NEW email
-5. Matched events, programs, and AWS relationships
-6. Suggested tags
-7. A pillar classification
+2. A participant list extracted from the NEW email
+3. Matched events, programs, and AWS relationships
+4. Suggested tags
+5. A pillar classification
 
 ## Thread Awareness
 
 The source emails below are the COMPLETE conversation history for this engagement. The NEW email is clearly marked with ">>> NEW EMAIL — CLASSIFY THIS <<<". Rules:
 
-- Extract information ONLY from the NEW email for open_items, participants, and entity matches
+- Extract information ONLY from the NEW email for participants and entity matches
 - Use the history emails for CONTEXT ONLY — to understand what has already been discussed, who the key players are, and what the engagement's trajectory looks like
-- Do NOT re-extract participants or open items from history emails — those have already been processed
+- Do NOT re-extract participants from history emails — those have already been processed
 
 ## current_state Instructions
 
@@ -69,34 +67,6 @@ You are given the engagement's existing current_state as an anchor. Your job is 
 - No vague filler ("various stakeholders", "ongoing discussions", "comprehensive approach")
 
 Return null if this is noise (shouldn't normally happen in Phase 2, but handle gracefully).
-
-## open_items Instructions
-
-Extract ONLY concrete, actionable commitments from the NEW email. These should be items worth mentioning in a status update to leadership — blockers and commitments, not granular tasks.
-
-**What qualifies:**
-- Explicit commitments: "I'll send the architecture doc by Friday"
-- Clear blockers: "We're blocked on security review approval"
-- Deadlines: "POC must be complete before re:Invent"
-- Requests with specific asks: "Can you connect us with the CloudFormation team?"
-
-**What does NOT qualify:**
-- Vague intentions: "Let's circle back on this"
-- Pleasantries: "Looking forward to working together"
-- Granular tasks: "I'll update the spreadsheet" (unless it's a key deliverable)
-- Things already captured in existing open_items
-
-**Assignee:** Use first name. If a team, use "Acme team" or "AWS team". If unknown, null.
-
-**Due date:** ONLY if explicitly stated ("by Friday", "due March 15", "before re:Invent"). Convert relative dates using the email's date. Never fabricate from "soon" or "ASAP".
-
-**Existing open items:** You can see them in the engagement context with their resolved/unresolved status. Do NOT re-extract existing items. Only return genuinely NEW items from the NEW email.
-
-## resolved_open_items Instructions
-
-If the NEW email indicates that an existing open item has been completed (e.g., "I sent the document", "the meeting is scheduled", "security review passed"), include that item's description in resolved_open_items.
-
-Match by meaning, not exact wording. "Jordan sent the GTM doc" resolves "Send GTM campaign strategy document". When in doubt, do NOT resolve — let the user handle it.
 
 ## Participants
 
@@ -157,14 +127,6 @@ The content_type and engagement_match fields are provided to you in the "Phase 1
     "partner_id": "echo from Phase 1"
   },
   "current_state": "3-7 sentence executive briefing or null if noise",
-  "open_items": [
-    {
-      "description": "specific actionable commitment or blocker",
-      "assignee": "first name or null",
-      "due_date": "ISO date or null"
-    }
-  ],
-  "resolved_open_items": ["description of resolved item"],
   "participants": [
     {
       "name": "full name",
@@ -258,8 +220,6 @@ export function parsePhase2Response(raw: string): CombinedClassificationResult {
   if (!parsed.matched_programs) parsed.matched_programs = [];
   if (!parsed.matched_relationships) parsed.matched_relationships = [];
   if (!parsed.participants) parsed.participants = [];
-  if (!parsed.open_items) parsed.open_items = [];
-  if (!parsed.resolved_open_items) parsed.resolved_open_items = [];
   if (!parsed.suggested_tags) parsed.suggested_tags = [];
   if (parsed.pillar === undefined) parsed.pillar = null;
 
@@ -312,22 +272,6 @@ function buildEngagementContext(history: {
   } else {
     lines.push("**Current state:** (none yet — write a fresh briefing)");
   }
-  lines.push("");
-
-  // Open items with resolved status
-  if (eng.open_items && eng.open_items.length > 0) {
-    lines.push("**Open items:**");
-    for (const item of eng.open_items) {
-      const assigneePart = item.assignee ? ` (${item.assignee})` : "";
-      const duePart = item.due_date ? ` [due: ${item.due_date}]` : "";
-      const status = item.resolved ? "RESOLVED" : "UNRESOLVED";
-      lines.push(`- ${item.description}${assigneePart}${duePart} [${status}]`);
-    }
-  } else {
-    lines.push("**Open items:** none");
-  }
-  lines.push("");
-
   lines.push("");
 
   return lines.join("\n");

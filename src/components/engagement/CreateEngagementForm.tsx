@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Engagement, Pillar, Priority } from "@/lib/types";
+import type { Engagement, Pillar } from "@/lib/types";
 
-const STATUS_OPTIONS: Engagement["status"][] = ["planned", "active", "paused", "completed", "archived"];
+const STATUS_OPTIONS: Engagement["status"][] = ["active", "planned", "archived"];
 const PILLAR_OPTIONS: Pillar[] = ["Co-Sell", "Co-Market", "Co-Build"];
-const PRIORITY_OPTIONS: Priority[] = ["Mandated", "High", "Normal", "Opportunistic"];
 
 export default function CreateEngagementForm() {
   const router = useRouter();
@@ -19,7 +18,6 @@ export default function CreateEngagementForm() {
   const [partnerName, setPartnerName] = useState("");
   const [status, setStatus] = useState<Engagement["status"]>("active");
   const [pillar, setPillar] = useState<Pillar | null>(null);
-  const [priority, setPriority] = useState<Priority | null>(null);
   const [currentState, setCurrentState] = useState("");
 
   function resetForm() {
@@ -27,7 +25,6 @@ export default function CreateEngagementForm() {
     setPartnerName("");
     setStatus("active");
     setPillar(null);
-    setPriority(null);
     setCurrentState("");
     setError(null);
   }
@@ -59,7 +56,6 @@ export default function CreateEngagementForm() {
           partner_name: partnerName.trim() || null,
           status,
           pillar,
-          priority,
           current_state: currentState.trim() || null,
         }),
       });
@@ -169,27 +165,6 @@ export default function CreateEngagementForm() {
                       onClick={() => setPillar(pillar === opt ? null : opt)}
                       className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
                         pillar === opt
-                          ? "border-accent bg-accent/10 text-accent"
-                          : "border-border bg-background text-muted hover:text-foreground"
-                      }`}
-                    >
-                      {opt}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Priority */}
-              <div>
-                <label className={labelClass}>Priority</label>
-                <div className="flex flex-wrap gap-2">
-                  {PRIORITY_OPTIONS.map((opt) => (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => setPriority(priority === opt ? null : opt)}
-                      className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
-                        priority === opt
                           ? "border-accent bg-accent/10 text-accent"
                           : "border-border bg-background text-muted hover:text-foreground"
                       }`}

@@ -14,9 +14,7 @@ import {
   Participant,
   EntityLink,
   ClassificationResult,
-  OpenItem,
   Pillar,
-  Priority,
 } from "./types";
 import { isUserEmail, USER_CONFIG } from "./user-config";
 
@@ -288,10 +286,8 @@ export async function createEngagement(data: {
   name: string;
   partner_name?: string | null;
   current_state?: string | null;
-  open_items?: OpenItem[];
   tags?: string[];
   pillar?: Pillar | null;
-  priority?: Priority | null;
 }): Promise<Engagement> {
   // Resolve partner_id from partner_name
   let partnerId: string | null = null;
@@ -307,11 +303,9 @@ export async function createEngagement(data: {
       partner_name: data.partner_name ?? null,
       partner_id: partnerId,
       current_state: data.current_state ?? null,
-      open_items: data.open_items ?? [],
       tags: data.tags ?? [],
       status: "active",
       pillar: data.pillar ?? null,
-      priority: data.priority ?? null,
     })
     .select()
     .single();
@@ -339,10 +333,8 @@ export async function updateEngagement(
     partner_name?: string | null;
     status?: Engagement["status"];
     current_state?: string | null;
-    open_items?: OpenItem[];
     tags?: string[];
     pillar?: Pillar | null;
-    priority?: Priority | null;
   }
 ): Promise<Engagement> {
   const row: Record<string, unknown> = {};
@@ -359,14 +351,12 @@ export async function updateEngagement(
     }
   }
   if (updates.current_state !== undefined) row.current_state = updates.current_state;
-  if (updates.open_items !== undefined) row.open_items = updates.open_items;
   if (updates.tags !== undefined) row.tags = updates.tags;
   if (updates.pillar !== undefined) row.pillar = updates.pillar;
-  if (updates.priority !== undefined) row.priority = updates.priority;
 
   if (updates.status !== undefined) {
     row.status = updates.status;
-    if (updates.status === "completed" || updates.status === "archived") {
+    if (updates.status === "archived") {
       row.closed_at = new Date().toISOString();
     } else {
       row.closed_at = null;
@@ -1206,154 +1196,6 @@ export async function ensureParticipantLink(
     });
   }
 }
-
-// ============================================================
-// Open items merge helper
-// ============================================================
-
-/**
- * Append new open items to an engagement, deduplicating by description.
- * Returns the merged array (existing + new), or null if nothing to add.
- */
-export async function appendOpenItems(
-  engagementId: string,
-  newItems: OpenItem[]
-): Promise<OpenItem[] | null> {
-  if (newItems.length === 0) return null;
-
-  const db = getSupabaseClient();
-  const { data: existing } = await db
-    .from("engagements")
-    .select("open_items")
-    .eq("id", engagementId)
-    .maybeSingle();
-
-  const existingItems: (OpenItem & { resolved?: boolean })[] =
-    (existing?.open_items as (OpenItem & { resolved?: boolean })[]) ?? [];
-  const existingDescs = new Set(
-    existingItems.map((i) => i.description.toLowerCase())
-  );
-  const deduped = newItems.filter(
-    (i) => !existingDescs.has(i.description.toLowerCase())
-  );
-
-  if (deduped.length === 0) return null;
-  return [...existingItems, ...deduped];
-}
-
-/**
- * Extract significant words from a string for fuzzy matching.
- * Strips short/common words to focus on meaningful content.
- * Exported for testing.
- */
-export function extractKeywords(text: string): Set<string> {
-  const stopWords = new Set([
-    "the", "a", "an", "is", "was", "are", "were", "be", "been",
-    "to", "of", "in", "for", "on", "with", "at", "by", "from",
-    "and", "or", "but", "not", "this", "that", "it", "its",
-    "i", "we", "they", "he", "she", "up", "has", "had", "have",
-  ]);
-  return new Set(
-    text
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, "")
-      .split(/\s+/)
-      .filter((w) => w.length > 2 && !stopWords.has(w))
-  );
-}
-
-/**
- * Match resolved descriptions against open items using keyword overlap.
- * Pure function — no DB access. Exported for testing.
- * Returns the updated items array and count of items resolved.
- */
-export function matchResolvedItems(
-  items: (OpenItem & { resolved?: boolean })[],
-  resolvedDescriptions: string[]
-): { updatedItems: (OpenItem & { resolved?: boolean })[]; resolvedCount: number } {
-  const updatedItems = items.map((item) => ({ ...item }));
-  let resolvedCount = 0;
-
-  for (const desc of resolvedDescriptions) {
-    const resolveKeywords = extractKeywords(desc);
-    if (resolveKeywords.size === 0) continue;
-
-    let bestIdx = -1;
-    let bestScore = 0;
-
-    for (let i = 0; i < updatedItems.length; i++) {
-      if (updatedItems[i].resolved) continue;
-
-      const itemKeywords = extractKeywords(updatedItems[i].description);
-      if (itemKeywords.size === 0) continue;
-
-      // Count shared keywords
-      let shared = 0;
-      for (const kw of resolveKeywords) {
-        if (itemKeywords.has(kw)) shared++;
-      }
-
-      // Require >50% overlap in both directions
-      const overlapFromResolve = shared / resolveKeywords.size;
-      const overlapFromItem = shared / itemKeywords.size;
-
-      if (overlapFromResolve > 0.5 && overlapFromItem > 0.5) {
-        const score = overlapFromResolve + overlapFromItem;
-        if (score > bestScore) {
-          bestScore = score;
-          bestIdx = i;
-        }
-      }
-    }
-
-    if (bestIdx >= 0) {
-      updatedItems[bestIdx] = { ...updatedItems[bestIdx], resolved: true };
-      resolvedCount++;
-    }
-  }
-
-  return { updatedItems, resolvedCount };
-}
-
-/**
- * Resolve open items that Claude indicates are complete.
- * Uses keyword overlap to match resolved_descriptions to existing unresolved items.
- * Conservative: requires >50% keyword overlap in both directions.
- * Returns the number of items resolved.
- */
-export async function resolveOpenItems(
-  engagementId: string,
-  resolvedDescriptions: string[]
-): Promise<number> {
-  if (resolvedDescriptions.length === 0) return 0;
-
-  const db = getSupabaseClient();
-  const { data: existing } = await db
-    .from("engagements")
-    .select("open_items")
-    .eq("id", engagementId)
-    .maybeSingle();
-
-  const items: (OpenItem & { resolved?: boolean })[] =
-    (existing?.open_items as (OpenItem & { resolved?: boolean })[]) ?? [];
-
-  if (items.length === 0) return 0;
-
-  const { updatedItems, resolvedCount } = matchResolvedItems(items, resolvedDescriptions);
-
-  if (resolvedCount > 0) {
-    await db
-      .from("engagements")
-      .update({ open_items: updatedItems })
-      .eq("id", engagementId);
-  }
-
-  return resolvedCount;
-}
-
-// ============================================================
-// Dashboard query helpers (continued)
-// ============================================================
 
 // ============================================================
 // AWS Relationship CRUD
