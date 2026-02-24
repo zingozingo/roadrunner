@@ -19,7 +19,7 @@ import {
   getAwsRelationshipsByEngagement,
 } from "@/lib/supabase";
 import { formatFooterDate } from "@/lib/format-utils";
-import type { Meeting } from "@/lib/types";
+import type { TimelineItem } from "@/lib/types";
 
 export default async function EngagementDetailPage({
   params,
@@ -39,11 +39,20 @@ export default async function EngagementDetailPage({
     getAwsRelationshipsByEngagement(id),
   ]);
 
-  // Build message_id → meeting map for inline meeting cards
-  const meetingsByMessageId: Record<string, Meeting> = {};
-  for (const m of meetings) {
-    if (m.message_id) meetingsByMessageId[m.message_id] = m;
+  // Build unified timeline: messages + meetings sorted by date desc
+  const timelineItems: TimelineItem[] = [];
+  for (const msg of messages) {
+    const date = msg.sent_at ?? msg.forwarded_at;
+    timelineItems.push({ type: "message", date, data: msg });
   }
+  for (const mtg of meetings) {
+    // Use meeting_date; if somehow null, sort to top (treat as upcoming)
+    const date = mtg.meeting_date
+      ? mtg.meeting_date + "T00:00:00"
+      : new Date().toISOString();
+    timelineItems.push({ type: "meeting", date, data: mtg });
+  }
+  timelineItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   // Resolve entity link target names
   const nameMap = await resolveEntityLinkNames(entityLinks);
@@ -107,8 +116,8 @@ export default async function EngagementDetailPage({
           partnerName={engagement.partner_name}
         />
 
-        {/* Source Emails */}
-        <CollapsibleEmails messages={messages} meetingsByMessageId={meetingsByMessageId} />
+        {/* Timeline — source emails + meetings interleaved by date */}
+        <CollapsibleEmails items={timelineItems} />
 
         {/* Connections — AWS Relationships as simple text links + Entity Links as chips */}
         {hasConnections && (

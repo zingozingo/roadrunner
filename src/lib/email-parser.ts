@@ -59,7 +59,13 @@ export function parseSenderField(raw: string): {
 } {
   const match = raw.match(/^(.+?)\s*<([^>]+)>\s*$/);
   if (match) {
-    return { senderName: match[1].trim(), senderEmail: match[2].trim() };
+    const name = match[1].trim();
+    const email = match[2].trim();
+    // If the "name" contains @ or equals the email, treat as no-name
+    if (name.includes("@") || name.toLowerCase() === email.toLowerCase()) {
+      return { senderName: null, senderEmail: email };
+    }
+    return { senderName: name, senderEmail: email };
   }
   // Might be just an email address
   if (raw.includes("@")) {

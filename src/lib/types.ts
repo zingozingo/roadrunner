@@ -190,6 +190,14 @@ export interface ParticipantLink {
 }
 
 // ============================================================
+// UI types
+// ============================================================
+
+export type TimelineItem =
+  | { type: "message"; date: string; data: Message }
+  | { type: "meeting"; date: string; data: Meeting };
+
+// ============================================================
 // Application types
 // ============================================================
 

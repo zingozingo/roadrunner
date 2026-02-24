@@ -146,18 +146,104 @@ export function safeDateDisplay(dateStr: string | null | undefined): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+/** Lowercase prefixes that stay lowercase when NOT the first word */
+const LOWERCASE_PREFIXES = new Set([
+  "van", "von", "de", "del", "della", "di", "da", "el", "al", "bin", "ibn",
+  "den", "der", "het", "la", "le", "les", "lo", "dos", "das", "du",
+]);
+
+/**
+ * Title-case a single word, handling special patterns:
+ * - "O'Brien" → preserve apostrophe, capitalize after
+ * - "McBride" / "MacDonald" → Mc/Mac + capital
+ * - 2-letter all-caps ("CJ", "DJ") → keep as-is (initials)
+ * - Lowercase prefixes ("van", "de") → stay lowercase when not first
+ */
+function titleCaseWord(word: string, isFirst: boolean): string {
+  if (!word) return word;
+
+  // 2-letter all-caps → likely initials, keep as-is
+  if (word.length === 2 && word === word.toUpperCase() && /^[A-Z]{2}$/.test(word)) {
+    return word;
+  }
+
+  // Mc prefix: "mcbride" → "McBride"
+  if (/^mc[a-z]/i.test(word) && word.length > 2) {
+    return "Mc" + word.charAt(2).toUpperCase() + word.slice(3).toLowerCase();
+  }
+
+  // Mac prefix (only if 5+ chars to avoid "Mace" → "MacE")
+  if (/^mac[a-z]/i.test(word) && word.length >= 5) {
+    return "Mac" + word.charAt(3).toUpperCase() + word.slice(4).toLowerCase();
+  }
+
+  // Apostrophe: "o'brien" → "O'Brien"
+  if (word.includes("'")) {
+    return word
+      .split("'")
+      .map((part, i) =>
+        part.length > 0
+          ? part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
+          : part
+      )
+      .join("'");
+  }
+
+  const lower = word.toLowerCase();
+
+  // Lowercase prefix: "van", "de", etc. — stays lowercase unless it's the first word
+  if (!isFirst && LOWERCASE_PREFIXES.has(lower)) {
+    return lower;
+  }
+
+  return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+}
+
+/**
+ * Apply title-case to a full name string.
+ * Splits on spaces and hyphens, applies titleCaseWord to each part.
+ */
+function titleCaseName(name: string): string {
+  // Split by spaces, preserving hyphens within words
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((segment, segIdx) => {
+      // Handle hyphenated names: "mary-jane" → "Mary-Jane"
+      if (segment.includes("-")) {
+        return segment
+          .split("-")
+          .map((part, partIdx) => titleCaseWord(part, segIdx === 0 && partIdx === 0))
+          .join("-");
+      }
+      return titleCaseWord(segment, segIdx === 0);
+    })
+    .join(" ");
+}
+
 /**
  * Build a display-friendly name from name/email fields.
- * - If name exists and isn't just the email repeated → name
+ * - If name exists and isn't just the email repeated → title-case it
  * - If only email → title-case the local part: "john.doe@acme.com" → "John Doe"
  * - Otherwise → "Unknown"
+ *
+ * Also strips trailing angle-bracket email fragments from names:
+ * "Tim wikander <tim" → "Tim Wikander"
  */
 export function displayName(
   name: string | null | undefined,
   email: string | null | undefined
 ): string {
-  if (name && name.trim() && name.trim() !== email?.trim()) {
-    return name.trim();
+  if (name && name.trim()) {
+    // Strip trailing angle-bracket email fragments: "Tim wikander <tim" or "Tim <tim@ex.com>"
+    let cleaned = name.replace(/<[^>]*>?\s*$/, "").trim();
+
+    // If cleaned name contains @ or equals the email, fall through to email path
+    if (!cleaned || cleaned.includes("@") || cleaned.toLowerCase() === email?.trim().toLowerCase()) {
+      // fall through
+    } else {
+      return titleCaseName(cleaned);
+    }
   }
   if (email) {
     const local = email.split("@")[0] ?? "";

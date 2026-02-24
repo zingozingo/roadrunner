@@ -1,19 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Message, Meeting } from "@/lib/types";
+import type { TimelineItem } from "@/lib/types";
 import Timeline from "./Timeline";
 
 export default function CollapsibleEmails({
-  messages,
-  meetingsByMessageId,
+  items,
 }: {
-  messages: Message[];
-  meetingsByMessageId?: Record<string, Meeting>;
+  items: TimelineItem[];
 }) {
   const [open, setOpen] = useState(true);
 
-  if (messages.length === 0) return null;
+  if (items.length === 0) return null;
 
   return (
     <div className="rounded-xl border border-border bg-surface p-4">
@@ -21,7 +19,7 @@ export default function CollapsibleEmails({
         onClick={() => setOpen(!open)}
         className="flex w-full items-center justify-between text-sm font-semibold uppercase tracking-wider text-muted hover:text-foreground transition-colors"
       >
-        <span>Source Emails ({messages.length})</span>
+        <span>Timeline ({items.length})</span>
         <svg
           width="16"
           height="16"
@@ -36,7 +34,7 @@ export default function CollapsibleEmails({
       </button>
       {open && (
         <div className="mt-3">
-          <Timeline messages={messages} meetingsByMessageId={meetingsByMessageId} />
+          <Timeline items={items} />
         </div>
       )}
     </div>

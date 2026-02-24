@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Message, Meeting } from "@/lib/types";
+import type { TimelineItem, Message, Meeting } from "@/lib/types";
 import { cleanMeetingTitle, formatFooterDate, displayName } from "@/lib/format-utils";
 
 const PREVIEW_LENGTH = 200;
@@ -87,16 +87,35 @@ function MeetingCard({ meeting }: { meeting: Meeting }) {
   );
 }
 
+function MessageCard({ msg }: { msg: Message }) {
+  return (
+    <>
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="truncate text-sm font-medium text-foreground">
+          {displayName(msg.sender_name, msg.sender_email)}
+        </p>
+        <time className="shrink-0 text-xs text-muted">
+          {formatFooterDate(msg.sent_at ?? msg.forwarded_at)}
+        </time>
+      </div>
+      {msg.subject && (
+        <p className="mt-0.5 text-sm text-foreground/80">
+          {msg.subject}
+        </p>
+      )}
+      {msg.body_text && <MessageBody text={msg.body_text} />}
+    </>
+  );
+}
+
 export default function Timeline({
-  messages,
-  meetingsByMessageId,
+  items,
 }: {
-  messages: Message[];
-  meetingsByMessageId?: Record<string, Meeting>;
+  items: TimelineItem[];
 }) {
-  if (messages.length === 0) {
+  if (items.length === 0) {
     return (
-      <p className="py-4 text-sm text-muted">No messages yet.</p>
+      <p className="py-4 text-sm text-muted">No activity yet.</p>
     );
   }
 
@@ -105,50 +124,20 @@ export default function Timeline({
       {/* Vertical line */}
       <div className="absolute left-3 top-2 bottom-2 w-px bg-border" />
 
-      {messages.map((msg) => {
-        const meeting = meetingsByMessageId?.[msg.id];
-
-        // Skip meeting_invite messages when the meeting card is already
-        // showing via a different message_id (avoids showing both the
-        // styled meeting card AND the raw invite text)
-        if (
-          msg.content_type === "meeting_invite" &&
-          !meeting &&
-          meetingsByMessageId &&
-          Object.keys(meetingsByMessageId).length > 0
-        ) {
-          return null;
-        }
+      {items.map((item) => {
+        const key = item.data.id;
+        const isMeeting = item.type === "meeting";
 
         return (
-          <div key={msg.id} className="relative flex gap-4 py-3">
-            {/* Dot — accent for meetings, standard for emails */}
-            <div
-              className={`relative z-10 mt-1.5 h-2 w-2 shrink-0 rounded-full ring-4 ring-background ${
-                meeting ? "bg-accent" : "bg-accent"
-              }`}
-            />
+          <div key={key} className="relative flex gap-4 py-3">
+            {/* Dot — accent for all items */}
+            <div className="relative z-10 mt-1.5 h-2 w-2 shrink-0 rounded-full ring-4 ring-background bg-accent" />
 
             <div className="min-w-0 flex-1">
-              {meeting ? (
-                <MeetingCard meeting={meeting} />
+              {isMeeting ? (
+                <MeetingCard meeting={item.data as Meeting} />
               ) : (
-                <>
-                  <div className="flex items-baseline justify-between gap-2">
-                    <p className="truncate text-sm font-medium text-foreground">
-                      {displayName(msg.sender_name, msg.sender_email)}
-                    </p>
-                    <time className="shrink-0 text-xs text-muted">
-                      {msg.sent_at ? formatFooterDate(msg.sent_at) : ""}
-                    </time>
-                  </div>
-                  {msg.subject && (
-                    <p className="mt-0.5 text-sm text-foreground/80">
-                      {msg.subject}
-                    </p>
-                  )}
-                  {msg.body_text && <MessageBody text={msg.body_text} />}
-                </>
+                <MessageCard msg={item.data as Message} />
               )}
             </div>
           </div>
