@@ -1619,3 +1619,63 @@ Next.js 14 App Router + TypeScript + Tailwind. Supabase Postgres for data. Singl
 **Rationale:** Never lose content, always try metadata extraction, fall back through sent_at → forwarded_at → created_at. The display layer should handle nulls gracefully rather than requiring perfect extraction.
 
 **Impact:** Establishes principle for all future parser work. Timeline already implements the date fallback chain.
+
+---
+
+## 2026-02-24: Remove Route-Level Dedup Gate
+
+**Decision:** Removed the route-level dedup check in inbound/route.ts that compared only the first (oldest) parsed message. Now rely entirely on storeMessages() per-message fingerprint dedup.
+
+**Context:** When re-forwarding a thread with new messages, the oldest message matched the dedup check and silently dropped the entire batch — including new messages. Users got no error, Mailgun got 200, messages vanished.
+
+**Rationale:** The per-message dedup in storeMessages() already handles this correctly — it checks each message individually and only inserts new ones. The route-level gate was a premature optimization that broke the critical re-forward use case.
+
+**Impact:** Re-forwarded threads with new replies now work correctly. Slightly more DB work on true duplicates (fingerprint check vs early abort), but correctness over performance.
+
+---
+
+## 2026-02-24: Engagement Slot Registry — Structured Fields
+
+**Decision:** Added topic (3-8 words), goal (1 sentence), and engagement_type (nullable, taxonomy TBD) as structured fields on the engagements table alongside the existing current_state narrative.
+
+**Context:** Engagements were a freeform name + one big prose paragraph. This made matching unreliable (semantic comparison of blobs), naming inconsistent (Claude invented titles), and display hard to scan. Needed structured fields for deterministic matching and quick-scan display.
+
+**Rationale:** Follows "constrained intelligence" principle — Claude populates defined fields instead of generating freeform content. topic + partner_id gives deterministic matching. "{Partner} - {topic}" gives consistent naming. goal gives stable elevator pitch. current_state stays for the full narrative. engagement_type deferred until real data reveals natural categories.
+
+**Impact:** Engagement names now computed as "{Partner} - {Topic}". Phase 2 prompt produces structured fields. Matching, display, and naming all benefit. DB migration 039 adds the columns.
+
+---
+
+## 2026-02-24: Dropped next_action, blocker, latest_development Fields
+
+**Decision:** Removed next_action, next_action_owner, blocker, and latest_development from the slot registry design before implementation.
+
+**Context:** Initially proposed as "quick scan" fields. Steven correctly identified these have the same failure mode as open_items — subjective extraction that degrades on complex multi-workstream threads, stale when follow-up emails aren't forwarded, and ambiguous when multiple actions are in flight.
+
+**Rationale:** If a field can't be extracted accurately across diverse thread types at scale, it doesn't belong. The current_state narrative handles these naturally within context. Fewer fields that are accurate beats more fields that are sometimes wrong.
+
+**Impact:** Keeps the engagement model lean — only fields that earn their place.
+
+---
+
+## 2026-02-24: Date Discipline Rules in Phase 2 Prompt
+
+**Decision:** Added 6 explicit temporal rules to Phase 2: (1) point-in-time snapshot anchored to today's date, (2) no relative time words (recently, soon, this week), (3) stated dates from emails are facts, (4) no prediction — describe states not futures, (5) present progressive for ongoing activity, (6) deadlines must be sourced from emails.
+
+**Context:** current_state was using relative time ("recently", "next week") that rotted between classifications. The narrative should read like a briefing written on a specific date, not a living document.
+
+**Rationale:** current_state is a point-in-time snapshot. Grounding it to today's date and forbidding relative time makes it accurate regardless of when it's read. The timeline has rigid dates from data; the narrative should have the same discipline.
+
+**Impact:** current_state quality improves. Today's date injected into Phase 2 context as temporal anchor.
+
+---
+
+## 2026-02-24: Topic/Goal Stability via Prompt Intelligence
+
+**Decision:** Rather than code-level locking (only write if null), show Claude the existing topic and goal values in the engagement context and instruct preservation unless fundamental pivot.
+
+**Context:** topic and goal are meant to be stable across emails, but persistence layer writes whatever Claude returns. Options were: (A) code lock — only write if null, require manual edits; (B) prompt intelligence — Claude sees existing values and preserves them.
+
+**Rationale:** Code locking fights the AI. Prompt intelligence uses it. Same successful pattern as current_state anchoring. Claude can handle "keep this unless it genuinely changed" — that's a judgment call an AI should make.
+
+**Impact:** Persistence layer stays simple (writes freely). Stability comes from the prompt. If topic/goal need updating after a genuine pivot, it happens automatically.
