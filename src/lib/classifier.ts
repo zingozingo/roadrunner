@@ -22,6 +22,8 @@ import {
   Phase1Result,
   Message,
 } from "./types";
+import { buildNameResolutionMap } from "./name-resolver";
+import type { NameResolutionMap } from "./name-resolver";
 
 const AUTO_ASSIGN_THRESHOLD = 0.85;
 
@@ -35,7 +37,8 @@ const AUTO_ASSIGN_THRESHOLD = 0.85;
  */
 async function classifyTwoPhase(
   messages: Message[],
-  forwarderNote?: string | null
+  forwarderNote?: string | null,
+  nameResolutionMap?: NameResolutionMap | null
 ): Promise<CombinedClassificationResult> {
   // ── Phase 1: Match ──────────────────────────────────────────
   const phase1Context = await buildPhase1Context(messages, forwarderNote);
@@ -51,7 +54,7 @@ async function classifyTwoPhase(
   const partnerId = phase1Result.engagement_match.partner_id;
   const isNew = phase1Result.engagement_match.is_new;
 
-  const [history, matchedPartner, events, programs, relationships] =
+  const [history, matchedPartner, events, programs, relationships, nameMap] =
     await Promise.all([
       engagementId && !isNew
         ? getEngagementHistory(engagementId)
@@ -60,6 +63,9 @@ async function classifyTwoPhase(
       getActiveEvents(),
       getActivePrograms(),
       getAwsRelationships(),
+      nameResolutionMap
+        ? Promise.resolve(nameResolutionMap)
+        : buildNameResolutionMap(),
     ]);
 
   // ── Phase 2: Analyze ────────────────────────────────────────
@@ -69,7 +75,8 @@ async function classifyTwoPhase(
     history,
     { events, programs, relationships },
     matchedPartner,
-    forwarderNote
+    forwarderNote,
+    nameMap
   );
 
   return await classifyPhase2(phase2Context);
@@ -146,7 +153,8 @@ export async function processUnclassifiedMessages(): Promise<{
 
 export async function processSingleMessage(
   messageIds: string[],
-  forwarderNote?: string | null
+  forwarderNote?: string | null,
+  nameResolutionMap?: NameResolutionMap | null
 ): Promise<CombinedClassificationResult | null> {
   if (messageIds.length === 0) return null;
 
@@ -164,7 +172,11 @@ export async function processSingleMessage(
   }
 
   try {
-    const result = await classifyTwoPhase(messages as Message[], forwarderNote);
+    const result = await classifyTwoPhase(
+      messages as Message[],
+      forwarderNote,
+      nameResolutionMap
+    );
     await applyClassificationResult(messages as Message[], result);
     return result;
   } catch (error) {
@@ -190,7 +202,7 @@ export async function runPhase2ForResolve(
   const partnerId = phase1Result.engagement_match.partner_id;
   const isNew = phase1Result.engagement_match.is_new;
 
-  const [history, matchedPartner, events, programs, relationships] =
+  const [history, matchedPartner, events, programs, relationships, nameMap] =
     await Promise.all([
       engagementId && !isNew
         ? getEngagementHistory(engagementId)
@@ -199,6 +211,7 @@ export async function runPhase2ForResolve(
       getActiveEvents(),
       getActivePrograms(),
       getAwsRelationships(),
+      buildNameResolutionMap(),
     ]);
 
   const phase2Context = buildPhase2Context(
@@ -207,7 +220,8 @@ export async function runPhase2ForResolve(
     history,
     { events, programs, relationships },
     matchedPartner,
-    forwarderNote
+    forwarderNote,
+    nameMap
   );
 
   return await classifyPhase2(phase2Context);

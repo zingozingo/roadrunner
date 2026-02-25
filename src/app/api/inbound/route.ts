@@ -5,6 +5,7 @@ import { storeMessages, createMeetingFromICS } from "@/lib/supabase";
 import { extractICSFromAttachments, parseICSContent } from "@/lib/ics-parser";
 import { processSingleMessage } from "@/lib/classifier";
 import { stripPRVS, isUserEmail, USER_CONFIG } from "@/lib/user-config";
+import { buildNameResolutionMap, resolveNameByEmail, resolveOrgByDomain } from "@/lib/name-resolver";
 
 /**
  * Verify Mailgun webhook signature.
@@ -293,6 +294,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "No messages extracted" });
     }
 
+    // --- Name resolution: enrich sender names from DB before storage ---
+    // Built once, reused for all messages and passed to classification.
+    const nameMap = await buildNameResolutionMap();
+    let namesEnriched = 0;
+    for (const msg of parsed) {
+      if (msg.sender_email) {
+        // Only enrich if sender_name is null (parser couldn't extract or nulled garbage)
+        if (!msg.sender_name) {
+          const resolved = resolveNameByEmail(msg.sender_email, nameMap);
+          if (resolved) {
+            msg.sender_name = resolved.name;
+            namesEnriched++;
+          }
+        }
+      }
+    }
+    if (namesEnriched > 0) {
+      console.log(`Name resolution: enriched ${namesEnriched} sender name(s) from DB`);
+    }
+
     console.log(`Parsed ${parsed.length} messages, proceeding to storage (per-message dedup handles duplicates)`);
 
     // Store in Supabase (unclassified — engagement_id = null)
@@ -358,7 +379,7 @@ export async function POST(request: NextRequest) {
     const forwarderNote = parsed[0]?.forwarder_note ?? null;
     let classified = false;
     try {
-      const result = await processSingleMessage(storedIds, forwarderNote);
+      const result = await processSingleMessage(storedIds, forwarderNote, nameMap);
       classified = result !== null;
       console.log(`Classification: ${classified ? "success" : "no result"}`);
     } catch (classifyError) {

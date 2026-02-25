@@ -652,3 +652,91 @@ describe("buildPhase2Context — current date injection", () => {
     expect(dateIdx).toBeLessThan(forwarderIdx);
   });
 });
+
+// ============================================================
+// Tests: buildPhase2Context with name resolution map
+// ============================================================
+
+describe("buildPhase2Context — name resolution", () => {
+  const NAME_MAP = {
+    emailToName: new Map([
+      ["crisresl@amazon.com", { name: "Cristian Restrepo Lopez", source: "participant" as const }],
+      ["alice@cybershield.com", { name: "Alice Chen", source: "participant" as const }],
+    ]),
+    domainToOrg: new Map([
+      ["cybershield.com", "CyberShield"],
+    ]),
+  };
+
+  it("uses resolved name from map for history messages with null sender_name", () => {
+    const historyWithNull = {
+      ...HISTORY,
+      messages: [
+        makeMessage({
+          id: "hist-alias",
+          engagement_id: "eng-001",
+          sender_name: null,
+          sender_email: "crisresl@amazon.com",
+          body_text: "I'll review the security docs.",
+        }),
+      ],
+    };
+    const result = buildPhase2Context(
+      [NEW_MSG], PHASE1_EXISTING, historyWithNull, CATALOGS, PARTNER, null, NAME_MAP
+    );
+    expect(result).toContain("Cristian Restrepo Lopez <crisresl@amazon.com>");
+  });
+
+  it("uses resolved name from map for new email with null sender_name", () => {
+    const newMsg = makeMessage({
+      id: "new-alias",
+      sender_name: null,
+      sender_email: "crisresl@amazon.com",
+      body_text: "Here's the updated architecture.",
+    });
+    const result = buildPhase2Context(
+      [newMsg], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER, null, NAME_MAP
+    );
+    expect(result).toContain("Cristian Restrepo Lopez <crisresl@amazon.com>");
+  });
+
+  it("falls back to sender_name when map has no match", () => {
+    const historyWithName = {
+      ...HISTORY,
+      messages: [
+        makeMessage({
+          id: "hist-named",
+          engagement_id: "eng-001",
+          sender_name: "Bob Smith",
+          sender_email: "bob@unknown.com",
+          body_text: "Following up.",
+        }),
+      ],
+    };
+    const result = buildPhase2Context(
+      [NEW_MSG], PHASE1_EXISTING, historyWithName, CATALOGS, PARTNER, null, NAME_MAP
+    );
+    expect(result).toContain("Bob Smith <bob@unknown.com>");
+  });
+
+  it("uses displayName fallback when both sender_name and map resolution are null", () => {
+    const msgNoName = makeMessage({
+      id: "new-noname",
+      sender_name: null,
+      sender_email: "jane.doe@unknown.com",
+      body_text: "Test message.",
+    });
+    const result = buildPhase2Context(
+      [msgNoName], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER, null, NAME_MAP
+    );
+    // displayName formats "jane.doe@unknown.com" → "Jane Doe"
+    expect(result).toContain("Jane Doe <jane.doe@unknown.com>");
+  });
+
+  it("works without a resolution map (backward compatible)", () => {
+    const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
+    // Should use sender_name directly
+    expect(result).toContain("Alice Chen <alice@cybershield.com>");
+    expect(result).toContain("Steven Romero <sterme@amazon.com>");
+  });
+});

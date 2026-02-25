@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseForwardedEmail, findGmailQuoteMarkers, stripExternalTag, parseSenderField } from "../email-parser";
+import { parseForwardedEmail, findGmailQuoteMarkers, stripExternalTag, parseSenderField, cleanMessageBody } from "../email-parser";
 
 // Realistic Outlook forwarded email with 3-message thread
 const OUTLOOK_THREAD = `FYI — forwarding this thread about the security review.
@@ -1086,5 +1086,161 @@ describe("parseSenderField", () => {
   it("handles plain name without email", () => {
     const result = parseSenderField("John Doe");
     expect(result).toEqual({ senderName: "John Doe", senderEmail: null });
+  });
+
+  it("nulls alias-as-name when name equals email local part", () => {
+    const result = parseSenderField("Crisresl <crisresl@amazon.com>");
+    expect(result).toEqual({ senderName: null, senderEmail: "crisresl@amazon.com" });
+  });
+
+  it("nulls alias-as-name case-insensitively", () => {
+    const result = parseSenderField("MJINGLIS <mjinglis@amazon.com>");
+    expect(result).toEqual({ senderName: null, senderEmail: "mjinglis@amazon.com" });
+  });
+
+  it("keeps legitimate single-word name that differs from local part", () => {
+    const result = parseSenderField("Madonna <info@music.com>");
+    expect(result).toEqual({ senderName: "Madonna", senderEmail: "info@music.com" });
+  });
+
+  it("nulls message-ID-like name (long hex string)", () => {
+    const result = parseSenderField("abc123def456ghi789 <abc123def456ghi789@mail.gmail.com>");
+    expect(result).toEqual({ senderName: null, senderEmail: "abc123def456ghi789@mail.gmail.com" });
+  });
+
+  it("nulls message-ID with dashes and dots", () => {
+    const result = parseSenderField("a1b2c3d4-e5f6-7890-abcd-ef1234567890 <noreply@example.com>");
+    expect(result).toEqual({ senderName: null, senderEmail: "noreply@example.com" });
+  });
+
+  it("keeps short alphanumeric names that aren't message-IDs", () => {
+    const result = parseSenderField("Bob123 <bob@example.com>");
+    expect(result).toEqual({ senderName: "Bob123", senderEmail: "bob@example.com" });
+  });
+});
+
+// ============================================================
+// cleanMessageBody tests
+// ============================================================
+
+describe("cleanMessageBody", () => {
+  it("strips corporate signature block at bottom (3+ consecutive signature lines)", () => {
+    const body = `Hi team,
+
+Here's the update on the migration project. We've completed phase 1.
+
+Best regards,
+
+Steven Romero
+Partner Development Manager | AWS
+(206) 555-1234
+sterme@amazon.com`;
+
+    const result = cleanMessageBody(body);
+    expect(result).toContain("migration project");
+    expect(result).not.toContain("Partner Development Manager");
+    expect(result).not.toContain("(206) 555-1234");
+    expect(result).not.toContain("sterme@amazon.com");
+  });
+
+  it("strips Exclaimer/Mimecast tracking URLs", () => {
+    const body = `Please review the attached document.
+
+https://protect-us.mimecast.com/s/abc123def456?domain=example.com
+
+Looking forward to your feedback.`;
+
+    const result = cleanMessageBody(body);
+    expect(result).toContain("review the attached document");
+    expect(result).not.toContain("mimecast.com");
+  });
+
+  it("strips image placeholders", () => {
+    const body = `Here's the diagram:
+
+[image001.png]
+
+As you can see, the architecture uses three tiers.
+
+[cid:image002@01D8A9]`;
+
+    const result = cleanMessageBody(body);
+    expect(result).toContain("diagram");
+    expect(result).toContain("three tiers");
+    expect(result).not.toContain("[image001.png]");
+    expect(result).not.toContain("[cid:image002@01D8A9]");
+  });
+
+  it("preserves short reply content, only strips noise", () => {
+    const body = `Thanks, will review today.
+
+Sent from my iPhone`;
+
+    const result = cleanMessageBody(body, { skipSignatureStrip: true });
+    expect(result).toContain("Thanks, will review today.");
+    expect(result).not.toContain("Sent from my iPhone");
+  });
+
+  it("preserves real content interspersed with phone numbers", () => {
+    const body = `Call me at (206) 555-1234 to discuss the project details.
+
+The deadline is next Friday and we need to finalize the architecture.`;
+
+    const result = cleanMessageBody(body);
+    // Phone number is in body text, not at the bottom as part of a signature
+    expect(result).toContain("(206) 555-1234");
+    expect(result).toContain("deadline is next Friday");
+  });
+
+  it("does NOT strip fewer than 3 consecutive signature-like lines at bottom", () => {
+    const body = `Let's discuss tomorrow.
+
+Best regards,
+Alice`;
+
+    const result = cleanMessageBody(body);
+    // Only 2 lines match (salutation + name) — below threshold
+    expect(result).toContain("discuss tomorrow");
+    expect(result).toContain("Best regards");
+  });
+
+  it("strips blocks of 3+ consecutive URL-only lines (HTML artifacts)", () => {
+    const body = `Check out our resources:
+
+https://example.com/page1
+https://example.com/page2
+https://example.com/page3
+https://example.com/page4
+
+Let me know if you have questions.`;
+
+    const result = cleanMessageBody(body);
+    expect(result).toContain("resources");
+    expect(result).toContain("questions");
+    expect(result).not.toContain("example.com/page1");
+  });
+
+  it("is idempotent — running twice produces the same result", () => {
+    const body = `Update on the project.
+
+Steven Romero
+Partner Development Manager | AWS
+(206) 555-1234
+sterme@amazon.com
+https://protect-us.mimecast.com/s/xyz789`;
+
+    const once = cleanMessageBody(body);
+    const twice = cleanMessageBody(once);
+    expect(twice).toBe(once);
+  });
+
+  it("strips unsubscribe footers", () => {
+    const body = `Newsletter content here.
+
+To unsubscribe from these emails, click here.`;
+
+    const result = cleanMessageBody(body);
+    expect(result).toContain("Newsletter content");
+    expect(result).not.toContain("unsubscribe");
   });
 });

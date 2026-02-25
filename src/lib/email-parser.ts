@@ -98,6 +98,22 @@ export function parseSenderField(raw: string): {
     if (name.includes("@") || name.toLowerCase() === email.toLowerCase()) {
       return { senderName: null, senderEmail: email };
     }
+    // Alias detection: name equals the email local part AND looks like a
+    // corporate alias (8+ chars, typically first-name + truncated-last-name
+    // concatenations like "crisresl", "mjinglis"). Short names (Carlos, Dana)
+    // are likely real first names and should be preserved.
+    const localPart = email.split("@")[0];
+    if (
+      localPart &&
+      name.toLowerCase().trim() === localPart.toLowerCase() &&
+      name.trim().length >= 8
+    ) {
+      return { senderName: null, senderEmail: email };
+    }
+    // Message-ID rejection: long hex/dash/dot/underscore strings aren't real names
+    if (/^[0-9a-f\-_.]{15,}$/i.test(name.trim())) {
+      return { senderName: null, senderEmail: email };
+    }
     return { senderName: flipCommaInvertedName(name), senderEmail: email };
   }
 
@@ -148,6 +164,132 @@ function stripNoise(body: string): string {
     cleaned = cleaned.replace(pattern, "");
   }
   return cleaned.trim();
+}
+
+/**
+ * Additional artifact patterns for deep body cleaning.
+ * Applied after stripNoise() in cleanMessageBody().
+ */
+const ARTIFACT_PATTERNS = [
+  // Exclaimer/Mimecast tracking URLs
+  /https?:\/\/protect[-\w]*\.mimecast\.com\/\S+/gi,
+  // Exclaimer content URLs
+  /https?:\/\/[\w.-]*exclaimer[\w.-]*\/\S+/gi,
+  // Image placeholders: [image001.png], [image:xxx], [cid:xxx]
+  /\[image\d*\.\w+\]/gi,
+  /\[cid:[^\]]+\]/gi,
+  // Unsubscribe footers
+  /\n(?:To (?:stop receiving|unsubscribe)|If you no longer wish to receive|Click here to unsubscribe)[^\n]*/gi,
+];
+
+/**
+ * Deep body cleaning — wraps stripNoise() and adds artifact stripping
+ * and bottom-up signature detection.
+ *
+ * Idempotent: running twice produces the same result.
+ *
+ * @param skipSignatureStrip - Skip bottom-up signature detection (for short replies)
+ */
+export function cleanMessageBody(
+  text: string,
+  options?: { skipSignatureStrip?: boolean }
+): string {
+  // Step 1: Run existing noise patterns (broad removals)
+  let cleaned = stripNoise(text);
+
+  // Step 2: Strip tracking URLs, image placeholders, unsubscribe footers
+  for (const pattern of ARTIFACT_PATTERNS) {
+    pattern.lastIndex = 0;
+    cleaned = cleaned.replace(pattern, "");
+  }
+
+  // Step 3: Strip blocks of 3+ consecutive URL-only lines (HTML→text artifacts)
+  cleaned = stripConsecutiveUrlLines(cleaned);
+
+  // Step 4: Bottom-up signature detection (conservative — 3+ consecutive matches)
+  if (!options?.skipSignatureStrip) {
+    cleaned = stripBottomSignature(cleaned);
+  }
+
+  return cleaned.trim();
+}
+
+/**
+ * Strip blocks of 3+ consecutive lines that are only URLs.
+ * These are typically artifacts from HTML→plaintext conversion.
+ */
+function stripConsecutiveUrlLines(text: string): string {
+  const lines = text.split("\n");
+  const urlOnly = /^\s*(?:https?:\/\/|www\.)\S+\s*$/i;
+
+  // Find runs of consecutive URL-only lines
+  let i = 0;
+  const result: string[] = [];
+  while (i < lines.length) {
+    let runLength = 0;
+    let j = i;
+    while (j < lines.length && urlOnly.test(lines[j])) {
+      runLength++;
+      j++;
+    }
+    if (runLength >= 3) {
+      // Skip this block entirely
+      i = j;
+    } else {
+      result.push(lines[i]);
+      i++;
+    }
+  }
+  return result.join("\n");
+}
+
+/**
+ * Bottom-up signature detection: scan from the last line upward.
+ * If 3+ consecutive lines at the bottom match SIGNATURE_LINE_PATTERNS,
+ * strip them all. Stops at the first substantive non-matching line.
+ */
+function stripBottomSignature(text: string): string {
+  const lines = text.split("\n");
+
+  // Find the last substantive line index
+  let lastSubstantive = lines.length - 1;
+  while (lastSubstantive >= 0 && lines[lastSubstantive].trim().length === 0) {
+    lastSubstantive--;
+  }
+  if (lastSubstantive < 0) return text;
+
+  // Scan upward from the bottom, counting consecutive signature-like lines
+  let sigCount = 0;
+  let scanIdx = lastSubstantive;
+
+  while (scanIdx >= 0) {
+    const trimmed = lines[scanIdx].trim();
+    if (trimmed.length === 0) {
+      // Blank lines within a signature block don't break the streak
+      scanIdx--;
+      continue;
+    }
+    if (SIGNATURE_LINE_PATTERNS.some((pat) => pat.test(trimmed))) {
+      sigCount++;
+      scanIdx--;
+    } else {
+      // Hit a non-signature, substantive line — stop scanning
+      break;
+    }
+  }
+
+  // Only strip if 3+ signature-like lines found at the bottom
+  if (sigCount >= 3) {
+    // scanIdx is now the last non-signature line (or -1 if all lines are signature)
+    const kept = lines.slice(0, scanIdx + 1);
+    // Also trim trailing blank lines from the kept portion
+    while (kept.length > 0 && kept[kept.length - 1].trim().length === 0) {
+      kept.pop();
+    }
+    return kept.join("\n");
+  }
+
+  return text;
 }
 
 interface HeaderMatch {
@@ -554,6 +696,8 @@ export function parseForwardedEmail(
         ? parseSenderField(envelope.sender)
         : { senderName: null, senderEmail: null };
 
+      const singleBody = rawBody;
+      const lineCount = singleBody.split("\n").filter((l) => l.trim().length > 0).length;
       return [
         {
           sender_name: senderName,
@@ -562,7 +706,7 @@ export function parseForwardedEmail(
             ? new Date(envelope.timestamp * 1000).toISOString()
             : null,
           subject: envelope?.subject ?? null,
-          body_text: stripNoise(rawBody),
+          body_text: cleanMessageBody(singleBody, { skipSignatureStrip: lineCount < 5 }),
           body_raw: rawBody,
         },
       ];
@@ -575,12 +719,24 @@ export function parseForwardedEmail(
     allMessages.push(...splitQuotedReplies(msg));
   }
 
-  // ========== Final: Attach forwarder_note and sort ==========
+  // ========== Final: Attach forwarder_note, sort, and deep clean ==========
   if (forwarderNote && allMessages.length > 0) {
     allMessages[0].forwarder_note = forwarderNote;
   }
 
-  return sortChronologically(allMessages);
+  const sorted = sortChronologically(allMessages);
+
+  // Deep body cleaning pass — strips artifacts and bottom signatures
+  for (let i = 0; i < sorted.length; i++) {
+    const isLastMessage = i === sorted.length - 1;
+    const lineCount = sorted[i].body_text.split("\n").filter((l) => l.trim().length > 0).length;
+    const isShortReply = isLastMessage && lineCount < 5;
+    sorted[i].body_text = cleanMessageBody(sorted[i].body_text, {
+      skipSignatureStrip: isShortReply,
+    });
+  }
+
+  return sorted;
 }
 
 /**

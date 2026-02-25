@@ -16,6 +16,9 @@ import {
   buildProgramsSection,
   buildRelationshipsSection,
 } from "./prompt-builder";
+import type { NameResolutionMap } from "./name-resolver";
+import { resolveNameByEmail } from "./name-resolver";
+import { displayName } from "./format-utils";
 
 // ============================================================
 // Phase 2 system prompt — deep analysis with full thread history
@@ -176,8 +179,30 @@ The content_type and engagement_match fields are provided to you in the "Phase 1
 // ============================================================
 
 /**
+ * Resolve the best display name for a message sender.
+ * Priority: resolution map → stored sender_name → displayName() formatting.
+ */
+function bestSenderName(
+  msg: { sender_name: string | null; sender_email: string | null },
+  nameMap?: NameResolutionMap | null
+): string {
+  // 1. Try resolution map (DB-sourced, highest quality for legacy data)
+  if (nameMap && msg.sender_email) {
+    const resolved = resolveNameByEmail(msg.sender_email, nameMap);
+    if (resolved) return resolved.name;
+  }
+  // 2. Fall back to stored sender_name
+  if (msg.sender_name) return msg.sender_name;
+  // 3. Fall back to displayName() formatting (email-prefix → title-case)
+  return displayName(msg.sender_name, msg.sender_email);
+}
+
+/**
  * Build the full Phase 2 user message with engagement history,
  * new email(s), matched partner, and reference catalogs.
+ *
+ * @param nameResolutionMap - Optional map for resolving sender names from DB.
+ *   When provided, history and new email From lines use the best available name.
  */
 export function buildPhase2Context(
   newMessages: Message[],
@@ -194,7 +219,8 @@ export function buildPhase2Context(
     relationships: AwsRelationship[];
   },
   matchedPartner: Partner | null,
-  forwarderNote?: string | null
+  forwarderNote?: string | null,
+  nameResolutionMap?: NameResolutionMap | null
 ): string {
   const parts: string[] = [];
 
@@ -211,12 +237,12 @@ export function buildPhase2Context(
   // Section 3 & 4: Engagement context + history (existing engagements only)
   if (history) {
     parts.push(buildEngagementContext(history));
-    parts.push(buildEngagementHistory(history.messages));
+    parts.push(buildEngagementHistory(history.messages, nameResolutionMap));
     parts.push(buildLinkedMeetings(history.meetings));
   }
 
   // Section 5: New email(s)
-  parts.push(buildNewEmailSection(newMessages));
+  parts.push(buildNewEmailSection(newMessages, nameResolutionMap));
 
   // Section 6: Matched partner
   parts.push(buildMatchedPartnerSection(matchedPartner));
@@ -313,7 +339,10 @@ function buildEngagementContext(history: {
   return lines.join("\n");
 }
 
-function buildEngagementHistory(messages: Message[]): string {
+function buildEngagementHistory(
+  messages: Message[],
+  nameMap?: NameResolutionMap | null
+): string {
   if (messages.length === 0) return "";
 
   const total = messages.length;
@@ -325,7 +354,8 @@ function buildEngagementHistory(messages: Message[]): string {
     const msg = messages[i];
     lines.push(`### Message ${i + 1} of ${total} — HISTORY`);
     if (msg.sender_email) {
-      lines.push(`**From:** ${msg.sender_name || ""} <${msg.sender_email}>`);
+      const name = bestSenderName(msg, nameMap);
+      lines.push(`**From:** ${name} <${msg.sender_email}>`);
     }
     if (msg.to_header) lines.push(`**To:** ${msg.to_header}`);
     if (msg.cc_header) lines.push(`**CC:** ${msg.cc_header}`);
@@ -356,13 +386,17 @@ function buildLinkedMeetings(meetings: Meeting[]): string {
   return lines.join("\n");
 }
 
-function buildNewEmailSection(messages: Message[]): string {
+function buildNewEmailSection(
+  messages: Message[],
+  nameMap?: NameResolutionMap | null
+): string {
   const lines = ["---\n"];
 
   for (const msg of messages) {
     lines.push("### >>> NEW EMAIL — CLASSIFY THIS <<<");
     if (msg.sender_email) {
-      lines.push(`**From:** ${msg.sender_name || ""} <${msg.sender_email}>`);
+      const name = bestSenderName(msg, nameMap);
+      lines.push(`**From:** ${name} <${msg.sender_email}>`);
     }
     if (msg.to_header) lines.push(`**To:** ${msg.to_header}`);
     if (msg.cc_header) lines.push(`**CC:** ${msg.cc_header}`);
