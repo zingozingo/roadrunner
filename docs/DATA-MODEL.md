@@ -111,11 +111,9 @@ The core entity. A trackable workstream with a partner, created and evolved by A
 | name | text NOT NULL | AI-generated, user-editable |
 | partner_id | uuid FK→partners | |
 | partner_name | text | Denormalized; used when partner_id is null |
-| status | text NOT NULL | planned, active, paused, completed, archived |
+| status | text NOT NULL | active, planned, archived |
 | current_state | text | Living summary — updated with each new email |
-| open_items | jsonb | Array of {description, assignee, due_date} extracted from emails |
 | pillar | text | Co-Sell, Co-Market, Co-Build |
-| priority | text | Mandated, High, Normal, Opportunistic |
 | tags | jsonb | Freeform string array — the escape valve for anything that doesn't fit the entity model |
 | closed_at | timestamptz | |
 | airtable_record_id | text UNIQUE | |
@@ -276,7 +274,7 @@ Generic many-to-many junction between engagements, events, and programs.
 
 ### Auto-Push Hooks
 
-Engagements auto-push to Airtable on: create, update (name/status/pillar/priority/tags/notes), delete.
+Engagements auto-push to Airtable on: create, update (name/status/pillar/tags/notes), delete.
 
 Meetings auto-push on: create, update (any field), delete, relationship link changes.
 

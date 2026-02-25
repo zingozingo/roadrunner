@@ -110,7 +110,7 @@ roadrunner/
    ↓
 8. PERSIST (supabase.ts → persistClassificationResult)
    Single function handles both auto-assign and approval-resolve paths:
-   - Create or update engagement (current_state, open_items, tags)
+   - Create or update engagement (current_state, tags)
    - Create participants + participant_links
    - Create entity_links (programs, events, relationships)
    - Create meetings (if ICS data present)

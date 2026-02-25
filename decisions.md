@@ -1547,3 +1547,75 @@ Next.js 14 App Router + TypeScript + Tailwind. Supabase Postgres for data. Singl
 **Rationale:** Start safe, optimize later. Cost difference is negligible for single-user app. Speed difference (Haiku ~500ms vs Sonnet ~2s) is noticeable but not blocking.
 
 **Impact:** Can be changed with a single model parameter swap in claude.ts after confidence in routing accuracy.
+
+---
+
+## 2026-02-24: Remove Priority Field
+
+**Decision:** Priority field removed entirely from engagement model.
+
+**Context:** Field was never set by classification, never used by PDMs, showed "—" on every engagement.
+
+**Rationale:** Dead weight in schema, UI, prompts, and sync. Removing simplifies the entire engagement model.
+
+**Impact:** Removed from DB (migration 038), types, supabase.ts, sync.ts, 2 API routes, 3 UI components, 5 test files.
+
+---
+
+## 2026-02-24: Remove Open Items Entirely
+
+**Decision:** Open items (extraction, resolution, display) removed from the system.
+
+**Context:** AI extraction of actionable items from email threads is too subjective. More likely to produce "that's wrong" reactions than value. Each PDM manages their own tasks.
+
+**Rationale:** Roadrunner's job is summarizing engagement state, not task management. The "leadership altitude" test helped but the fundamental problem is subjectivity in interpreting email threads as tasks.
+
+**Impact:** Removed from DB, types, classifier (mergeOpenItems, matchResolvedItems, resolveOpenItems), Phase 2 prompt, sync, API routes, OpenItemsCard component, 6 test files (13 dedicated tests removed).
+
+---
+
+## 2026-02-24: Simplify Status to Active/Planned/Archived
+
+**Decision:** Engagement status reduced from 5 values (planned, active, paused, completed, archived) to 3 (active, planned, archived).
+
+**Context:** "Paused" and "completed" didn't map to how PDMs think about engagements. They're either active or they're not, with "planned" as a holding state.
+
+**Rationale:** Completed vs archived distinction doesn't matter operationally. Paused is just archived-you-might-reopen. Simpler model = less cognitive overhead.
+
+**Impact:** Migration converts existing paused/completed to archived. Updated CHECK constraint, types, API validation, sync mapping, StatusBadge, all forms.
+
+---
+
+## 2026-02-24: Unified Timeline Architecture
+
+**Decision:** Engagement detail page renders messages and meetings in a single chronologically-sorted timeline. Meetings are first-class timeline items positioned by meeting_date.
+
+**Context:** Previously meetings piggybacked on their linked message's position via meetingsByMessageId lookup. A Feb 26 meeting appeared between Feb 20 and Feb 19 emails because the ICS was received with a Feb 20 message.
+
+**Rationale:** Meetings are independent events with their own dates. A PDM looking at an engagement timeline expects chronological order. Both the meeting and its source email appear at their own dates.
+
+**Impact:** New TimelineItem union type, unified timeline builder in page.tsx, Timeline.tsx renders by type, removed meetingsByMessageId piggybacking, section renamed from "Source Emails" to "Timeline".
+
+---
+
+## 2026-02-24: Sender Name Sanitize-First Pattern
+
+**Decision:** parseSenderField() normalizes input (strip mailto artifacts, collapse brackets) before applying regex. displayName() includes defensive extraction for raw headers in the email field.
+
+**Context:** Outlook's double-bracket mailto format ("Name <email<mailto:email>>") caused regex failure, dumping entire raw header into sender_email with sender_name: null.
+
+**Rationale:** Sanitize-before-regex is more robust than adding regex alternatives. Handles unknown future noise patterns. Display-layer defense handles any bad data that leaks through. Comma-inverted names ("Last, First") flipped as part of normalization.
+
+**Impact:** parseSenderField() pre-normalizes all inputs, displayName() defends against raw headers, handles comma inversion and 2-letter initials. 15 new tests.
+
+---
+
+## 2026-02-24: Graceful Degradation for Email Parsing
+
+**Decision:** Three-tier parsing philosophy — high confidence (Outlook/Gmail headers), medium confidence (non-standard markers), low confidence (generic separators with metadata inheritance/fallback).
+
+**Context:** Perfect email parsing is impossible across hundreds of clients. Rather than chasing every edge case, the system should degrade gracefully.
+
+**Rationale:** Never lose content, always try metadata extraction, fall back through sent_at → forwarded_at → created_at. The display layer should handle nulls gracefully rather than requiring perfect extraction.
+
+**Impact:** Establishes principle for all future parser work. Timeline already implements the date fallback chain.

@@ -42,7 +42,6 @@ The prompt instructs Claude to:
 - **Prefer existing engagements** over creating new ones. If an email plausibly relates to an existing engagement, match it.
 - **Match by ID** — entity references in the response must use database IDs, not names.
 - **Produce a living summary** (current_state) that evolves with each email — not a summary of the single email, but an updated state of the entire engagement.
-- **Extract open items** — action items, next steps, pending decisions.
 - **Classify participants** as AWS, partner, or other based on email domain.
 - **Detect noise** — auto-newsletter, marketing blasts, and non-actionable emails should be flagged.
 
@@ -56,10 +55,8 @@ Claude returns a JSON object with this structure:
     "id": "uuid or null (null = create new)",
     "name": "Engagement name",
     "current_state": "Updated living summary",
-    "open_items": "Extracted action items",
     "status": "active",
     "pillar": "optional",
-    "priority": "optional",
     "tags": ["optional", "freeform", "labels"]
   },
   "partner_id": "matched partner UUID",
@@ -95,8 +92,7 @@ When a user resolves an approval (approve, reject, or modify), the same `persist
 3. **Noise detection.** Marketing emails, auto-newsletters, system notifications → flag as noise, do not create engagement.
 4. **Mixed content.** If an email touches multiple engagements, classify for the primary one and note others in tags.
 5. **Multi-message threads.** Forwarded threads may contain multiple messages — classify based on the most recent/relevant content.
-6. **Temporal extraction.** Dates, deadlines, and scheduling references should be captured in open_items.
-7. **Event linking threshold.** Only link to an event if the email explicitly references it by name or clear context. Do not infer event relevance from vague timing.
+6. **Event linking threshold.** Only link to an event if the email explicitly references it by name or clear context. Do not infer event relevance from vague timing.
 
 ## Living Summary Format
 
