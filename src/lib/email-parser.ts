@@ -44,8 +44,8 @@ const NOISE_PATTERNS = [
   /\nCONFIDENTIALITY NOTICE[\s\S]{0,500}$/gi,
   // Trailing Outlook separator lines with nothing after
   /\n_{20,}\s*$/g,
-  // AWS/corporate "CAUTION: external email" gateway banner
-  /(?:^|\n)CAUTION: This email originated from outside of the organization[^\n]*/gi,
+  // AWS/corporate gateway banners — single-line fallback (multi-line handled by stripGatewayBanners)
+  /(?:^|\n)(?:CAUTION|WARNING|ALERT|NOTICE):\s*(?:This (?:email|message) (?:originated|was sent) from outside)[^\n]*/gi,
   // Standard email signature delimiter (RFC 3676): "--" or "-- " on own line
   /\n--[ ]?\n[\s\S]*$/g,
 ];
@@ -92,7 +92,8 @@ export function parseSenderField(raw: string): {
 
   const match = normalized.match(/^(.+?)\s*<([^>]+)>\s*$/);
   if (match) {
-    const name = match[1].trim();
+    // Strip RFC 5322 quoted display names: "Steven Romero" → Steven Romero
+    const name = match[1].trim().replace(/^["']+|["']+$/g, "").trim();
     const email = match[2].trim();
     // If the "name" contains @ or equals the email, treat as no-name
     if (name.includes("@") || name.toLowerCase() === email.toLowerCase()) {
@@ -167,6 +168,33 @@ function stripNoise(body: string): string {
 }
 
 /**
+ * Strip multi-line gateway security banners from the top of messages.
+ *
+ * Corporate email gateways (Proofpoint, Mimecast, Barracuda, etc.) inject
+ * banners like:
+ *   CAUTION: This email originated from outside of the organization.
+ *   Do not click links or open attachments unless you recognize the sender
+ *   and know the content is safe.
+ *
+ * Strategy: match known banner openers and consume all continuation lines
+ * until a blank line or known email header pattern (From:, Sent:, etc.).
+ * This is a top-down approach — banners are always injected at the start.
+ */
+function stripGatewayBanners(text: string): string {
+  // Multi-line CAUTION/WARNING/EXTERNAL banners: opener + continuation lines up to blank line
+  const bannerRe = /^(?:CAUTION|WARNING|ALERT|NOTICE):\s*(?:This (?:email|message) (?:originated|was sent) from outside)[^\n]*(?:\n(?![ \t]*$|\n|From:\s|Sent:\s|Date:\s|To:\s|Subject:\s|On .+ wrote:)[^\n]*)*/gim;
+  let cleaned = text.replace(bannerRe, "");
+
+  // [EXTERNAL] / [EXT] banner lines at the top of message body
+  cleaned = cleaned.replace(/^\s*\[(?:EXTERNAL|EXT)(?:\s+EMAIL)?\][^\n]*(?:\n(?![ \t]*$|\n)[^\n]*)*/gim, "");
+
+  // Clean up leading blank lines left behind
+  cleaned = cleaned.replace(/^\n+/, "");
+
+  return cleaned;
+}
+
+/**
  * Additional artifact patterns for deep body cleaning.
  * Applied after stripNoise() in cleanMessageBody().
  */
@@ -178,6 +206,11 @@ const ARTIFACT_PATTERNS = [
   // Image placeholders: [image001.png], [image:xxx], [cid:xxx]
   /\[image\d*\.\w+\]/gi,
   /\[cid:[^\]]+\]/gi,
+  // Markdown-style link artifacts from HTML→text conversion: [url]<url> or [url](url)
+  // Catches Zoom branding, tracking pixels, and similar HTML→plaintext artifacts
+  /\[https?:\/\/\S+\]\s*[<(]https?:\/\/\S+[>)]/gi,
+  // Zoom branding/account URLs (standalone lines)
+  /^\s*https?:\/\/[\w.-]*zoom\.us\/account\/\S*\s*$/gim,
   // Unsubscribe footers
   /\n(?:To (?:stop receiving|unsubscribe)|If you no longer wish to receive|Click here to unsubscribe)[^\n]*/gi,
 ];
@@ -194,8 +227,11 @@ export function cleanMessageBody(
   text: string,
   options?: { skipSignatureStrip?: boolean }
 ): string {
+  // Step 0: Strip multi-line gateway banners (top-down, before noise patterns)
+  let cleaned = stripGatewayBanners(text);
+
   // Step 1: Run existing noise patterns (broad removals)
-  let cleaned = stripNoise(text);
+  cleaned = stripNoise(cleaned);
 
   // Step 2: Strip tracking URLs, image placeholders, unsubscribe footers
   for (const pattern of ARTIFACT_PATTERNS) {
@@ -390,7 +426,8 @@ export function findGmailQuoteMarkers(text: string): GmailQuoteMatch[] {
         // Name: extract trailing alphabetic words before <email>.
         // "Mon, Feb 3, 2025 at 10:30 AM Alice Chen" → "Alice Chen"
         // "Dec 10, 2025, at 7:02 PM, Jane Smith" → "Jane Smith"
-        const nameMatch = beforeEmail.match(/(?:^|[,\s])\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s*$/);
+        // "Mon, Jan 5, 2025 at 3:45 PM John" → "John" (single-word names)
+        const nameMatch = beforeEmail.match(/(?:^|[,\s])\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s*$/);
         if (nameMatch) {
           senderName = nameMatch[1].trim();
           // Date: everything before the name
@@ -405,8 +442,8 @@ export function findGmailQuoteMarkers(text: string): GmailQuoteMatch[] {
         const wroteIdx = onText.lastIndexOf(" wrote:");
         if (wroteIdx > 3) {
           const afterOn = onText.slice(3, wroteIdx).trim();
-          // Try to find trailing name (capitalized words)
-          const nameMatch = afterOn.match(/(?:^|[,\s])\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\s*$/);
+          // Try to find trailing name (capitalized words, 1+ words)
+          const nameMatch = afterOn.match(/(?:^|[,\s])\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s*$/);
           if (nameMatch) {
             senderName = nameMatch[1].trim();
             const nameStart = afterOn.lastIndexOf(nameMatch[1]);

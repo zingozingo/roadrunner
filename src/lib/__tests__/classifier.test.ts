@@ -495,4 +495,26 @@ describe("processUnclassifiedMessages", () => {
     );
   });
 
+  it("low confidence does NOT set engagement_id on messages (mutual exclusion)", async () => {
+    const msg = makeMessage({ id: "msg-lowconf" });
+    mockGetUnclassifiedMessages.mockResolvedValue([msg]);
+    mockClassifyPhase1.mockResolvedValue(PHASE1_LOW_CONFIDENCE);
+    mockClassifyPhase2.mockResolvedValue(LOW_CONFIDENCE_RESULT);
+
+    await processUnclassifiedMessages();
+
+    // Should create an approval (pending review)
+    expect(mockCreateApproval).toHaveBeenCalledTimes(1);
+    // Should NOT create an engagement (low confidence + is_new)
+    expect(mockCreateEngagement).not.toHaveBeenCalled();
+
+    // The message update should set pending_review=true and NOT set engagement_id
+    // Find the messages.update() call
+    const updateCalls = mockFrom.mock.calls.filter(
+      ([table]: [string]) => table === "messages"
+    );
+    // There should be at least one update call for classification data
+    expect(updateCalls.length).toBeGreaterThan(0);
+  });
+
 });

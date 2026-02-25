@@ -294,24 +294,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "No messages extracted" });
     }
 
-    // --- Name resolution: enrich sender names from DB before storage ---
-    // Built once, reused for all messages and passed to classification.
+    // --- Name resolution: email-first sender name enrichment ---
+    // Resolution chain ALWAYS determines display name. Parser-extracted names
+    // are fallback only (catalog/participant data is more trustworthy than
+    // messy email headers). Parser names that differ from resolved names are
+    // logged as learning signals for future participant enrichment.
     const nameMap = await buildNameResolutionMap();
-    let namesEnriched = 0;
+    let namesResolved = 0;
+    let namesFallback = 0;
     for (const msg of parsed) {
       if (msg.sender_email) {
-        // Only enrich if sender_name is null (parser couldn't extract or nulled garbage)
-        if (!msg.sender_name) {
-          const resolved = resolveNameByEmail(msg.sender_email, nameMap);
-          if (resolved) {
-            msg.sender_name = resolved.name;
-            namesEnriched++;
+        const resolved = resolveNameByEmail(msg.sender_email, nameMap);
+        if (resolved) {
+          // Log when parser name differs from resolved name (learning signal)
+          if (msg.sender_name && msg.sender_name !== resolved.name) {
+            console.log(
+              `[NAME] Resolved "${resolved.name}" (${resolved.source}) overrides parser "${msg.sender_name}" for ${msg.sender_email}`
+            );
           }
+          msg.sender_name = resolved.name;
+          namesResolved++;
+        } else if (msg.sender_name) {
+          // No resolution — keep parser name as fallback
+          namesFallback++;
         }
+        // If both are null, leave null — displayName() will derive from email
       }
     }
-    if (namesEnriched > 0) {
-      console.log(`Name resolution: enriched ${namesEnriched} sender name(s) from DB`);
+    if (namesResolved > 0 || namesFallback > 0) {
+      console.log(
+        `Name resolution: ${namesResolved} resolved from DB, ${namesFallback} kept from parser`
+      );
     }
 
     console.log(`Parsed ${parsed.length} messages, proceeding to storage (per-message dedup handles duplicates)`);

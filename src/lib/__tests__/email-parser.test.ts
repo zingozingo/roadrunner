@@ -575,6 +575,26 @@ Here's the latest status on the migration project.`;
     });
   });
 
+  describe("Gmail single-word sender name → extracted", () => {
+    const body = `Got it, will follow up.
+
+On Mon, Jan 5, 2025 at 3:45 PM John <john@ninjaone.com> wrote:
+Can we schedule a call to discuss the integration timeline?`;
+
+    const messages = parseForwardedEmail(body, {
+      sender: "Steven Romero <sterme@amazon.com>",
+      subject: "Re: NinjaOne Integration",
+      timestamp: 1738700000,
+    });
+
+    it("extracts single-word name from Gmail marker", () => {
+      expect(messages.length).toBe(2);
+      const johnMsg = messages.find(m => m.sender_email === "john@ninjaone.com");
+      expect(johnMsg).toBeDefined();
+      expect(johnMsg!.sender_name).toBe("John");
+    });
+  });
+
   describe("Apple Mail format → 2 messages (chronological)", () => {
     const body = `Confirmed, I'll be there.
 
@@ -1117,6 +1137,21 @@ describe("parseSenderField", () => {
     const result = parseSenderField("Bob123 <bob@example.com>");
     expect(result).toEqual({ senderName: "Bob123", senderEmail: "bob@example.com" });
   });
+
+  it("strips RFC 5322 double quotes from display name", () => {
+    const result = parseSenderField('"Steven Romero" <steven@example.com>');
+    expect(result).toEqual({ senderName: "Steven Romero", senderEmail: "steven@example.com" });
+  });
+
+  it("strips single quotes from display name", () => {
+    const result = parseSenderField("'Jane Doe' <jane@example.com>");
+    expect(result).toEqual({ senderName: "Jane Doe", senderEmail: "jane@example.com" });
+  });
+
+  it("strips mixed/nested quotes from display name", () => {
+    const result = parseSenderField(`"'John Smith'" <john@example.com>`);
+    expect(result).toEqual({ senderName: "John Smith", senderEmail: "john@example.com" });
+  });
 });
 
 // ============================================================
@@ -1242,5 +1277,67 @@ To unsubscribe from these emails, click here.`;
     const result = cleanMessageBody(body);
     expect(result).toContain("Newsletter content");
     expect(result).not.toContain("unsubscribe");
+  });
+
+  it("strips multi-line CAUTION banner (top-down gateway stripping)", () => {
+    const body = `CAUTION: This email originated from outside of the organization.
+Do not click links or open attachments unless you recognize the sender and know the content is safe.
+
+Hi Steven,
+
+Here's the partnership proposal.`;
+
+    const result = cleanMessageBody(body);
+    expect(result).not.toContain("CAUTION");
+    expect(result).not.toContain("Do not click links");
+    expect(result).toContain("partnership proposal");
+  });
+
+  it("strips WARNING variant of gateway banner", () => {
+    const body = `WARNING: This email was sent from outside the organization.
+Exercise caution with links and attachments.
+
+Please review the attached doc.`;
+
+    const result = cleanMessageBody(body);
+    expect(result).not.toContain("WARNING");
+    expect(result).not.toContain("Exercise caution");
+    expect(result).toContain("review the attached doc");
+  });
+
+  it("strips [EXTERNAL] banner lines", () => {
+    const body = `[EXTERNAL] This message comes from an external source.
+
+Hi team, let's sync on the project.`;
+
+    const result = cleanMessageBody(body);
+    expect(result).not.toContain("[EXTERNAL]");
+    expect(result).toContain("sync on the project");
+  });
+
+  it("strips markdown-style link artifacts [url]<url>", () => {
+    const body = `Join the meeting:
+
+[https://zoom.us/account/branding/logo]<https://zoom.us/j/12345>
+
+Looking forward to the discussion.`;
+
+    const result = cleanMessageBody(body);
+    expect(result).not.toContain("zoom.us/account/branding");
+    expect(result).toContain("Join the meeting");
+    expect(result).toContain("Looking forward");
+  });
+
+  it("strips standalone Zoom branding URLs", () => {
+    const body = `Meeting details below.
+
+https://zoom.us/account/branding/logo/abc123
+
+See you there.`;
+
+    const result = cleanMessageBody(body);
+    expect(result).not.toContain("zoom.us/account");
+    expect(result).toContain("Meeting details");
+    expect(result).toContain("See you there");
   });
 });
