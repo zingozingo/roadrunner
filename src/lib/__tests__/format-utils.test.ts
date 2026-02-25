@@ -164,10 +164,16 @@ function makeMeeting(overrides: Partial<Meeting> & { id: string; meeting_date?: 
   } as Meeting;
 }
 
-/** Reproduce the exact sorting logic from the engagement detail page */
+/** Reproduce the exact sorting + consolidation logic from the engagement detail page */
 function buildTimeline(messages: Message[], meetings: Meeting[]): TimelineItem[] {
+  // Suppress messages that have an associated meeting record
+  const meetingSourceMessageIds = new Set(
+    meetings.filter((m) => m.message_id).map((m) => m.message_id!)
+  );
+
   const items: TimelineItem[] = [];
   for (const msg of messages) {
+    if (meetingSourceMessageIds.has(msg.id)) continue;
     const date = msg.sent_at ?? msg.forwarded_at;
     items.push({ type: "message", date, data: msg });
   }
@@ -237,7 +243,7 @@ describe("unified timeline sorting", () => {
     expect(timeline.map((i) => i.data.id)).toEqual(["mtg2", "msg2", "mtg1", "msg1"]);
   });
 
-  it("both meeting and its source message appear independently", () => {
+  it("meeting replaces its source message in timeline (consolidation)", () => {
     const messages = [
       makeMessage({ id: "msg-source", sent_at: "2026-02-18T10:00:00Z" }),
     ];
@@ -247,9 +253,25 @@ describe("unified timeline sorting", () => {
 
     const timeline = buildTimeline(messages, meetings);
 
-    // Both items appear: meeting at its date, message at its date
-    expect(timeline).toHaveLength(2);
+    // Only the meeting card appears — the source message is suppressed
+    expect(timeline).toHaveLength(1);
     expect(timeline[0].data.id).toBe("mtg-linked");
-    expect(timeline[1].data.id).toBe("msg-source");
+    expect(timeline[0].type).toBe("meeting");
+  });
+
+  it("messages without associated meetings still appear", () => {
+    const messages = [
+      makeMessage({ id: "msg-standalone", sent_at: "2026-02-18T10:00:00Z" }),
+      makeMessage({ id: "msg-source", sent_at: "2026-02-20T10:00:00Z" }),
+    ];
+    const meetings = [
+      makeMeeting({ id: "mtg-linked", meeting_date: "2026-02-26", message_id: "msg-source" }),
+    ];
+
+    const timeline = buildTimeline(messages, meetings);
+
+    // msg-source suppressed, msg-standalone and mtg-linked remain
+    expect(timeline).toHaveLength(2);
+    expect(timeline.map(i => i.data.id)).toEqual(["mtg-linked", "msg-standalone"]);
   });
 });

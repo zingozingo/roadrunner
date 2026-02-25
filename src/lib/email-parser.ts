@@ -195,6 +195,78 @@ function stripGatewayBanners(text: string): string {
 }
 
 /**
+ * Strip conference call boilerplate blocks (Zoom, Teams, Webex).
+ *
+ * Meeting invite emails contain structured blocks like:
+ *   Join Zoom Meeting
+ *   https://zoom.us/j/12345
+ *   Meeting ID: 123 456 7890
+ *   Passcode: abc123
+ *   One tap mobile: +12025551234,,12345#
+ *   Dial by your location: +1 202 555 1234 US
+ *
+ * These blocks are predictable, carry no human-written content, and the
+ * meeting record already captures the structured data. Strip them so
+ * message bodies contain only the human-written portion.
+ */
+function stripConferenceBoilerplate(text: string): string {
+  let cleaned = text;
+
+  // Zoom: "Join Zoom Meeting" through dial-in block / next blank line before real content
+  // Matches: "Join Zoom Meeting\n<url>\n\nMeeting ID:...\nPasscode:...\n..." etc.
+  cleaned = cleaned.replace(
+    /(?:^|\n)[-–—]*\s*Join Zoom Meeting\s*[-–—]*\n[\s\S]*?(?=\n[ \t]*\n(?![- \t]*(?:Meeting|Passcode|One tap|Dial|Tel:|Find your|If dialing|Quick Reference|US:|Toll|Meeting URL|Participant))|$)/gi,
+    ""
+  );
+
+  // Teams: "Join Microsoft Teams Meeting" through disclaimer
+  cleaned = cleaned.replace(
+    /(?:^|\n)[-–—]*\s*Join Microsoft Teams Meeting\s*[-–—]*\n[\s\S]*?(?=\n[ \t]*\n(?![- \t]*(?:Meeting|Learn more|Help|For organizers))|$)/gi,
+    ""
+  );
+
+  // Webex: "Join Webex" or "Join from the meeting link" block
+  cleaned = cleaned.replace(
+    /(?:^|\n)[-–—]*\s*(?:Join Webex|Join from the meeting link)\s*[-–—]*\n[\s\S]*?(?=\n[ \t]*\n(?![- \t]*(?:Meeting|Passcode|Access code|Dial|Toll))|$)/gi,
+    ""
+  );
+
+  // "Quick Reference" blocks containing meeting details
+  cleaned = cleaned.replace(
+    /(?:^|\n)Quick Reference\s*\n[\s\S]*?(?=\n[ \t]*\n(?![ \t]*(?:Meeting|Passcode|Host key|Dial|Participant))|$)/gi,
+    ""
+  );
+
+  // Individual conference metadata lines (catches stragglers after block stripping)
+  const confLinePatterns = [
+    // Meeting ID / Passcode / Access code lines
+    /^\s*(?:Meeting ID|Passcode|Access [Cc]ode|Host [Kk]ey|Participant ID)\s*[:=]\s*\S.*$/gim,
+    // Meeting URL lines
+    /^\s*Meeting URL\s*[:=]\s*https?:\/\/\S+\s*$/gim,
+    // "One tap mobile" dial-in lines
+    /^\s*One tap mobile\s*[:=]?\s*$/gim,
+    // tel: protocol links (HTML→text artifact)
+    /\s*tel:\+?\d[\d\-,.#*]+/gi,
+    // Dial-in number lines: "+1 202 555 1234 US (Washington DC)"
+    /^\s*\+\d[\d\s\-()]{8,}(?:\s+\w{2}\b)?(?:\s*\(.*?\))?\s*$/gim,
+    // "Dial by your location" / "Find your local number" section headers
+    /^\s*(?:Dial by your location|Find your local number|If dialing from)[^\n]*/gim,
+    // Standalone Zoom/Teams/Webex meeting URLs
+    /^\s*https?:\/\/[\w.-]*(?:zoom\.us|teams\.microsoft\.com|webex\.com)\/\S+\s*$/gim,
+  ];
+
+  for (const pattern of confLinePatterns) {
+    pattern.lastIndex = 0;
+    cleaned = cleaned.replace(pattern, "");
+  }
+
+  // Collapse runs of 3+ blank lines left by stripping
+  cleaned = cleaned.replace(/\n{4,}/g, "\n\n");
+
+  return cleaned.trim();
+}
+
+/**
  * Additional artifact patterns for deep body cleaning.
  * Applied after stripNoise() in cleanMessageBody().
  */
@@ -233,16 +305,19 @@ export function cleanMessageBody(
   // Step 1: Run existing noise patterns (broad removals)
   cleaned = stripNoise(cleaned);
 
-  // Step 2: Strip tracking URLs, image placeholders, unsubscribe footers
+  // Step 2: Strip conference call boilerplate (Zoom, Teams, Webex)
+  cleaned = stripConferenceBoilerplate(cleaned);
+
+  // Step 3: Strip tracking URLs, image placeholders, unsubscribe footers
   for (const pattern of ARTIFACT_PATTERNS) {
     pattern.lastIndex = 0;
     cleaned = cleaned.replace(pattern, "");
   }
 
-  // Step 3: Strip blocks of 3+ consecutive URL-only lines (HTML→text artifacts)
+  // Step 4: Strip blocks of 3+ consecutive URL-only lines (HTML→text artifacts)
   cleaned = stripConsecutiveUrlLines(cleaned);
 
-  // Step 4: Bottom-up signature detection (conservative — 3+ consecutive matches)
+  // Step 5: Bottom-up signature detection (conservative — 3+ consecutive matches)
   if (!options?.skipSignatureStrip) {
     cleaned = stripBottomSignature(cleaned);
   }

@@ -39,9 +39,18 @@ export default async function EngagementDetailPage({
     getAwsRelationshipsByEngagement(id),
   ]);
 
-  // Build unified timeline: messages + meetings sorted by date desc
+  // Build unified timeline: messages + meetings sorted by date desc.
+  // Suppress messages that have an associated meeting record — the meeting
+  // card already displays title/date/link and the raw email body is redundant
+  // (mostly Zoom/Teams boilerplate).
+  const meetingSourceMessageIds = new Set(
+    meetings.filter((m) => m.message_id).map((m) => m.message_id!)
+  );
+
   const timelineItems: TimelineItem[] = [];
   for (const msg of messages) {
+    // Skip messages that spawned a meeting — the meeting card replaces them
+    if (meetingSourceMessageIds.has(msg.id)) continue;
     const date = msg.sent_at ?? msg.forwarded_at;
     timelineItems.push({ type: "message", date, data: msg });
   }

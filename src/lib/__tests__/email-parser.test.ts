@@ -1340,4 +1340,95 @@ See you there.`;
     expect(result).toContain("Meeting details");
     expect(result).toContain("See you there");
   });
+
+  it("strips full Zoom meeting block, preserving human-written content", () => {
+    const body = `Hi team, let's sync on the integration timeline.
+
+Join Zoom Meeting
+https://zoom.us/j/12345678901?pwd=abc123
+
+Meeting ID: 123 4567 8901
+Passcode: abc123
+One tap mobile:
++12025551234,,12345678901#,,,,*111111# US (Washington DC)
+
+Dial by your location:
++1 202 555 1234 US (Washington DC)
++1 646 555 5678 US (New York)
+
+Looking forward to the discussion.`;
+
+    const result = cleanMessageBody(body);
+    expect(result).toContain("sync on the integration timeline");
+    expect(result).toContain("Looking forward to the discussion");
+    expect(result).not.toContain("Join Zoom Meeting");
+    expect(result).not.toContain("Meeting ID");
+    expect(result).not.toContain("Passcode");
+    expect(result).not.toContain("One tap mobile");
+    expect(result).not.toContain("Dial by your location");
+    expect(result).not.toContain("zoom.us/j/");
+  });
+
+  it("strips Teams meeting block", () => {
+    const body = `Let's discuss the proposal.
+
+Join Microsoft Teams Meeting
+https://teams.microsoft.com/l/meetup-join/abc123
+
+Meeting ID: 123 456 789#
+
+Looking forward to connecting.`;
+
+    const result = cleanMessageBody(body);
+    expect(result).toContain("discuss the proposal");
+    expect(result).toContain("Looking forward to connecting");
+    expect(result).not.toContain("Join Microsoft Teams Meeting");
+    expect(result).not.toContain("teams.microsoft.com");
+  });
+
+  it("strips Webex meeting block", () => {
+    const body = `See you at the review.
+
+Join Webex
+https://company.webex.com/meet/abc123
+
+Meeting ID: 987 654 321
+Access code: xyz789
+
+Thanks!`;
+
+    const result = cleanMessageBody(body);
+    expect(result).toContain("See you at the review");
+    expect(result).toContain("Thanks!");
+    expect(result).not.toContain("Join Webex");
+    expect(result).not.toContain("webex.com");
+  });
+
+  it("strips tel: protocol artifacts", () => {
+    const body = `Call us at tel:+12025551234 for details.
+
+The project is on track.`;
+
+    const result = cleanMessageBody(body);
+    expect(result).not.toContain("tel:+");
+    expect(result).toContain("project is on track");
+  });
+
+  it("handles meeting-only email — returns minimal content", () => {
+    const body = `Join Zoom Meeting
+https://zoom.us/j/12345678901
+
+Meeting ID: 123 4567 8901
+Passcode: abc123
+
+One tap mobile:
++12025551234,,12345678901# US
+
+Dial by your location:
++1 202 555 1234 US`;
+
+    const result = cleanMessageBody(body);
+    // Body should be empty or minimal after stripping the entire invite
+    expect(result.length).toBeLessThan(20);
+  });
 });
