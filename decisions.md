@@ -1679,3 +1679,99 @@ Next.js 14 App Router + TypeScript + Tailwind. Supabase Postgres for data. Singl
 **Rationale:** Code locking fights the AI. Prompt intelligence uses it. Same successful pattern as current_state anchoring. Claude can handle "keep this unless it genuinely changed" — that's a judgment call an AI should make.
 
 **Impact:** Persistence layer stays simple (writes freely). Stability comes from the prompt. If topic/goal need updating after a genuine pivot, it happens automatically.
+
+---
+
+## 2026-02-25: Consistent Partner Contact Field Pattern
+
+**Decision:** Every partner contact role follows Name + Email field pairs (Alliance Lead, PSA, Account Manager, PMM). Airtable is source of truth, Roadrunner syncs all 8 fields.
+
+**Context:** Account Manager was a combined string ("Taylor Murphy - taymurph@amazon.com"), PSA had no email field, PMM had no email field. Inconsistent data made name resolution incomplete.
+
+**Rationale:** Consistent pattern makes sync predictable, name resolution comprehensive, and future roles trivial to add. Split combined strings, added 3 new Airtable fields (PSA Email, Account Manager Email, PMM Email), added 5 new Roadrunner columns.
+
+**Impact:** Name resolver now checks all 4 partner contact email fields. Taylor Murphy resolves instantly on any KnowBe4/Spacelift/Appgate/Veracode email without AI inference.
+
+---
+
+## 2026-02-25: Two-Layer Name Resolution (Catalogs → Participants)
+
+**Decision:** Name resolution is a two-step lookup: catalog data (partner contacts + AWS relationship contacts) first, then participants (learned from email threads). No elaborate fallback chain.
+
+**Context:** Previous architecture had confusing 3-layer priority with unclear boundaries. "Fallback" framing made it sound fragile.
+
+**Rationale:** Partner contacts and AWS relationship contacts are all human-curated catalog data at the same trust level. Participants handle genuinely new people. Two layers, not three.
+
+**Impact:** Simplified mental model. Clear ownership: catalogs for known contacts, participants for discovered contacts. Backfill after classification is the learning mechanism for new contacts, not a fallback.
+
+---
+
+## 2026-02-25: AWS Relationships = Cross-Portfolio Teams
+
+**Decision:** AWS Relationships table stores product teams (AI/API Security, Edge Services/WAF, Observability, etc.) and program teams (Multicloud) that span the entire partner portfolio. Per-partner contacts (AM, PSA, PMM) live on the partner record.
+
+**Context:** Confusion about whether Taylor Murphy (KnowBe4's AM) should be in AWS Relationships or on the partner. Answer: on the partner — she's a per-partner contact, not a cross-portfolio team.
+
+**Rationale:** Different questions: "who works on this partner?" (partner record) vs "who runs this AWS program?" (AWS Relationships). Keeping them separate prevents data duplication and role confusion.
+
+**Impact:** Clear data architecture for future team rollout. AWS Relationships could eventually sync from an internal directory of program/product team contacts.
+
+---
+
+## 2026-02-25: Post-Classification Backfill as Learning Mechanism
+
+**Decision:** After Phase 2 classification upserts participants, backfill updates messages on the engagement where a participant has a better name than what was stored at parse time. Single bulk UPDATE, runs in persistClassificationResult() step 6.
+
+**Context:** First email from a new contact gets incomplete name from parser ("Taylor" not "Taylor Murphy"). Claude extracts full name in Phase 2 and upserts to participants. But the message was already stored with the partial name.
+
+**Rationale:** This is the correct design for genuinely new contacts — not a fallback. Catalog contacts resolve at parse time (no backfill needed). New contacts learn on first email, resolve instantly on second. "Better name" = more words or non-null replacing null. Never downgrades.
+
+**Impact:** Self-healing system. Every email makes the contact directory richer. UI belt-and-suspenders lookup is redundant safety, not a feature.
+
+---
+
+## 2026-02-25: Meeting-Email Timeline Consolidation
+
+**Decision:** When a meeting record has message_id linking to a source email, that email is suppressed from the timeline. Only the meeting card renders.
+
+**Context:** Emails containing calendar invites created both a meeting record (from ICS parsing) and a message record. Both appeared in the timeline as separate items, confusing users.
+
+**Rationale:** The meeting card has all the structured info (title, date, time, Zoom link). The raw email body is redundant and often full of dial-in boilerplate. Show the better representation.
+
+**Impact:** Clean timelines. Spacelift engagement went from confusing duplicate items to single clean meeting card.
+
+---
+
+## 2026-02-25: Conference Boilerplate Stripping (Zoom/Teams/Webex)
+
+**Decision:** stripConferenceBoilerplate() runs in cleanMessageBody() to remove Zoom, Teams, and Webex meeting blocks, Quick Reference sections, dial-in numbers, tel: protocol artifacts, and standalone conference URLs.
+
+**Context:** Emails with meeting invites had bodies full of "Join Zoom Meeting", Meeting ID, Passcode, dial-in numbers — noise that obscured actual human-written content.
+
+**Rationale:** Aggressive stripping is correct because the meeting record captures all structured data. If the email body is ONLY a meeting invite, the cleaned body should be minimal/empty.
+
+**Impact:** Combined with timeline consolidation, meeting-related emails are now clean. Human content preserved, boilerplate eliminated.
+
+---
+
+## 2026-02-25: Body Sanitization Strategy — Three Directions
+
+**Decision:** Top-down (gateway banners from beginning), bottom-up (signatures from end), targeted (inline artifacts like conference boilerplate, tracking URLs, image placeholders). Focus on what to keep, not what to remove.
+
+**Context:** Pattern whack-a-mole — adding individual patterns for every corporate email artifact doesn't scale.
+
+**Rationale:** Real email content is greeting + body + sign-off. Everything above (CAUTION/EXTERNAL banners) is gateway injection. Everything below (signatures, disclaimers) is noise. Inline artifacts (Zoom blocks, Exclaimer URLs) are targeted patterns.
+
+**Impact:** Systematic approach that handles new email formats gracefully. Multi-line CAUTION banners, Zoom blocks, Mimecast URLs all stripped.
+
+---
+
+## 2026-02-25: Slot Registry UI Enables Human Correction Loop
+
+**Decision:** Phase 2 already populates topic, goal, engagement_type in the database. Claude already reads these in Phase 1 for matching. The UI needs to surface these fields so users can see and correct them.
+
+**Context:** Confusion about whether the UI is needed for classification to work. It's not — backend already works. But user visibility enables correction, which improves data quality, which improves classification accuracy.
+
+**Rationale:** The UI is for the human correction loop, not for Claude. Better data → better matching → fewer inbox items. Without the UI, users can't see or fix wrong topics/goals.
+
+**Impact:** Highest-leverage next step for classification accuracy improvement.

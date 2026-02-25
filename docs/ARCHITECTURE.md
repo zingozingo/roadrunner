@@ -67,9 +67,9 @@ roadrunner/
 │       ├── sync.ts                #   Airtable ↔ Supabase sync engine
 │       ├── types.ts               #   Shared TypeScript interfaces
 │       ├── user-config.ts         #   Canonical user identity config
-│       └── __tests__/             #   188 tests across 8 test files
+│       └── __tests__/             #   350 tests across 11 test files
 ├── supabase/
-│   └── migrations/                # 37 migration files (001-037)
+│   └── migrations/                # 40 migration files (001-040)
 ├── scripts/
 │   └── seed-data.ts               # CLI script to seed events/programs
 ├── data/

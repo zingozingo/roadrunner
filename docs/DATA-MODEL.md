@@ -26,8 +26,13 @@ ISV companies in the portfolio. Classified by operational segment and focus area
 | segment | text | Security, SecOps, DevOps, CloudOps, Observability, OT/IoT |
 | focus_area | text[] | Multiple select: Network Security, API Security, IaC, IT Management, etc. |
 | alliance_lead | text | Partner-side alliance manager |
-| alliance_lead_email | text | Used for email-to-partner matching |
+| alliance_lead_email | text | Used for email matching + name resolution |
 | psa | text | AWS Partner Solutions Architect |
+| psa_email | text | PSA email; used for name resolution |
+| account_manager | text | AWS Account Manager name |
+| account_manager_email | text | AM email; used for name resolution |
+| pmm | text | Partner Marketing Manager name |
+| pmm_email | text | PMM email; used for name resolution |
 | spms_id | integer | AWS SPMS identifier |
 | what_they_do | text | Brief description of the partner's business |
 | partner_contact_emails | text[] | Array; used for email-to-partner matching |

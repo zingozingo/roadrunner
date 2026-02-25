@@ -32,14 +32,19 @@ Catalog tables are read from Airtable into Roadrunner. Activity tables are writt
 | Segment | `fldSoIAhWfmPgHzuc` | singleSelect | `PTRF.segment` | Security, SecOps, DevOps, CloudOps, Observability, OT/IoT. **Renamed from Category 2026-02-18.** |
 | Focus Area | `fldeW5BvDgSp1bLNX` | multipleSelects | `PTRF.focusArea` | Network Security, API Security, IaC, IT Management, etc. **Renamed from Sub-Category, converted text→multipleSelects 2026-02-18.** DB stores as text[]. |
 | Alliance Lead | `fldN2yZtjwetyHJwI` | singleLineText | `PTRF.allianceLead` | |
+| Alliance Lead Email | `fldgoSc6QMl6l1303` | email | `PTRF.allianceLeadEmail` | Used for email matching + name resolution |
 | PSA | `fldNRDPljDlJZkbds` | singleSelect | `PTRF.psa` | 5 options |
+| PSA Email | `fldYIdpq0rdKYLHWx` | email | `PTRF.psaEmail` | **New sync 2026-02-25.** Used for name resolution. |
+| Account Manager | `fldpJxHBJKGgVMJmP` | singleLineText | `PTRF.accountManager` | **New sync 2026-02-25.** Was Airtable-only combined string, split into name+email. |
+| Account Manager Email | `fldwYCgZeyPIKDbhk` | email | `PTRF.accountManagerEmail` | **New sync 2026-02-25.** Used for name resolution. |
+| PMM | `fld6ARMCUVUWyw30n` | singleLineText | `PTRF.pmm` | **New sync 2026-02-25.** Was Airtable-only. |
+| PMM Email | `fldz3g9UK7afUnOln` | email | `PTRF.pmmEmail` | **New sync 2026-02-25.** Used for name resolution. |
 | SPMS ID | `fld9gzD2CRM9NApUH` | number | `PTRF.spmsId` | |
-| Alliance Lead Email | `fldgoSc6QMl6l1303` | email | `PTRF.allianceLeadEmail` | Used for email matching |
 | Partner Contact Emails | `fldAEQSbi448tEjff` | multilineText | `PTRF.partnerContactEmails` | Semicolon-separated; used for email-to-partner matching |
 | AWS Stickiness | `fldlCzNjHA3Ziuqtv` | multilineText | `PTRF.awsStickiness` | **New sync 2026-02-18.** Narrative text about customer AWS adoption likelihood. |
 | Key AWS Services | `fldQwm8UtaNxAa9dI` | multipleSelects | `PTRF.keyAwsServices` | **New sync 2026-02-18.** EC2, S3, Lambda, IAM, VPC, EKS, CloudWatch, etc. DB stores as text[]. |
 
-**Airtable-only fields (not synced):** AWS Account Manager, PMM, Trailing 12 Months, Deployed on AWS, ISVa Status/Notes, PRM Status, all financial metrics (TCV, LARR, MDF), 2026 Partner Plans, MPOPP Funding, Partner Programs (link), Partner Event Status (link), Meetings (reverse link), ARCH. (legacy link), Partner Engagements (reverse link).
+**Airtable-only fields (not synced):** Trailing 12 Months, Deployed on AWS, ISVa Status/Notes, PRM Status, all financial metrics (TCV, LARR, MDF), 2026 Partner Plans, MPOPP Funding, Partner Programs (link), Partner Event Status (link), Meetings (reverse link), ARCH. (legacy link), Partner Engagements (reverse link).
 
 **Note:** The `ARCH.` link field connects to the archived Partner Initiatives table. This is legacy — initiatives were replaced by engagements. Not breaking anything but is clutter you can delete when ready.
 
