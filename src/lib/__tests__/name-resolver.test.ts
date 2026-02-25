@@ -257,6 +257,152 @@ describe("buildNameResolutionMap", () => {
     expect(map.domainToOrg.get("cybershield.io")).toBe("CyberShield");
   });
 
+  it("resolves account_manager_email → account_manager name", async () => {
+    setupMockTables([], [], [
+      {
+        name: "Acme Corp",
+        alliance_lead: null,
+        alliance_lead_email: null,
+        psa: null,
+        psa_email: null,
+        account_manager: "Sam Wilson",
+        account_manager_email: "sam@acme.com",
+        pmm: null,
+        pmm_email: null,
+        partner_contact_emails: [],
+      },
+    ]);
+
+    const map = await buildNameResolutionMap();
+
+    expect(map.emailToName.get("sam@acme.com")).toEqual({
+      name: "Sam Wilson",
+      source: "partner",
+    });
+  });
+
+  it("resolves psa_email → psa name", async () => {
+    setupMockTables([], [], [
+      {
+        name: "Acme Corp",
+        alliance_lead: null,
+        alliance_lead_email: null,
+        psa: "Tina Fey",
+        psa_email: "tina@acme.com",
+        account_manager: null,
+        account_manager_email: null,
+        pmm: null,
+        pmm_email: null,
+        partner_contact_emails: [],
+      },
+    ]);
+
+    const map = await buildNameResolutionMap();
+
+    expect(map.emailToName.get("tina@acme.com")).toEqual({
+      name: "Tina Fey",
+      source: "partner",
+    });
+  });
+
+  it("resolves pmm_email → pmm name", async () => {
+    setupMockTables([], [], [
+      {
+        name: "Acme Corp",
+        alliance_lead: null,
+        alliance_lead_email: null,
+        psa: null,
+        psa_email: null,
+        account_manager: null,
+        account_manager_email: null,
+        pmm: "Ray Park",
+        pmm_email: "ray@acme.com",
+        partner_contact_emails: [],
+      },
+    ]);
+
+    const map = await buildNameResolutionMap();
+
+    expect(map.emailToName.get("ray@acme.com")).toEqual({
+      name: "Ray Park",
+      source: "partner",
+    });
+  });
+
+  it("all partner contact emails contribute to domain→org map", async () => {
+    setupMockTables([], [], [
+      {
+        name: "MultiContact Inc",
+        alliance_lead: "A Lead",
+        alliance_lead_email: "lead@multicontact.com",
+        psa: "B Psa",
+        psa_email: "psa@psadomain.com",
+        account_manager: "C AM",
+        account_manager_email: "am@amdomain.com",
+        pmm: "D PMM",
+        pmm_email: "pmm@pmmdomain.com",
+        partner_contact_emails: [],
+      },
+    ]);
+
+    const map = await buildNameResolutionMap();
+
+    expect(map.domainToOrg.get("multicontact.com")).toBe("MultiContact Inc");
+    expect(map.domainToOrg.get("psadomain.com")).toBe("MultiContact Inc");
+    expect(map.domainToOrg.get("amdomain.com")).toBe("MultiContact Inc");
+    expect(map.domainToOrg.get("pmmdomain.com")).toBe("MultiContact Inc");
+  });
+
+  it("partner contacts (all roles) beat participants", async () => {
+    setupMockTables(
+      [{ email: "sam@acme.com", name: "Sam (Participant)" }],
+      [],
+      [
+        {
+          name: "Acme Corp",
+          alliance_lead: null,
+          alliance_lead_email: null,
+          psa: null,
+          psa_email: null,
+          account_manager: "Sam Wilson",
+          account_manager_email: "sam@acme.com",
+          pmm: null,
+          pmm_email: null,
+          partner_contact_emails: [],
+        },
+      ]
+    );
+
+    const map = await buildNameResolutionMap();
+
+    expect(map.emailToName.get("sam@acme.com")).toEqual({
+      name: "Sam Wilson",
+      source: "partner",
+    });
+  });
+
+  it("skips partner contact pairs where email or name is null", async () => {
+    setupMockTables([], [], [
+      {
+        name: "Acme Corp",
+        alliance_lead: null,
+        alliance_lead_email: null,
+        psa: null,
+        psa_email: "orphan@acme.com",  // email present but name null
+        account_manager: "No Email AM",
+        account_manager_email: null,     // name present but email null
+        pmm: null,
+        pmm_email: null,
+        partner_contact_emails: [],
+      },
+    ]);
+
+    const map = await buildNameResolutionMap();
+
+    expect(map.emailToName.has("orphan@acme.com")).toBe(false);
+    expect(map.emailToName.size).toBe(0);
+  });
+
   it("excludes personal email domains from domain→org map", async () => {
     setupMockTables([], [], [
       {

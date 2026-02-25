@@ -77,7 +77,7 @@ export async function buildNameResolutionMap(): Promise<NameResolutionMap> {
         "primary_contact_name, primary_contact_email, aws_contact_emails"
       ),
       db.from("partners").select(
-        "name, alliance_lead, alliance_lead_email, partner_contact_emails"
+        "name, alliance_lead, alliance_lead_email, psa, psa_email, account_manager, account_manager_email, pmm, pmm_email, partner_contact_emails"
       ),
       db.from("participants").select("email, name"),
     ]);
@@ -103,19 +103,29 @@ export async function buildNameResolutionMap(): Promise<NameResolutionMap> {
     // aws_contact_emails: emails only, no paired names — skip for name resolution
   }
 
-  // --- Priority 2: Partners (human-curated in Airtable, alliance lead contacts) ---
+  // --- Priority 2: Partners (human-curated in Airtable, all contact roles) ---
   for (const row of (partnersResult.data ?? []) as Pick<
     Partner,
-    "name" | "alliance_lead" | "alliance_lead_email" | "partner_contact_emails"
+    | "name" | "alliance_lead" | "alliance_lead_email"
+    | "psa" | "psa_email"
+    | "account_manager" | "account_manager_email"
+    | "pmm" | "pmm_email"
+    | "partner_contact_emails"
   >[]) {
-    // Alliance lead: name + email pair
-    if (row.alliance_lead_email && row.alliance_lead) {
-      const key = row.alliance_lead_email.toLowerCase().trim();
-      if (!emailToName.has(key)) {
-        emailToName.set(key, {
-          name: row.alliance_lead,
-          source: "partner",
-        });
+    // All contact roles: email + name pairs (first-write-wins among them)
+    const contactPairs: { email: string | null; name: string | null }[] = [
+      { email: row.alliance_lead_email, name: row.alliance_lead },
+      { email: row.psa_email, name: row.psa },
+      { email: row.account_manager_email, name: row.account_manager },
+      { email: row.pmm_email, name: row.pmm },
+    ];
+
+    for (const { email, name } of contactPairs) {
+      if (email && name) {
+        const key = email.toLowerCase().trim();
+        if (!emailToName.has(key)) {
+          emailToName.set(key, { name, source: "partner" });
+        }
       }
     }
 
@@ -128,11 +138,13 @@ export async function buildNameResolutionMap(): Promise<NameResolutionMap> {
       }
     }
 
-    // Also use alliance lead email domain for org mapping
-    if (row.alliance_lead_email) {
-      const domain = extractDomain(row.alliance_lead_email);
-      if (domain && !PERSONAL_DOMAINS.has(domain) && !domainToOrg.has(domain)) {
-        domainToOrg.set(domain, row.name);
+    // All contact role emails contribute to domain→org map
+    for (const contactEmail of [row.alliance_lead_email, row.psa_email, row.account_manager_email, row.pmm_email]) {
+      if (contactEmail) {
+        const domain = extractDomain(contactEmail);
+        if (domain && !PERSONAL_DOMAINS.has(domain) && !domainToOrg.has(domain)) {
+          domainToOrg.set(domain, row.name);
+        }
       }
     }
   }

@@ -79,6 +79,11 @@ export interface Partner {
   alliance_lead: string | null;
   alliance_lead_email: string | null;
   psa: string | null;
+  psa_email: string | null;
+  account_manager: string | null;
+  account_manager_email: string | null;
+  pmm: string | null;
+  pmm_email: string | null;
   spms_id: number | null;
   what_they_do: string | null;
   partner_contact_emails: string[] | null;

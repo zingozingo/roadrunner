@@ -68,6 +68,11 @@ const PTRF = {
   awsStickiness: "fldlCzNjHA3Ziuqtv",
   keyAwsServices: "fldQwm8UtaNxAa9dI",
   whatTheyDo: "fldnoDB2la8oLgrqR",
+  psaEmail: "fldYIdpq0rdKYLHWx",
+  accountManager: "fldpJxHBJKGgVMJmP",
+  accountManagerEmail: "fldwYCgZeyPIKDbhk",
+  pmm: "fld6ARMCUVUWyw30n",
+  pmmEmail: "fldz3g9UK7afUnOln",
 } as const;
 
 export interface SyncResult {
@@ -523,6 +528,11 @@ function mapPartner(rec: AirtableRecord): Record<string, unknown> | null {
     alliance_lead: str(rec.fields[PTRF.allianceLead]),
     alliance_lead_email: str(rec.fields[PTRF.allianceLeadEmail]),
     psa: selectName(rec.fields[PTRF.psa]),
+    psa_email: str(rec.fields[PTRF.psaEmail]),
+    account_manager: str(rec.fields[PTRF.accountManager]),
+    account_manager_email: str(rec.fields[PTRF.accountManagerEmail]),
+    pmm: str(rec.fields[PTRF.pmm]),
+    pmm_email: str(rec.fields[PTRF.pmmEmail]),
     spms_id: spmsId,
     partner_contact_emails: partnerContactEmails,
     aws_stickiness: str(rec.fields[PTRF.awsStickiness]),

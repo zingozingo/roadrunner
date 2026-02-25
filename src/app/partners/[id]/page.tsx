@@ -97,7 +97,45 @@ export default async function PartnerDetailPage({
               </span>
             ) : "—",
           },
-          { label: "PSA", value: partner.psa ?? "—" },
+          {
+            label: "PSA",
+            value: partner.psa ? (
+              <span>
+                {partner.psa}
+                {partner.psa_email && (
+                  <span className="block text-xs text-muted break-all">
+                    {partner.psa_email}
+                  </span>
+                )}
+              </span>
+            ) : "—",
+          },
+          {
+            label: "Account Manager",
+            value: partner.account_manager ? (
+              <span>
+                {partner.account_manager}
+                {partner.account_manager_email && (
+                  <span className="block text-xs text-muted break-all">
+                    {partner.account_manager_email}
+                  </span>
+                )}
+              </span>
+            ) : "—",
+          },
+          {
+            label: "PMM",
+            value: partner.pmm ? (
+              <span>
+                {partner.pmm}
+                {partner.pmm_email && (
+                  <span className="block text-xs text-muted break-all">
+                    {partner.pmm_email}
+                  </span>
+                )}
+              </span>
+            ) : "—",
+          },
           { label: "SPMS ID", value: partner.spms_id?.toString() ?? "—" },
           { label: "Focus Areas", value: partner.focus_area.length > 0 ? partner.focus_area.join(", ") : "—" },
         ]}
