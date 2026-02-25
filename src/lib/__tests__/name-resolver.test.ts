@@ -113,7 +113,7 @@ describe("buildNameResolutionMap", () => {
     });
   });
 
-  it("respects priority: participant wins over relationship and partner", async () => {
+  it("respects priority: aws_relationship wins over participant and partner", async () => {
     setupMockTables(
       [{ email: "alice@partner.com", name: "Alice (Participant)" }],
       [
@@ -136,12 +136,34 @@ describe("buildNameResolutionMap", () => {
     const map = await buildNameResolutionMap();
 
     expect(map.emailToName.get("alice@partner.com")).toEqual({
-      name: "Alice (Participant)",
-      source: "participant",
+      name: "Alice (Relationship)",
+      source: "aws_relationship",
     });
   });
 
-  it("respects priority: relationship wins over partner", async () => {
+  it("respects priority: partner wins over participant", async () => {
+    setupMockTables(
+      [{ email: "bob@aws.com", name: "Bob (Participant)" }],
+      [],
+      [
+        {
+          name: "AWS",
+          alliance_lead: "Bob (Partner)",
+          alliance_lead_email: "bob@aws.com",
+          partner_contact_emails: [],
+        },
+      ]
+    );
+
+    const map = await buildNameResolutionMap();
+
+    expect(map.emailToName.get("bob@aws.com")).toEqual({
+      name: "Bob (Partner)",
+      source: "partner",
+    });
+  });
+
+  it("respects priority: relationship wins over partner (no participants)", async () => {
     setupMockTables(
       [],
       [
@@ -165,6 +187,29 @@ describe("buildNameResolutionMap", () => {
 
     expect(map.emailToName.get("bob@aws.com")).toEqual({
       name: "Bob (Relationship)",
+      source: "aws_relationship",
+    });
+  });
+
+  it("catalog name wins over participant name for same email", async () => {
+    // Simulates: crisresl@amazon.com is in aws_relationships as "Cristian Restrepo Lopez"
+    // AND in participants as "Cris R" — catalog (aws_relationship) must win
+    setupMockTables(
+      [{ email: "crisresl@amazon.com", name: "Cris R" }],
+      [
+        {
+          primary_contact_name: "Cristian Restrepo Lopez",
+          primary_contact_email: "crisresl@amazon.com",
+          aws_contact_emails: [],
+        },
+      ],
+      []
+    );
+
+    const map = await buildNameResolutionMap();
+
+    expect(map.emailToName.get("crisresl@amazon.com")).toEqual({
+      name: "Cristian Restrepo Lopez",
       source: "aws_relationship",
     });
   });

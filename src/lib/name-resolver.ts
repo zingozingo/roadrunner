@@ -5,10 +5,21 @@ import type { Participant, AwsRelationship, Partner } from "./types";
 // Name Resolution — email→name and domain→org lookups
 // ============================================================
 //
-// Three data sources, queried in priority order:
-// 1. participants (Claude-extracted from classified emails — best quality)
-// 2. aws_relationships (Airtable-sourced name+email pairs)
-// 3. partners (alliance_lead_email → name, domain → org)
+// Priority chain (first write wins — earlier sources can't be overwritten):
+//
+//   1. aws_relationships  — Human-curated in Airtable. Primary contacts
+//      with verified name+email pairs. Highest trust.
+//   2. partners           — Human-curated in Airtable. Alliance lead
+//      name+email. Same trust tier as relationships but less specific.
+//   3. participants       — AI-extracted by Claude from classified emails.
+//      Fills gaps for tertiary contacts the system learns organically.
+//      Lowest priority because AI extraction can produce noisy names.
+//
+// WHY catalog-first: Airtable data is manually maintained by the PDM
+// and represents ground truth for core contacts. AI-extracted participant
+// names are useful for contacts not in any catalog, but should never
+// override a human-curated name. Future contact sources (team roster,
+// org directory) slot into this same priority chain.
 //
 // Personal email domains (gmail.com, outlook.com, etc.) are excluded
 // from the domain→org map to avoid false positive org assignments.
@@ -49,37 +60,32 @@ const PERSONAL_DOMAINS = new Set([
 ]);
 
 /**
- * Build a resolution map by querying participants, aws_relationships,
- * and partners tables. Earlier sources take priority — a name found
- * in participants won't be overwritten by aws_relationships or partners.
+ * Build a resolution map by querying aws_relationships, partners, and
+ * participants tables in parallel. Merge order determines priority —
+ * first write wins, so catalog sources (human-curated) take precedence
+ * over AI-extracted participant names.
+ *
+ * See priority chain comment at top of file for rationale.
  */
 export async function buildNameResolutionMap(): Promise<NameResolutionMap> {
   const db = getSupabaseClient();
 
-  const [participantsResult, relationshipsResult, partnersResult] =
+  // All three queries fire in parallel — merge order (not query order) sets priority
+  const [relationshipsResult, partnersResult, participantsResult] =
     await Promise.all([
-      db.from("participants").select("email, name"),
       db.from("aws_relationships").select(
         "primary_contact_name, primary_contact_email, aws_contact_emails"
       ),
       db.from("partners").select(
         "name, alliance_lead, alliance_lead_email, partner_contact_emails"
       ),
+      db.from("participants").select("email, name"),
     ]);
 
   const emailToName = new Map<string, ResolvedName>();
   const domainToOrg = new Map<string, string>();
 
-  // --- Priority 1: Participants (Claude-extracted, highest quality) ---
-  for (const row of (participantsResult.data ?? []) as Pick<Participant, "email" | "name">[]) {
-    if (!row.email || !row.name) continue;
-    const key = row.email.toLowerCase().trim();
-    if (!emailToName.has(key)) {
-      emailToName.set(key, { name: row.name, source: "participant" });
-    }
-  }
-
-  // --- Priority 2: AWS Relationships (Airtable-sourced) ---
+  // --- Priority 1: AWS Relationships (human-curated in Airtable, highest trust) ---
   for (const row of (relationshipsResult.data ?? []) as Pick<
     AwsRelationship,
     "primary_contact_name" | "primary_contact_email" | "aws_contact_emails"
@@ -97,7 +103,7 @@ export async function buildNameResolutionMap(): Promise<NameResolutionMap> {
     // aws_contact_emails: emails only, no paired names — skip for name resolution
   }
 
-  // --- Priority 3: Partners (alliance lead + domain→org) ---
+  // --- Priority 2: Partners (human-curated in Airtable, alliance lead contacts) ---
   for (const row of (partnersResult.data ?? []) as Pick<
     Partner,
     "name" | "alliance_lead" | "alliance_lead_email" | "partner_contact_emails"
@@ -128,6 +134,15 @@ export async function buildNameResolutionMap(): Promise<NameResolutionMap> {
       if (domain && !PERSONAL_DOMAINS.has(domain) && !domainToOrg.has(domain)) {
         domainToOrg.set(domain, row.name);
       }
+    }
+  }
+
+  // --- Priority 3: Participants (AI-extracted, fills gaps for tertiary contacts) ---
+  for (const row of (participantsResult.data ?? []) as Pick<Participant, "email" | "name">[]) {
+    if (!row.email || !row.name) continue;
+    const key = row.email.toLowerCase().trim();
+    if (!emailToName.has(key)) {
+      emailToName.set(key, { name: row.name, source: "participant" });
     }
   }
 
