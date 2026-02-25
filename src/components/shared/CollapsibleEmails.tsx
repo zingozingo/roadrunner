@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import type { TimelineItem } from "@/lib/types";
+import type { TimelineItem, Participant } from "@/lib/types";
 import Timeline from "./Timeline";
 
 export default function CollapsibleEmails({
   items,
+  participants,
 }: {
   items: TimelineItem[];
+  participants?: Participant[];
 }) {
   const [open, setOpen] = useState(true);
 
@@ -34,7 +36,7 @@ export default function CollapsibleEmails({
       </button>
       {open && (
         <div className="mt-3">
-          <Timeline items={items} />
+          <Timeline items={items} participants={participants} />
         </div>
       )}
     </div>

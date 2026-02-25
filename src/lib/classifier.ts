@@ -13,6 +13,7 @@ import {
   createEngagement,
   createEntityLink,
   upsertParticipants,
+  backfillMessageSenderNames,
   linkMeetingToEngagement,
   linkEngagementAwsRelationship,
 } from "./supabase";
@@ -362,6 +363,12 @@ export async function persistClassificationResult(
   // 5. Upsert participants and link to engagement
   if (result.participants.length > 0) {
     await upsertParticipants(result.participants, engagementId);
+  }
+
+  // 6. Backfill message sender_names with richer participant names
+  const backfilled = await backfillMessageSenderNames(engagementId);
+  if (backfilled > 0) {
+    console.log(`[BACKFILL] Updated ${backfilled} message sender name(s) for engagement ${engagementId}`);
   }
 }
 

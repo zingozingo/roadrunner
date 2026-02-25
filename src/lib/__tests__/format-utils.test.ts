@@ -275,3 +275,85 @@ describe("unified timeline sorting", () => {
     expect(timeline.map(i => i.data.id)).toEqual(["mtg-linked", "msg-standalone"]);
   });
 });
+
+// ============================================================
+// "Better name" comparison logic (mirrors backfillMessageSenderNames)
+// ============================================================
+
+/** Pure version of the "better name" check used by both backfill and UI */
+function isBetterName(current: string | null, candidate: string): boolean {
+  const currentWords = current ? current.split(/\s+/).length : 0;
+  const newWords = candidate.split(/\s+/).length;
+  return newWords > currentWords;
+}
+
+describe("better name comparison", () => {
+  it("participant name beats null sender_name", () => {
+    expect(isBetterName(null, "Taylor Murphy")).toBe(true);
+  });
+
+  it("two-word name beats one-word name", () => {
+    expect(isBetterName("Taylor", "Taylor Murphy")).toBe(true);
+  });
+
+  it("does not overwrite equally long name", () => {
+    expect(isBetterName("Taylor Murphy", "Taylor Swift")).toBe(false);
+  });
+
+  it("does not overwrite longer name with shorter", () => {
+    expect(isBetterName("Mary Jane Watson", "Mary Watson")).toBe(false);
+  });
+
+  it("Steven → Steven Romero is an upgrade", () => {
+    expect(isBetterName("Steven", "Steven Romero")).toBe(true);
+  });
+});
+
+// ============================================================
+// UI participant name lookup (belt-and-suspenders)
+// ============================================================
+
+/** Reproduce the participant name lookup from Timeline MessageCard */
+function resolveDisplayNameWithParticipants(
+  senderName: string | null,
+  senderEmail: string | null,
+  participantNameMap: Map<string, string>
+): string {
+  let name = senderName;
+  if (senderEmail) {
+    const pName = participantNameMap.get(senderEmail.toLowerCase());
+    if (pName) {
+      const currentWords = name ? name.split(/\s+/).length : 0;
+      const pWords = pName.split(/\s+/).length;
+      if (pWords > currentWords) name = pName;
+    }
+  }
+  return displayName(name, senderEmail);
+}
+
+describe("UI participant name lookup", () => {
+  const participants = new Map([
+    ["taylor@acme.com", "Taylor Murphy"],
+    ["sterme@amazon.com", "Steven Romero"],
+  ]);
+
+  it("uses participant name when sender_name is null", () => {
+    expect(resolveDisplayNameWithParticipants(null, "taylor@acme.com", participants)).toBe("Taylor Murphy");
+  });
+
+  it("upgrades single-word sender_name with participant full name", () => {
+    expect(resolveDisplayNameWithParticipants("Taylor", "taylor@acme.com", participants)).toBe("Taylor Murphy");
+  });
+
+  it("keeps sender_name when equally specific", () => {
+    expect(resolveDisplayNameWithParticipants("Taylor Murphy", "taylor@acme.com", participants)).toBe("Taylor Murphy");
+  });
+
+  it("resolves Steven to Steven Romero via participant map", () => {
+    expect(resolveDisplayNameWithParticipants("Steven", "sterme@amazon.com", participants)).toBe("Steven Romero");
+  });
+
+  it("falls back to email display when no participant match", () => {
+    expect(resolveDisplayNameWithParticipants(null, "unknown@example.com", participants)).toBe("Unknown");
+  });
+});

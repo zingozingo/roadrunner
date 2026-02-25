@@ -1201,6 +1201,72 @@ export async function ensureParticipantLink(
   }
 }
 
+/**
+ * Backfill message sender_names for an engagement using participant data.
+ * Called after upsertParticipants so we have the freshest names.
+ * "Better" = more words, or non-null replacing null.
+ * Single bulk approach: fetch participants + messages, compute updates, batch.
+ */
+export async function backfillMessageSenderNames(
+  engagementId: string
+): Promise<number> {
+  const db = getSupabaseClient();
+
+  // Fetch participants linked to this engagement (fresh from upsert)
+  const { data: links } = await db
+    .from("participant_links")
+    .select("participant:participants(email, name)")
+    .eq("entity_type", "engagement")
+    .eq("entity_id", engagementId);
+
+  if (!links || links.length === 0) return 0;
+
+  // Build email → best participant name map
+  const emailToName = new Map<string, string>();
+  for (const row of links as unknown as { participant: { email: string | null; name: string | null } }[]) {
+    const p = row.participant;
+    if (!p.email || !p.name) continue;
+    const key = p.email.toLowerCase();
+    const existing = emailToName.get(key);
+    // Keep the name with more words (richer)
+    if (!existing || p.name.split(/\s+/).length > existing.split(/\s+/).length) {
+      emailToName.set(key, p.name);
+    }
+  }
+
+  if (emailToName.size === 0) return 0;
+
+  // Fetch messages for this engagement
+  const { data: messages } = await db
+    .from("messages")
+    .select("id, sender_email, sender_name")
+    .eq("engagement_id", engagementId);
+
+  if (!messages || messages.length === 0) return 0;
+
+  // Compute which messages need updating
+  let updated = 0;
+  for (const msg of messages) {
+    if (!msg.sender_email) continue;
+    const participantName = emailToName.get(msg.sender_email.toLowerCase());
+    if (!participantName) continue;
+
+    // "Better" check: participant name wins if current is null or has fewer words
+    const currentWords = msg.sender_name ? msg.sender_name.split(/\s+/).length : 0;
+    const newWords = participantName.split(/\s+/).length;
+    if (msg.sender_name && currentWords >= newWords) continue;
+
+    // Update this message
+    await db
+      .from("messages")
+      .update({ sender_name: participantName })
+      .eq("id", msg.id);
+    updated++;
+  }
+
+  return updated;
+}
+
 // ============================================================
 // AWS Relationship CRUD
 // ============================================================

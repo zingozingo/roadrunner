@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { TimelineItem, Message, Meeting } from "@/lib/types";
+import type { TimelineItem, Message, Meeting, Participant } from "@/lib/types";
 import { cleanMeetingTitle, formatFooterDate, displayName } from "@/lib/format-utils";
 
 const PREVIEW_LENGTH = 200;
@@ -87,12 +87,23 @@ function MeetingCard({ meeting }: { meeting: Meeting }) {
   );
 }
 
-function MessageCard({ msg }: { msg: Message }) {
+function MessageCard({ msg, participantNameMap }: { msg: Message; participantNameMap?: Map<string, string> }) {
+  // Belt-and-suspenders: prefer participant name if richer than stored sender_name
+  let name = msg.sender_name;
+  if (msg.sender_email && participantNameMap) {
+    const pName = participantNameMap.get(msg.sender_email.toLowerCase());
+    if (pName) {
+      const currentWords = name ? name.split(/\s+/).length : 0;
+      const pWords = pName.split(/\s+/).length;
+      if (pWords > currentWords) name = pName;
+    }
+  }
+
   return (
     <>
       <div className="flex items-baseline justify-between gap-2">
         <p className="truncate text-sm font-medium text-foreground">
-          {displayName(msg.sender_name, msg.sender_email)}
+          {displayName(name, msg.sender_email)}
         </p>
         <time className="shrink-0 text-xs text-muted">
           {formatFooterDate(msg.sent_at ?? msg.forwarded_at)}
@@ -110,9 +121,19 @@ function MessageCard({ msg }: { msg: Message }) {
 
 export default function Timeline({
   items,
+  participants,
 }: {
   items: TimelineItem[];
+  participants?: Participant[];
 }) {
+  // Build email → name map from participants (belt-and-suspenders for display)
+  const participantNameMap = participants
+    ? new Map(
+        participants
+          .filter((p) => p.email && p.name)
+          .map((p) => [p.email!.toLowerCase(), p.name!])
+      )
+    : undefined;
   if (items.length === 0) {
     return (
       <p className="py-4 text-sm text-muted">No activity yet.</p>
@@ -137,7 +158,7 @@ export default function Timeline({
               {isMeeting ? (
                 <MeetingCard meeting={item.data as Meeting} />
               ) : (
-                <MessageCard msg={item.data as Message} />
+                <MessageCard msg={item.data as Message} participantNameMap={participantNameMap} />
               )}
             </div>
           </div>

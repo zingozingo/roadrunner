@@ -126,7 +126,7 @@ export default async function EngagementDetailPage({
         />
 
         {/* Timeline — source emails + meetings interleaved by date */}
-        <CollapsibleEmails items={timelineItems} />
+        <CollapsibleEmails items={timelineItems} participants={participants} />
 
         {/* Connections — AWS Relationships as simple text links + Entity Links as chips */}
         {hasConnections && (

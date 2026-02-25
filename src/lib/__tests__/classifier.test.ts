@@ -163,6 +163,7 @@ vi.mock("../supabase", () => ({
   createEngagement: mockCreateEngagement,
   createEntityLink: mockCreateEntityLink,
   upsertParticipants: mockUpsertParticipants,
+  backfillMessageSenderNames: vi.fn().mockResolvedValue(0),
   linkMeetingToEngagement: vi.fn().mockResolvedValue(undefined),
   linkEngagementAwsRelationship: mockLinkEngagementAwsRelationship,
 }));
