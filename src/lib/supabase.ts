@@ -286,6 +286,8 @@ export async function createEngagement(data: {
   name: string;
   partner_name?: string | null;
   current_state?: string | null;
+  topic?: string | null;
+  goal?: string | null;
   tags?: string[];
   pillar?: Pillar | null;
 }): Promise<Engagement> {
@@ -303,6 +305,8 @@ export async function createEngagement(data: {
       partner_name: data.partner_name ?? null,
       partner_id: partnerId,
       current_state: data.current_state ?? null,
+      topic: data.topic ?? null,
+      goal: data.goal ?? null,
       tags: data.tags ?? [],
       status: "active",
       pillar: data.pillar ?? null,

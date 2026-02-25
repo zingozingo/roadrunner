@@ -87,6 +87,9 @@ function noiseResult(phase1: Phase1Result): CombinedClassificationResult {
     matched_relationships: [],
     participants: [],
     current_state: null,
+    topic: null,
+    goal: null,
+    engagement_name: null,
     suggested_tags: [],
     pillar: null,
   };
@@ -281,20 +284,20 @@ export async function persistClassificationResult(
     })
     .in("id", messageIds);
 
-  // 2. Update engagement state — skip for new engagements (fields set at creation)
-  if (!isNewEngagement) {
-    const currentState = result.current_state ?? null;
-
+  // 2. Update engagement state and structured fields
+  {
+    const combined = result as CombinedClassificationResult;
     const updates: Record<string, unknown> = {};
 
-    if (currentState) {
-      updates.current_state = currentState;
-    }
+    // Structured fields — always update if present (both new and existing)
+    if (combined.topic) updates.topic = combined.topic;
+    if (combined.goal) updates.goal = combined.goal;
+    if (combined.engagement_name) updates.name = combined.engagement_name;
 
-    // Update pillar if present in the result
-    const combined = result as CombinedClassificationResult;
-    if (combined.pillar) {
-      updates.pillar = combined.pillar;
+    if (!isNewEngagement) {
+      // current_state and pillar only update for existing engagements (new ones set at creation)
+      if (result.current_state) updates.current_state = result.current_state;
+      if (combined.pillar) updates.pillar = combined.pillar;
     }
 
     if (Object.keys(updates).length > 0) {
@@ -378,11 +381,14 @@ async function applyClassificationResult(
   if (hasHighConfidenceNew) {
     try {
       const currentState = result.current_state ?? null;
+      const engagementName = result.engagement_name || result.engagement_match.name;
 
       const engagement = await createEngagement({
-        name: result.engagement_match.name,
+        name: engagementName,
         partner_name: result.engagement_match.partner_name,
         current_state: currentState,
+        topic: result.topic ?? null,
+        goal: result.goal ?? null,
         tags: [],
       });
       assignedEngagementId = engagement.id;

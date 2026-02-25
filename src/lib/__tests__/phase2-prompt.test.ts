@@ -50,6 +50,9 @@ const ENGAGEMENT: Engagement = {
   name: "CyberShield - Security Review",
   status: "active",
   current_state: "CyberShield is pursuing AWS Security Competency. Alice submitted the initial application last week. Steven connected them with the security team for technical review.",
+  topic: "Security Competency Technical Validation",
+  goal: "CyberShield achieves AWS Security Competency and lists on Marketplace.",
+  engagement_type: null,
   partner_name: "CyberShield",
   partner_id: "partner-001",
   pillar: "Co-Build",
@@ -375,6 +378,27 @@ describe("buildPhase2Context — existing engagement", () => {
     expect(result).toContain("Forwarder Note:");
     expect(result).toContain("Urgent review");
   });
+
+  it("includes topic and goal in engagement context when they exist", () => {
+    const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
+    expect(result).toContain("**Topic:** Security Competency Technical Validation");
+    expect(result).toContain("**Goal:** CyberShield achieves AWS Security Competency and lists on Marketplace.");
+  });
+
+  it("shows 'Not yet set' when topic and goal are null", () => {
+    const historyNullSlots = {
+      ...HISTORY,
+      engagement: { ...ENGAGEMENT, topic: null, goal: null },
+    };
+    const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, historyNullSlots, CATALOGS, PARTNER);
+    expect(result).toContain("**Topic:** Not yet set");
+    expect(result).toContain("**Goal:** Not yet set");
+  });
+
+  it("includes pillar in engagement context when set", () => {
+    const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
+    expect(result).toContain("**Pillar:** Co-Build");
+  });
 });
 
 // ============================================================
@@ -517,5 +541,114 @@ describe("parsePhase2Response", () => {
     expect(result.engagement_match.confidence).toBe(0.95);
     expect(result.engagement_match.is_new).toBe(false);
     expect(result.engagement_match.partner_id).toBe("partner-001");
+  });
+
+  it("extracts topic, goal, engagement_name from response", () => {
+    const jsonWithSlots = JSON.stringify({
+      content_type: "engagement_email",
+      engagement_match: {
+        id: "eng-001",
+        name: "CyberShield - Security Review",
+        confidence: 0.95,
+        is_new: false,
+        partner_name: "CyberShield",
+        partner_id: "partner-001",
+      },
+      topic: "Security Competency Technical Validation",
+      goal: "CyberShield achieves AWS Security Competency and lists on Marketplace.",
+      engagement_name: "CyberShield - Security Competency Technical Validation",
+      current_state: "Alice sent the architecture diagram.",
+      participants: [],
+      matched_events: [],
+      matched_programs: [],
+      matched_relationships: [],
+      pillar: "Co-Build",
+    });
+    const result = parsePhase2Response(jsonWithSlots);
+    expect(result.topic).toBe("Security Competency Technical Validation");
+    expect(result.goal).toBe("CyberShield achieves AWS Security Competency and lists on Marketplace.");
+    expect(result.engagement_name).toBe("CyberShield - Security Competency Technical Validation");
+  });
+
+  it("defaults topic, goal, engagement_name to null when missing", () => {
+    const minimal = JSON.stringify({
+      content_type: "engagement_email",
+      engagement_match: {
+        id: "eng-001",
+        name: "Test",
+        confidence: 0.9,
+        is_new: false,
+        partner_name: null,
+      },
+      current_state: "Some state.",
+    });
+    const result = parsePhase2Response(minimal);
+    expect(result.topic).toBeNull();
+    expect(result.goal).toBeNull();
+    expect(result.engagement_name).toBeNull();
+  });
+});
+
+// ============================================================
+// Tests: PHASE2_SYSTEM_PROMPT date discipline rules
+// ============================================================
+
+describe("PHASE2_SYSTEM_PROMPT — date discipline", () => {
+  it("contains point-in-time snapshot instruction", () => {
+    expect(PHASE2_SYSTEM_PROMPT).toContain("point-in-time snapshot");
+  });
+
+  it("prohibits relative time words", () => {
+    expect(PHASE2_SYSTEM_PROMPT).toContain("NEVER use relative time words");
+    expect(PHASE2_SYSTEM_PROMPT).toContain("recently, soon, this week, last month");
+  });
+
+  it("instructs to describe states not futures", () => {
+    expect(PHASE2_SYSTEM_PROMPT).toContain("Describe states, not futures");
+  });
+
+  it("instructs present progressive for ongoing activity", () => {
+    expect(PHASE2_SYSTEM_PROMPT).toContain("present progressive");
+  });
+
+  it("contains topic, goal, and engagement_name instructions", () => {
+    expect(PHASE2_SYSTEM_PROMPT).toContain("## topic Instructions");
+    expect(PHASE2_SYSTEM_PROMPT).toContain("## goal Instructions");
+    expect(PHASE2_SYSTEM_PROMPT).toContain("## engagement_name Instructions");
+  });
+
+  it("response format includes topic, goal, engagement_name fields", () => {
+    expect(PHASE2_SYSTEM_PROMPT).toContain('"topic"');
+    expect(PHASE2_SYSTEM_PROMPT).toContain('"goal"');
+    expect(PHASE2_SYSTEM_PROMPT).toContain('"engagement_name"');
+  });
+
+  it("contains stability rules for topic and goal", () => {
+    expect(PHASE2_SYSTEM_PROMPT).toContain("return it EXACTLY as-is unless the engagement has fundamentally changed direction");
+    expect(PHASE2_SYSTEM_PROMPT).toContain("return it EXACTLY as-is unless the engagement's objective has fundamentally changed");
+    expect(PHASE2_SYSTEM_PROMPT).toContain("Do not rephrase for stylistic variety");
+  });
+});
+
+// ============================================================
+// Tests: buildPhase2Context includes current date
+// ============================================================
+
+describe("buildPhase2Context — current date injection", () => {
+  it("includes Current Date section with today's date", () => {
+    const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
+    const today = new Date().toISOString().split("T")[0];
+    expect(result).toContain("## Current Date");
+    expect(result).toContain(today);
+    expect(result).toContain("temporal anchor");
+  });
+
+  it("includes date section before other sections", () => {
+    const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
+    const dateIdx = result.indexOf("## Current Date");
+    const forwarderIdx = result.indexOf("## Forwarder Identity");
+    expect(dateIdx).toBeGreaterThan(-1);
+    expect(forwarderIdx).toBeGreaterThan(-1);
+    expect(dateIdx).toBeLessThan(forwarderIdx);
   });
 });

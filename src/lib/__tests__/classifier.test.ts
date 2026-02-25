@@ -278,6 +278,9 @@ const HIGH_CONFIDENCE_RESULT: CombinedClassificationResult = {
     { name: "Alice Chen", email: "alice@cybershield.com", organization: "CyberShield", role: "partner_contact" },
   ],
   current_state: "CyberShield continues to pursue AWS Security Competency.",
+  topic: "Security Competency Technical Validation",
+  goal: "CyberShield achieves AWS Security Competency.",
+  engagement_name: "CyberShield - Security Competency Technical Validation",
   suggested_tags: [],
   pillar: "Co-Build",
 };
@@ -296,6 +299,9 @@ const LOW_CONFIDENCE_RESULT: CombinedClassificationResult = {
   matched_relationships: [],
   participants: [],
   current_state: null,
+  topic: null,
+  goal: null,
+  engagement_name: null,
   suggested_tags: [],
   pillar: null,
 };
@@ -316,6 +322,9 @@ const HIGH_CONFIDENCE_NEW_RESULT: CombinedClassificationResult = {
     { name: "Bob Smith", email: "bob@newcorp.com", organization: "NewCorp", role: "partner_contact" },
   ],
   current_state: "NewCorp exploring cloud migration.",
+  topic: "Cloud Migration Assessment",
+  goal: "NewCorp completes cloud migration to AWS.",
+  engagement_name: "NewCorp - Cloud Migration Assessment",
   suggested_tags: [],
   pillar: "Co-Build",
 };
@@ -429,9 +438,11 @@ describe("processUnclassifiedMessages", () => {
     expect(result.autoAssigned).toBe(1);
     expect(result.flaggedForReview).toBe(0);
     expect(mockCreateEngagement).toHaveBeenCalledWith({
-      name: "NewCorp - Cloud Migration",
+      name: "NewCorp - Cloud Migration Assessment",
       partner_name: "NewCorp",
       current_state: "NewCorp exploring cloud migration.",
+      topic: "Cloud Migration Assessment",
+      goal: "NewCorp completes cloud migration to AWS.",
       tags: [],
     });
   });

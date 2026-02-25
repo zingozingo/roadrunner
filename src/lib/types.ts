@@ -9,6 +9,9 @@ export interface Engagement {
   name: string;
   status: "active" | "planned" | "archived";
   current_state: string | null;
+  topic: string | null;
+  goal: string | null;
+  engagement_type: string | null;
   partner_name: string | null;
   partner_id: string | null;
   pillar: Pillar | null;
@@ -302,6 +305,9 @@ export interface CombinedClassificationResult {
     role: string | null;
   }[];
   current_state: string | null;
+  topic: string | null;
+  goal: string | null;
+  engagement_name: string | null;
   suggested_tags: string[];
   pillar: Pillar | null;
 }

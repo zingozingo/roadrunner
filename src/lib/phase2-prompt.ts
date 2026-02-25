@@ -26,11 +26,14 @@ export const PHASE2_SYSTEM_PROMPT = `You are Relay Analyst, an AI that analyzes 
 ## Your Job
 
 Analyze the NEW email (clearly marked below) in the context of the engagement's history. Produce:
-1. An updated current_state summary
-2. A participant list extracted from the NEW email
-3. Matched events, programs, and AWS relationships
-4. Suggested tags
-5. A pillar classification
+1. A topic (3-8 word description of what this engagement is about)
+2. A goal (1 sentence describing what success looks like)
+3. An engagement_name computed as "{Partner Name} - {topic}"
+4. An updated current_state summary
+5. A participant list extracted from the NEW email
+6. Matched events, programs, and AWS relationships
+7. Suggested tags
+8. A pillar classification
 
 ## Thread Awareness
 
@@ -39,6 +42,22 @@ The source emails below are the COMPLETE conversation history for this engagemen
 - Extract information ONLY from the NEW email for participants and entity matches
 - Use the history emails for CONTEXT ONLY — to understand what has already been discussed, who the key players are, and what the engagement's trajectory looks like
 - Do NOT re-extract participants from history emails — those have already been processed
+
+## topic Instructions
+
+A 3-8 word description of what this engagement is about. Stable across emails — only changes if the engagement fundamentally pivots. Examples: "FedRAMP Certification", "Marketplace Listing Optimization", "Security Competency Technical Validation".
+
+If the engagement already has a topic, return it EXACTLY as-is unless the engagement has fundamentally changed direction. Do not rephrase for stylistic variety.
+
+## goal Instructions
+
+One sentence describing what success looks like for this engagement. Stable — set on creation, rarely updated. Example: "CyberShield achieves AWS Security Competency and lists on Marketplace."
+
+If the engagement already has a goal, return it EXACTLY as-is unless the engagement's objective has fundamentally changed. Do not rephrase for stylistic variety.
+
+## engagement_name Instructions
+
+Compute as "{Partner Name} - {topic}". Must start with the partner name. Example: "CyberShield - Security Competency Technical Validation".
 
 ## current_state Instructions
 
@@ -58,6 +77,14 @@ You are given the engagement's existing current_state as an anchor. Your job is 
 - Compare the NEW email's date against the engagement's last_activity date
 - If the NEW email is OLDER than the existing state (late-arriving forward), be conservative — incorporate only facts not already captured, don't overwrite newer information with older
 - If the NEW email is newer, update state normally
+
+**Date discipline (CRITICAL):**
+- Write as a point-in-time snapshot. Maximum 3-8 sentences, approximately 150 words.
+- NEVER use relative time words: recently, soon, this week, last month, in the coming weeks.
+- Dates that appear in emails are facts — include them. Do NOT infer or predict dates.
+- Describe states, not futures: "The blog is in final review" NOT "The blog will be published next week."
+- If referencing ongoing activity, use present progressive: "Steven is following up on ticket status."
+- For grounding, you may reference: "As of {today's date}, ..." when describing current status.
 
 **Style rules:**
 - Write concretely: names, specifics, outcomes. "Brian sent the architecture diagram to the security team on Feb 15" not "stakeholders are facilitating comprehensive collaboration"
@@ -104,12 +131,6 @@ Classify the engagement's primary pillar based on ALL available context (history
 
 Return null if unclear. It's fine to not classify early-stage engagements.
 
-## Engagement Naming (new engagements only)
-
-If this is a new engagement, suggest a name in the format: "Partner Name - Descriptive Initiative"
-Examples: "Acme Security - FedRAMP Certification", "NinjaOne - NFL Sports League Partnership"
-Keep it concise but specific enough to distinguish from other engagements with the same partner.
-
 ## Response Format
 
 Return ONLY valid JSON. No markdown code blocks, no preamble.
@@ -126,7 +147,10 @@ The content_type and engagement_match fields are provided to you in the "Phase 1
     "partner_name": "echo from Phase 1",
     "partner_id": "echo from Phase 1"
   },
-  "current_state": "3-7 sentence executive briefing or null if noise",
+  "topic": "3-8 word description of engagement subject",
+  "goal": "One sentence describing what success looks like",
+  "engagement_name": "{Partner Name} - {topic}",
+  "current_state": "3-8 sentence point-in-time snapshot or null if noise",
   "participants": [
     {
       "name": "full name",
@@ -173,6 +197,10 @@ export function buildPhase2Context(
   forwarderNote?: string | null
 ): string {
   const parts: string[] = [];
+
+  // Section 0: Current date anchor
+  const today = new Date().toISOString().split("T")[0];
+  parts.push(`## Current Date\n${today}\n\nUse this as your temporal anchor. Do not speculate about future dates.\n`);
 
   // Section 1: Forwarder identity
   parts.push(buildForwarderSection(forwarderNote));
@@ -223,6 +251,11 @@ export function parsePhase2Response(raw: string): CombinedClassificationResult {
   if (!parsed.suggested_tags) parsed.suggested_tags = [];
   if (parsed.pillar === undefined) parsed.pillar = null;
 
+  // Default new structured fields
+  if (parsed.topic === undefined) parsed.topic = null;
+  if (parsed.goal === undefined) parsed.goal = null;
+  if (parsed.engagement_name === undefined) parsed.engagement_name = null;
+
   return parsed as CombinedClassificationResult;
 }
 
@@ -259,7 +292,10 @@ function buildEngagementContext(history: {
     lines.push(`**Partner:** ${eng.partner_name}${partnerIdStr}`);
   }
 
+  lines.push(`**Topic:** ${eng.topic || "Not yet set"}`);
+  lines.push(`**Goal:** ${eng.goal || "Not yet set"}`);
   lines.push(`**Status:** ${eng.status}`);
+  if (eng.pillar) lines.push(`**Pillar:** ${eng.pillar}`);
   lines.push(`**Created:** ${eng.created_at.split("T")[0]}`);
   lines.push(`**Last activity:** ${eng.updated_at.split("T")[0]}`);
   lines.push(`**Message count:** ${history.messages.length}`);

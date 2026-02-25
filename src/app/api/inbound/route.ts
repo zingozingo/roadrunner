@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { parseForwardedEmail, parseSenderField, stripExternalTag } from "@/lib/email-parser";
-import { storeMessages, checkDuplicateMessage, createMeetingFromICS } from "@/lib/supabase";
+import { storeMessages, createMeetingFromICS } from "@/lib/supabase";
 import { extractICSFromAttachments, parseICSContent } from "@/lib/ics-parser";
 import { processSingleMessage } from "@/lib/classifier";
 import { stripPRVS, isUserEmail, USER_CONFIG } from "@/lib/user-config";
@@ -293,23 +293,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "No messages extracted" });
     }
 
-    // Dedup check: skip if first message already exists
-    const first = parsed[0];
-    if (first.sender_email && first.subject) {
-      const bodyPrefix = (first.body_text || "").slice(0, 100);
-      const isDuplicate = await checkDuplicateMessage(
-        first.sender_email,
-        first.subject,
-        bodyPrefix
-      );
-      if (isDuplicate) {
-        console.log(`Duplicate detected: "${first.subject}" from ${first.sender_email}`);
-        return NextResponse.json({
-          message: "Duplicate message, skipped",
-          duplicate: true,
-        });
-      }
-    }
+    console.log(`Parsed ${parsed.length} messages, proceeding to storage (per-message dedup handles duplicates)`);
 
     // Store in Supabase (unclassified — engagement_id = null)
     const stored = await storeMessages(parsed);
