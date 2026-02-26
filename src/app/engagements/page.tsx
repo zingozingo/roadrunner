@@ -5,15 +5,15 @@ import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
 import StatusBadge from "@/components/shared/StatusBadge";
 import PillarBadge from "@/components/shared/PillarBadge";
-import CreateEngagementForm from "@/components/engagement/CreateEngagementForm";
 import { formatFooterDate } from "@/lib/format-utils";
 import { getEngagementsWithMessageCounts } from "@/lib/supabase";
 import { Engagement } from "@/lib/types";
 
 const statusOrder: Record<string, number> = {
   active: 0,
-  planned: 1,
-  archived: 2,
+  blocked: 1,
+  completed: 2,
+  archived: 3,
 };
 
 export default async function EngagementsPage() {
@@ -36,12 +36,11 @@ export default async function EngagementsPage() {
 
   return (
     <div className="p-6 lg:p-8">
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6">
         <PageHeader
           title="Engagements"
           subtitle={`${engagements.length} engagement${engagements.length !== 1 ? "s" : ""} tracked`}
         />
-        <CreateEngagementForm />
       </div>
 
       {engagements.length === 0 ? (

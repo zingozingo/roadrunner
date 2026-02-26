@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Engagement, Pillar } from "@/lib/types";
 
-const STATUS_OPTIONS: Engagement["status"][] = ["active", "planned", "archived"];
+const STATUS_OPTIONS: Engagement["status"][] = ["active", "blocked", "completed", "archived"];
 const PILLAR_OPTIONS: Pillar[] = ["Co-Sell", "Co-Market", "Co-Build"];
 
 export default function EngagementActions({

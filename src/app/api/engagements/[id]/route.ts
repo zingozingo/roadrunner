@@ -45,7 +45,7 @@ export async function GET(
   }
 }
 
-const VALID_STATUSES = new Set(["active", "planned", "archived"]);
+const VALID_STATUSES = new Set(["active", "blocked", "completed", "archived"]);
 const VALID_PILLARS = new Set(["Co-Sell", "Co-Market", "Co-Build"]);
 
 export async function PUT(
@@ -73,7 +73,7 @@ export async function PUT(
 
     if (status !== undefined && !VALID_STATUSES.has(status)) {
       return NextResponse.json(
-        { error: `Invalid status "${status}". Must be one of: active, planned, archived` },
+        { error: `Invalid status "${status}". Must be one of: active, blocked, completed, archived` },
         { status: 400 }
       );
     }
