@@ -6,8 +6,6 @@ import {
   deleteProgram,
 } from "@/lib/supabase";
 
-const VALID_STATUSES = new Set(["active", "archived"]);
-
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -42,18 +40,11 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, type, description, eligibility, url, status } = body;
+    const { name, type, description, requirements } = body;
 
     if (name !== undefined && typeof name === "string" && !name.trim()) {
       return NextResponse.json(
         { error: "Name cannot be empty" },
-        { status: 400 }
-      );
-    }
-
-    if (status !== undefined && !VALID_STATUSES.has(status)) {
-      return NextResponse.json(
-        { error: `Invalid status "${status}". Must be one of: active, archived` },
         { status: 400 }
       );
     }
@@ -78,9 +69,7 @@ export async function PUT(
     if (name !== undefined) updates.name = name.trim();
     if (type !== undefined) updates.type = type || null;
     if (description !== undefined) updates.description = description || null;
-    if (eligibility !== undefined) updates.eligibility = eligibility || null;
-    if (url !== undefined) updates.url = url || null;
-    if (status !== undefined) updates.status = status;
+    if (requirements !== undefined) updates.requirements = requirements || null;
 
     const updated = await updateProgram(id, updates);
 

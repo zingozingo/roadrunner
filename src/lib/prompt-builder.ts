@@ -96,7 +96,7 @@ export function buildProgramsSection(programs: Program[]): string {
     const typeStr = prog.type ? `, type: ${prog.type}` : "";
     let line = `- **${prog.name}** (id: ${prog.id}${typeStr})`;
     if (prog.description) line += ` — ${prog.description}`;
-    if (prog.eligibility) line += ` [Eligibility: ${prog.eligibility}]`;
+    if (prog.requirements) line += ` [Requirements: ${prog.requirements}]`;
     lines.push(line);
   }
 

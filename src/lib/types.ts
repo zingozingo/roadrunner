@@ -7,7 +7,7 @@ export type Pillar = "Co-Sell" | "Co-Market" | "Co-Build";
 export interface Engagement {
   id: string;
   name: string;
-  status: "active" | "planned" | "archived";
+  status: "active" | "blocked" | "completed" | "archived";
   current_state: string | null;
   topic: string | null;
   goal: string | null;
@@ -16,6 +16,7 @@ export interface Engagement {
   partner_id: string | null;
   pillar: Pillar | null;
   tags: string[];
+  program_id: string | null;
   airtable_record_id: string | null;
   created_at: string;
   updated_at: string;
@@ -34,6 +35,9 @@ export interface Event {
   geo: string | null;
   source: "seed" | "email_extracted" | "user_created";
   verified: boolean;
+  sponsor_option: boolean;
+  partner_day: boolean;
+  partner_day_date: string | null;
   airtable_record_id: string | null;
   created_at: string;
 }
@@ -45,9 +49,9 @@ export interface Program {
   name: string;
   type: ProgramType | null;
   description: string | null;
-  eligibility: string | null;
-  url: string | null;
-  status: "active" | "archived";
+  requirements: string | null;
+  what_it_unlocks: string | null;
+  notes: string | null;
   lifecycle_type: "indefinite" | "recurring" | "expiring";
   lifecycle_duration: string | null;
   airtable_record_id: string | null;
@@ -99,7 +103,7 @@ export interface MeetingAttendee {
   email: string;
 }
 
-export type MeetingStatus = "Scheduling" | "Invites Sent" | "Confirmed" | "Completed" | "Did Not Occur";
+export type MeetingStatus = "scheduled" | "completed" | "did_not_occur";
 
 export interface Meeting {
   id: string;

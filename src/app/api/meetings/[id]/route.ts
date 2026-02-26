@@ -14,11 +14,9 @@ const VALID_TYPES = new Set([
 ]);
 
 const VALID_STATUSES = new Set([
-  "Scheduling",
-  "Invites Sent",
-  "Confirmed",
-  "Completed",
-  "Did Not Occur",
+  "scheduled",
+  "completed",
+  "did_not_occur",
 ]);
 
 export async function GET(

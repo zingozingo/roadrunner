@@ -147,7 +147,7 @@ function makeMeeting(overrides: Partial<Meeting> & { id: string; meeting_date?: 
     partner_id: null,
     message_id: null,
     meeting_type: null,
-    status: "Confirmed",
+    status: "scheduled",
     meeting_date: overrides.meeting_date ?? null,
     start_time: null,
     end_time: null,

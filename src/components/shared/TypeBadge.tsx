@@ -60,20 +60,25 @@ export function RelationshipTypeBadge({ type }: { type: RelationshipType | null 
 }
 
 const meetingStatusColors: Record<MeetingStatus, string> = {
-  Scheduling: "bg-blue-500/20 text-blue-400",
-  "Invites Sent": "bg-teal-500/20 text-teal-400",
-  Confirmed: "bg-status-active/20 text-status-active",
-  Completed: "bg-cyan-500/20 text-cyan-400",
-  "Did Not Occur": "bg-red-500/20 text-red-400",
+  scheduled: "bg-blue-500/20 text-blue-400",
+  completed: "bg-cyan-500/20 text-cyan-400",
+  did_not_occur: "bg-red-500/20 text-red-400",
+};
+
+const meetingStatusLabels: Record<MeetingStatus, string> = {
+  scheduled: "Scheduled",
+  completed: "Completed",
+  did_not_occur: "Did Not Occur",
 };
 
 export function MeetingStatusBadge({ status }: { status: MeetingStatus | null }) {
   if (!status) return null;
   const colors = meetingStatusColors[status] ?? "bg-border text-muted";
+  const label = meetingStatusLabels[status] ?? status;
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${colors}`}>
       <span className="h-1.5 w-1.5 rounded-full bg-current" />
-      {status}
+      {label}
     </span>
   );
 }

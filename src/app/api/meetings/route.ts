@@ -9,11 +9,9 @@ const VALID_TYPES = new Set([
 ]);
 
 const VALID_STATUSES = new Set([
-  "Scheduling",
-  "Invites Sent",
-  "Confirmed",
-  "Completed",
-  "Did Not Occur",
+  "scheduled",
+  "completed",
+  "did_not_occur",
 ]);
 
 export async function GET() {
@@ -69,7 +67,7 @@ export async function POST(request: NextRequest) {
       program_id: program_id || null,
       partner_name: partner_name?.trim() || null,
       meeting_type: meeting_type || null,
-      status: status || "Scheduling",
+      status: status || "scheduled",
       meeting_date: meeting_date || null,
       start_time: start_time?.trim() || null,
       end_time: end_time?.trim() || null,

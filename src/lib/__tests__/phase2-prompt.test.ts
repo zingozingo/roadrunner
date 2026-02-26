@@ -106,7 +106,7 @@ const MEETING: Meeting = {
   partner_id: "partner-001",
   message_id: null,
   meeting_type: "review",
-  status: "Confirmed",
+  status: "scheduled",
   meeting_date: "2026-03-05",
   start_time: "10:00",
   end_time: "11:00",
@@ -180,9 +180,9 @@ const PROGRAM: Program = {
   name: "Security Competency",
   type: "Competency",
   description: "AWS Security Partner validation",
-  eligibility: null,
-  url: null,
-  status: "active",
+  requirements: null,
+  what_it_unlocks: null,
+  notes: null,
   lifecycle_type: "indefinite",
   lifecycle_duration: null,
   airtable_record_id: null,
@@ -347,7 +347,7 @@ describe("buildPhase2Context — existing engagement", () => {
     expect(result).toContain("CyberShield Security Review Call");
     expect(result).toContain("2026-03-05");
     expect(result).toContain("3 attendees");
-    expect(result).toContain("Confirmed");
+    expect(result).toContain("scheduled");
   });
 
   it("marks new email with >>> NEW EMAIL — CLASSIFY THIS <<<", () => {

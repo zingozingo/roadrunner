@@ -13,11 +13,9 @@ const MEETING_TYPES = [
 ];
 
 const MEETING_STATUSES: MeetingStatus[] = [
-  "Scheduling",
-  "Invites Sent",
-  "Confirmed",
-  "Completed",
-  "Did Not Occur",
+  "scheduled",
+  "completed",
+  "did_not_occur",
 ];
 
 export default function MeetingActions({
@@ -135,7 +133,7 @@ export default function MeetingActions({
           title: title.trim(),
           meeting_date: meetingDate || null,
           meeting_type: meetingType || null,
-          status: status || "Scheduling",
+          status: status || "scheduled",
           engagement_id: engagementId || null,
           event_id: eventId || null,
           partner_name: partnerName.trim() || null,

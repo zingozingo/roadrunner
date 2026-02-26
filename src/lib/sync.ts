@@ -28,9 +28,10 @@ const PF = {
   type: "fldCd7TnUOgxnWmNt",
   description: "fldHN5mCWH6lXmoY1",
   requirements: "fldxxsFFMc649nZft",
+  whatItUnlocks: "fld4870bblJTGbAgn",
+  notes: "fldzsmhcQ0Z6Rnjhk",
   lifecycle: "fldo04XmU7rQhwOVT",
   lifecycleDuration: "fldeExdR8irrzC5GV",
-  url: "fldj2uk4rf4ifqGLH",
 } as const;
 
 const EF = {
@@ -42,6 +43,9 @@ const EF = {
   host: "fldaDlidcRmUCvxFK",
   description: "fldTMiRJ7mqMzGqXY",
   geo: "fld9idvQawFVNu5sa",
+  sponsorOption: "fldyAVpfZbG1SaDJz",
+  partnerDay: "fldTWZbQSEruQYdLe",
+  partnerDayDate: "fldo8mDJ5vvXK5bu7",
 } as const;
 
 const RF = {
@@ -156,8 +160,9 @@ function mapProgram(rec: AirtableRecord): Record<string, unknown> | null {
     name,
     type,
     description: str(rec.fields[PF.description]),
-    eligibility: str(rec.fields[PF.requirements]),
-    url: str(rec.fields[PF.url]),
+    requirements: str(rec.fields[PF.requirements]),
+    what_it_unlocks: str(rec.fields[PF.whatItUnlocks]),
+    notes: str(rec.fields[PF.notes]),
     lifecycle_type: lifecycle,
     lifecycle_duration: str(rec.fields[PF.lifecycleDuration]),
   };
@@ -264,6 +269,9 @@ function mapEvent(rec: AirtableRecord): Record<string, unknown> | null {
     host: str(rec.fields[EF.host]),
     description: str(rec.fields[EF.description]),
     geo: str(rec.fields[EF.geo]),
+    sponsor_option: !!rec.fields[EF.sponsorOption],
+    partner_day: !!rec.fields[EF.partnerDay],
+    partner_day_date: str(rec.fields[EF.partnerDayDate]) || null,
   };
 }
 

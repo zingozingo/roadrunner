@@ -3,7 +3,6 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import DetailHeader from "@/components/shared/DetailHeader";
-import StatusBadge from "@/components/shared/StatusBadge";
 import { ProgramTypeBadge } from "@/components/shared/TypeBadge";
 import MeetingTimeline from "@/components/shared/MeetingTimeline";
 import ExpandableList from "@/components/shared/ExpandableList";
@@ -37,8 +36,8 @@ export default async function ProgramDetailPage({
   }
 
   const hasDescription = !!program.description;
-  const hasEligibility = !!program.eligibility;
-  const hasContext = hasDescription || hasEligibility;
+  const hasRequirements = !!program.requirements;
+  const hasContext = hasDescription || hasRequirements;
 
   return (
     <div className="p-6 lg:p-8">
@@ -56,7 +55,6 @@ export default async function ProgramDetailPage({
         title={program.name}
         badges={
           <>
-            {program.status !== "active" && <StatusBadge status={program.status} />}
             <ProgramTypeBadge type={program.type} />
           </>
         }
@@ -73,7 +71,7 @@ export default async function ProgramDetailPage({
         {/* Two-column context card: Description + Requirements/URL */}
         {hasContext && (
           <div className="rounded-xl border border-border bg-surface p-5">
-            <div className={`grid gap-6 ${hasDescription && hasEligibility ? "lg:grid-cols-2" : ""}`}>
+            <div className={`grid gap-6 ${hasDescription && hasRequirements ? "lg:grid-cols-2" : ""}`}>
               {hasDescription && (
                 <div>
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-muted mb-1.5">
@@ -84,43 +82,14 @@ export default async function ProgramDetailPage({
                   </p>
                 </div>
               )}
-              {hasEligibility && (
-                <div className="space-y-3">
+              {hasRequirements && (
+                <div>
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-muted mb-1.5">
                     Requirements
                   </h3>
                   <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-                    {program.eligibility}
+                    {program.requirements}
                   </p>
-                  {program.url && (
-                    <a
-                      href={program.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-sm text-accent hover:underline"
-                    >
-                      Program Link
-                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <path d="M6 3h7v7M13 3L6 10" />
-                      </svg>
-                    </a>
-                  )}
-                </div>
-              )}
-              {/* If no eligibility but has URL, show it under description */}
-              {!hasEligibility && program.url && (
-                <div>
-                  <a
-                    href={program.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-sm text-accent hover:underline"
-                  >
-                    Program Link
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M6 3h7v7M13 3L6 10" />
-                    </svg>
-                  </a>
                 </div>
               )}
             </div>

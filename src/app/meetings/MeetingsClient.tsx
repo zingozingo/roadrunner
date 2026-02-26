@@ -26,11 +26,9 @@ const MEETING_TYPES = [
 ];
 
 const MEETING_STATUSES: MeetingStatus[] = [
-  "Scheduling",
-  "Invites Sent",
-  "Confirmed",
-  "Completed",
-  "Did Not Occur",
+  "scheduled",
+  "completed",
+  "did_not_occur",
 ];
 
 function formatDate(dateStr: string | null): string {
@@ -66,7 +64,7 @@ export default function MeetingsClient({ meetings, engagements, events }: Meetin
   const [newTitle, setNewTitle] = useState("");
   const [newDate, setNewDate] = useState("");
   const [newType, setNewType] = useState("");
-  const [newStatus, setNewStatus] = useState<string>("Scheduling");
+  const [newStatus, setNewStatus] = useState<string>("scheduled");
   const [newEngagementId, setNewEngagementId] = useState("");
   const [newEventId, setNewEventId] = useState("");
   const [newPartnerName, setNewPartnerName] = useState("");
@@ -149,7 +147,7 @@ export default function MeetingsClient({ meetings, engagements, events }: Meetin
           title: newTitle.trim(),
           meeting_date: newDate || null,
           meeting_type: newType || null,
-          status: newStatus || "Scheduling",
+          status: newStatus || "scheduled",
           engagement_id: newEngagementId || null,
           event_id: newEventId || null,
           partner_name: newPartnerName.trim() || null,
@@ -180,7 +178,7 @@ export default function MeetingsClient({ meetings, engagements, events }: Meetin
     setNewTitle("");
     setNewDate("");
     setNewType("");
-    setNewStatus("Scheduling");
+    setNewStatus("scheduled");
     setNewEngagementId("");
     setNewEventId("");
     setNewPartnerName("");

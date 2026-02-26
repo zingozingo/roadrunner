@@ -847,9 +847,9 @@ export async function updateProgram(
     name?: string;
     type?: Program["type"];
     description?: string | null;
-    eligibility?: string | null;
-    url?: string | null;
-    status?: Program["status"];
+    requirements?: string | null;
+    what_it_unlocks?: string | null;
+    notes?: string | null;
   }
 ): Promise<Program> {
   const { data, error } = await getSupabaseClient()
@@ -1635,7 +1635,7 @@ export async function createMeeting(data: {
       partner_name: data.partner_name ?? null,
       partner_id: partnerId,
       meeting_type: data.meeting_type ?? null,
-      status: data.status ?? "Scheduling",
+      status: data.status ?? "scheduled",
       meeting_date: data.meeting_date ?? null,
       start_time: data.start_time ?? null,
       end_time: data.end_time ?? null,
@@ -1825,7 +1825,7 @@ export async function createMeetingFromICS(
           ics_uid: parsed.ics_uid,
           // notes intentionally omitted — ICS DESCRIPTION is boilerplate (Zoom/Teams dial-in)
           source: "ics_parsed",
-          status: "Confirmed",
+          status: "scheduled",
           message_id: messageId,
         },
         { onConflict: "ics_uid", ignoreDuplicates: true }

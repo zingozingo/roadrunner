@@ -49,9 +49,9 @@ const PROGRAM: Program = {
   name: "AWS Security Competency",
   type: "Competency",
   description: "Validates partner security expertise",
-  eligibility: "Must pass technical review",
-  url: null,
-  status: "active",
+  requirements: "Must pass technical review",
+  what_it_unlocks: null,
+  notes: null,
   lifecycle_type: "indefinite",
   lifecycle_duration: null,
   airtable_record_id: null,
@@ -174,12 +174,12 @@ describe("buildEventsSection", () => {
 });
 
 describe("buildProgramsSection", () => {
-  it("renders program with eligibility", () => {
+  it("renders program with requirements", () => {
     const result = buildProgramsSection([PROGRAM]);
     expect(result).toContain("AWS Security Competency");
     expect(result).toContain("prog-001");
     expect(result).toContain("Validates partner security expertise");
-    expect(result).toContain("Eligibility: Must pass technical review");
+    expect(result).toContain("Requirements: Must pass technical review");
   });
 
   it("shows 'None yet' for empty list", () => {

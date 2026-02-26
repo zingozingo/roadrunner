@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Program, ProgramType } from "@/lib/types";
 import ConfirmDialog from "../shared/ConfirmDialog";
 
-const STATUS_OPTIONS: Program["status"][] = ["active", "archived"];
 const TYPE_OPTIONS: (ProgramType | "")[] = [
   "",
   "Competency",
@@ -31,17 +30,13 @@ export default function ProgramActions({ program }: { program: Program }) {
   const [name, setName] = useState(program.name);
   const [type, setType] = useState<ProgramType | "">(program.type ?? "");
   const [description, setDescription] = useState(program.description ?? "");
-  const [eligibility, setEligibility] = useState(program.eligibility ?? "");
-  const [url, setUrl] = useState(program.url ?? "");
-  const [status, setStatus] = useState<Program["status"]>(program.status);
+  const [requirements, setRequirements] = useState(program.requirements ?? "");
 
   function startEdit() {
     setName(program.name);
     setType(program.type ?? "");
     setDescription(program.description ?? "");
-    setEligibility(program.eligibility ?? "");
-    setUrl(program.url ?? "");
-    setStatus(program.status);
+    setRequirements(program.requirements ?? "");
     setError(null);
     setEditing(true);
   }
@@ -67,9 +62,7 @@ export default function ProgramActions({ program }: { program: Program }) {
           name: name.trim(),
           type: type || null,
           description: description.trim() || null,
-          eligibility: eligibility.trim() || null,
-          url: url.trim() || null,
-          status,
+          requirements: requirements.trim() || null,
         }),
       });
 
@@ -159,48 +152,16 @@ export default function ProgramActions({ program }: { program: Program }) {
             />
           </div>
 
-          {/* Eligibility */}
+          {/* Requirements */}
           <div>
             <label className={labelClass}>Requirements</label>
             <textarea
-              value={eligibility}
-              onChange={(e) => setEligibility(e.target.value)}
+              value={requirements}
+              onChange={(e) => setRequirements(e.target.value)}
               rows={3}
-              placeholder="Eligibility requirements..."
+              placeholder="Program requirements..."
               className={`${inputClass} resize-y min-h-[60px]`}
             />
-          </div>
-
-          {/* URL */}
-          <div>
-            <label className={labelClass}>External URL</label>
-            <input
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://..."
-              className={inputClass}
-            />
-          </div>
-
-          {/* Status */}
-          <div>
-            <label className={labelClass}>Status</label>
-            <div className="flex gap-2">
-              {STATUS_OPTIONS.map((opt) => (
-                <button
-                  key={opt}
-                  onClick={() => setStatus(opt)}
-                  className={`rounded-lg border px-3 py-1.5 text-sm capitalize transition-colors ${
-                    status === opt
-                      ? "border-accent bg-accent/10 text-accent"
-                      : "border-border bg-background text-muted hover:text-foreground"
-                  }`}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* Lifecycle (read-only display) */}
