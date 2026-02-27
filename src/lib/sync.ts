@@ -1152,7 +1152,7 @@ const MF = {
   meetingName: "fldcbatIDunJ00dLp",
   event: "fldT96Imgc7CFDBEX",
   program: "fldqhPAGvYppRZgCS",
-  partner: "fldZjCUMpBtgpU13X",
+  partner: "fldubdX4ZYXFQ2sIZ",
   meetingType: "fldGWa1MFoqoc89qC",
   status: "fldpXlLugkUgQsjcr",
   meetingDate: "fldx9ZrIMundEMUko",

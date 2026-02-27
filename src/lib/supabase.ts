@@ -178,8 +178,7 @@ export async function getActivePrograms(): Promise<Program[]> {
   const { data, error } = await getSupabaseClient()
     .from("programs")
     .select("*")
-    .eq("status", "active")
-    .order("created_at", { ascending: false });
+    .order("name", { ascending: true });
 
   if (error) throw new Error(`Failed to fetch programs: ${error.message}`);
   return data as Program[];

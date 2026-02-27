@@ -140,7 +140,7 @@ Catalog tables are read from Airtable into Roadrunner. Activity tables are writt
 |----------------|----------|------|----------|-------|
 | Meeting Name | `fldcbatIDunJ00dLp` | singleLineText | `MF.meetingName` | **Primary field.** Was formula, converted to writable text 2026-02-18. RR writes `meeting.title`. |
 | Event | `fldT96Imgc7CFDBEX` | multipleRecordLinks | `MF.event` | Link to Events table |
-| Partner | `fldZjCUMpBtgpU13X` | multipleRecordLinks | `MF.partner` | Link to Partners table |
+| Partner | `fldubdX4ZYXFQ2sIZ` | multipleRecordLinks | `MF.partner` | Link to Partners table. **Fixed field ID 2026-02-27** (was stale `fldZjCUMpBtgpU13X`). |
 | Meeting Type | `fldGWa1MFoqoc89qC` | singleSelect | `MF.meetingType` | Executive Meeting, Specialized Meeting, GTM Meeting, Product Team Relationship |
 | Status | `fldpXlLugkUgQsjcr` | singleSelect | `MF.status` | Scheduling, Invites Sent, Confirmed, Completed, Did Not Occur |
 | Meeting Date | `fldx9ZrIMundEMUko` | date | `MF.meetingDate` | |
