@@ -640,7 +640,9 @@ const ENF = {
   status: "fldUAOu4GG1Wme5OJ",
   notes: "flduVQ9wp3XXVUiwo",
   roadrunnerId: "fldJJ8ZlwhePawiEl",
-  partner: "fld8MJU06GPUU0iy6",
+  partner: "fldkYNE9C0UcdnGCL",
+  program: "fldZ4IqdSvuEXgp83",
+  awsRelationships: "fldhVQTAP2wucnzNC",
   awsStakeholders: "fldLVPbg7iyz0Nli9",
   partnerStakeholders: "fldj6vaWwDKJy6aci",
   thirdParties: "flduajBotnT6x5ZXD",
@@ -771,9 +773,15 @@ async function fetchPartnerNameToIdMap(): Promise<Map<string, string>> {
   return reversed;
 }
 
+interface EngagementLookups {
+  partnerNameToId: Map<string, string>;
+  programDbToAtId: Map<string, string>;
+  engagementRelAtIds: Map<string, string[]>;
+}
+
 function buildEngagementFields(
   engagement: Record<string, unknown>,
-  partnerNameToId: Map<string, string>,
+  lookups: EngagementLookups,
   participants?: EngagementParticipant[]
 ): Record<string, unknown> {
   const fields: Record<string, unknown> = {
@@ -788,12 +796,25 @@ function buildEngagementFields(
   // Resolve partner name to Airtable record ID
   const partnerName = engagement.partner_name as string | null;
   if (partnerName) {
-    const partnerId = partnerNameToId.get(partnerName.toLowerCase());
+    const partnerId = lookups.partnerNameToId.get(partnerName.toLowerCase());
     if (partnerId) {
       fields[ENF.partner] = [partnerId];
     } else {
       console.warn(`Partner "${partnerName}" not found in Airtable Partners table`);
     }
+  }
+
+  // Program linked record
+  const programId = engagement.program_id as string | null;
+  if (programId) {
+    const atId = lookups.programDbToAtId.get(programId);
+    if (atId) fields[ENF.program] = [atId];
+  }
+
+  // AWS Relationships linked records
+  const relAtIds = lookups.engagementRelAtIds.get(engagement.id as string);
+  if (relAtIds && relAtIds.length > 0) {
+    fields[ENF.awsRelationships] = relAtIds;
   }
 
   // Stakeholder split from participants (same filtering as meeting attendees)
@@ -869,12 +890,43 @@ export async function pushEngagementToAirtable(
     throw new Error(`Engagement ${engagementId} not found`);
   }
 
-  const [partnerNameToId, participantMap] = await Promise.all([
+  const [
+    partnerNameToId,
+    participantMap,
+    { data: programs },
+    { data: junctions },
+    { data: relationships },
+  ] = await Promise.all([
     fetchPartnerNameToIdMap(),
     fetchEngagementParticipants([engagementId]),
+    supabase.from("programs").select("id, airtable_record_id").not("airtable_record_id", "is", null),
+    supabase.from("engagement_aws_relationships").select("engagement_id, aws_relationship_id").eq("engagement_id", engagementId),
+    supabase.from("aws_relationships").select("id, airtable_record_id").not("airtable_record_id", "is", null),
   ]);
+
+  const programDbToAtId = new Map<string, string>();
+  for (const p of (programs ?? []) as { id: string; airtable_record_id: string }[]) {
+    programDbToAtId.set(p.id, p.airtable_record_id);
+  }
+
+  const relDbToAtId = new Map<string, string>();
+  for (const r of (relationships ?? []) as { id: string; airtable_record_id: string }[]) {
+    relDbToAtId.set(r.id, r.airtable_record_id);
+  }
+
+  const engagementRelAtIds = new Map<string, string[]>();
+  for (const j of (junctions ?? []) as { engagement_id: string; aws_relationship_id: string }[]) {
+    const atId = relDbToAtId.get(j.aws_relationship_id);
+    if (atId) {
+      const existing = engagementRelAtIds.get(j.engagement_id) ?? [];
+      existing.push(atId);
+      engagementRelAtIds.set(j.engagement_id, existing);
+    }
+  }
+
+  const lookups: EngagementLookups = { partnerNameToId, programDbToAtId, engagementRelAtIds };
   const fields = buildEngagementFields(
-    engagement, partnerNameToId, participantMap.get(engagementId)
+    engagement, lookups, participantMap.get(engagementId)
   );
   const roadrunnerNotes = buildNotesContent(
     engagement.current_state

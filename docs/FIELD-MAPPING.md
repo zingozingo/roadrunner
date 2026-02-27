@@ -1,6 +1,6 @@
 # Roadrunner ↔ Airtable Field Mapping Guide
 
-> **Last updated:** 2026-02-18
+> **Last updated:** 2026-02-27
 > **Airtable Base:** Steven Partners 2026 MCP (`appy9TT1LRJTAuQ4W`)
 
 ## How the Sync Works
@@ -116,17 +116,19 @@ Catalog tables are read from Airtable into Roadrunner. Activity tables are writt
 |----------------|----------|------|----------|-------|
 | Name | `fldxq7bsx8PuRvodp` | singleLineText | `ENF.name` | Primary field |
 | Pillar | `fldvxfxhOPDGr5jBA` | singleSelect | `ENF.pillar` | |
-| Priority | `fld4N2kKPFJEqwYtN` | singleSelect | `ENF.priority` | |
 | Status | `fldUAOu4GG1Wme5OJ` | singleSelect | `ENF.status` | |
-| Tags | `fldkgcbEZZSJv0cbN` | multipleSelects | `ENF.tags` | |
 | Notes | `flduVQ9wp3XXVUiwo` | multilineText | `ENF.notes` | Merge pattern (appends, doesn't overwrite) |
 | Roadrunner ID | `fldJJ8ZlwhePawiEl` | singleLineText | `ENF.roadrunnerId` | Sync key |
-| Partner | `fld8MJU06GPUU0iy6` | multipleRecordLinks | `ENF.partner` | Link to Partners table |
-| AWS Stakeholders | `fldLVPbg7iyz0Nli9` | multilineText | `ENF.awsStakeholders` | **New sync 2026-02-18.** Newline-separated names from participants table. `@amazon.com` email or "AWS"/"Amazon" org. |
-| Partner Stakeholders | `fldj6vaWwDKJy6aci` | multilineText | `ENF.partnerStakeholders` | **New sync 2026-02-18.** Newline-separated names from participants table. Org matches engagement partner_name. |
-| Third Parties | `flduajBotnT6x5ZXD` | multilineText | `ENF.thirdParties` | **New sync 2026-02-18.** Newline-separated names. Everyone else (excluding system/relay/user addresses). |
+| Partner | `fldkYNE9C0UcdnGCL` | multipleRecordLinks | `ENF.partner` | Link to Partners table. **Fixed field ID 2026-02-27** (was stale `fld8MJU06GPUU0iy6`). |
+| Program | `fldZ4IqdSvuEXgp83` | multipleRecordLinks | `ENF.program` | **New sync 2026-02-27.** Link to Programs catalog. Resolved from `engagements.program_id` FK. |
+| AWS Relationships | `fldhVQTAP2wucnzNC` | multipleRecordLinks | `ENF.awsRelationships` | **New sync 2026-02-27.** Link to AWS Relationships. Resolved from `engagement_aws_relationships` junction table. |
+| AWS Stakeholders | `fldLVPbg7iyz0Nli9` | multilineText | `ENF.awsStakeholders` | Newline-separated names from participants table. `@amazon.com` email or "AWS"/"Amazon" org. |
+| Partner Stakeholders | `fldj6vaWwDKJy6aci` | multilineText | `ENF.partnerStakeholders` | Newline-separated names from participants table. Org matches engagement partner_name. |
+| Third Parties | `flduajBotnT6x5ZXD` | multilineText | `ENF.thirdParties` | Newline-separated names. Everyone else (excluding system/relay/user addresses). |
 
-**Airtable-only fields:** AWS Relationships (reverse link), Meetings (reverse link).
+**Airtable-only fields:** Meetings (reverse link).
+
+**Removed fields (2026-02-27):** Tags (`fldkgcbEZZSJv0cbN`) — column dropped from DB, field deleted from Airtable. Priority (`fld4N2kKPFJEqwYtN`) — never existed on live Airtable table.
 
 ---
 
