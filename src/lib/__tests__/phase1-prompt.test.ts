@@ -178,6 +178,20 @@ describe("PHASE1_SYSTEM_PROMPT", () => {
     expect(PHASE1_SYSTEM_PROMPT).toContain("content_type");
     expect(PHASE1_SYSTEM_PROMPT).toContain("engagement_match");
   });
+
+  it("requires topic alignment, not just partner match", () => {
+    expect(PHASE1_SYSTEM_PROMPT).toContain("Match by partner AND topic");
+    expect(PHASE1_SYSTEM_PROMPT).not.toContain("Prefer existing engagements");
+  });
+
+  it("explains multi-engagement partner concept", () => {
+    expect(PHASE1_SYSTEM_PROMPT).toContain("MULTIPLE concurrent engagements");
+  });
+
+  it("includes concrete misclassification example", () => {
+    expect(PHASE1_SYSTEM_PROMPT).toContain("Solution Spotlight Campaign");
+    expect(PHASE1_SYSTEM_PROMPT).toContain("OpenTofu Integration");
+  });
 });
 
 describe("buildEngagementIndex", () => {
@@ -190,7 +204,24 @@ describe("buildEngagementIndex", () => {
     expect(result).toContain('"CyberShield - Security Review"');
     expect(result).toContain("id: eng-001");
     expect(result).toContain("Partner: CyberShield");
-    expect(result).toContain('Subject: "Re: Security Review Next Steps"');
+    expect(result).toContain('Last Subject: "Re: Security Review Next Steps"');
+  });
+
+  it("includes topic when engagement has one", () => {
+    const engWithTopic = { ...ENGAGEMENT_A, topic: "Security Competency Pursuit" };
+    const lastSubjects = new Map([["eng-001", "Re: Security Review"]]);
+    const result = buildEngagementIndex([engWithTopic], lastSubjects);
+
+    expect(result).toContain('Topic: "Security Competency Pursuit"');
+    expect(result).toContain('Last Subject: "Re: Security Review"');
+  });
+
+  it("omits topic when engagement has none", () => {
+    const lastSubjects = new Map([["eng-001", "Re: Security Review"]]);
+    const result = buildEngagementIndex([ENGAGEMENT_A], lastSubjects);
+
+    expect(result).not.toContain("Topic:");
+    expect(result).toContain('Last Subject: "Re: Security Review"');
   });
 
   it("includes last_subject from most recent message", () => {
@@ -200,13 +231,13 @@ describe("buildEngagementIndex", () => {
     ]);
     const result = buildEngagementIndex([ENGAGEMENT_A, ENGAGEMENT_B], lastSubjects);
 
-    expect(result).toContain('Subject: "Re: FedRAMP timeline"');
-    expect(result).toContain('Subject: "NFL sponsorship update"');
+    expect(result).toContain('Last Subject: "Re: FedRAMP timeline"');
+    expect(result).toContain('Last Subject: "NFL sponsorship update"');
   });
 
   it("shows (none) when engagement has no messages", () => {
     const result = buildEngagementIndex([ENGAGEMENT_A], new Map());
-    expect(result).toContain('Subject: "(none)"');
+    expect(result).toContain('Last Subject: "(none)"');
   });
 
   it("returns 'None yet' when no engagements exist", () => {

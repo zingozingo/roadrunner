@@ -13,7 +13,7 @@ Your ONLY job: determine which existing engagement this forwarded email belongs 
 
 ## Definitions
 
-**Engagement** — A tracked work initiative. One partner + one goal. Example: "Acme Security - FedRAMP Certification".
+**Engagement** — A tracked work initiative. One partner + one goal. Example: "Acme Security - FedRAMP Certification". A single partner can have MULTIPLE concurrent engagements with different topics — for example, one partner might have an integration project, a marketing campaign, and a competency pursuit all active simultaneously.
 
 **Noise** — Auto-replies, out-of-office, newsletters, marketing blasts, internal distribution list digests, calendar notifications with no actionable content.
 
@@ -26,21 +26,25 @@ Your ONLY job: determine which existing engagement this forwarded email belongs 
 
 ## Matching Rules
 
-- **Prefer existing engagements.** If the partner and topic align with an existing engagement, match it. Don't create new engagements when an existing one fits.
-- **Domain matching.** Use the partner catalog's domain list to identify which partner the sender works for. If a sender's domain matches a partner, that strongly indicates which engagement(s) to consider.
-- **Subject line matching.** If the email's subject line closely matches or continues a thread from an existing engagement (similar subject, same participants), that's a strong match signal. The engagement index includes the last email subject for each engagement — use it for thread continuity detection.
-- **New engagement.** Only set is_new: true when the email clearly represents a new initiative that doesn't fit any existing engagement. The email must have substantive content — a vague intro or forward without context is not enough for a new engagement.
+- **Match by partner AND topic.** Both must align. A partner name match alone is NOT sufficient — the email's subject and content must also align with the engagement's topic. If a partner has multiple engagements, compare the email against EACH engagement's topic to find the right one, or determine it's a new initiative.
+- **Domain matching.** Use the partner catalog's domain list to identify which partner the sender works for. If a sender's domain matches a partner, that identifies the partner — but you must still match by topic to select the correct engagement for that partner.
+- **Subject line matching.** If the email's subject line closely matches or continues a thread from an existing engagement (similar subject, same participants), that's a strong match signal. The engagement index includes the topic and last email subject for each engagement — use both for matching.
+- **New engagement for existing partner.** If the email discusses a clearly different initiative, campaign, program, or workstream than any existing engagement for the same partner, this IS a new engagement. Set is_new: true. The partner already having engagements does not prevent creating new ones — what matters is whether THIS email's topic matches an EXISTING engagement's topic.
+- **New engagement for new partner.** If the sender's domain doesn't match any partner, or the content introduces an entirely new initiative, set is_new: true. The email must have substantive content — a vague intro or forward without context is not enough for a new engagement.
 - **Noise detection.** Auto-replies, OOO, newsletters, marketing blasts, calendar notifications = noise. Return content_type "noise" with confidence 1.0.
 - **Meeting invites.** ICS attachments and calendar invitations are content_type "meeting_invite". Still match them to an engagement by topic/partner.
 - **Mixed content.** Emails discussing multiple engagements: content_type "mixed", match to the primary one.
+- **Ambiguous partner match.** If the email could belong to multiple engagements for the same partner and you cannot determine which one, set confidence below 0.70 to flag for human review.
 
 ## Confidence Calibration
 
-- 0.95–1.0: Email explicitly names the engagement or is a direct thread continuation (same subject line, same participants)
-- 0.85–0.94: Same partner + same topic area, clear contextual match
-- 0.70–0.84: Related partner or topic, but ambiguous which engagement
-- Below 0.70: Tangential, vague, or could match multiple engagements
+- 0.95–1.0: Direct thread continuation (same subject line, same participants as an existing engagement's last email) OR email explicitly names the engagement
+- 0.85–0.94: Same partner + same topic area + clear contextual alignment between email content and engagement topic
+- 0.70–0.84: Same partner but topic alignment is partial or unclear
+- Below 0.70: Could match multiple engagements for the same partner, or partner matches but topic is clearly different from all existing engagements (flag for review)
 - Noise: always 1.0
+
+IMPORTANT: Same partner + different topic = NEW engagement (is_new: true), NOT a low-confidence match to an existing engagement. Do not route an email about "Solution Spotlight Campaign" to an engagement about "OpenTofu Integration" just because they share the same partner.
 
 ## Response Format
 
@@ -156,9 +160,10 @@ export function buildEngagementIndex(
 
     const subject = lastSubjects.get(eng.id) ?? "(none)";
     const meta = parts.length > 0 ? ` — ${parts.join(" | ")}` : "";
+    const topicStr = eng.topic ? ` | Topic: "${eng.topic}"` : "";
 
     lines.push(
-      `- "${eng.name}" (id: ${eng.id})${meta} | Subject: "${subject}"`
+      `- "${eng.name}" (id: ${eng.id})${meta}${topicStr} | Last Subject: "${subject}"`
     );
   }
 
