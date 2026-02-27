@@ -1015,15 +1015,47 @@ export async function syncEngagementsToAirtable(): Promise<SyncResult> {
   const result: SyncResult = { inserted: 0, updated: 0, unchanged: 0, deleted: 0, errors: [] };
   const supabase = getSupabaseClient();
 
-  const [{ data: engagements, error: fetchErr }, atRecords, partnerNameToId, participantMap] =
-    await Promise.all([
+  const [
+    { data: engagements, error: fetchErr },
+    atRecords,
+    partnerNameToId,
+    participantMap,
+    { data: programs },
+    { data: junctions },
+    { data: relationships },
+  ] = await Promise.all([
       supabase.from("engagements").select("*"),
       fetchAllRecords(ENGAGEMENTS_TABLE),
       fetchPartnerNameToIdMap(),
       fetchEngagementParticipants(),
+      supabase.from("programs").select("id, airtable_record_id").not("airtable_record_id", "is", null),
+      supabase.from("engagement_aws_relationships").select("engagement_id, aws_relationship_id"),
+      supabase.from("aws_relationships").select("id, airtable_record_id").not("airtable_record_id", "is", null),
     ]);
 
   if (fetchErr) throw new Error(`Failed to fetch engagements: ${fetchErr.message}`);
+
+  const programDbToAtId = new Map<string, string>();
+  for (const p of (programs ?? []) as { id: string; airtable_record_id: string }[]) {
+    programDbToAtId.set(p.id, p.airtable_record_id);
+  }
+
+  const relDbToAtId = new Map<string, string>();
+  for (const r of (relationships ?? []) as { id: string; airtable_record_id: string }[]) {
+    relDbToAtId.set(r.id, r.airtable_record_id);
+  }
+
+  const engagementRelAtIds = new Map<string, string[]>();
+  for (const j of (junctions ?? []) as { engagement_id: string; aws_relationship_id: string }[]) {
+    const atId = relDbToAtId.get(j.aws_relationship_id);
+    if (atId) {
+      const existing = engagementRelAtIds.get(j.engagement_id) ?? [];
+      existing.push(atId);
+      engagementRelAtIds.set(j.engagement_id, existing);
+    }
+  }
+
+  const lookups: EngagementLookups = { partnerNameToId, programDbToAtId, engagementRelAtIds };
 
   // Build Airtable lookup maps
   const atByRoadrunnerId = new Map<string, AirtableRecord>();
@@ -1037,7 +1069,7 @@ export async function syncEngagementsToAirtable(): Promise<SyncResult> {
 
   for (const eng of engagements ?? []) {
     try {
-      const fields = buildEngagementFields(eng, partnerNameToId, participantMap.get(eng.id));
+      const fields = buildEngagementFields(eng, lookups, participantMap.get(eng.id));
       const roadrunnerNotes = buildNotesContent(eng.current_state);
 
       // Find existing Airtable record
