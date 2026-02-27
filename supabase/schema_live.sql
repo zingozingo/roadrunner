@@ -1,5 +1,5 @@
 -- Roadrunner live schema dump (from pg_catalog)
--- Generated: 2026-02-27T03:47:32.052Z
+-- Generated: 2026-02-27T04:29:10.865Z
 -- Source: supabase linked project (qdqdseuyjuyqgsjwizti)
 -- Method: Direct query to pg_catalog via pg node driver
 -- Tables: 14
@@ -196,7 +196,7 @@ CREATE TABLE public.participant_links (
   role text,
   created_at timestamp with time zone DEFAULT now() NOT NULL,
   PRIMARY KEY (id),
-  FOREIGN KEY (participant_id) REFERENCES participants(id) ON DELETE NO ACTION,
+  FOREIGN KEY (participant_id) REFERENCES participants(id),
   CONSTRAINT participant_links_entity_type_check CHECK ((entity_type = ANY (ARRAY['engagement'::text, 'event'::text])))
 );
 
@@ -258,47 +258,47 @@ CREATE TABLE public.programs (
 
 -- Indexes
 CREATE UNIQUE INDEX approval_queue_pkey ON public.approval_queue USING btree (id);
-CREATE INDEX idx_approval_queue_unresolved ON public.approval_queue USING btree (resolved) WHERE (resolved = false);
 CREATE UNIQUE INDEX aws_relationships_airtable_record_id_key ON public.aws_relationships USING btree (airtable_record_id);
 CREATE UNIQUE INDEX aws_relationships_pkey ON public.aws_relationships USING btree (id);
+CREATE UNIQUE INDEX engagement_aws_relationships_pkey ON public.engagement_aws_relationships USING btree (engagement_id, aws_relationship_id);
+CREATE UNIQUE INDEX entity_links_pkey ON public.entity_links USING btree (id);
+CREATE UNIQUE INDEX events_pkey ON public.events USING btree (id);
+CREATE INDEX idx_approval_queue_unresolved ON public.approval_queue USING btree (resolved) WHERE (resolved = false);
 CREATE INDEX idx_aws_relationships_partner_name ON public.aws_relationships USING btree (partner_name);
 CREATE INDEX idx_aws_relationships_primary_contact_email ON public.aws_relationships USING btree (primary_contact_email);
-CREATE UNIQUE INDEX engagement_aws_relationships_pkey ON public.engagement_aws_relationships USING btree (engagement_id, aws_relationship_id);
 CREATE INDEX idx_engagement_aws_rel_relationship ON public.engagement_aws_relationships USING btree (aws_relationship_id);
 CREATE UNIQUE INDEX idx_engagements_airtable_record_id ON public.engagements USING btree (airtable_record_id) WHERE (airtable_record_id IS NOT NULL);
 CREATE INDEX idx_engagements_partner_id ON public.engagements USING btree (partner_id);
-CREATE UNIQUE INDEX initiatives_pkey ON public.engagements USING btree (id);
-CREATE UNIQUE INDEX entity_links_pkey ON public.entity_links USING btree (id);
 CREATE INDEX idx_entity_links_source ON public.entity_links USING btree (source_type, source_id);
 CREATE INDEX idx_entity_links_target ON public.entity_links USING btree (target_type, target_id);
-CREATE UNIQUE INDEX events_pkey ON public.events USING btree (id);
 CREATE UNIQUE INDEX idx_events_airtable_record_id ON public.events USING btree (airtable_record_id) WHERE (airtable_record_id IS NOT NULL);
 CREATE INDEX idx_meeting_aws_rel_relationship ON public.meeting_aws_relationships USING btree (aws_relationship_id);
-CREATE UNIQUE INDEX meeting_aws_relationships_pkey ON public.meeting_aws_relationships USING btree (meeting_id, aws_relationship_id);
 CREATE INDEX idx_meetings_engagement_id ON public.meetings USING btree (engagement_id);
 CREATE INDEX idx_meetings_event_id ON public.meetings USING btree (event_id);
 CREATE INDEX idx_meetings_meeting_date ON public.meetings USING btree (meeting_date);
 CREATE INDEX idx_meetings_message_id ON public.meetings USING btree (message_id);
 CREATE INDEX idx_meetings_partner_id ON public.meetings USING btree (partner_id);
 CREATE INDEX idx_meetings_program_id ON public.meetings USING btree (program_id);
-CREATE UNIQUE INDEX meetings_airtable_record_id_key ON public.meetings USING btree (airtable_record_id);
-CREATE UNIQUE INDEX meetings_ics_uid_key ON public.meetings USING btree (ics_uid);
-CREATE UNIQUE INDEX meetings_pkey ON public.meetings USING btree (id);
 CREATE INDEX idx_messages_engagement_id ON public.messages USING btree (engagement_id);
 CREATE INDEX idx_messages_forwarded_at ON public.messages USING btree (forwarded_at);
 CREATE INDEX idx_messages_pending_review ON public.messages USING btree (pending_review) WHERE (pending_review = true);
-CREATE UNIQUE INDEX messages_pkey ON public.messages USING btree (id);
-CREATE UNIQUE INDEX notes_pkey ON public.notes USING btree (id);
 CREATE INDEX idx_participant_links_entity ON public.participant_links USING btree (entity_type, entity_id);
 CREATE INDEX idx_participant_links_participant ON public.participant_links USING btree (participant_id);
 CREATE UNIQUE INDEX idx_participant_links_unique ON public.participant_links USING btree (participant_id, entity_type, entity_id);
+CREATE INDEX idx_partners_name ON public.partners USING btree (name);
+CREATE INDEX idx_partners_segment ON public.partners USING btree (segment);
+CREATE UNIQUE INDEX idx_programs_airtable_record_id ON public.programs USING btree (airtable_record_id) WHERE (airtable_record_id IS NOT NULL);
+CREATE UNIQUE INDEX initiatives_pkey ON public.engagements USING btree (id);
+CREATE UNIQUE INDEX meeting_aws_relationships_pkey ON public.meeting_aws_relationships USING btree (meeting_id, aws_relationship_id);
+CREATE UNIQUE INDEX meetings_airtable_record_id_key ON public.meetings USING btree (airtable_record_id);
+CREATE UNIQUE INDEX meetings_ics_uid_key ON public.meetings USING btree (ics_uid);
+CREATE UNIQUE INDEX meetings_pkey ON public.meetings USING btree (id);
+CREATE UNIQUE INDEX messages_pkey ON public.messages USING btree (id);
+CREATE UNIQUE INDEX notes_pkey ON public.notes USING btree (id);
 CREATE UNIQUE INDEX participant_links_pkey ON public.participant_links USING btree (id);
 CREATE UNIQUE INDEX participants_email_key ON public.participants USING btree (email);
 CREATE UNIQUE INDEX participants_pkey ON public.participants USING btree (id);
-CREATE INDEX idx_partners_category ON public.partners USING btree (segment);
-CREATE INDEX idx_partners_name ON public.partners USING btree (name);
 CREATE UNIQUE INDEX partners_airtable_record_id_key ON public.partners USING btree (airtable_record_id);
 CREATE UNIQUE INDEX partners_pkey ON public.partners USING btree (id);
 CREATE UNIQUE INDEX partners_spms_id_key ON public.partners USING btree (spms_id);
-CREATE UNIQUE INDEX idx_programs_airtable_record_id ON public.programs USING btree (airtable_record_id) WHERE (airtable_record_id IS NOT NULL);
 CREATE UNIQUE INDEX programs_pkey ON public.programs USING btree (id);
