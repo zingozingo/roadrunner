@@ -56,7 +56,6 @@ CREATE TABLE public.engagements (
   updated_at timestamp with time zone DEFAULT now() NOT NULL,
   closed_at timestamp with time zone,
   current_state text,
-  tags jsonb DEFAULT '[]'::jsonb,
   pillar text,
   airtable_record_id text,
   partner_id uuid,

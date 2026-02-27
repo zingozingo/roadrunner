@@ -56,7 +56,6 @@ const ENGAGEMENT: Engagement = {
   partner_name: "CyberShield",
   partner_id: "partner-001",
   pillar: "Co-Build",
-  tags: ["security", "competency"],
   airtable_record_id: null,
   created_at: "2026-01-15T00:00:00Z",
   updated_at: "2026-02-18T00:00:00Z",
@@ -536,7 +535,6 @@ describe("parsePhase2Response", () => {
     expect(result.matched_programs).toEqual([]);
     expect(result.matched_relationships).toEqual([]);
     expect(result.participants).toEqual([]);
-    expect(result.suggested_tags).toEqual([]);
     expect(result.pillar).toBeNull();
   });
 

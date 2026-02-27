@@ -1,17 +1,11 @@
 import PageHeader from "@/components/layout/PageHeader";
 import InboxClient from "@/components/inbox/InboxClient";
-import {
-  getUnresolvedApprovals,
-  getOrphanedMessages,
-} from "@/lib/supabase";
+import { getUnresolvedApprovals } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
 export default async function InboxPage() {
-  const [approvals, orphaned] = await Promise.all([
-    getUnresolvedApprovals(),
-    getOrphanedMessages(),
-  ]);
+  const approvals = await getUnresolvedApprovals();
 
   return (
     <div className="p-6 lg:p-8">
@@ -19,10 +13,7 @@ export default async function InboxPage() {
         title="Inbox"
         subtitle="Review AI classifications and assign messages to engagements"
       />
-      <InboxClient
-        initialApprovals={approvals}
-        initialOrphaned={orphaned}
-      />
+      <InboxClient initialApprovals={approvals} />
     </div>
   );
 }

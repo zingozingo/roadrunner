@@ -124,7 +124,7 @@ const {
     mockCreateApproval: vi.fn().mockResolvedValue({ id: "approval-001" }),
     mockCreateEngagement: vi.fn().mockResolvedValue({
       id: "init-auto", name: "Auto-Created", status: "active",
-      partner_name: null, pillar: null, tags: [],
+      partner_name: null, pillar: null,
       created_at: "", updated_at: "", closed_at: null,
     }),
     mockCreateEntityLink: vi.fn().mockResolvedValue(undefined),
@@ -282,7 +282,6 @@ const HIGH_CONFIDENCE_RESULT: CombinedClassificationResult = {
   topic: "Security Competency Technical Validation",
   goal: "CyberShield achieves AWS Security Competency.",
   engagement_name: "CyberShield - Security Competency Technical Validation",
-  suggested_tags: [],
   pillar: "Co-Build",
 };
 
@@ -303,7 +302,6 @@ const LOW_CONFIDENCE_RESULT: CombinedClassificationResult = {
   topic: null,
   goal: null,
   engagement_name: null,
-  suggested_tags: [],
   pillar: null,
 };
 
@@ -326,7 +324,6 @@ const HIGH_CONFIDENCE_NEW_RESULT: CombinedClassificationResult = {
   topic: "Cloud Migration Assessment",
   goal: "NewCorp completes cloud migration to AWS.",
   engagement_name: "NewCorp - Cloud Migration Assessment",
-  suggested_tags: [],
   pillar: "Co-Build",
 };
 
@@ -444,7 +441,6 @@ describe("processUnclassifiedMessages", () => {
       current_state: "NewCorp exploring cloud migration.",
       topic: "Cloud Migration Assessment",
       goal: "NewCorp completes cloud migration to AWS.",
-      tags: [],
     });
   });
 

@@ -46,7 +46,6 @@ export function buildEngagementsSection(engagements: Engagement[]): string {
     const parts = [`- **${eng.name}** (id: ${eng.id})`];
     if (eng.partner_name) parts.push(`Partner: ${eng.partner_name}`);
     if (eng.pillar) parts.push(`Pillar: ${eng.pillar}`);
-    if (eng.tags.length > 0) parts.push(`Tags: ${eng.tags.join(", ")}`);
 
     let line = parts[0];
     if (parts.length > 1) {

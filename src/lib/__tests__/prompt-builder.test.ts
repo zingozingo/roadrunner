@@ -21,7 +21,6 @@ const ENGAGEMENT: Engagement = {
   partner_name: "CyberShield",
   partner_id: null,
   pillar: "Co-Build",
-  tags: ["security", "competency"],
   airtable_record_id: null,
   created_at: "2025-01-15T00:00:00Z",
   updated_at: "2025-02-01T00:00:00Z",
@@ -142,13 +141,12 @@ describe("buildForwarderSection", () => {
 });
 
 describe("buildEngagementsSection", () => {
-  it("renders engagement with partner, pillar, and tags", () => {
+  it("renders engagement with partner and pillar", () => {
     const result = buildEngagementsSection([ENGAGEMENT]);
     expect(result).toContain("CyberShield - Security Review");
     expect(result).toContain("eng-001");
     expect(result).toContain("Partner: CyberShield");
     expect(result).toContain("Pillar: Co-Build");
-    expect(result).toContain("Tags: security, competency");
     expect(result).toContain("Current state: Pursuing Security Competency.");
   });
 

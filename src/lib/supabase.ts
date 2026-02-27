@@ -288,7 +288,6 @@ export async function createEngagement(data: {
   current_state?: string | null;
   topic?: string | null;
   goal?: string | null;
-  tags?: string[];
   pillar?: Pillar | null;
 }): Promise<Engagement> {
   // Resolve partner_id from partner_name
@@ -307,7 +306,6 @@ export async function createEngagement(data: {
       current_state: data.current_state ?? null,
       topic: data.topic ?? null,
       goal: data.goal ?? null,
-      tags: data.tags ?? [],
       status: "active",
       pillar: data.pillar ?? null,
     })
@@ -337,7 +335,6 @@ export async function updateEngagement(
     partner_name?: string | null;
     status?: Engagement["status"];
     current_state?: string | null;
-    tags?: string[];
     pillar?: Pillar | null;
   }
 ): Promise<Engagement> {
@@ -355,7 +352,6 @@ export async function updateEngagement(
     }
   }
   if (updates.current_state !== undefined) row.current_state = updates.current_state;
-  if (updates.tags !== undefined) row.tags = updates.tags;
   if (updates.pillar !== undefined) row.pillar = updates.pillar;
 
   if (updates.status !== undefined) {
@@ -463,19 +459,6 @@ export async function deleteMessagesByEngagement(engagementId: string): Promise<
 // Dashboard query helpers
 // ============================================================
 
-
-export async function getOrphanedMessages(): Promise<Message[]> {
-  const { data, error } = await getSupabaseClient()
-    .from("messages")
-    .select("*")
-    .is("engagement_id", null)
-    .eq("pending_review", false)
-    .neq("content_type", "noise")
-    .order("forwarded_at", { ascending: false });
-
-  if (error) throw new Error(`Failed to fetch orphaned messages: ${error.message}`);
-  return (data ?? []) as Message[];
-}
 
 export async function getAllEngagements(): Promise<Engagement[]> {
   const { data, error } = await getSupabaseClient()

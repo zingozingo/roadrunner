@@ -15,7 +15,6 @@ export interface Engagement {
   partner_name: string | null;
   partner_id: string | null;
   pillar: Pillar | null;
-  tags: string[];
   program_id: string | null;
   airtable_record_id: string | null;
   created_at: string;
@@ -254,7 +253,6 @@ export interface ClassificationResult {
     role: string | null;
   }[];
   current_state: string | null;
-  suggested_tags: string[];
 }
 
 // ============================================================
@@ -286,7 +284,6 @@ export interface Phase2Result {
   matched_events: { id: string; name: string; relationship: string }[];
   matched_programs: { id: string; name: string; relationship: string }[];
   matched_relationships: { id: string; name: string; relationship: string }[];
-  suggested_tags: string[];
   pillar: Pillar | null;
 }
 
@@ -317,7 +314,6 @@ export interface CombinedClassificationResult {
   topic: string | null;
   goal: string | null;
   engagement_name: string | null;
-  suggested_tags: string[];
   pillar: Pillar | null;
 }
 

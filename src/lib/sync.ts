@@ -638,7 +638,6 @@ const ENF = {
   name: "fldxq7bsx8PuRvodp",
   pillar: "fldvxfxhOPDGr5jBA",
   status: "fldUAOu4GG1Wme5OJ",
-  tags: "fldkgcbEZZSJv0cbN",
   notes: "flduVQ9wp3XXVUiwo",
   roadrunnerId: "fldJJ8ZlwhePawiEl",
   partner: "fld8MJU06GPUU0iy6",
@@ -785,10 +784,6 @@ function buildEngagementFields(
 
   // Pillar: only set if present (Airtable singleSelect, case-sensitive)
   if (engagement.pillar) fields[ENF.pillar] = engagement.pillar;
-
-  // Tags: send as string array (Airtable multipleSelects)
-  const tags = engagement.tags as string[] | undefined;
-  if (tags && tags.length > 0) fields[ENF.tags] = tags;
 
   // Resolve partner name to Airtable record ID
   const partnerName = engagement.partner_name as string | null;

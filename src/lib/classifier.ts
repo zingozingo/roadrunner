@@ -98,7 +98,6 @@ function noiseResult(phase1: Phase1Result): CombinedClassificationResult {
     topic: null,
     goal: null,
     engagement_name: null,
-    suggested_tags: [],
     pillar: null,
   };
 }
@@ -410,7 +409,6 @@ async function applyClassificationResult(
         current_state: currentState,
         topic: result.topic ?? null,
         goal: result.goal ?? null,
-        tags: [],
       });
       assignedEngagementId = engagement.id;
 

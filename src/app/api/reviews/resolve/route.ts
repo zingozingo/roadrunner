@@ -3,20 +3,21 @@ import {
   getSupabaseClient,
   resolveApproval,
   createEngagement,
+  linkMeetingToEngagement,
 } from "@/lib/supabase";
 import { persistClassificationResult, runPhase2ForResolve } from "@/lib/classifier";
-import { ApprovalQueueItem, Message, Phase1Result } from "@/lib/types";
+import type { ApprovalQueueItem, CombinedClassificationResult, Engagement, Message, Phase1Result } from "@/lib/types";
 
 interface ResolveRequest {
   review_id: string;
-  action: "skip" | "new";
-  engagement_name?: string;
+  action: "confirm" | "assign_existing" | "discard";
+  engagement_id?: string; // required for assign_existing
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as ResolveRequest;
-    const { review_id, action, engagement_name } = body;
+    const { review_id, action, engagement_id } = body;
 
     if (!review_id || !action) {
       return NextResponse.json(
@@ -59,87 +60,191 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const classResult = approval.classification_result!;
+    const classResult = approval.classification_result as CombinedClassificationResult;
 
-    // Handle "skip"
-    if (action === "skip") {
-      await resolveApproval(review_id, "skipped");
-      return NextResponse.json({ status: "skipped" });
+    // ── Discard ──────────────────────────────────────────────
+    if (action === "discard") {
+      if (approval.message_id) {
+        await db
+          .from("messages")
+          .update({ content_type: "noise", pending_review: false })
+          .eq("id", approval.message_id);
+      }
+      await resolveApproval(review_id, "discarded");
+      return NextResponse.json({ status: "discarded" });
     }
 
-    // Handle "new" — create engagement, then run Phase 2 for fresh analysis
-    if (action === "new") {
-      const name = engagement_name?.trim();
-      if (!name) {
-        return NextResponse.json(
-          { error: "engagement_name is required for action 'new'" },
-          { status: 400 }
-        );
-      }
+    // ── Shared: fetch messages for confirm & assign_existing ─
+    const messageIds = approval.message_id ? [approval.message_id] : [];
+    let messages: Message[] = [];
+    if (messageIds.length > 0) {
+      const { data } = await db
+        .from("messages")
+        .select("*")
+        .in("id", messageIds);
+      messages = (data ?? []) as Message[];
+    }
+    const forwarderNote = messages[0]?.forwarder_note ?? null;
 
-      // Fetch the original message(s) for Phase 2 analysis
-      const messageIds = approval.message_id ? [approval.message_id] : [];
-      let messages: Message[] = [];
-      if (messageIds.length > 0) {
-        const { data } = await db
-          .from("messages")
+    // ── Confirm ──────────────────────────────────────────────
+    if (action === "confirm") {
+      let engagement: Engagement;
+      let isNew: boolean;
+
+      if (classResult.engagement_match.is_new) {
+        // Create new engagement with full parity to auto-assign
+        const engagementName = classResult.engagement_name || classResult.engagement_match.name;
+        engagement = await createEngagement({
+          name: engagementName,
+          partner_name: classResult.engagement_match.partner_name,
+          current_state: classResult.current_state ?? null,
+          topic: classResult.topic ?? null,
+          goal: classResult.goal ?? null,
+        });
+
+        // Set pillar separately (same as auto-assign path)
+        if (classResult.pillar) {
+          await db
+            .from("engagements")
+            .update({ pillar: classResult.pillar })
+            .eq("id", engagement.id);
+        }
+
+        isNew = true;
+      } else {
+        // Existing engagement match — use the ID from classification
+        const existingId = classResult.engagement_match.id!;
+        const { data: eng } = await db
+          .from("engagements")
           .select("*")
-          .in("id", messageIds);
-        messages = (data ?? []) as Message[];
+          .eq("id", existingId)
+          .single();
+        if (!eng) {
+          return NextResponse.json(
+            { error: `Engagement ${existingId} not found` },
+            { status: 404 }
+          );
+        }
+        engagement = eng as Engagement;
+        isNew = false;
       }
 
-      // Create the engagement first
-      const engagement = await createEngagement({
-        name,
-        partner_name: classResult.engagement_match.partner_name,
-        current_state: classResult.current_state ?? null,
-        tags: [],
-      });
-
-      // Run Phase 2 for fresh analysis if we have messages
-      let finalResult = classResult;
+      // Run Phase 2 for fresh analysis
+      let finalResult: CombinedClassificationResult = classResult;
       if (messages.length > 0) {
         try {
-          // Build a Phase 1 result pointing at the new engagement
           const phase1ForResolve: Phase1Result = {
             content_type: classResult.content_type ?? "engagement_email",
             engagement_match: {
               ...classResult.engagement_match,
               id: engagement.id,
               name: engagement.name,
-              is_new: true,
+              is_new: isNew,
               partner_id: classResult.engagement_match.partner_id ?? null,
             },
           };
-
-          const forwarderNote = messages[0]?.forwarder_note ?? null;
           finalResult = await runPhase2ForResolve(messages, phase1ForResolve, forwarderNote);
         } catch (err) {
-          console.error("Phase 2 failed during resolve, using Phase 1 result:", err);
-          // Fall back to the original classification_result from the approval
+          console.error("Phase 2 failed during resolve, using stored result:", err);
         }
       }
 
-      await persistClassificationResult(
-        finalResult,
-        engagement.id,
-        messageIds,
-        true
-      );
+      // Persist classification result
+      await persistClassificationResult(finalResult, engagement.id, messageIds, isNew);
 
-      await resolveApproval(
-        review_id,
-        `created:${engagement.id}:${engagement.name}`
-      );
+      // Fire-and-forget Airtable sync
+      import("@/lib/sync")
+        .then(({ pushEngagementToAirtable }) => pushEngagementToAirtable(engagement.id))
+        .then((r) => console.log(`Airtable push: ${r.action} engagement ${engagement.id}`))
+        .catch((err) => console.error(`Airtable push failed for ${engagement.id}:`, err));
+
+      // Link meetings
+      if (classResult.content_type === "meeting_invite") {
+        for (const msgId of messageIds) {
+          await linkMeetingToEngagement(msgId, engagement.id);
+        }
+      }
+
+      const resolution = isNew
+        ? `created:${engagement.id}:${engagement.name}`
+        : `confirmed:${engagement.id}:${engagement.name}`;
+      await resolveApproval(review_id, resolution);
 
       return NextResponse.json({
-        status: "created",
-        engagement: engagement,
+        status: "confirmed",
+        engagement,
+      });
+    }
+
+    // ── Assign Existing ──────────────────────────────────────
+    if (action === "assign_existing") {
+      if (!engagement_id) {
+        return NextResponse.json(
+          { error: "engagement_id is required for assign_existing" },
+          { status: 400 }
+        );
+      }
+
+      // Validate the engagement exists
+      const { data: eng } = await db
+        .from("engagements")
+        .select("*")
+        .eq("id", engagement_id)
+        .single();
+      if (!eng) {
+        return NextResponse.json(
+          { error: `Engagement ${engagement_id} not found` },
+          { status: 404 }
+        );
+      }
+      const engagement = eng as Engagement;
+
+      // Run Phase 2 with the user-selected engagement
+      let finalResult: CombinedClassificationResult = classResult;
+      if (messages.length > 0) {
+        try {
+          const phase1ForResolve: Phase1Result = {
+            content_type: classResult.content_type ?? "engagement_email",
+            engagement_match: {
+              id: engagement.id,
+              name: engagement.name,
+              confidence: 1.0, // user-assigned = full confidence
+              is_new: false,
+              partner_name: engagement.partner_name,
+              partner_id: engagement.partner_id,
+            },
+          };
+          finalResult = await runPhase2ForResolve(messages, phase1ForResolve, forwarderNote);
+        } catch (err) {
+          console.error("Phase 2 failed during assign_existing, using stored result:", err);
+        }
+      }
+
+      await persistClassificationResult(finalResult, engagement.id, messageIds, false);
+
+      // Fire-and-forget Airtable sync
+      import("@/lib/sync")
+        .then(({ pushEngagementToAirtable }) => pushEngagementToAirtable(engagement.id))
+        .then((r) => console.log(`Airtable push: ${r.action} engagement ${engagement.id}`))
+        .catch((err) => console.error(`Airtable push failed for ${engagement.id}:`, err));
+
+      // Link meetings
+      if (classResult.content_type === "meeting_invite") {
+        for (const msgId of messageIds) {
+          await linkMeetingToEngagement(msgId, engagement.id);
+        }
+      }
+
+      await resolveApproval(review_id, `assigned:${engagement.id}:${engagement.name}`);
+
+      return NextResponse.json({
+        status: "assigned",
+        engagement,
       });
     }
 
     return NextResponse.json(
-      { error: "Invalid action or missing parameters" },
+      { error: "Invalid action. Must be confirm, assign_existing, or discard" },
       { status: 400 }
     );
   } catch (error) {

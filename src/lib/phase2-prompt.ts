@@ -35,8 +35,7 @@ Analyze the NEW email (clearly marked below) in the context of the engagement's 
 4. An updated current_state summary
 5. A participant list extracted from the NEW email
 6. Matched events, programs, and AWS relationships
-7. Suggested tags
-8. A pillar classification
+7. A pillar classification
 
 ## Thread Awareness
 
@@ -274,7 +273,6 @@ export function parsePhase2Response(raw: string): CombinedClassificationResult {
   if (!parsed.matched_programs) parsed.matched_programs = [];
   if (!parsed.matched_relationships) parsed.matched_relationships = [];
   if (!parsed.participants) parsed.participants = [];
-  if (!parsed.suggested_tags) parsed.suggested_tags = [];
   if (parsed.pillar === undefined) parsed.pillar = null;
 
   // Default new structured fields

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApprovalQueueItem, Message, Engagement } from "@/lib/types";
 import ReviewCard from "./ReviewCard";
-import OrphanedMessageCard from "./OrphanedMessageCard";
 import EmptyState from "../layout/EmptyState";
 
 type ApprovalWithContext = ApprovalQueueItem & {
@@ -14,10 +13,8 @@ type ApprovalWithContext = ApprovalQueueItem & {
 
 export default function InboxClient({
   initialApprovals,
-  initialOrphaned,
 }: {
   initialApprovals: ApprovalWithContext[];
-  initialOrphaned: Message[];
 }) {
   const router = useRouter();
   const [approvals, setApprovals] = useState(initialApprovals);
@@ -29,7 +26,6 @@ export default function InboxClient({
 
   return (
     <div className="space-y-8">
-      {/* Pending reviews section */}
       <section>
         <h2 className="mb-4 text-lg font-semibold text-foreground">
           Pending Reviews
@@ -56,23 +52,6 @@ export default function InboxClient({
           </div>
         )}
       </section>
-
-      {/* Orphaned messages section */}
-      {initialOrphaned.length > 0 && (
-        <section>
-          <h2 className="mb-4 text-lg font-semibold text-foreground">
-            Unclassified Messages
-            <span className="ml-2 text-sm font-normal text-muted">
-              ({initialOrphaned.length})
-            </span>
-          </h2>
-          <div className="space-y-3">
-            {initialOrphaned.map((msg) => (
-              <OrphanedMessageCard key={msg.id} message={msg} />
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   );
 }

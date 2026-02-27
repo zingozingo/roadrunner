@@ -19,19 +19,17 @@ export default function ReviewCard({
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showNewInput, setShowNewInput] = useState(false);
-  const [newName, setNewName] = useState(
-    review.classification_result!.engagement_match.name || ""
-  );
+  const [showPicker, setShowPicker] = useState(false);
+  const [engagements, setEngagements] = useState<Engagement[]>([]);
+  const [fetchingEngagements, setFetchingEngagements] = useState(false);
 
   const msg = review.message;
   const match = review.classification_result!.engagement_match;
   const bodyPreview = msg?.body_text?.slice(0, 150) || "";
 
   async function resolve(
-    action: "skip" | "select" | "new",
-    option_number?: number,
-    engagement_name?: string
+    action: "confirm" | "discard" | "assign_existing",
+    engagementId?: string
   ) {
     setLoading(true);
     setError(null);
@@ -42,8 +40,7 @@ export default function ReviewCard({
         body: JSON.stringify({
           review_id: review.id,
           action,
-          option_number,
-          engagement_name,
+          ...(engagementId && { engagement_id: engagementId }),
         }),
       });
 
@@ -52,7 +49,6 @@ export default function ReviewCard({
         return;
       }
 
-      // Non-2xx response — surface the error
       let detail = `Server returned ${res.status}`;
       try {
         const body = await res.json();
@@ -68,6 +64,30 @@ export default function ReviewCard({
       setError(message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function openPicker() {
+    if (engagements.length > 0) {
+      setShowPicker(!showPicker);
+      return;
+    }
+
+    setFetchingEngagements(true);
+    try {
+      const res = await fetch("/api/engagements");
+      if (!res.ok) throw new Error("Failed to fetch engagements");
+      const { engagements: all } = await res.json();
+      const active = (all as Engagement[])
+        .filter((e) => e.status === "active")
+        .sort((a, b) => a.name.localeCompare(b.name));
+      setEngagements(active);
+      setShowPicker(true);
+    } catch (err) {
+      console.error("Failed to load engagements:", err);
+      setError("Failed to load engagements");
+    } finally {
+      setFetchingEngagements(false);
     }
   }
 
@@ -119,44 +139,63 @@ export default function ReviewCard({
         <ConfidenceBar confidence={match.confidence} />
       </div>
 
-      {/* Actions */}
+      {/* Primary actions */}
       <div className="flex flex-wrap gap-2">
         <button
           disabled={loading}
-          onClick={() => setShowNewInput(!showNewInput)}
-          className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-accent transition-colors hover:border-accent disabled:opacity-50"
+          onClick={() => resolve("confirm")}
+          className="rounded-lg bg-accent px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
         >
-          + New Engagement
+          {loading ? "..." : "Confirm"}
         </button>
 
         <button
           disabled={loading}
-          onClick={() => resolve("skip")}
+          onClick={() => resolve("discard")}
           className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-muted transition-colors hover:border-muted hover:text-foreground disabled:opacity-50"
         >
-          {loading ? "..." : "Skip"}
+          {loading ? "..." : "Discard"}
         </button>
       </div>
 
-      {/* New engagement input */}
-      {showNewInput && (
-        <div className="mt-3 flex gap-2">
-          <input
-            type="text"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="Engagement name..."
-            className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
-          />
-          <button
-            disabled={loading || !newName.trim()}
-            onClick={() => resolve("new", undefined, newName.trim())}
-            className="rounded-lg bg-accent px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+      {/* Secondary action: assign to different engagement */}
+      <div className="mt-2">
+        <button
+          disabled={loading || fetchingEngagements}
+          onClick={openPicker}
+          className="text-xs text-muted transition-colors hover:text-accent disabled:opacity-50"
+        >
+          {fetchingEngagements
+            ? "Loading..."
+            : showPicker
+              ? "Cancel"
+              : "Assign to a different engagement"}
+        </button>
+
+        {showPicker && engagements.length > 0 && (
+          <select
+            disabled={loading}
+            onChange={(e) => {
+              if (e.target.value) resolve("assign_existing", e.target.value);
+            }}
+            defaultValue=""
+            className="mt-2 block w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:border-accent focus:outline-none disabled:opacity-50"
           >
-            {loading ? "..." : "Create"}
-          </button>
-        </div>
-      )}
+            <option value="" disabled>
+              Select an engagement...
+            </option>
+            {engagements.map((eng) => (
+              <option key={eng.id} value={eng.id}>
+                {eng.name}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {showPicker && engagements.length === 0 && !fetchingEngagements && (
+          <p className="mt-2 text-xs text-muted">No active engagements found</p>
+        )}
+      </div>
 
       {/* Loading state */}
       {loading && (
