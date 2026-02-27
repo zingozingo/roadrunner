@@ -57,7 +57,7 @@ Claude returns a JSON object with this structure:
     "current_state": "Updated living summary",
     "status": "active",
     "pillar": "optional",
-    "tags": ["optional", "freeform", "labels"]
+    "pillar": "Co-Sell | Co-Market | Co-Build (optional)"
   },
   "partner_id": "matched partner UUID",
   "participants": [
@@ -90,7 +90,7 @@ When a user resolves an approval (approve, reject, or modify), the same `persist
 1. **Prefer existing engagements.** Only create new if the email clearly represents a net-new workstream.
 2. **Confidence calibration.** High confidence requires: clear partner match, unambiguous engagement match or clear new workstream, extractable summary content.
 3. **Noise detection.** Marketing emails, auto-newsletters, system notifications → flag as noise, do not create engagement.
-4. **Mixed content.** If an email touches multiple engagements, classify for the primary one and note others in tags.
+4. **Mixed content.** If an email touches multiple engagements, classify for the primary one.
 5. **Multi-message threads.** Forwarded threads may contain multiple messages — classify based on the most recent/relevant content.
 6. **Event linking threshold.** Only link to an event if the email explicitly references it by name or clear context. Do not infer event relevance from vague timing.
 

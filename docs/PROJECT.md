@@ -37,7 +37,7 @@ PDMs manage dozens of ISV partnerships across multiple AWS programs, events, and
 6. **AI creates engagements only.** Programs, events, partners, and relationships are human-curated reference data.
 7. **Empty fields are better than fabricated fields.** If Claude isn't sure, leave it blank.
 8. **One persistence path, not two.** Auto-assign and approval-resolve share the same persistClassificationResult() function.
-9. **Tags are the escape valve.** Anything that doesn't fit the entity model goes in tags — campaigns, strategic labels, workflow states.
+9. **Structured over freeform.** Categorization uses pillar, program links, and AWS relationship links — not free-form labels.
 10. **Ground truth sources only.** Claude matches by ID against real catalog data, never by fuzzy inference.
 
 ## Two-System Architecture

@@ -126,12 +126,9 @@ The core entity. A trackable workstream with a partner, created and evolved by A
 | topic | text | What the engagement is about |
 | goal | text | What success looks like |
 | engagement_type | text | Taxonomy TBD from real data patterns |
-| tags | jsonb | Freeform string array — the escape valve for anything that doesn't fit the entity model |
 | closed_at | timestamptz | |
 | airtable_record_id | text UNIQUE | |
 | created_at / updated_at | timestamptz | |
-
-**Tags usage:** Campaigns ("FinServ Q2"), partner events ("Wiz Innovation Summit"), strategic labels ("exec-sponsored"), workflow states ("waiting-on-legal"), segments ("public-sector"). Not a table — a JSONB string array on the engagement.
 
 ### Meetings
 
@@ -286,7 +283,7 @@ Generic many-to-many junction between engagements, events, and programs.
 
 ### Auto-Push Hooks
 
-Engagements auto-push to Airtable on: create, update (name/status/pillar/tags/notes), delete.
+Engagements auto-push to Airtable on: create, update (name/status/pillar/notes), delete.
 
 Meetings auto-push on: create, update (any field), delete, relationship link changes.
 
