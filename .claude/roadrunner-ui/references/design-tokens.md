@@ -25,10 +25,10 @@ Used by StatusBadge for engagement/program status:
 
 | Status | Background | Text |
 |---|---|---|
-| planned | `bg-blue-500/20` | `text-blue-400` |
-| active | `bg-green-500/20` | `text-green-400` |
-| paused | `bg-yellow-500/20` | `text-yellow-400` |
-| completed | `bg-purple-500/20` | `text-purple-400` |
+| active | `bg-status-active/20` | `text-status-active` |
+| blocked | `bg-status-blocked/20` | `text-status-blocked` |
+| completed | `bg-status-completed/20` | `text-status-completed` |
+| archived | `bg-status-archived/20` | `text-status-archived` |
 
 ### Confidence Colors
 

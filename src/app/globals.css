@@ -11,10 +11,9 @@
   --accent-hover: #818cf8;
 
   /* Status colors */
-  --status-planned: #3b82f6;
   --status-active: #22c55e;
-  --status-paused: #f59e0b;
-  --status-completed: #6b7280;
+  --status-blocked: #f59e0b;
+  --status-completed: #8b5cf6;
   --status-archived: #6b7280;
 
   /* Confidence colors */
@@ -52,10 +51,10 @@
   --color-muted: var(--muted);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
-  --color-status-planned: var(--status-planned);
   --color-status-active: var(--status-active);
-  --color-status-paused: var(--status-paused);
+  --color-status-blocked: var(--status-blocked);
   --color-status-completed: var(--status-completed);
+  --color-status-archived: var(--status-archived);
   --color-confidence-high: var(--confidence-high);
   --color-confidence-medium: var(--confidence-medium);
   --color-confidence-low: var(--confidence-low);

@@ -1,7 +1,8 @@
 const statusColors: Record<string, string> = {
   active: "bg-status-active/20 text-status-active",
-  planned: "bg-status-planned/20 text-status-planned",
-  archived: "bg-status-completed/20 text-status-completed",
+  blocked: "bg-status-blocked/20 text-status-blocked",
+  completed: "bg-status-completed/20 text-status-completed",
+  archived: "bg-status-archived/20 text-status-archived",
 };
 
 export default function StatusBadge({ status }: { status: string }) {

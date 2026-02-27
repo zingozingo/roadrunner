@@ -267,7 +267,7 @@ Use for metadata that doesn't merit a card (Created date, Source, Verified statu
 
 Badges are used in DetailHeader badge slots and right-aligned in inline table rows.
 
-- `StatusBadge` — engagement/program status (planned/active/paused/completed)
+- `StatusBadge` — engagement/program status (active/blocked/completed/archived)
 - `ProgramTypeBadge` — program type with color coding
 - `EventTypeBadge` — event type (conference/summit/webinar/etc.)
 - `MeetingStatusBadge` — meeting status with color coding

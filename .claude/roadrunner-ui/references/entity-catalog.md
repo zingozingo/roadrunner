@@ -20,7 +20,7 @@ Field mappings for all 6 entity types in Roadrunner. Each entity maps its fields
 **Type:** `Engagement` from `src/lib/types.ts`
 **List page:** `src/app/engagements/page.tsx` (server component)
 **Detail page:** `src/app/engagements/[id]/page.tsx` (server component — strongest reference)
-**Groups by:** status (planned → active → paused → completed → archived)
+**Groups by:** status (active → blocked → completed → archived)
 **Visual treatment:** Inline table rows (activity item, status right-aligned)
 
 ### Table Row Layout

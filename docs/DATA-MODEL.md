@@ -50,12 +50,12 @@ AWS partner programs. This is the canonical list of available programs.
 | id | uuid PK | |
 | name | text NOT NULL | |
 | type | text | singleSelect from Airtable |
-| status | text | |
 | description | text | |
-| eligibility | text | Requirements/eligibility criteria |
+| requirements | text | Requirements/eligibility criteria |
+| what_it_unlocks | text | What the program unlocks for partners |
+| notes | text | Additional notes |
 | lifecycle_type | text | |
 | lifecycle_duration | text | |
-| url | text | Program documentation URL |
 | airtable_record_id | text UNIQUE | |
 | created_at / updated_at | timestamptz | |
 
@@ -76,6 +76,9 @@ Shared calendar anchors: conferences, summits, workshops, partner days.
 | host | text | |
 | geo | text | Geographic region: NAMER, EMEA, APJ, LATAM, Global |
 | source | text | "seed", "email_extracted", or "user_created" |
+| sponsor_option | boolean | Sponsorship opportunity available |
+| partner_day | boolean | Has a partner day component |
+| partner_day_date | date | Date of partner day (if applicable) |
 | verified | boolean DEFAULT false | |
 | airtable_record_id | text UNIQUE | |
 | created_at / updated_at | timestamptz | |
@@ -116,9 +119,13 @@ The core entity. A trackable workstream with a partner, created and evolved by A
 | name | text NOT NULL | AI-generated, user-editable |
 | partner_id | uuid FK→partners | |
 | partner_name | text | Denormalized; used when partner_id is null |
-| status | text NOT NULL | active, planned, archived |
+| status | text NOT NULL | active, blocked, completed, archived |
 | current_state | text | Living summary — updated with each new email |
 | pillar | text | Co-Sell, Co-Market, Co-Build |
+| program_id | uuid FK→programs | Direct link to program (if applicable) |
+| topic | text | What the engagement is about |
+| goal | text | What success looks like |
+| engagement_type | text | Taxonomy TBD from real data patterns |
 | tags | jsonb | Freeform string array — the escape valve for anything that doesn't fit the entity model |
 | closed_at | timestamptz | |
 | airtable_record_id | text UNIQUE | |

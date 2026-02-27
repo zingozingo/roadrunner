@@ -1775,3 +1775,73 @@ Next.js 14 App Router + TypeScript + Tailwind. Supabase Postgres for data. Singl
 **Rationale:** The UI is for the human correction loop, not for Claude. Better data → better matching → fewer inbox items. Without the UI, users can't see or fix wrong topics/goals.
 
 **Impact:** Highest-leverage next step for classification accuracy improvement.
+
+## 2026-02-26: Email-Only Entity Creation
+
+**Decision:** Engagements can only be created via email classification (auto or inbox-confirmed). Meetings can only be created via ICS parsing. Manual create UI removed from both.
+
+**Context:** Two code paths (manual + automated) meant two validation paths, two ways data could be inconsistent. Manual creation allowed records without email context.
+
+**Rationale:** Single pipeline = single validation path. Human role shifts from creator to curator. Users who want to pre-create can forward themselves an email, which hits the same pipeline.
+
+**Impact:** CreateEngagementForm deleted, MeetingsClient create form stripped. API POST routes kept (classifier + inbox + ICS still use them). ~390 lines removed.
+
+## 2026-02-26: Engagement Status Simplified to 4 Values
+
+**Decision:** Engagement status is now: active, blocked, completed, archived. "Planned" removed.
+
+**Context:** With email-only creation, nothing enters as "planned" — it's already active the moment classification creates it.
+
+**Rationale:** Every status must be reachable through normal system flow. "Planned" required manual creation which no longer exists.
+
+**Impact:** CHECK constraint updated (migration 042), TypeScript types updated, all UI selectors updated, AT single select options updated by Steven.
+
+## 2026-02-26: Meeting Status Simplified to 3 Values
+
+**Decision:** Meeting status is now: scheduled, completed, did_not_occur. All lowercase. "Planned" removed.
+
+**Context:** With ICS-only creation, meetings enter as "scheduled". Old values (Scheduling, Invites Sent, Confirmed) were aspirational workflow stages that were never implemented.
+
+**Rationale:** Status should reflect reality, not workflow aspirations. Three clear states cover all cases.
+
+**Impact:** CHECK constraint updated (migration 041), data migrated (old values → new), ICS parser default changed to "scheduled", TypeScript types updated, all UI components updated.
+
+## 2026-02-26: Programs Schema Cleanup
+
+**Decision:** Renamed eligibility→requirements, dropped url and status columns, added what_it_unlocks and notes.
+
+**Context:** Field contract audit revealed naming mismatch (AT calls it Requirements, RR called it eligibility), ghost columns (url/status removed from AT), and missing catalog fields.
+
+**Rationale:** Column names should match the authoritative source. Ghost columns create confusion. Catalog sync should be complete.
+
+**Impact:** Migration 041, 16 TypeScript files updated, sync mapping updated, prompt-builder updated.
+
+## 2026-02-26: Events Schema Expansion
+
+**Decision:** Added sponsor_option (boolean), partner_day (boolean), partner_day_date (date) to events table.
+
+**Context:** These fields exist in Airtable but were never synced to Roadrunner.
+
+**Rationale:** Complete catalog sync — classifier needs event context including partner day and sponsorship info.
+
+**Impact:** Migration 041, Event interface updated, syncEvents mapping updated.
+
+## 2026-02-26: Engagement Date Fields Removed
+
+**Decision:** Removed start_date and target_completion from engagements table and contract.
+
+**Context:** Fields were in AT (hidden) and were initially added to RR in migration 041. Steven decided they're clutter.
+
+**Rationale:** Engagements are email-driven activity streams, not projects with deadlines. created_at is the real start date. Message/meeting timestamps tell the real timeline.
+
+**Impact:** Migration 042 drops columns, TypeScript interface updated, AT fields deleted by Steven.
+
+## 2026-02-26: Engagement program_id FK Added
+
+**Decision:** Added program_id UUID FK on engagements table referencing programs(id).
+
+**Context:** Meetings already had program_id. Engagements linked to programs only through entity_links (generic many-to-many) which couldn't sync cleanly to AT.
+
+**Rationale:** Direct FK mirrors the meetings pattern, enables clean sync of engagement→program link to AT's Program linked record field.
+
+**Impact:** Migration 041, Engagement interface updated. Sync push not yet wired (Chunk 5 TODO).
