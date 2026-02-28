@@ -162,8 +162,8 @@ Catalog tables are read from Airtable into Roadrunner. Activity tables are writt
 3. `title + meeting_date` — fallback for manually-created Airtable records
 
 **Airtable-only fields (not synced by Roadrunner):**
-- Meeting Type (`fldGWa1MFoqoc89qC`) — singleSelect: Executive Meeting, Specialized Meeting, GTM Meeting, Product Team Relationship. Manual classification in AT; `meeting_type` DB column dropped in migration 046.
-- Cadence — manual AT field for recurring meeting frequency.
+- Meeting Type (`fldGWa1MFoqoc89qC`) — singleSelect: Partner Cadence Call, Co-Build Cadence, Co-Market Cadence, SCA Review, QBR, Product Team Sync, Co-Sell Cadence, Co-Sell Strategy, Executive Meeting. Manual classification in AT; `meeting_type` DB column dropped in migration 046.
+- Cadence — planned AT field for recurring meeting frequency (not yet created in Airtable).
 - Notes (`fldzGUipu36EA9rax`) — manual scratch space.
 
 **Meeting types supported:**
