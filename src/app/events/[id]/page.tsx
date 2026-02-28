@@ -16,7 +16,7 @@ import {
   resolveEntityLinkNames,
   getMeetingsByEvent,
   getLinkedEngagementsForEntity,
-} from "@/lib/supabase";
+} from "@/lib/db";
 
 function formatDateDisplay(start: string | null, end: string | null): string {
   if (!start) return "Date TBD";

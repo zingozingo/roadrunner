@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { parseForwardedEmail, parseSenderField, stripExternalTag } from "@/lib/email-parser";
-import { storeMessages, createMeetingFromICS } from "@/lib/supabase";
+import { storeMessages, createMeetingFromICS } from "@/lib/db";
 import { extractICSFromAttachments, parseICSContent } from "@/lib/ics-parser";
 import { processSingleMessage } from "@/lib/classifier";
 import { stripPRVS, isUserEmail, USER_CONFIG } from "@/lib/user-config";

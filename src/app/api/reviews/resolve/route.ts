@@ -4,7 +4,7 @@ import {
   resolveApproval,
   createEngagement,
   linkMeetingToEngagement,
-} from "@/lib/supabase";
+} from "@/lib/db";
 import { persistClassificationResult, runPhase2ForResolve } from "@/lib/classifier";
 import type { ApprovalQueueItem, CombinedClassificationResult, Engagement, Message, Phase1Result } from "@/lib/types";
 

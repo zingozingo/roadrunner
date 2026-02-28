@@ -17,7 +17,7 @@ import {
   getEntityLinksForEntity,
   resolveEntityLinkNames,
   getAwsRelationshipsByEngagement,
-} from "@/lib/supabase";
+} from "@/lib/db";
 import { formatFooterDate } from "@/lib/format-utils";
 import type { TimelineItem } from "@/lib/types";
 

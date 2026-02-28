@@ -6,7 +6,7 @@ import EmptyState from "@/components/layout/EmptyState";
 import StatusBadge from "@/components/shared/StatusBadge";
 import PillarBadge from "@/components/shared/PillarBadge";
 import { formatFooterDate } from "@/lib/format-utils";
-import { getEngagementsWithMessageCounts } from "@/lib/supabase";
+import { getEngagementsWithMessageCounts } from "@/lib/db";
 import { Engagement } from "@/lib/types";
 
 const statusOrder: Record<string, number> = {

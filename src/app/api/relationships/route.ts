@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAwsRelationshipsWithCounts } from "@/lib/supabase";
+import { getAwsRelationshipsWithCounts } from "@/lib/db";
 
 export async function GET() {
   try {

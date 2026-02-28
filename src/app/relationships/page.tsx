@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { getAwsRelationshipsWithCounts } from "@/lib/supabase";
+import { getAwsRelationshipsWithCounts } from "@/lib/db";
 import RelationshipsClient from "./RelationshipsClient";
 
 export default async function RelationshipsPage() {

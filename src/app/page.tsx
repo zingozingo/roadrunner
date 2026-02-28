@@ -9,7 +9,7 @@ import {
   getUnresolvedApprovalCount,
   getAllEngagements,
   getAllEventsWithCounts,
-} from "@/lib/supabase";
+} from "@/lib/db";
 
 function formatShortDate(dateStr: string): string {
   return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {

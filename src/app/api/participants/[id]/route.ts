@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getParticipantById, updateParticipant } from "@/lib/supabase";
+import { getParticipantById, updateParticipant } from "@/lib/db";
 
 export async function PUT(
   request: NextRequest,

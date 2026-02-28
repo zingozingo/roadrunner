@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAllProgramsWithCounts } from "@/lib/supabase";
+import { getAllProgramsWithCounts } from "@/lib/db";
 
 export async function GET() {
   try {

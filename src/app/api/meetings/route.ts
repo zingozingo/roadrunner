@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMeetingsWithEngagements, createMeeting } from "@/lib/supabase";
+import { getMeetingsWithEngagements, createMeeting } from "@/lib/db";
 
 const VALID_STATUSES = new Set([
   "scheduled",

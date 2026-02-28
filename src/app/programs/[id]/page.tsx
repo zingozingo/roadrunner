@@ -13,7 +13,7 @@ import {
   getProgramById,
   getMeetingsByProgram,
   getLinkedEngagementsForEntity,
-} from "@/lib/supabase";
+} from "@/lib/db";
 
 export default async function ProgramDetailPage({
   params,

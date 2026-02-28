@@ -16,7 +16,7 @@ import {
   backfillMessageSenderNames,
   linkMeetingToEngagement,
   linkEngagementAwsRelationship,
-} from "./supabase";
+} from "./db";
 import {
   ClassificationResult,
   CombinedClassificationResult,

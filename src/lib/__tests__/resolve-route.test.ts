@@ -39,7 +39,7 @@ const {
   };
 });
 
-vi.mock("@/lib/supabase", () => ({
+vi.mock("@/lib/db", () => ({
   getSupabaseClient: vi.fn().mockReturnValue({ from: mockFrom }),
   resolveApproval: mockResolveApproval,
   createEngagement: mockCreateEngagement,

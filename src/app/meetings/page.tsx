@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { getMeetingsWithEngagements } from "@/lib/supabase";
+import { getMeetingsWithEngagements } from "@/lib/db";
 import MeetingsClient from "./MeetingsClient";
 
 export default async function MeetingsPage() {

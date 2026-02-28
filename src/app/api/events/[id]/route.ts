@@ -4,7 +4,7 @@ import {
   getLinkedEngagementsForEntity,
   updateEvent,
   deleteEvent,
-} from "@/lib/supabase";
+} from "@/lib/db";
 import { Event } from "@/lib/types";
 
 const VALID_TYPES = new Set<Event["type"]>([

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { messageFingerprint } from "../supabase";
+import { messageFingerprint } from "../db";
 import { ParsedMessage } from "../types";
 
 function makeParsedMessage(overrides: Partial<ParsedMessage> = {}): ParsedMessage {

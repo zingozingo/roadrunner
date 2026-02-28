@@ -6,7 +6,7 @@ import DetailHeader from "@/components/shared/DetailHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import MeetingTimeline from "@/components/shared/MeetingTimeline";
 import ExpandableList from "@/components/shared/ExpandableList";
-import { getPartner, getSupabaseClient, getAwsRelationshipsByPartner } from "@/lib/supabase";
+import { getPartner, getSupabaseClient, getAwsRelationshipsByPartner } from "@/lib/db";
 import type { Engagement, Meeting } from "@/lib/types";
 
 export default async function PartnerDetailPage({

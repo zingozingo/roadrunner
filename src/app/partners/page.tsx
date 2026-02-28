@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { getPartners } from "@/lib/supabase";
+import { getPartners } from "@/lib/db";
 import PartnersClient from "./PartnersClient";
 
 export default async function PartnersPage() {

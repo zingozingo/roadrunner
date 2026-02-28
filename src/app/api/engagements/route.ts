@@ -3,7 +3,7 @@ import {
   getEngagementsWithMessageCounts,
   createEngagement,
   updateEngagement,
-} from "@/lib/supabase";
+} from "@/lib/db";
 
 export async function GET() {
   try {

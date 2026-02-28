@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deleteParticipantLink } from "@/lib/supabase";
+import { deleteParticipantLink } from "@/lib/db";
 
 export async function DELETE(
   _request: NextRequest,

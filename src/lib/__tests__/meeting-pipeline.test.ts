@@ -23,7 +23,7 @@ vi.mock("../sync", () => ({
   pushMeetingToAirtable: vi.fn().mockResolvedValue({ action: "created" }),
 }));
 
-import { createMeetingFromICS, matchPartnerFromAttendees } from "../supabase";
+import { createMeetingFromICS, matchPartnerFromAttendees } from "../db/meetings";
 
 // ============================================================
 // Helpers

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getEngagementById, createParticipantWithLink } from "@/lib/supabase";
+import { getEngagementById, createParticipantWithLink } from "@/lib/db";
 
 export async function POST(
   request: NextRequest,

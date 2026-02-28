@@ -1,5 +1,5 @@
 import type { Message, Meeting, Partner, Engagement, Phase1Result } from "./types";
-import { getActiveEngagements, getPartners, getSupabaseClient } from "./supabase";
+import { getActiveEngagements, getPartners, getSupabaseClient } from "./db";
 import { buildEmailSection } from "./prompt-builder";
 import { USER_CONFIG } from "./user-config";
 

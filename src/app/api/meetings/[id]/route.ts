@@ -4,7 +4,7 @@ import {
   getAwsRelationshipsByMeeting,
   updateMeeting,
   deleteMeeting,
-} from "@/lib/supabase";
+} from "@/lib/db";
 
 const VALID_STATUSES = new Set([
   "scheduled",
@@ -34,7 +34,7 @@ export async function GET(
     let engagementName: string | null = null;
     let eventName: string | null = null;
     if (meeting.engagement_id || meeting.event_id) {
-      const { getEngagementById, getEventById } = await import("@/lib/supabase");
+      const { getEngagementById, getEventById } = await import("@/lib/db");
       if (meeting.engagement_id) {
         const eng = await getEngagementById(meeting.engagement_id);
         engagementName = eng?.name ?? null;

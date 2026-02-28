@@ -158,7 +158,7 @@ vi.mock("../phase2-prompt", () => ({
   buildPhase2Context: mockBuildPhase2Context,
 }));
 
-vi.mock("../supabase", () => ({
+vi.mock("../db", () => ({
   getSupabaseClient: vi.fn().mockReturnValue({ from: mockFrom }),
   getUnclassifiedMessages: mockGetUnclassifiedMessages,
   getEngagementHistory: mockGetEngagementHistory,

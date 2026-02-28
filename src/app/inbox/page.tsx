@@ -1,6 +1,6 @@
 import PageHeader from "@/components/layout/PageHeader";
 import InboxClient from "@/components/inbox/InboxClient";
-import { getUnresolvedApprovals } from "@/lib/supabase";
+import { getUnresolvedApprovals } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 

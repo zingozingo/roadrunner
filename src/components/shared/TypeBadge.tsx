@@ -62,12 +62,14 @@ export function RelationshipTypeBadge({ type }: { type: RelationshipType | null 
 const meetingStatusColors: Record<MeetingStatus, string> = {
   scheduled: "bg-blue-500/20 text-blue-400",
   completed: "bg-cyan-500/20 text-cyan-400",
+  cancelled: "bg-amber-500/20 text-amber-400",
   did_not_occur: "bg-red-500/20 text-red-400",
 };
 
 const meetingStatusLabels: Record<MeetingStatus, string> = {
   scheduled: "Scheduled",
   completed: "Completed",
+  cancelled: "Cancelled",
   did_not_occur: "Did Not Occur",
 };
 

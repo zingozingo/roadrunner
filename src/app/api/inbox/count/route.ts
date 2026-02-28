@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getUnresolvedApprovalCount } from "@/lib/supabase";
+import { getUnresolvedApprovalCount } from "@/lib/db";
 
 export async function GET() {
   try {

@@ -13,7 +13,7 @@ import {
   getAwsRelationship,
   getEngagementsByAwsRelationship,
   getMeetingsByAwsRelationship,
-} from "@/lib/supabase";
+} from "@/lib/db";
 
 export default async function RelationshipDetailPage({
   params,

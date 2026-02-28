@@ -12,7 +12,7 @@ import {
   deleteRecord,
   type AirtableRecord,
 } from "./airtable";
-import { getSupabaseClient } from "./supabase";
+import { getSupabaseClient } from "./db";
 import { isUserEmail } from "./user-config";
 
 // ── Airtable table IDs ──────────────────────────────────────

@@ -4,7 +4,7 @@ import {
   getLinkedEngagementsForEntity,
   updateProgram,
   deleteProgram,
-} from "@/lib/supabase";
+} from "@/lib/db";
 
 export async function GET(
   _request: NextRequest,

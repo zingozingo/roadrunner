@@ -11,7 +11,7 @@ const { mockFrom } = vi.hoisted(() => {
   };
 });
 
-vi.mock("../supabase", () => ({
+vi.mock("../db", () => ({
   getSupabaseClient: () => ({
     from: mockFrom,
   }),

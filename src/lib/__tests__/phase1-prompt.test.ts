@@ -23,7 +23,7 @@ const {
   };
 });
 
-vi.mock("../supabase", () => ({
+vi.mock("../db", () => ({
   getActiveEngagements: mockGetActiveEngagements,
   getPartners: mockGetPartners,
   getSupabaseClient: vi.fn().mockReturnValue({ from: mockFrom }),

@@ -9,7 +9,7 @@ import {
   getActivePrograms,
   getAwsRelationships,
   getPartner,
-} from "@/lib/supabase";
+} from "@/lib/db";
 import type { Message } from "@/lib/types";
 
 /**

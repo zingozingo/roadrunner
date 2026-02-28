@@ -3,7 +3,7 @@ import {
   getAwsRelationship,
   getEngagementsByAwsRelationship,
   updateAwsRelationship,
-} from "@/lib/supabase";
+} from "@/lib/db";
 
 export async function GET(
   _request: NextRequest,

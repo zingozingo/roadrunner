@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { processUnclassifiedMessages } from "@/lib/classifier";
-import { getUnclassifiedMessages } from "@/lib/supabase";
+import { getUnclassifiedMessages } from "@/lib/db";
 
 /**
  * POST /api/classify

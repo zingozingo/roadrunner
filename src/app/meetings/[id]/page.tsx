@@ -12,7 +12,7 @@ import {
   getEventById,
   getProgramById,
   getPartner,
-} from "@/lib/supabase";
+} from "@/lib/db";
 import { cleanMeetingTitle, formatFooterDate } from "@/lib/format-utils";
 import type { MeetingAttendee } from "@/lib/types";
 

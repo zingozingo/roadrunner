@@ -1,4 +1,4 @@
-import { getSupabaseClient } from "./supabase";
+import { getSupabaseClient } from "./db";
 import type { Participant, AwsRelationship, Partner } from "./types";
 
 // ============================================================
