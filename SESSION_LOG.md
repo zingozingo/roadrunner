@@ -2133,3 +2133,42 @@ Next.js 14 App Router + TypeScript + Tailwind. Supabase Postgres for data. Singl
 **Rationale:** After finding two stale field IDs in one session, a comprehensive audit was warranted. All 29 IDs cross-referenced against live AT API. Zero additional mismatches found.
 
 **Impact:** Meeting partner links now sync to Airtable. All field IDs verified correct. FIELD-MAPPING.md updated.
+
+---
+
+## 2026-02-28: Meeting Pipeline Refactor (Steps 1-6)
+
+**Decision:** Comprehensive meeting pipeline overhaul across 6 steps, touching ICS parser → meeting creation → sync → resolve linking → classifier enrichment → cleanup.
+
+### Step 1: ICS Parser Enhancement
+Extracted METHOD, STATUS, SEQUENCE, RRULE, and organizer name from ICS content. Added `is_cancellation` derived flag (METHOD=CANCEL or STATUS=CANCELLED). 18 → 31 ICS parser tests.
+
+### Step 2: createMeetingFromICS Three-Scenario Refactor
+Refactored from simple insert to three-path flow: **new** (insert with partner matching), **cancel** (update existing to cancelled status), **update** (sequence-aware upsert — rejects stale updates where sequence < stored). Deterministic partner matching via `matchPartnerFromAttendees()` extracts attendee email domains and matches against partner catalog. Migration 046 added `sequence` (integer) and `is_recurring` (boolean) columns, added 'cancelled' to status CHECK, dropped `meeting_type` column.
+
+### Step 3: Meeting Status Case Mapping
+DB stores lowercase (`scheduled`, `completed`, `cancelled`, `did_not_occur`). Sync maps to title case (`Scheduled`, `Completed`, `Cancelled`, `Did Not Occur`) via `MEETING_STATUS_MAP` for Airtable singleSelect compatibility. Removed `meeting_type` from sync — now Airtable-only manual field.
+
+### Step 4: Meeting Linking in Resolve Route
+Discovered `linkMeetingToEngagement()` was already called in the resolve route for both `confirm` and `assign_existing` actions. Added 4 tests verifying: meeting invite confirmed → linked, meeting invite assigned → linked to new engagement, regular email → not linked, discard → not linked.
+
+### Step 5: Structured Meeting Data for Classifier
+Phase 1 now queries meeting records by `message_id` (meeting exists before classification runs) and appends structured attendee list + partner hint from ICS domain matching. Phase 2 linked meetings enriched from one-line summary (attendee count) to full attendee names/emails, organizer, and recurring flag. New `buildMeetingHint()` in phase1-prompt.ts, new `buildNewMeetingData()` in phase2-prompt.ts.
+
+### Step 6: Cleanup
+Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from prompt-builder.ts (superseded by Phase 1's compact builders). Removed 5 associated tests and unused type imports. Updated FIELD-MAPPING.md with new DB columns, status contract, Airtable-only fields, and partner matching note.
+
+### Key Decisions
+- **meeting_type and cadence are Airtable-only manual fields** — not synced from DB, not part of classification output. Taxonomy TBD from real usage patterns.
+- **Meeting status contract:** DB lowercase → `MEETING_STATUS_MAP` → AT title case. Single source of truth for the mapping.
+- **Partner matching before classification:** `createMeetingFromICS` resolves `partner_id` from attendee domains before classifier runs, enabling deterministic matching instead of fuzzy text inference.
+- **Sequence-aware upserts:** ICS updates with sequence < stored sequence are rejected as stale, preventing out-of-order calendar updates from overwriting newer data.
+
+### Migration 046
+- Added `cancelled` to meetings status CHECK constraint
+- Dropped `meeting_type` column
+- Added `sequence` (integer, nullable) column
+- Added `is_recurring` (boolean, default false) column
+
+### Test Progression
+370 → 374 (resolve route) → 384 (classifier enrichment) → 379 (cleanup: -5 dead tests)

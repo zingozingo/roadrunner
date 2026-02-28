@@ -1,31 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
   buildForwarderSection,
-  buildEngagementsSection,
   buildEventsSection,
   buildProgramsSection,
-  buildPartnersSection,
   buildRelationshipsSection,
   buildEmailSection,
 } from "../prompt-builder";
-import type { Engagement, Event, Program, Partner, AwsRelationship, Message } from "../types";
-
-const ENGAGEMENT: Engagement = {
-  id: "eng-001",
-  name: "CyberShield - Security Review",
-  status: "active",
-  current_state: "Pursuing Security Competency.",
-  topic: null,
-  goal: null,
-  engagement_type: null,
-  partner_name: "CyberShield",
-  partner_id: null,
-  pillar: "Co-Build",
-  airtable_record_id: null,
-  created_at: "2025-01-15T00:00:00Z",
-  updated_at: "2025-02-01T00:00:00Z",
-  closed_at: null,
-};
+import type { Event, Program, AwsRelationship, Message } from "../types";
 
 const EVENT: Event = {
   id: "evt-001",
@@ -55,29 +36,6 @@ const PROGRAM: Program = {
   lifecycle_duration: null,
   airtable_record_id: null,
   created_at: "2025-01-01T00:00:00Z",
-};
-
-const PARTNER: Partner = {
-  id: "partner-001",
-  name: "CyberShield",
-  segment: "security",
-  focus_area: [],
-  alliance_lead: "Steven Romero",
-  alliance_lead_email: "sterme@amazon.com",
-  psa: null,
-  psa_email: null,
-  account_manager: null,
-  account_manager_email: null,
-  pmm: null,
-  pmm_email: null,
-  spms_id: null,
-  partner_contact_emails: ["alice@cybershield.com", "bob@cybershield.com"],
-  aws_stickiness: null,
-  key_aws_services: [],
-  what_they_do: null,
-  airtable_record_id: null,
-  created_at: "2025-01-01T00:00:00Z",
-  updated_at: "2025-01-01T00:00:00Z",
 };
 
 const RELATIONSHIP: AwsRelationship = {
@@ -140,23 +98,6 @@ describe("buildForwarderSection", () => {
   });
 });
 
-describe("buildEngagementsSection", () => {
-  it("renders engagement with partner and pillar", () => {
-    const result = buildEngagementsSection([ENGAGEMENT]);
-    expect(result).toContain("CyberShield - Security Review");
-    expect(result).toContain("eng-001");
-    expect(result).toContain("Partner: CyberShield");
-    expect(result).toContain("Pillar: Co-Build");
-    expect(result).toContain("Current state: Pursuing Security Competency.");
-  });
-
-  it("shows 'None yet' for empty list", () => {
-    const result = buildEngagementsSection([]);
-    expect(result).toContain("None yet.");
-  });
-
-});
-
 describe("buildEventsSection", () => {
   it("renders event with dates and host", () => {
     const result = buildEventsSection([EVENT]);
@@ -182,27 +123,6 @@ describe("buildProgramsSection", () => {
 
   it("shows 'None yet' for empty list", () => {
     expect(buildProgramsSection([])).toContain("None yet.");
-  });
-});
-
-describe("buildPartnersSection", () => {
-  it("renders partner with domains extracted from contact emails", () => {
-    const result = buildPartnersSection([PARTNER]);
-    expect(result).toContain("CyberShield");
-    expect(result).toContain("partner-001");
-    expect(result).toContain("cybershield.com");
-    expect(result).toContain("Lead: Steven Romero");
-  });
-
-  it("deduplicates domains", () => {
-    const result = buildPartnersSection([PARTNER]);
-    // Two emails with same domain should produce one domain entry
-    const matches = result.match(/cybershield\.com/g);
-    expect(matches?.length).toBe(1);
-  });
-
-  it("shows 'None yet' for empty list", () => {
-    expect(buildPartnersSection([])).toContain("None yet.");
   });
 });
 

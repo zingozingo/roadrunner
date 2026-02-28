@@ -1,6 +1,6 @@
 # Roadrunner ↔ Airtable Field Mapping Guide
 
-> **Last updated:** 2026-02-27
+> **Last updated:** 2026-02-28
 > **Airtable Base:** Steven Partners 2026 MCP (`appy9TT1LRJTAuQ4W`)
 
 ## How the Sync Works
@@ -141,8 +141,7 @@ Catalog tables are read from Airtable into Roadrunner. Activity tables are writt
 | Meeting Name | `fldcbatIDunJ00dLp` | singleLineText | `MF.meetingName` | **Primary field.** Was formula, converted to writable text 2026-02-18. RR writes `meeting.title`. |
 | Event | `fldT96Imgc7CFDBEX` | multipleRecordLinks | `MF.event` | Link to Events table |
 | Partner | `fldubdX4ZYXFQ2sIZ` | multipleRecordLinks | `MF.partner` | Link to Partners table. **Fixed field ID 2026-02-27** (was stale `fldZjCUMpBtgpU13X`). |
-| Meeting Type | `fldGWa1MFoqoc89qC` | singleSelect | `MF.meetingType` | Executive Meeting, Specialized Meeting, GTM Meeting, Product Team Relationship |
-| Status | `fldpXlLugkUgQsjcr` | singleSelect | `MF.status` | Scheduling, Invites Sent, Confirmed, Completed, Did Not Occur |
+| Status | `fldpXlLugkUgQsjcr` | singleSelect | `MF.status` | Scheduled, Completed, Cancelled, Did Not Occur. DB stores lowercase; sync maps via `MEETING_STATUS_MAP` to title case. |
 | Meeting Date | `fldx9ZrIMundEMUko` | date | `MF.meetingDate` | |
 | AWS Contact(s) | `fldOVCmwhiisY8bDo` | singleLineText | `MF.awsContacts` | Text from attendee split (system addresses filtered) |
 | Partner Contact(s) | `fldJira79g9xWNTte` | singleLineText | `MF.partnerContacts` | Text from attendee split (system addresses filtered) |
@@ -162,10 +161,17 @@ Catalog tables are read from Airtable into Roadrunner. Activity tables are writt
 2. `roadrunnerId` — Roadrunner UUID match
 3. `title + meeting_date` — fallback for manually-created Airtable records
 
+**Airtable-only fields (not synced by Roadrunner):**
+- Meeting Type (`fldGWa1MFoqoc89qC`) — singleSelect: Executive Meeting, Specialized Meeting, GTM Meeting, Product Team Relationship. Manual classification in AT; `meeting_type` DB column dropped in migration 046.
+- Cadence — manual AT field for recurring meeting frequency.
+- Notes (`fldzGUipu36EA9rax`) — manual scratch space.
+
 **Meeting types supported:**
 - **Event meetings** — linked to Event + Partner (re:Invent, summits)
 - **Program meetings** — linked to Program + Partner (competency reviews, program calls)
 - **Standalone engagement meetings** — linked to Engagement + Partner only (general partner calls)
+
+**Partner matching:** `createMeetingFromICS()` deterministically matches attendee email domains against the partner catalog before classification runs. This `partner_id` is also passed as a hint to the classifier for higher-confidence engagement matching.
 
 ---
 
@@ -183,15 +189,16 @@ For reference, the Supabase `meetings` table columns and their Airtable counterp
 | `partner_name` | text | — | Legacy; used for partner matching when partner_id is null |
 | `program_id` | uuid FK→programs | Program (`MF.program`) | **New migration 032.** Resolved to AT record ID |
 | `message_id` | uuid FK→messages | — | Links meeting to source email; not synced to AT |
-| `meeting_type` | text | Meeting Type (`MF.meetingType`) | |
-| `status` | text NOT NULL | Status (`MF.status`) | CHECK: 5 values |
+| `status` | text NOT NULL | Status (`MF.status`) | CHECK: scheduled, completed, cancelled, did_not_occur. Mapped to title case for AT via `MEETING_STATUS_MAP`. |
 | `meeting_date` | date | Meeting Date (`MF.meetingDate`) | |
 | `start_time` | text | Start Time (`MF.startTime`) | |
 | `end_time` | text | End Time (`MF.endTime`) | |
 | `location` | text | Location (`MF.location`) | |
-| `organizer_email` | text | — | Not synced to AT |
+| `organizer_email` | text | — | Not synced to AT. Extracted from ICS ORGANIZER. |
 | `attendees` | jsonb | AWS/Partner Contact(s) split | Array of {name, email}; split into two text fields |
-| `ics_uid` | text UNIQUE | ICS UID (`MF.icsUid`) | |
+| `ics_uid` | text UNIQUE | ICS UID (`MF.icsUid`) | Calendar event unique ID for dedup/update |
+| `sequence` | integer | — | ICS SEQUENCE number for update ordering. Stale updates (lower sequence) rejected. |
+| `is_recurring` | boolean | — | True if ICS contains RRULE. Not synced to AT. |
 | `source` | text NOT NULL | Source (`MF.source`) | "manual" or "ics_parsed" |
 | `notes` | text | — | Not synced to AT. Used for manual meetings only; ICS-parsed meetings leave null. |
 | `airtable_record_id` | text UNIQUE | — | AT record ID for sync matching |

@@ -1,8 +1,6 @@
 import type {
-  Engagement,
   Event,
   Program,
-  Partner,
   AwsRelationship,
   Message,
 } from "./types";
@@ -28,33 +26,6 @@ export function buildForwarderSection(forwarderNote?: string | null): string {
   if (forwarderNote) {
     lines.push("");
     lines.push(`**Forwarder Note:** ${forwarderNote}`);
-  }
-
-  lines.push("");
-  return lines.join("\n");
-}
-
-export function buildEngagementsSection(engagements: Engagement[]): string {
-  const lines: string[] = ["### Active Engagements"];
-
-  if (engagements.length === 0) {
-    lines.push("None yet.\n");
-    return lines.join("\n");
-  }
-
-  for (const eng of engagements) {
-    const parts = [`- **${eng.name}** (id: ${eng.id})`];
-    if (eng.partner_name) parts.push(`Partner: ${eng.partner_name}`);
-    if (eng.pillar) parts.push(`Pillar: ${eng.pillar}`);
-
-    let line = parts[0];
-    if (parts.length > 1) {
-      line += ` — ${parts.slice(1).join(" | ")}`;
-    }
-    if (eng.current_state) {
-      line += `\n  Current state: ${eng.current_state}`;
-    }
-    lines.push(line);
   }
 
   lines.push("");
@@ -96,42 +67,6 @@ export function buildProgramsSection(programs: Program[]): string {
     let line = `- **${prog.name}** (id: ${prog.id}${typeStr})`;
     if (prog.description) line += ` — ${prog.description}`;
     if (prog.requirements) line += ` [Requirements: ${prog.requirements}]`;
-    lines.push(line);
-  }
-
-  lines.push("");
-  return lines.join("\n");
-}
-
-export function buildPartnersSection(partners: Partner[]): string {
-  const lines: string[] = ["### Partner Catalog"];
-
-  if (partners.length === 0) {
-    lines.push("None yet.\n");
-    return lines.join("\n");
-  }
-
-  for (const p of partners) {
-    const parts = [`- **${p.name}** (id: ${p.id})`];
-    if (p.segment) parts.push(`Segment: ${p.segment}`);
-    if (p.alliance_lead) parts.push(`Lead: ${p.alliance_lead}`);
-
-    // Extract domains from partner contact emails for email↔partner matching
-    if (p.partner_contact_emails && p.partner_contact_emails.length > 0) {
-      const domains = [
-        ...new Set(
-          p.partner_contact_emails
-            .map((e) => e.split("@")[1]?.toLowerCase())
-            .filter(Boolean)
-        ),
-      ];
-      if (domains.length > 0) parts.push(`Domains: ${domains.join(", ")}`);
-    }
-
-    let line = parts[0];
-    if (parts.length > 1) {
-      line += ` — ${parts.slice(1).join(" | ")}`;
-    }
     lines.push(line);
   }
 
