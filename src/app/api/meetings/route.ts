@@ -1,16 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMeetingsWithEngagements, createMeeting } from "@/lib/supabase";
 
-const VALID_TYPES = new Set([
-  "Executive Meeting",
-  "GTM Meeting",
-  "Product Team Relationship",
-  "Specialized Meeting",
-]);
-
 const VALID_STATUSES = new Set([
   "scheduled",
   "completed",
+  "cancelled",
   "did_not_occur",
 ]);
 
@@ -30,18 +24,11 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { title, engagement_id, event_id, program_id, partner_name, meeting_type, status, meeting_date, start_time, end_time, location, attendees, notes } = body;
+    const { title, engagement_id, event_id, program_id, partner_name, status, meeting_date, start_time, end_time, location, attendees, notes } = body;
 
     if (!title || typeof title !== "string" || !title.trim()) {
       return NextResponse.json(
         { error: "Title is required" },
-        { status: 400 }
-      );
-    }
-
-    if (meeting_type && !VALID_TYPES.has(meeting_type)) {
-      return NextResponse.json(
-        { error: `Invalid meeting type "${meeting_type}"` },
         { status: 400 }
       );
     }
@@ -66,7 +53,6 @@ export async function POST(request: NextRequest) {
       event_id: event_id || null,
       program_id: program_id || null,
       partner_name: partner_name?.trim() || null,
-      meeting_type: meeting_type || null,
       status: status || "scheduled",
       meeting_date: meeting_date || null,
       start_time: start_time?.trim() || null,

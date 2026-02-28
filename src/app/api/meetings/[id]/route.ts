@@ -6,16 +6,10 @@ import {
   deleteMeeting,
 } from "@/lib/supabase";
 
-const VALID_TYPES = new Set([
-  "Executive Meeting",
-  "GTM Meeting",
-  "Product Team Relationship",
-  "Specialized Meeting",
-]);
-
 const VALID_STATUSES = new Set([
   "scheduled",
   "completed",
+  "cancelled",
   "did_not_occur",
 ]);
 
@@ -68,18 +62,11 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { title, engagement_id, event_id, program_id, partner_name, meeting_type, status, meeting_date, start_time, end_time, location, attendees, notes } = body;
+    const { title, engagement_id, event_id, program_id, partner_name, status, meeting_date, start_time, end_time, location, attendees, notes } = body;
 
     if (title !== undefined && (typeof title !== "string" || !title.trim())) {
       return NextResponse.json(
         { error: "Title cannot be empty" },
-        { status: 400 }
-      );
-    }
-
-    if (meeting_type !== undefined && meeting_type !== null && !VALID_TYPES.has(meeting_type)) {
-      return NextResponse.json(
-        { error: `Invalid meeting type "${meeting_type}"` },
         { status: 400 }
       );
     }
@@ -112,7 +99,6 @@ export async function PUT(
     if (event_id !== undefined) updates.event_id = event_id || null;
     if (program_id !== undefined) updates.program_id = program_id || null;
     if (partner_name !== undefined) updates.partner_name = partner_name?.trim() || null;
-    if (meeting_type !== undefined) updates.meeting_type = meeting_type || null;
     if (status !== undefined) updates.status = status;
     if (meeting_date !== undefined) updates.meeting_date = meeting_date || null;
     if (start_time !== undefined) updates.start_time = start_time?.trim() || null;

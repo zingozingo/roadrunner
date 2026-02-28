@@ -260,7 +260,7 @@ export default async function MeetingDetailPage({
 
         {/* Compact footer */}
         <p className="mt-6 text-xs text-muted">
-          {meeting.meeting_type && <>{meeting.meeting_type} · </>}
+          {/* meeting_type removed — Airtable-only field */}
           {meeting.organizer_email && <>Organizer: {meeting.organizer_email} · </>}
           {event && (
             <>

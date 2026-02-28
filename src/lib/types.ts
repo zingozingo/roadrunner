@@ -102,7 +102,7 @@ export interface MeetingAttendee {
   email: string;
 }
 
-export type MeetingStatus = "scheduled" | "completed" | "did_not_occur";
+export type MeetingStatus = "scheduled" | "completed" | "cancelled" | "did_not_occur";
 
 export interface Meeting {
   id: string;
@@ -113,7 +113,6 @@ export interface Meeting {
   partner_name: string | null;
   partner_id: string | null;
   message_id: string | null;
-  meeting_type: string | null;
   status: MeetingStatus;
   meeting_date: string | null;
   start_time: string | null;
@@ -122,6 +121,8 @@ export interface Meeting {
   organizer_email: string | null;
   attendees: MeetingAttendee[];
   ics_uid: string | null;
+  sequence: number | null;
+  is_recurring: boolean;
   source: "manual" | "ics_parsed";
   notes: string | null;
   airtable_record_id: string | null;

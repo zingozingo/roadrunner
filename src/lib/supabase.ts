@@ -1589,7 +1589,6 @@ export async function createMeeting(data: {
   event_id?: string | null;
   program_id?: string | null;
   partner_name?: string | null;
-  meeting_type?: string | null;
   status?: string;
   meeting_date?: string | null;
   start_time?: string | null;
@@ -1616,7 +1615,6 @@ export async function createMeeting(data: {
       program_id: data.program_id ?? null,
       partner_name: data.partner_name ?? null,
       partner_id: partnerId,
-      meeting_type: data.meeting_type ?? null,
       status: data.status ?? "scheduled",
       meeting_date: data.meeting_date ?? null,
       start_time: data.start_time ?? null,
@@ -1649,7 +1647,6 @@ export async function updateMeeting(
     event_id?: string | null;
     program_id?: string | null;
     partner_name?: string | null;
-    meeting_type?: string | null;
     status?: string;
     meeting_date?: string | null;
     start_time?: string | null;
@@ -1782,8 +1779,77 @@ export async function getEngagementsWithMessageCounts(): Promise<
 // ============================================================
 
 /**
- * Create a meeting record from parsed ICS data.
- * Uses ON CONFLICT (ics_uid) DO NOTHING for natural dedup.
+ * Match a partner from meeting attendee email domains.
+ * Scans non-Amazon attendee domains against partner contact emails.
+ * Returns the partner if exactly one matches; null if zero or ambiguous.
+ */
+export async function matchPartnerFromAttendees(
+  attendees: MeetingAttendee[]
+): Promise<{ partner_id: string | null; partner_name: string | null }> {
+  const none = { partner_id: null, partner_name: null };
+  if (attendees.length === 0) return none;
+
+  // Collect unique non-Amazon domains from attendees
+  const attendeeDomains = new Set<string>();
+  for (const a of attendees) {
+    if (!a.email) continue;
+    const email = a.email.toLowerCase();
+    if (email.endsWith("@amazon.com") || email.endsWith("@amazon.co.uk")) continue;
+    const domain = email.split("@")[1];
+    if (domain) attendeeDomains.add(domain);
+  }
+  if (attendeeDomains.size === 0) return none;
+
+  const partners = await getPartners();
+  const matchedPartnerIds = new Set<string>();
+  const matchedPartnerMap = new Map<string, string>(); // id → name
+
+  for (const partner of partners) {
+    const partnerDomains = new Set<string>();
+    // Collect domains from partner contact emails
+    for (const emailField of [
+      partner.alliance_lead_email,
+      partner.psa_email,
+      partner.account_manager_email,
+      partner.pmm_email,
+    ]) {
+      if (emailField) {
+        const d = emailField.toLowerCase().split("@")[1];
+        // Skip amazon.com — PSA/AM/PMM are AWS staff, not partner domains
+        if (d && !d.endsWith("amazon.com") && !d.endsWith("amazon.co.uk")) {
+          partnerDomains.add(d);
+        }
+      }
+    }
+    for (const email of partner.partner_contact_emails ?? []) {
+      const d = email.toLowerCase().split("@")[1];
+      if (d) partnerDomains.add(d);
+    }
+
+    // Check if any attendee domain matches this partner
+    for (const ad of attendeeDomains) {
+      if (partnerDomains.has(ad)) {
+        matchedPartnerIds.add(partner.id);
+        matchedPartnerMap.set(partner.id, partner.name);
+        break;
+      }
+    }
+  }
+
+  if (matchedPartnerIds.size === 1) {
+    const id = [...matchedPartnerIds][0];
+    return { partner_id: id, partner_name: matchedPartnerMap.get(id) ?? null };
+  }
+
+  return none; // zero or ambiguous
+}
+
+/**
+ * Create or update a meeting record from parsed ICS data.
+ * Handles three scenarios:
+ *   (a) NEW meeting — insert with partner matching from attendees
+ *   (b) CANCELLATION — update existing meeting status to 'cancelled'
+ *   (c) UPDATE — sequence-aware update of existing meeting fields
  * Never throws — logs errors and returns null.
  */
 export async function createMeetingFromICS(
@@ -1793,46 +1859,122 @@ export async function createMeetingFromICS(
   try {
     const db = getSupabaseClient();
 
+    // Check for existing meeting by ics_uid
+    const { data: existing } = await db
+      .from("meetings")
+      .select("id, sequence")
+      .eq("ics_uid", parsed.ics_uid)
+      .maybeSingle();
+
+    // --- Scenario (b): Cancellation of existing meeting ---
+    if (existing && parsed.is_cancellation) {
+      const updates: Record<string, unknown> = { status: "cancelled" };
+      if (parsed.title !== undefined) updates.title = parsed.title;
+
+      const { error } = await db
+        .from("meetings")
+        .update(updates)
+        .eq("id", existing.id);
+
+      if (error) {
+        console.error(`Failed to cancel meeting: ${error.message}`);
+        return null;
+      }
+      console.log(`Cancelled meeting: ${parsed.title} (${existing.id})`);
+
+      // Fire-and-forget: push updated status to Airtable
+      import("./sync")
+        .then(({ pushMeetingToAirtable }) => pushMeetingToAirtable(existing.id))
+        .catch((err) => console.error(`Airtable push failed for meeting ${existing.id}:`, err));
+
+      return existing.id;
+    }
+
+    // --- Scenario (c): Update existing meeting ---
+    if (existing) {
+      // Sequence check: only update if incoming >= stored (or stored is null)
+      const storedSeq = existing.sequence as number | null;
+      const incomingSeq = parsed.sequence;
+      if (storedSeq !== null && incomingSeq !== null && incomingSeq < storedSeq) {
+        console.log(`Skipping stale ICS update: sequence ${incomingSeq} < stored ${storedSeq}`);
+        return existing.id;
+      }
+
+      const partner = await matchPartnerFromAttendees(parsed.attendees);
+
+      const updates: Record<string, unknown> = {
+        title: parsed.title,
+        meeting_date: parsed.meeting_date,
+        start_time: parsed.start_time,
+        end_time: parsed.end_time,
+        location: parsed.location,
+        organizer_email: parsed.organizer_email,
+        attendees: parsed.attendees,
+        sequence: parsed.sequence,
+        is_recurring: parsed.is_recurring,
+      };
+      if (partner.partner_id) {
+        updates.partner_id = partner.partner_id;
+        updates.partner_name = partner.partner_name;
+      }
+
+      const { error } = await db
+        .from("meetings")
+        .update(updates)
+        .eq("id", existing.id);
+
+      if (error) {
+        console.error(`Failed to update meeting: ${error.message}`);
+        return null;
+      }
+      console.log(`Updated meeting from ICS: ${parsed.title} (${existing.id})`);
+
+      // Fire-and-forget: push to Airtable
+      import("./sync")
+        .then(({ pushMeetingToAirtable }) => pushMeetingToAirtable(existing.id))
+        .catch((err) => console.error(`Airtable push failed for meeting ${existing.id}:`, err));
+
+      return existing.id;
+    }
+
+    // --- Scenario (a): New meeting ---
+    const partner = await matchPartnerFromAttendees(parsed.attendees);
+
     const { data, error } = await db
       .from("meetings")
-      .upsert(
-        {
-          title: parsed.title,
-          meeting_date: parsed.meeting_date,
-          start_time: parsed.start_time,
-          end_time: parsed.end_time,
-          location: parsed.location,
-          organizer_email: parsed.organizer_email,
-          attendees: parsed.attendees,
-          ics_uid: parsed.ics_uid,
-          // notes intentionally omitted — ICS DESCRIPTION is boilerplate (Zoom/Teams dial-in)
-          source: "ics_parsed",
-          status: "scheduled",
-          message_id: messageId,
-        },
-        { onConflict: "ics_uid", ignoreDuplicates: true }
-      )
+      .insert({
+        title: parsed.title,
+        meeting_date: parsed.meeting_date,
+        start_time: parsed.start_time,
+        end_time: parsed.end_time,
+        location: parsed.location,
+        organizer_email: parsed.organizer_email,
+        attendees: parsed.attendees,
+        ics_uid: parsed.ics_uid,
+        sequence: parsed.sequence,
+        is_recurring: parsed.is_recurring,
+        source: "ics_parsed",
+        status: parsed.is_cancellation ? "cancelled" : "scheduled",
+        message_id: messageId,
+        partner_id: partner.partner_id,
+        partner_name: partner.partner_name,
+      })
       .select("id")
-      .maybeSingle();
+      .single();
 
     if (error) {
       console.error(`Failed to create meeting from ICS: ${error.message}`);
       return null;
     }
 
-    if (data) {
-      console.log(`Created meeting from ICS: ${parsed.title} (${parsed.meeting_date})`);
+    console.log(`Created meeting from ICS: ${parsed.title} (${parsed.meeting_date})`);
 
-      // Fire-and-forget: push to Airtable
-      import("./sync")
-        .then(({ pushMeetingToAirtable }) => pushMeetingToAirtable(data.id))
-        .catch((err) => console.error(`Airtable push failed for meeting ${data.id}:`, err));
+    // Fire-and-forget: push to Airtable
+    import("./sync")
+      .then(({ pushMeetingToAirtable }) => pushMeetingToAirtable(data.id))
+      .catch((err) => console.error(`Airtable push failed for meeting ${data.id}:`, err));
 
-      return data.id;
-    }
-
-    console.log(`Meeting already exists for ICS UID: ${parsed.ics_uid}`);
-    return null;
+    return data.id;
   } catch (err) {
     console.error("createMeetingFromICS error:", err instanceof Error ? err.message : err);
     return null;

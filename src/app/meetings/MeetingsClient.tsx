@@ -35,7 +35,7 @@ export default function MeetingsClient({ meetings }: MeetingsClientProps) {
         const matchesPartner = m.partner_name?.toLowerCase().includes(q);
         if (!matchesTitle && !matchesLocation && !matchesNotes && !matchesEngagement && !matchesPartner) return false;
       }
-      if (activeFilter && m.meeting_type !== activeFilter) return false;
+      if (activeFilter && m.status !== activeFilter) return false;
       return true;
     });
   }, [meetings, searchQuery, activeFilter]);

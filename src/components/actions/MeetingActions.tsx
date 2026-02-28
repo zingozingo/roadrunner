@@ -5,16 +5,10 @@ import { useRouter } from "next/navigation";
 import { Meeting, Engagement, Event, MeetingAttendee, MeetingStatus } from "@/lib/types";
 import ConfirmDialog from "../shared/ConfirmDialog";
 
-const MEETING_TYPES = [
-  "Executive Meeting",
-  "GTM Meeting",
-  "Product Team Relationship",
-  "Specialized Meeting",
-];
-
 const MEETING_STATUSES: MeetingStatus[] = [
   "scheduled",
   "completed",
+  "cancelled",
   "did_not_occur",
 ];
 
@@ -39,7 +33,6 @@ export default function MeetingActions({
   // Edit form state
   const [title, setTitle] = useState(meeting.title);
   const [meetingDate, setMeetingDate] = useState(meeting.meeting_date ?? "");
-  const [meetingType, setMeetingType] = useState(meeting.meeting_type ?? "");
   const [status, setStatus] = useState<string>(meeting.status);
   const [engagementId, setEngagementId] = useState(meeting.engagement_id ?? "");
   const [eventId, setEventId] = useState(meeting.event_id ?? "");
@@ -71,7 +64,6 @@ export default function MeetingActions({
   function startEdit() {
     setTitle(meeting.title);
     setMeetingDate(meeting.meeting_date ?? "");
-    setMeetingType(meeting.meeting_type ?? "");
     setStatus(meeting.status);
     setEngagementId(meeting.engagement_id ?? "");
     setEventId(meeting.event_id ?? "");
@@ -132,7 +124,6 @@ export default function MeetingActions({
         body: JSON.stringify({
           title: title.trim(),
           meeting_date: meetingDate || null,
-          meeting_type: meetingType || null,
           status: status || "scheduled",
           engagement_id: engagementId || null,
           event_id: eventId || null,
@@ -212,21 +203,6 @@ export default function MeetingActions({
                 onChange={(e) => setMeetingDate(e.target.value)}
                 className={inputClass}
               />
-            </div>
-
-            {/* Type */}
-            <div>
-              <label className={labelClass}>Type</label>
-              <select
-                value={meetingType}
-                onChange={(e) => setMeetingType(e.target.value)}
-                className={inputClass}
-              >
-                <option value="">No type</option>
-                {MEETING_TYPES.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
             </div>
 
             {/* Status */}
