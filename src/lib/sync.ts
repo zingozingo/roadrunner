@@ -1153,7 +1153,6 @@ const MF = {
   event: "fldT96Imgc7CFDBEX",
   program: "fldqhPAGvYppRZgCS",
   partner: "fldubdX4ZYXFQ2sIZ",
-  meetingType: "fldGWa1MFoqoc89qC",
   status: "fldpXlLugkUgQsjcr",
   meetingDate: "fldx9ZrIMundEMUko",
   awsContacts: "fldOVCmwhiisY8bDo",
@@ -1244,17 +1243,34 @@ async function buildMeetingLookups(): Promise<MeetingLookups> {
   };
 }
 
+/** Map DB lowercase status to Airtable title-case */
+const MEETING_STATUS_MAP: Record<string, string> = {
+  scheduled: "Scheduled",
+  completed: "Completed",
+  cancelled: "Cancelled",
+  did_not_occur: "Did Not Occur",
+};
+
+export function mapMeetingStatus(dbStatus: string): string {
+  const mapped = MEETING_STATUS_MAP[dbStatus];
+  if (!mapped) {
+    console.warn(`Unknown meeting status "${dbStatus}" — passing through unmapped`);
+    return dbStatus;
+  }
+  return mapped;
+}
+
 function buildMeetingFields(
   meeting: Record<string, unknown>,
   lookups: MeetingLookups
 ): Record<string, unknown> {
+  const rawStatus = (meeting.status as string) || "scheduled";
   const fields: Record<string, unknown> = {
     [MF.meetingName]: meeting.title,
     [MF.roadrunnerId]: meeting.id,
-    [MF.status]: meeting.status,
+    [MF.status]: mapMeetingStatus(rawStatus),
   };
 
-  if (meeting.meeting_type) fields[MF.meetingType] = meeting.meeting_type;
   if (meeting.meeting_date) fields[MF.meetingDate] = meeting.meeting_date;
   if (meeting.start_time) fields[MF.startTime] = meeting.start_time;
   if (meeting.end_time) fields[MF.endTime] = meeting.end_time;
