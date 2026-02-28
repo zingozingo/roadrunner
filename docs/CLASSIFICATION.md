@@ -39,7 +39,7 @@ The prompt is assembled from independent context builder functions in `prompt-bu
 
 The prompt instructs Claude to:
 
-- **Prefer existing engagements** over creating new ones. If an email plausibly relates to an existing engagement, match it.
+- **Match by partner AND topic.** Both must align — a partner name match alone is not sufficient. If a partner has multiple engagements, compare by topic to find the right one or create new.
 - **Match by ID** — entity references in the response must use database IDs, not names.
 - **Produce a living summary** (current_state) that evolves with each email — not a summary of the single email, but an updated state of the entire engagement.
 - **Classify participants** as AWS, partner, or other based on email domain.
@@ -87,7 +87,7 @@ When a user resolves an approval (approve, reject, or modify), the same `persist
 
 ## Classification Rules
 
-1. **Prefer existing engagements.** Only create new if the email clearly represents a net-new workstream.
+1. **Match by partner AND topic.** Same partner + different topic = new engagement. One partner can have multiple concurrent engagements.
 2. **Confidence calibration.** High confidence requires: clear partner match, unambiguous engagement match or clear new workstream, extractable summary content.
 3. **Noise detection.** Marketing emails, auto-newsletters, system notifications → flag as noise, do not create engagement.
 4. **Mixed content.** If an email touches multiple engagements, classify for the primary one.

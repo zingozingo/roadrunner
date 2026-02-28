@@ -2085,3 +2085,51 @@ Next.js 14 App Router + TypeScript + Tailwind. Supabase Postgres for data. Singl
 **Rationale:** Centralizing formatting in utility functions ensures consistency and makes it easy to fix formatting bugs in one place.
 
 **Impact:** src/lib/format-utils.ts contains all formatters. Applied across all pages.
+
+---
+
+## 2026-02-27: Phase 1 Prompt Rewrite — Multi-Engagement Partner Awareness
+
+**Decision:** Rewrote Phase 1 classification prompt. Replaced "Prefer existing engagements" with "Match by partner AND topic." Added multi-engagement partner concept, topic mismatch = new engagement rule, ambiguous same-partner instruction, confidence recalibration, and concrete example callout.
+
+**Context:** Spacelift Solution Spotlight email (about a marketing campaign) was incorrectly merged into Spacelift OpenTofu engagement (about an integration project) at 0.92 confidence. Phase 1 over-weighted partner name match and had no concept that one partner could have multiple concurrent engagements with different topics.
+
+**Rationale:** Six specific prompt problems identified: (1) "Prefer existing" biased toward matching, (2) confidence calibration didn't address same-partner-different-topic, (3) no multi-engagement partner concept, (4) new engagement bar too high for existing partners, (5) engagement index lacked topic field, (6) no guidance for partner-matches-but-topic-doesn't. All six addressed in rewrite.
+
+**Impact:** Classifier now correctly differentiates initiatives for the same partner. Validated: 3 separate Spacelift engagements created (OpenTofu/Co-Build, Solution Spotlight/Co-Market, IC Marketplace Onboarding/Co-Sell) with vague "scheduling" email correctly routed to inbox at 65% confidence for human review.
+
+---
+
+## 2026-02-27: Topic Added to Engagement Index
+
+**Decision:** Added explicit Topic field to Phase 1 engagement index lines. Format changed from `"Name" (id) — Partner: X | Subject: "Y"` to `"Name" (id) — Partner: X | Topic: "Z" | Last Subject: "Y"`.
+
+**Context:** Phase 1 could only infer topic from engagement name and last email subject. For multi-engagement partners, explicit topic comparison is essential for accurate routing.
+
+**Rationale:** The engagement name embeds the topic (e.g., "Spacelift - OpenTofu Integration") but relying on name parsing is fragile. An explicit topic field gives the classifier structured data to compare against.
+
+**Impact:** Phase 1 has direct topic comparison capability. Combined with prompt rewrite, enables accurate multi-engagement partner routing.
+
+---
+
+## 2026-02-27: Programs Catalog Has No Status Lifecycle
+
+**Decision:** Removed .eq("status", "active") filter from getActivePrograms() in supabase.ts. Programs are a catalog table with no status column.
+
+**Context:** Migration 041 (Feb 26) dropped programs.status column, but getActivePrograms() still filtered by it. Supabase returned an error, inbound route caught it silently (returns 200 to Mailgun), and messages were stored but never classified. Pipeline appeared completely broken — zero engagements from 6+ forwarded emails.
+
+**Rationale:** Programs are synced from Airtable as a reference catalog. They don't have lifecycle status — they're either in the catalog or not. The filter was leftover from when programs had a status field.
+
+**Impact:** Classification pipeline restored. Third instance of silent failure pattern this session (overlapping CHECK constraint, stale field IDs, nonexistent column query). All three shared root cause: changes at one layer without verifying dependent layers.
+
+---
+
+## 2026-02-27: Meeting Partner Field ID Correction + Full Field Audit
+
+**Decision:** Fixed stale Airtable field ID for Partner linked record on Meetings table (fldZjCUMpBtgpU13X → fldubdX4ZYXFQ2sIZ). Conducted full audit of all 29 field IDs across ENF (11 fields) and MF (18 fields).
+
+**Context:** Same pattern as engagement Partner field ID fix earlier in session. Steven recreated Airtable linked record fields, generating new IDs. Discovered during meeting sync test — "Unknown field name" error.
+
+**Rationale:** After finding two stale field IDs in one session, a comprehensive audit was warranted. All 29 IDs cross-referenced against live AT API. Zero additional mismatches found.
+
+**Impact:** Meeting partner links now sync to Airtable. All field IDs verified correct. FIELD-MAPPING.md updated.

@@ -26,6 +26,8 @@ Determine which engagement an email belongs to (or if it's new/noise). Nothing e
 
 ### System Prompt
 
+> **Note (2026-02-27):** The prompt below is the original design version. The live prompt in `src/lib/phase1-prompt.ts` has been rewritten to support multi-engagement partners: "Prefer existing engagements" replaced with "Match by partner AND topic," topic added to engagement index, confidence recalibrated for same-partner-different-topic scenarios. See SESSION_LOG.md entry "Phase 1 Prompt Rewrite" for details.
+
 ```
 You are Relay Match, a routing classifier for an AWS Partner Development Manager's email inbox.
 
