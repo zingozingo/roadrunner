@@ -66,6 +66,13 @@ const {
         insert: vi.fn().mockResolvedValue({ error: null }),
       };
     }
+    if (table === "meetings") {
+      return {
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
+        }),
+      };
+    }
     if (table === "engagements") {
       return {
         update: vi.fn().mockReturnValue({

@@ -1,4 +1,4 @@
-import type { Message, Partner, Engagement, Phase1Result } from "./types";
+import type { Message, Meeting, Partner, Engagement, Phase1Result } from "./types";
 import { getActiveEngagements, getPartners, getSupabaseClient } from "./supabase";
 import { buildEmailSection } from "./prompt-builder";
 import { USER_CONFIG } from "./user-config";
@@ -32,7 +32,7 @@ Your ONLY job: determine which existing engagement this forwarded email belongs 
 - **New engagement for existing partner.** If the email discusses a clearly different initiative, campaign, program, or workstream than any existing engagement for the same partner, this IS a new engagement. Set is_new: true. The partner already having engagements does not prevent creating new ones — what matters is whether THIS email's topic matches an EXISTING engagement's topic.
 - **New engagement for new partner.** If the sender's domain doesn't match any partner, or the content introduces an entirely new initiative, set is_new: true. The email must have substantive content — a vague intro or forward without context is not enough for a new engagement.
 - **Noise detection.** Auto-replies, OOO, newsletters, marketing blasts, calendar notifications = noise. Return content_type "noise" with confidence 1.0.
-- **Meeting invites.** ICS attachments and calendar invitations are content_type "meeting_invite". Still match them to an engagement by topic/partner.
+- **Meeting invites.** ICS attachments and calendar invitations are content_type "meeting_invite". Still match them to an engagement by topic/partner. A "Meeting Data" section may provide structured attendees and a pre-resolved partner hint from calendar data — use these for higher-confidence matching.
 - **Mixed content.** Emails discussing multiple engagements: content_type "mixed", match to the primary one.
 - **Ambiguous partner match.** If the email could belong to multiple engagements for the same partner and you cannot determine which one, set confidence below 0.70 to flag for human review.
 
@@ -91,6 +91,12 @@ export async function buildPhase1Context(
   parts.push(buildEngagementIndex(engagements, lastSubjects));
   parts.push(buildCompactPartnerCatalog(partners));
   parts.push(buildEmailSection(messages));
+
+  // If any message has a linked meeting, append structured meeting data
+  const meetings = await getMeetingsForMessages(messages);
+  if (meetings.length > 0) {
+    parts.push(buildMeetingHint(meetings));
+  }
 
   return parts.join("\n");
 }
@@ -232,5 +238,56 @@ async function getLastSubjects(engagements: Engagement[]): Promise<Map<string, s
   return result;
 }
 
+/**
+ * Query meetings linked to the given messages (by message_id).
+ * Used to provide structured attendee data for meeting invites.
+ */
+async function getMeetingsForMessages(messages: Message[]): Promise<Meeting[]> {
+  const messageIds = messages.map((m) => m.id);
+  if (messageIds.length === 0) return [];
+
+  const db = getSupabaseClient();
+  const { data, error } = await db
+    .from("meetings")
+    .select("*")
+    .in("message_id", messageIds);
+
+  if (error || !data) return [];
+  return data as Meeting[];
+}
+
+/**
+ * Build a compact meeting data section for Phase 1 context.
+ * Includes attendee list and partner hint from ICS attendee domain matching.
+ */
+export function buildMeetingHint(meetings: Meeting[]): string {
+  if (meetings.length === 0) return "";
+
+  const lines: string[] = ["## Meeting Data (from calendar invite)\n"];
+
+  for (const m of meetings) {
+    if (m.partner_name) {
+      const idPart = m.partner_id ? ` (id: ${m.partner_id})` : "";
+      lines.push(`**Partner Hint:** ${m.partner_name}${idPart}`);
+    }
+    if (m.organizer_email) {
+      lines.push(`**Organizer:** ${m.organizer_email}`);
+    }
+    if (m.attendees && m.attendees.length > 0) {
+      lines.push("**Attendees:**");
+      for (const a of m.attendees) {
+        const name = a.name ? `${a.name} ` : "";
+        lines.push(`- ${name}<${a.email}>`);
+      }
+    }
+    if (m.is_recurring) {
+      lines.push("**Recurring:** Yes");
+    }
+  }
+
+  lines.push("");
+  return lines.join("\n");
+}
+
 // Exported for testing
-export { buildCompactForwarder, getLastSubjects };
+export { buildCompactForwarder, getLastSubjects, getMeetingsForMessages };

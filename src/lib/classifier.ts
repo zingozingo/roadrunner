@@ -20,6 +20,7 @@ import {
 import {
   ClassificationResult,
   CombinedClassificationResult,
+  Meeting,
   Phase1Result,
   Message,
 } from "./types";
@@ -54,8 +55,17 @@ async function classifyTwoPhase(
   const engagementId = phase1Result.engagement_match.id;
   const partnerId = phase1Result.engagement_match.partner_id;
   const isNew = phase1Result.engagement_match.is_new;
+  const db = getSupabaseClient();
 
-  const [history, matchedPartner, events, programs, relationships, nameMap] =
+  // Query meetings linked to these messages (created by createMeetingFromICS before classification)
+  const messageIds = messages.map((m) => m.id);
+  const meetingsQuery = db
+    .from("meetings")
+    .select("*")
+    .in("message_id", messageIds)
+    .then(({ data }: { data: unknown }) => (data ?? []) as Meeting[]);
+
+  const [history, matchedPartner, events, programs, relationships, nameMap, newMeetings] =
     await Promise.all([
       engagementId && !isNew
         ? getEngagementHistory(engagementId)
@@ -67,6 +77,7 @@ async function classifyTwoPhase(
       nameResolutionMap
         ? Promise.resolve(nameResolutionMap)
         : buildNameResolutionMap(),
+      meetingsQuery,
     ]);
 
   // ── Phase 2: Analyze ────────────────────────────────────────
@@ -77,7 +88,8 @@ async function classifyTwoPhase(
     { events, programs, relationships },
     matchedPartner,
     forwarderNote,
-    nameMap
+    nameMap,
+    newMeetings.length > 0 ? newMeetings : null
   );
 
   return await classifyPhase2(phase2Context);

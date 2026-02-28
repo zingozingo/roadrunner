@@ -44,6 +44,7 @@ import {
   buildPhase1Context,
   buildEngagementIndex,
   buildCompactPartnerCatalog,
+  buildMeetingHint,
   parsePhase1Response,
   PHASE1_SYSTEM_PROMPT,
 } from "../phase1-prompt";
@@ -405,5 +406,76 @@ describe("parsePhase1Response", () => {
     expect(result.engagement_match.id).toBeNull();
     expect(result.engagement_match.confidence).toBe(0);
     expect(result.engagement_match.is_new).toBe(false);
+  });
+});
+
+// ============================================================
+// buildMeetingHint
+// ============================================================
+
+describe("buildMeetingHint", () => {
+  const MEETING = {
+    id: "mtg-001",
+    title: "Security Review Sync",
+    engagement_id: null,
+    event_id: null,
+    program_id: null,
+    partner_name: "CyberShield",
+    partner_id: "partner-001",
+    message_id: "msg-001",
+    status: "scheduled" as const,
+    meeting_date: "2026-03-15",
+    start_time: "10:00",
+    end_time: "11:00",
+    location: "Chime",
+    organizer_email: "sterme@amazon.com",
+    attendees: [
+      { name: "Steven Romero", email: "sterme@amazon.com" },
+      { name: "Alice Chen", email: "alice@cybershield.com" },
+    ],
+    ics_uid: "uid-123",
+    sequence: 0,
+    is_recurring: false,
+    source: "ics_parsed" as const,
+    notes: null,
+    airtable_record_id: null,
+    created_at: "2026-03-01T00:00:00Z",
+    updated_at: "2026-03-01T00:00:00Z",
+  };
+
+  it("includes partner hint with id", () => {
+    const result = buildMeetingHint([MEETING]);
+    expect(result).toContain("Meeting Data (from calendar invite)");
+    expect(result).toContain("**Partner Hint:** CyberShield (id: partner-001)");
+  });
+
+  it("includes organizer and attendee list", () => {
+    const result = buildMeetingHint([MEETING]);
+    expect(result).toContain("**Organizer:** sterme@amazon.com");
+    expect(result).toContain("**Attendees:**");
+    expect(result).toContain("Steven Romero <sterme@amazon.com>");
+    expect(result).toContain("Alice Chen <alice@cybershield.com>");
+  });
+
+  it("includes recurring flag when true", () => {
+    const recurring = { ...MEETING, is_recurring: true };
+    const result = buildMeetingHint([recurring]);
+    expect(result).toContain("**Recurring:** Yes");
+  });
+
+  it("omits recurring flag when false", () => {
+    const result = buildMeetingHint([MEETING]);
+    expect(result).not.toContain("Recurring");
+  });
+
+  it("omits partner hint when no partner matched", () => {
+    const noPartner = { ...MEETING, partner_name: null, partner_id: null };
+    const result = buildMeetingHint([noPartner]);
+    expect(result).not.toContain("Partner Hint");
+    expect(result).toContain("**Attendees:**");
+  });
+
+  it("returns empty string when no meetings", () => {
+    expect(buildMeetingHint([])).toBe("");
   });
 });

@@ -341,13 +341,15 @@ describe("buildPhase2Context — existing engagement", () => {
     expect(idx1).toBeLessThan(idx2);
   });
 
-  it("includes linked meetings", () => {
+  it("includes linked meetings with attendee details", () => {
     const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
     expect(result).toContain("Linked Meetings");
     expect(result).toContain("CyberShield Security Review Call");
     expect(result).toContain("2026-03-05");
-    expect(result).toContain("3 attendees");
     expect(result).toContain("scheduled");
+    expect(result).toContain("Organizer: sterme@amazon.com");
+    expect(result).toContain("Steven Romero <sterme@amazon.com>");
+    expect(result).toContain("Alice Chen <alice@cybershield.com>");
   });
 
   it("marks new email with >>> NEW EMAIL — CLASSIFY THIS <<<", () => {
@@ -742,5 +744,80 @@ describe("buildPhase2Context — name resolution", () => {
     // Should use sender_name directly
     expect(result).toContain("Alice Chen <alice@cybershield.com>");
     expect(result).toContain("Steven Romero <sterme@amazon.com>");
+  });
+});
+
+// ============================================================
+// Incoming meeting data in Phase 2
+// ============================================================
+
+describe("buildPhase2Context — incoming meeting data", () => {
+  const NEW_MEETING: Meeting = {
+    id: "mtg-new",
+    title: "Partner Kickoff Call",
+    engagement_id: null,
+    event_id: null,
+    program_id: null,
+    partner_name: "CyberShield",
+    partner_id: "partner-001",
+    message_id: "new-001",
+    status: "scheduled",
+    meeting_date: "2026-03-20",
+    start_time: "14:00",
+    end_time: "15:00",
+    location: "Chime",
+    organizer_email: "alice@cybershield.com",
+    attendees: [
+      { name: "Alice Chen", email: "alice@cybershield.com" },
+      { name: "Steven Romero", email: "sterme@amazon.com" },
+      { name: "Bob Smith", email: "bob@cybershield.com" },
+    ],
+    ics_uid: "uid-new",
+    sequence: 0,
+    is_recurring: true,
+    source: "ics_parsed",
+    notes: null,
+    airtable_record_id: null,
+    created_at: "2026-03-01T00:00:00Z",
+    updated_at: "2026-03-01T00:00:00Z",
+  };
+
+  it("includes incoming meeting data when newMeetings provided", () => {
+    const result = buildPhase2Context(
+      [NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER,
+      null, null, [NEW_MEETING]
+    );
+    expect(result).toContain("Incoming Meeting Data");
+    expect(result).toContain("Partner Kickoff Call");
+    expect(result).toContain("**Organizer:** alice@cybershield.com");
+    expect(result).toContain("**Matched Partner:** CyberShield (id: partner-001)");
+    expect(result).toContain("**Recurring:** Yes");
+    expect(result).toContain("Alice Chen <alice@cybershield.com>");
+    expect(result).toContain("Bob Smith <bob@cybershield.com>");
+  });
+
+  it("omits incoming meeting section when no meetings", () => {
+    const result = buildPhase2Context(
+      [NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER,
+      null, null, null
+    );
+    expect(result).not.toContain("Incoming Meeting Data");
+  });
+
+  it("omits incoming meeting section when empty array", () => {
+    const result = buildPhase2Context(
+      [NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER,
+      null, null, []
+    );
+    expect(result).not.toContain("Incoming Meeting Data");
+  });
+
+  it("includes linked meetings with recurring flag", () => {
+    const recurringMeeting = { ...MEETING, is_recurring: true };
+    const historyWithRecurring = { ...HISTORY, meetings: [recurringMeeting] };
+    const result = buildPhase2Context(
+      [NEW_MSG], PHASE1_EXISTING, historyWithRecurring, CATALOGS, PARTNER
+    );
+    expect(result).toContain("recurring");
   });
 });

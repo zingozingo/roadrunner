@@ -219,7 +219,8 @@ export function buildPhase2Context(
   },
   matchedPartner: Partner | null,
   forwarderNote?: string | null,
-  nameResolutionMap?: NameResolutionMap | null
+  nameResolutionMap?: NameResolutionMap | null,
+  newMeetings?: Meeting[] | null
 ): string {
   const parts: string[] = [];
 
@@ -242,6 +243,11 @@ export function buildPhase2Context(
 
   // Section 5: New email(s)
   parts.push(buildNewEmailSection(newMessages, nameResolutionMap));
+
+  // Section 5b: Structured meeting data for the incoming message
+  if (newMeetings && newMeetings.length > 0) {
+    parts.push(buildNewMeetingData(newMeetings));
+  }
 
   // Section 6: Matched partner
   parts.push(buildMatchedPartnerSection(matchedPartner));
@@ -375,11 +381,46 @@ function buildLinkedMeetings(meetings: Meeting[]): string {
       m.start_time && m.end_time
         ? `, ${m.start_time}–${m.end_time}`
         : "";
-    const attendeeCount = m.attendees?.length ?? 0;
+    const recurPart = m.is_recurring ? ", recurring" : "";
     lines.push(
-      `- "${m.title}" — ${datePart}${timePart}, ${attendeeCount} attendee${attendeeCount === 1 ? "" : "s"}, ${m.status}`
+      `- "${m.title}" — ${datePart}${timePart}, ${m.status}${recurPart}`
     );
+    if (m.organizer_email) {
+      lines.push(`  Organizer: ${m.organizer_email}`);
+    }
+    if (m.attendees && m.attendees.length > 0) {
+      const formatted = m.attendees.map((a) =>
+        a.name ? `${a.name} <${a.email}>` : a.email
+      );
+      lines.push(`  Attendees: ${formatted.join(", ")}`);
+    }
   }
+  lines.push("");
+  return lines.join("\n");
+}
+
+function buildNewMeetingData(meetings: Meeting[]): string {
+  const lines = ["### Incoming Meeting Data\n"];
+
+  for (const m of meetings) {
+    lines.push(`**Title:** ${m.title}`);
+    if (m.meeting_date) lines.push(`**Date:** ${m.meeting_date}`);
+    if (m.start_time && m.end_time) lines.push(`**Time:** ${m.start_time}–${m.end_time}`);
+    if (m.organizer_email) lines.push(`**Organizer:** ${m.organizer_email}`);
+    if (m.partner_name) {
+      const idPart = m.partner_id ? ` (id: ${m.partner_id})` : "";
+      lines.push(`**Matched Partner:** ${m.partner_name}${idPart}`);
+    }
+    if (m.is_recurring) lines.push(`**Recurring:** Yes`);
+    if (m.attendees && m.attendees.length > 0) {
+      lines.push("**Attendees:**");
+      for (const a of m.attendees) {
+        const name = a.name ? `${a.name} ` : "";
+        lines.push(`- ${name}<${a.email}>`);
+      }
+    }
+  }
+
   lines.push("");
   return lines.join("\n");
 }
