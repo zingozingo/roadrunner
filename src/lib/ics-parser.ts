@@ -239,7 +239,8 @@ export function parseICSContent(icsContent: string): ParsedMeeting | null {
     const unfolded = unfoldLines(icsContent);
     const allLines = unfolded.split("\n");
 
-    // Find first VEVENT block
+    // Extract VCALENDAR-level properties (before first VEVENT)
+    const calendarLines: string[] = [];
     let inEvent = false;
     const eventLines: string[] = [];
 
@@ -253,6 +254,8 @@ export function parseICSContent(icsContent: string): ParsedMeeting | null {
       }
       if (inEvent) {
         eventLines.push(line);
+      } else {
+        calendarLines.push(line);
       }
     }
 
@@ -281,8 +284,21 @@ export function parseICSContent(icsContent: string): ParsedMeeting | null {
     const organizer = parseOrganizer(eventLines);
     const attendees = parseAttendees(eventLines);
 
+    // New fields: METHOD is at VCALENDAR level, others inside VEVENT
+    const method = getProperty(calendarLines, "METHOD")?.toUpperCase() ?? null;
+    const status = getProperty(eventLines, "STATUS")?.toUpperCase() ?? null;
+    const sequenceRaw = getProperty(eventLines, "SEQUENCE");
+    const sequence = sequenceRaw !== null ? parseInt(sequenceRaw, 10) : null;
+    const is_recurring = eventLines.some((l) => l.startsWith("RRULE:") || l.startsWith("RRULE;"));
+
+    const title = unescapeText(summary);
+    const is_cancellation =
+      method === "CANCEL" ||
+      status === "CANCELLED" ||
+      /^cancell?ed:/i.test(title);
+
     return {
-      title: unescapeText(summary),
+      title,
       meeting_date: formatDate(dtStart),
       start_time: formatTime(dtStart),
       end_time: dtEnd ? formatTime(dtEnd) : formatTime(dtStart),
@@ -291,6 +307,12 @@ export function parseICSContent(icsContent: string): ParsedMeeting | null {
       attendees,
       ics_uid: uid,
       notes: descriptionRaw ? unescapeText(descriptionRaw) : null,
+      method,
+      status,
+      sequence: sequence !== null && !isNaN(sequence) ? sequence : null,
+      is_recurring,
+      organizer_name: organizer.name,
+      is_cancellation,
     };
   } catch {
     // Defensive — malformed ICS never throws

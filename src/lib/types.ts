@@ -140,6 +140,18 @@ export interface ParsedMeeting {
   attendees: MeetingAttendee[];
   ics_uid: string;
   notes: string | null;
+  /** VCALENDAR METHOD (e.g., "REQUEST", "CANCEL", "REPLY", "PUBLISH") */
+  method: string | null;
+  /** VEVENT STATUS (e.g., "CONFIRMED", "TENTATIVE", "CANCELLED") */
+  status: string | null;
+  /** VEVENT SEQUENCE — update counter, starts at 0, increments on updates */
+  sequence: number | null;
+  /** True if VEVENT contains an RRULE (recurrence rule) */
+  is_recurring: boolean;
+  /** CN from ORGANIZER line */
+  organizer_name: string | null;
+  /** Derived: METHOD=CANCEL, STATUS=CANCELLED, or title starts with "Canceled:"/"Cancelled:" */
+  is_cancellation: boolean;
 }
 
 export interface EntityLink {

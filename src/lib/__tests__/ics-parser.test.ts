@@ -5,7 +5,11 @@ import { parseICSContent, extractICSFromAttachments } from "../ics-parser";
 // Helper: build a minimal valid ICS string
 // ============================================================
 
-function buildICS(overrides: Record<string, string> = {}, extraLines: string[] = []): string {
+function buildICS(
+  overrides: Record<string, string> = {},
+  extraLines: string[] = [],
+  calendarProps: Record<string, string> = {}
+): string {
   const defaults: Record<string, string> = {
     UID: "test-uid-123@example.com",
     SUMMARY: "Quarterly Business Review",
@@ -24,8 +28,14 @@ function buildICS(overrides: Record<string, string> = {}, extraLines: string[] =
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "PRODID:-//Test//Test//EN",
-    "BEGIN:VEVENT",
   ];
+
+  // Add VCALENDAR-level properties (METHOD, etc.)
+  for (const [key, value] of Object.entries(calendarProps)) {
+    lines.push(`${key}:${value}`);
+  }
+
+  lines.push("BEGIN:VEVENT");
 
   // Add standard properties (skip ORGANIZER/ATTENDEE — handled separately)
   for (const [key, value] of Object.entries(merged)) {
@@ -329,6 +339,148 @@ describe("parseICSContent", () => {
 
     expect(result).not.toBeNull();
     expect(result!.title).toBe("LF Test");
+  });
+
+  // ============================================================
+  // New fields: method, status, sequence, is_recurring,
+  //             organizer_name, is_cancellation
+  // ============================================================
+
+  it("defaults new fields to null/false when not present in ICS", () => {
+    const ics = buildICS();
+    const result = parseICSContent(ics);
+
+    expect(result).not.toBeNull();
+    // Existing fields still work
+    expect(result!.title).toBe("Quarterly Business Review");
+    expect(result!.organizer_email).toBe("jane@partner.com");
+    // New fields
+    expect(result!.method).toBeNull();
+    expect(result!.status).toBeNull();
+    expect(result!.sequence).toBeNull();
+    expect(result!.is_recurring).toBe(false);
+    expect(result!.organizer_name).toBe("Jane Smith");
+    expect(result!.is_cancellation).toBe(false);
+  });
+
+  it("extracts METHOD:CANCEL from VCALENDAR level → is_cancellation true", () => {
+    const ics = buildICS({}, [], { METHOD: "CANCEL" });
+    const result = parseICSContent(ics);
+
+    expect(result).not.toBeNull();
+    expect(result!.method).toBe("CANCEL");
+    expect(result!.is_cancellation).toBe(true);
+  });
+
+  it("extracts METHOD:REQUEST from VCALENDAR level → is_cancellation false", () => {
+    const ics = buildICS({}, [], { METHOD: "REQUEST" });
+    const result = parseICSContent(ics);
+
+    expect(result).not.toBeNull();
+    expect(result!.method).toBe("REQUEST");
+    expect(result!.is_cancellation).toBe(false);
+  });
+
+  it("extracts STATUS:CANCELLED from VEVENT → is_cancellation true", () => {
+    const ics = buildICS({}, ["STATUS:CANCELLED"]);
+    const result = parseICSContent(ics);
+
+    expect(result).not.toBeNull();
+    expect(result!.status).toBe("CANCELLED");
+    expect(result!.is_cancellation).toBe(true);
+  });
+
+  it("extracts STATUS:CONFIRMED from VEVENT → is_cancellation false", () => {
+    const ics = buildICS({}, ["STATUS:CONFIRMED"]);
+    const result = parseICSContent(ics);
+
+    expect(result).not.toBeNull();
+    expect(result!.status).toBe("CONFIRMED");
+    expect(result!.is_cancellation).toBe(false);
+  });
+
+  it("extracts SEQUENCE as integer", () => {
+    const ics = buildICS({}, ["SEQUENCE:3"]);
+    const result = parseICSContent(ics);
+
+    expect(result).not.toBeNull();
+    expect(result!.sequence).toBe(3);
+  });
+
+  it("detects RRULE presence → is_recurring true", () => {
+    const ics = buildICS({}, ["RRULE:FREQ=WEEKLY;BYDAY=TU"]);
+    const result = parseICSContent(ics);
+
+    expect(result).not.toBeNull();
+    expect(result!.is_recurring).toBe(true);
+  });
+
+  it("no RRULE → is_recurring false", () => {
+    const ics = buildICS();
+    const result = parseICSContent(ics);
+
+    expect(result).not.toBeNull();
+    expect(result!.is_recurring).toBe(false);
+  });
+
+  it("extracts organizer_name from CN parameter", () => {
+    const ics = buildICS({
+      ORGANIZER: 'ORGANIZER;CN="Dr. Alice Chen":mailto:alice@partner.com',
+    });
+    const result = parseICSContent(ics);
+
+    expect(result).not.toBeNull();
+    expect(result!.organizer_name).toBe("Dr. Alice Chen");
+    expect(result!.organizer_email).toBe("alice@partner.com");
+  });
+
+  it("organizer_name is null when no CN on ORGANIZER", () => {
+    const ics = buildICS({
+      ORGANIZER: "ORGANIZER:mailto:noname@partner.com",
+    });
+    const result = parseICSContent(ics);
+
+    expect(result).not.toBeNull();
+    expect(result!.organizer_name).toBeNull();
+    expect(result!.organizer_email).toBe("noname@partner.com");
+  });
+
+  it("title starting with 'Canceled:' triggers is_cancellation even without METHOD/STATUS", () => {
+    const ics = buildICS({
+      SUMMARY: "Canceled: spacelift aws marketplace solution",
+    });
+    const result = parseICSContent(ics);
+
+    expect(result).not.toBeNull();
+    expect(result!.method).toBeNull();
+    expect(result!.status).toBeNull();
+    expect(result!.is_cancellation).toBe(true);
+  });
+
+  it("title starting with 'Cancelled:' (British spelling) triggers is_cancellation", () => {
+    const ics = buildICS({
+      SUMMARY: "Cancelled: weekly partner sync",
+    });
+    const result = parseICSContent(ics);
+
+    expect(result).not.toBeNull();
+    expect(result!.is_cancellation).toBe(true);
+  });
+
+  it("combines METHOD:CANCEL + STATUS:CANCELLED + SEQUENCE + RRULE", () => {
+    const ics = buildICS(
+      {},
+      ["STATUS:CANCELLED", "SEQUENCE:2", "RRULE:FREQ=DAILY;COUNT=10"],
+      { METHOD: "CANCEL" }
+    );
+    const result = parseICSContent(ics);
+
+    expect(result).not.toBeNull();
+    expect(result!.method).toBe("CANCEL");
+    expect(result!.status).toBe("CANCELLED");
+    expect(result!.sequence).toBe(2);
+    expect(result!.is_recurring).toBe(true);
+    expect(result!.is_cancellation).toBe(true);
   });
 });
 
