@@ -2172,3 +2172,99 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 
 ### Test Progression
 370 → 374 (resolve route) → 384 (classifier enrichment) → 379 (cleanup: -5 dead tests)
+
+---
+
+## 2026-02-28: Curated-Input Classification Philosophy
+
+**Decision:** Roadrunner receives intentionally forwarded emails, not a firehose. Classification assumes content is engagement-relevant by default. Three tiers: auto-assign (majority), inbox (ambiguous match), no-match (edge case).
+
+**Context:** Phase 1 prompt had excessive noise-filtering language (~6 lines) relative to its actual input. PDMs curate what they forward. System was overcomplicating classification by assuming adversarial input.
+
+**Rationale:** Shifting the default assumption from "identify what this is" to "figure out which engagement" dramatically simplifies the classification prompt and reduces misclassification from decision-branch bloat.
+
+**Impact:** Future prompt rewrites should lead with matching, not filtering. Inbox should be rare (1% target), not a workflow hub.
+
+---
+
+## 2026-02-28: ICS Parser Full Signal Extraction
+
+**Decision:** Parser now extracts method, status, sequence, is_recurring, organizer_name, is_cancellation (6 new fields). Three-path cancellation detection: METHOD:CANCEL, STATUS:CANCELLED, title regex fallback.
+
+**Context:** Parser was ignoring METHOD (cancellations created as "scheduled"), SEQUENCE (updates silently dropped), RRULE (no recurrence detection), and organizer name (extracted then discarded).
+
+**Rationale:** ICS data is structured and rich — capture everything at parse time so downstream consumers can use it without re-parsing.
+
+**Impact:** Foundation for cancellation handling, update tracking, and future RRULE-based cadence detection.
+
+---
+
+## 2026-02-28: Three-Scenario Meeting Creation (New/Cancel/Update)
+
+**Decision:** createMeetingFromICS handles three scenarios: (a) new meeting with deterministic partner matching, (b) cancellation updates status to 'cancelled' and preserves original data, (c) updates are sequence-aware and only apply if incoming >= stored.
+
+**Context:** Previous implementation used ignoreDuplicates:true — duplicate ics_uid silently returned null. Meetings could never update, cancellations created new "scheduled" records.
+
+**Rationale:** Calendar invites have a lifecycle (create → update → cancel). The system must handle the full lifecycle, not just creation.
+
+**Impact:** Meetings now reflect reality — cancellations show as cancelled, time changes propagate, stale updates are rejected.
+
+---
+
+## 2026-02-28: Deterministic Partner Matching from Attendees
+
+**Decision:** matchPartnerFromAttendees() scans non-Amazon attendee email domains against partner contact fields. If exactly one partner matches → partner_id set. Zero or ambiguous → null.
+
+**Context:** Partner resolution for meetings only happened via classifier (linkMeetingToEngagement copying from engagement). If classification was uncertain, meeting had no partner.
+
+**Rationale:** Attendee emails are structured data that deterministically maps to partners. No AI needed. This runs before classification, giving Phase 1 a partner hint.
+
+**Impact:** Meetings get partner_id at creation time. Phase 1 classification is simpler and more accurate for meetings. Reusable helper function.
+
+---
+
+## 2026-02-28: Meeting Status Three-Layer Contract
+
+**Decision:** DB stores lowercase ('scheduled', 'completed', 'cancelled', 'did_not_occur'). sync.ts MEETING_STATUS_MAP converts to title case for Airtable. Added 'cancelled' to DB CHECK constraint via migration 046.
+
+**Context:** Code pushed raw lowercase to AT, creating duplicate "scheduled"/"Scheduled" options. Engagement status already had correct mapping; meetings did not.
+
+**Rationale:** Follow the established engagement pattern. DB stores normalized values, sync layer handles display formatting.
+
+**Impact:** No more rogue AT options. Pattern is now consistent across both entity types.
+
+---
+
+## 2026-02-28: Meeting Type and Cadence as Airtable-Only Manual Fields
+
+**Decision:** Meeting type and cadence will NOT be in Roadrunner's DB or classification pipeline. They are manual Airtable fields the PDM tags by hand. meeting_type column dropped from DB (migration 046).
+
+**Context:** Meeting taxonomy is unknown — need 50-100 meetings to see natural categories. Building classification for an uncertain taxonomy creates prompt issues disguised as AI issues.
+
+**Rationale:** Constrained intelligence — don't let AI invent categories. Start manual, learn patterns, automate when taxonomy is proven. Same philosophy as engagement matching.
+
+**Impact:** Cleaner DB schema. Sync code simplified. Classification prompt stays lean. Automation added later when taxonomy is proven.
+
+---
+
+## 2026-02-28: Structured Meeting Data Fed to Classifier
+
+**Decision:** Phase 1 now receives "Meeting Data" section with partner hint, organizer, structured attendee list, and recurring flag. Phase 2 receives enriched meeting summary with full attendee details instead of just count.
+
+**Context:** Classifier saw meetings as email body text only. Clean [{name, email}] array sat in DB unused. AI was reconstructing structured data from prose.
+
+**Rationale:** Use the best data available. Structured attendees enable deterministic matching. Partner hint from attendee domain matching makes Phase 1's job dramatically easier.
+
+**Impact:** Higher classification accuracy for meetings. Less reliance on email body parsing. Foundation for "meetings should almost never need human review."
+
+---
+
+## 2026-02-28: Dead Prompt Builders Removed
+
+**Decision:** buildEngagementsSection() and buildPartnersSection() removed from prompt-builder.ts (-61 lines code, -92 lines tests, -153 total).
+
+**Context:** Phase 1 uses its own compact builders (buildEngagementIndex, buildCompactPartnerCatalog). The full builders were exported but never imported anywhere outside their own test file.
+
+**Rationale:** Dead code is confusion risk. Someone (or Claude) might use the wrong builder.
+
+**Impact:** Cleaner codebase. One way to build each context section.

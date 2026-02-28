@@ -148,14 +148,15 @@ Calendar events extracted from ICS attachments or created manually. Three types 
 | partner_name | text | Denormalized; used when partner_id is null |
 | program_id | uuid FK→programs | ON DELETE SET NULL |
 | message_id | uuid FK→messages | Source email; not synced to AT |
-| meeting_type | text | Executive, Specialized, GTM, Product Team Relationship |
-| status | text NOT NULL | Scheduling, Invites Sent, Confirmed, Completed, Did Not Occur |
+| status | text NOT NULL | scheduled, completed, cancelled, did_not_occur. Mapped to title case for AT. |
 | meeting_date | date | |
 | start_time / end_time | text | |
 | location | text | |
-| organizer_email | text | |
+| organizer_email | text | Extracted from ICS ORGANIZER |
 | attendees | jsonb | Array of {name, email} |
-| ics_uid | text UNIQUE | Calendar event unique ID for dedup |
+| ics_uid | text UNIQUE | Calendar event unique ID for dedup/update |
+| sequence | integer | ICS SEQUENCE for update ordering |
+| is_recurring | boolean | True if ICS contains RRULE |
 | source | text NOT NULL | "manual" or "ics_parsed" |
 | notes | text | Not synced to AT (see ADR-001). ICS-parsed meetings leave null; manual-only scratch space. |
 | airtable_record_id | text UNIQUE | |
