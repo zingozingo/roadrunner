@@ -126,16 +126,6 @@ Jazz Totten <—> (—)
 
 **DB JSONB column:** `contacts` — array of `{name, email, title}` parsed from Lead Contact + Team Contacts.
 
-**Legacy constants (Phase 3 removal candidates):**
-
-| Constant | Field ID | Status |
-|----------|----------|--------|
-| `RF.primaryContact` | `fldhCrECNQ0uBA2tD` | Defined but not read during pull. Dual-write target. |
-| `RF.primaryContactEmail` | `fldoWXiosjUJBPDqF` | Defined but not read during pull. Dual-write target. |
-| `RF.awsContactEmails` | `fldEu6kRhcn1929CA` | Defined but not read during pull. Dual-write target. |
-
-**Additional constant:** `RF.partners` (`fldJHZfq28s58iuwX`) — linked record field, used for relationship context.
-
 **Airtable-only fields:** Partner Engagements (reverse link), Meetings (reverse link).
 
 ---
@@ -232,6 +222,7 @@ Remaining attendees are split: `@amazon.com` → AWS Contact(s), everything else
 
 | Date | Change |
 |------|--------|
+| 2026-03-01 | Removed 4 dead field ID constants from AWS Relationships (primaryContact, primaryContactEmail, awsContactEmails, partners) — deleted from AT during Phase 2, dead in code since Phase 3. |
 | 2026-03-01 | **Full rewrite.** Updated Partners (9 old fields → 5 unified contact fields + whatTheyDo + contacts), AWS Relationships (added leadContact, teamContacts, marked legacy fields), Events (added geo, sponsorOption, partnerDay, partnerDayDate), Programs (removed ghost URL, added whatItUnlocks, notes). Added contact format convention section. |
 | 2026-02-28 | Contact standardization: universal `Name <email> (Title)` format. Old separate name+email fields deleted from AT. |
 | 2026-02-27 | Fixed stale Partner/Meeting link field IDs. Added Program + AWS Relationships links to Engagements. |

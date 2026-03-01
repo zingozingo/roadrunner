@@ -152,11 +152,14 @@ export async function POST(request: NextRequest) {
       // Persist classification result
       await persistClassificationResult(finalResult, engagement.id, messageIds, isNew);
 
-      // Fire-and-forget Airtable sync
-      import("@/lib/sync")
-        .then(({ pushEngagementToAirtable }) => pushEngagementToAirtable(engagement.id))
-        .then((r) => console.log(`Airtable push: ${r.action} engagement ${engagement.id}`))
-        .catch((err) => console.error(`Airtable push failed for ${engagement.id}:`, err));
+      // Push to Airtable (awaited to prevent serverless termination)
+      try {
+        const { pushEngagementToAirtable } = await import("@/lib/sync");
+        const pushResult = await pushEngagementToAirtable(engagement.id);
+        console.log(`Airtable push: ${pushResult.action} engagement ${engagement.id}`);
+      } catch (err) {
+        console.error(`Airtable push failed for ${engagement.id}:`, err);
+      }
 
       // Link meetings
       if (classResult.content_type === "meeting_invite") {
@@ -222,11 +225,14 @@ export async function POST(request: NextRequest) {
 
       await persistClassificationResult(finalResult, engagement.id, messageIds, false);
 
-      // Fire-and-forget Airtable sync
-      import("@/lib/sync")
-        .then(({ pushEngagementToAirtable }) => pushEngagementToAirtable(engagement.id))
-        .then((r) => console.log(`Airtable push: ${r.action} engagement ${engagement.id}`))
-        .catch((err) => console.error(`Airtable push failed for ${engagement.id}:`, err));
+      // Push to Airtable (awaited to prevent serverless termination)
+      try {
+        const { pushEngagementToAirtable } = await import("@/lib/sync");
+        const pushResult = await pushEngagementToAirtable(engagement.id);
+        console.log(`Airtable push: ${pushResult.action} engagement ${engagement.id}`);
+      } catch (err) {
+        console.error(`Airtable push failed for ${engagement.id}:`, err);
+      }
 
       // Link meetings
       if (classResult.content_type === "meeting_invite") {

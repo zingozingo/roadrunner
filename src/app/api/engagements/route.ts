@@ -60,11 +60,14 @@ export async function POST(request: NextRequest) {
       engagement = await updateEngagement(engagement.id, { status });
     }
 
-    // Fire-and-forget: push to Airtable
-    import("@/lib/sync")
-      .then(({ pushEngagementToAirtable }) => pushEngagementToAirtable(engagement.id))
-      .then((r) => console.log(`Airtable push: ${r.action} engagement ${engagement.id}`))
-      .catch((err) => console.error(`Airtable push failed for ${engagement.id}:`, err));
+    // Push to Airtable (awaited to prevent serverless termination)
+    try {
+      const { pushEngagementToAirtable } = await import("@/lib/sync");
+      const pushResult = await pushEngagementToAirtable(engagement.id);
+      console.log(`Airtable push: ${pushResult.action} engagement ${engagement.id}`);
+    } catch (err) {
+      console.error(`Airtable push failed for ${engagement.id}:`, err);
+    }
 
     return NextResponse.json({ engagement }, { status: 201 });
   } catch (error) {

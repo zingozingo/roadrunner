@@ -35,16 +35,11 @@ export const EF = {
 
 export const RF = {
   name: "fldeiFljVC5L61c3v",
-  partners: "fldJHZfq28s58iuwX",
   awsOrg: "fldKSmvO7Lhr5v9Fy",
   awsService: "fldiieBBkkAFYDOJC",
   type: "fld2cjVCECNIPGw2d",
   leadContact: "fldKELDdEYb8MsJCP",
   teamContacts: "fld472yolP2ujyJ5w",
-  // Legacy (kept for dual-write reads during transition)
-  primaryContact: "fldhCrECNQ0uBA2tD",
-  primaryContactEmail: "fldoWXiosjUJBPDqF",
-  awsContactEmails: "fldEu6kRhcn1929CA",
   notes: "fldOcbNUrtfxjqiW5",
 } as const;
 

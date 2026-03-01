@@ -164,7 +164,7 @@ export async function updateEngagement(
 export async function deleteEngagement(id: string): Promise<void> {
   const db = getSupabaseClient();
 
-  // Fire-and-forget: delete from Airtable if synced
+  // Delete from Airtable if synced (awaited to prevent serverless termination)
   const { data: eng } = await db
     .from("engagements")
     .select("airtable_record_id")
@@ -172,13 +172,12 @@ export async function deleteEngagement(id: string): Promise<void> {
     .maybeSingle();
 
   if (eng?.airtable_record_id) {
-    import("../sync")
-      .then(({ deleteEngagementFromAirtable }) =>
-        deleteEngagementFromAirtable(eng.airtable_record_id)
-      )
-      .catch((err) =>
-        console.error(`Airtable delete failed for engagement ${id}:`, err)
-      );
+    try {
+      const { deleteEngagementFromAirtable } = await import("../sync");
+      await deleteEngagementFromAirtable(eng.airtable_record_id);
+    } catch (err) {
+      console.error(`Airtable delete failed for engagement ${id}:`, err);
+    }
   }
 
   // Application-level cascade for polymorphic FKs (no DB cascade possible):

@@ -176,11 +176,15 @@ export async function createMeeting(data: {
 
   if (error) throw new Error(`Failed to create meeting: ${error.message}`);
 
-  // Fire-and-forget: push to Airtable
   const mtgResult = meeting as Meeting;
-  import("../sync")
-    .then(({ pushMeetingToAirtable }) => pushMeetingToAirtable(mtgResult.id))
-    .catch((err) => console.error(`Airtable push failed for meeting ${mtgResult.id}:`, err));
+
+  // Push to Airtable (awaited to prevent serverless termination)
+  try {
+    const { pushMeetingToAirtable } = await import("../sync");
+    await pushMeetingToAirtable(mtgResult.id);
+  } catch (err) {
+    console.error(`Airtable push failed for meeting ${mtgResult.id}:`, err);
+  }
 
   return mtgResult;
 }
@@ -217,7 +221,7 @@ export async function updateMeeting(
 export async function deleteMeeting(id: string): Promise<void> {
   const db = getSupabaseClient();
 
-  // Fire-and-forget: delete from Airtable if synced
+  // Delete from Airtable if synced (awaited to prevent serverless termination)
   const { data: mtg } = await db
     .from("meetings")
     .select("airtable_record_id")
@@ -225,13 +229,12 @@ export async function deleteMeeting(id: string): Promise<void> {
     .maybeSingle();
 
   if (mtg?.airtable_record_id) {
-    import("../sync")
-      .then(({ deleteMeetingFromAirtable }) =>
-        deleteMeetingFromAirtable(mtg.airtable_record_id)
-      )
-      .catch((err) =>
-        console.error(`Airtable delete failed for meeting ${id}:`, err)
-      );
+    try {
+      const { deleteMeetingFromAirtable } = await import("../sync");
+      await deleteMeetingFromAirtable(mtg.airtable_record_id);
+    } catch (err) {
+      console.error(`Airtable delete failed for meeting ${id}:`, err);
+    }
   }
 
   // 1. Delete junction records
@@ -394,10 +397,13 @@ export async function createMeetingFromICS(
       }
       console.log(`Cancelled meeting: ${parsed.title} (${existing.id})`);
 
-      // Fire-and-forget: push updated status to Airtable
-      import("../sync")
-        .then(({ pushMeetingToAirtable }) => pushMeetingToAirtable(existing.id))
-        .catch((err) => console.error(`Airtable push failed for meeting ${existing.id}:`, err));
+      // Push to Airtable (awaited to prevent serverless termination)
+      try {
+        const { pushMeetingToAirtable } = await import("../sync");
+        await pushMeetingToAirtable(existing.id);
+      } catch (err) {
+        console.error(`Airtable push failed for meeting ${existing.id}:`, err);
+      }
 
       return existing.id;
     }
@@ -442,10 +448,13 @@ export async function createMeetingFromICS(
       }
       console.log(`Updated meeting from ICS: ${parsed.title} (${existing.id})`);
 
-      // Fire-and-forget: push to Airtable
-      import("../sync")
-        .then(({ pushMeetingToAirtable }) => pushMeetingToAirtable(existing.id))
-        .catch((err) => console.error(`Airtable push failed for meeting ${existing.id}:`, err));
+      // Push to Airtable (awaited to prevent serverless termination)
+      try {
+        const { pushMeetingToAirtable } = await import("../sync");
+        await pushMeetingToAirtable(existing.id);
+      } catch (err) {
+        console.error(`Airtable push failed for meeting ${existing.id}:`, err);
+      }
 
       return existing.id;
     }
@@ -483,10 +492,13 @@ export async function createMeetingFromICS(
 
     console.log(`Created meeting from ICS: ${parsed.title} (${parsed.meeting_date})`);
 
-    // Fire-and-forget: push to Airtable
-    import("../sync")
-      .then(({ pushMeetingToAirtable }) => pushMeetingToAirtable(data.id))
-      .catch((err) => console.error(`Airtable push failed for meeting ${data.id}:`, err));
+    // Push to Airtable (awaited to prevent serverless termination)
+    try {
+      const { pushMeetingToAirtable } = await import("../sync");
+      await pushMeetingToAirtable(data.id);
+    } catch (err) {
+      console.error(`Airtable push failed for meeting ${data.id}:`, err);
+    }
 
     return data.id;
   } catch (err) {
@@ -540,11 +552,14 @@ export async function linkMeetingToEngagement(
     if (data && data.length > 0) {
       console.log(`Linked meeting to engagement: ${engagementId}`);
 
-      // Fire-and-forget: push updated meeting(s) to Airtable
-      for (const row of data as { id: string }[]) {
-        import("../sync")
-          .then(({ pushMeetingToAirtable }) => pushMeetingToAirtable(row.id))
-          .catch((err) => console.error(`Airtable push failed for meeting ${row.id}:`, err));
+      // Push updated meeting(s) to Airtable (awaited to prevent serverless termination)
+      try {
+        const { pushMeetingToAirtable } = await import("../sync");
+        for (const row of data as { id: string }[]) {
+          await pushMeetingToAirtable(row.id);
+        }
+      } catch (err) {
+        console.error(`Airtable push failed for linked meetings:`, err);
       }
     }
   } catch (err) {

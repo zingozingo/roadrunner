@@ -109,11 +109,14 @@ export async function PUT(
       pillar,
     });
 
-    // Fire-and-forget: push update to Airtable
-    import("@/lib/sync")
-      .then(({ pushEngagementToAirtable }) => pushEngagementToAirtable(id))
-      .then((r) => console.log(`Airtable push: ${r.action} engagement ${id}`))
-      .catch((err) => console.error(`Airtable push failed for ${id}:`, err));
+    // Push to Airtable (awaited to prevent serverless termination)
+    try {
+      const { pushEngagementToAirtable } = await import("@/lib/sync");
+      const pushResult = await pushEngagementToAirtable(id);
+      console.log(`Airtable push: ${pushResult.action} engagement ${id}`);
+    } catch (err) {
+      console.error(`Airtable push failed for ${id}:`, err);
+    }
 
     return NextResponse.json({ engagement: updated });
   } catch (error) {
