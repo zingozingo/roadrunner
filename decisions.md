@@ -2423,3 +2423,15 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** 12 push/delete calls across 6 files converted from fire-and-forget to awaited. Zero fire-and-forget patterns remain. Every engagement and meeting created or updated in Supabase will now reliably land in Airtable regardless of Vercel's function lifecycle.
 
 **Impact:** Establishes the standard pattern for future refactors. Each chunk has a clear error-count target and test baseline.
+
+---
+
+## 2026-03-01: Engagement as Authoritative Hub (Phase A — Event Links)
+
+**Decision:** Engagement is the single authoritative hub for all entity connections. Partner, Program, Event, and AWS Relationships all link FROM the engagement. Meetings are timeline events within engagements — they inherit connections from their parent engagement rather than maintaining independent links.
+
+**Context:** The Qualys RSA Conference engagement had a classifier-generated entity_link to RSA Conference 2026 (visible in Roadrunner UI under CONNECTIONS) but no way to push that to Airtable because no Event field existed on Partner Engagements. Meanwhile, meetings independently maintained their own partner_id, event_id, and program_id — duplicating what the engagement already knows. This created architectural ambiguity: is the meeting or the engagement the source of truth for connections?
+
+**Rationale:** An engagement is a story; messages and meetings are chapters. Chapters belong to books — you don't put metadata on both independently. Making the engagement the definitive hub eliminates duplicate linking, simplifies push logic, and ensures Airtable reflects the full picture. Phase A wires event links. Phase B (future) will make engagement_id required on meetings. Phase C (future) will derive meeting AT links from the engagement.
+
+**Impact:** Created Event linked record field on AT Partner Engagements (fldscmkRoT65oa6Oy). Push logic resolves entity_links to populate event connections. Every engagement with a classifier-detected event relationship will now show that link in Airtable.

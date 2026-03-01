@@ -66,6 +66,7 @@ export const ENF = {
   partner: "fldkYNE9C0UcdnGCL",
   program: "fldZ4IqdSvuEXgp83",
   awsRelationships: "fldhVQTAP2wucnzNC",
+  event: "fldscmkRoT65oa6Oy",
   awsStakeholders: "fldLVPbg7iyz0Nli9",
   partnerStakeholders: "fldj6vaWwDKJy6aci",
   thirdParties: "flduajBotnT6x5ZXD",

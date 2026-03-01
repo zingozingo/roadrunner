@@ -144,6 +144,7 @@ Jazz Totten <—> (—)
 | Partner | `fldkYNE9C0UcdnGCL` | multipleRecordLinks | `ENF.partner` | Link to Partners table |
 | Program | `fldZ4IqdSvuEXgp83` | multipleRecordLinks | `ENF.program` | Link to Programs catalog. Resolved from `engagements.program_id` FK. |
 | AWS Relationships | `fldhVQTAP2wucnzNC` | multipleRecordLinks | `ENF.awsRelationships` | Link to AWS Relationships. Resolved from `engagement_aws_relationships` junction table. |
+| Event | `fldscmkRoT65oa6Oy` | multipleRecordLinks | `ENF.event` | Link to Events table. Resolved from entity_links (source_type='engagement', target_type='event'). |
 | AWS Stakeholders | `fldLVPbg7iyz0Nli9` | multilineText | `ENF.awsStakeholders` | Newline-separated. `@amazon.com` email or "AWS"/"Amazon" org. |
 | Partner Stakeholders | `fldj6vaWwDKJy6aci` | multilineText | `ENF.partnerStakeholders` | Newline-separated. Org matches engagement partner name. |
 | Third Parties | `flduajBotnT6x5ZXD` | multilineText | `ENF.thirdParties` | Everyone else (excluding system/relay/user addresses). |
@@ -222,6 +223,7 @@ Remaining attendees are split: `@amazon.com` → AWS Contact(s), everything else
 
 | Date | Change |
 |------|--------|
+| 2026-03-01 | Added Event linked record field to Partner Engagements. Resolved from entity_links table during push. |
 | 2026-03-01 | Removed 4 dead field ID constants from AWS Relationships (primaryContact, primaryContactEmail, awsContactEmails, partners) — deleted from AT during Phase 2, dead in code since Phase 3. |
 | 2026-03-01 | **Full rewrite.** Updated Partners (9 old fields → 5 unified contact fields + whatTheyDo + contacts), AWS Relationships (added leadContact, teamContacts, marked legacy fields), Events (added geo, sponsorOption, partnerDay, partnerDayDate), Programs (removed ghost URL, added whatItUnlocks, notes). Added contact format convention section. |
 | 2026-02-28 | Contact standardization: universal `Name <email> (Title)` format. Old separate name+email fields deleted from AT. |
