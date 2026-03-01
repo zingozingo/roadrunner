@@ -116,10 +116,10 @@ This evolves with each email. Claude reads the existing current_state and update
 | `src/lib/prompt-builder.ts` | Modular context section builders |
 | `src/lib/email-parser.ts` | Forwarded email chain parser (extracts body, strips quotes) |
 | `src/lib/ics-parser.ts` | ICS calendar event parser (RFC 5545) |
-| `src/lib/__tests__/classifier.test.ts` | 12 tests |
+| `src/lib/__tests__/classifier.test.ts` | 11 tests |
 | `src/lib/__tests__/claude.test.ts` | 16 tests |
-| `src/lib/__tests__/prompt-builder.test.ts` | 16 tests |
-| `src/lib/__tests__/email-parser.test.ts` | 72 tests |
+| `src/lib/__tests__/prompt-builder.test.ts` | 19 tests |
+| `src/lib/__tests__/email-parser.test.ts` | 123 tests |
 | `src/lib/__tests__/ics-parser.test.ts` | 18 tests |
 
 ## Deduplication

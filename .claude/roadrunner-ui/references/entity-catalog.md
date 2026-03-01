@@ -104,8 +104,8 @@ Card visual treatment:
 |---|---|---|
 | 1 (name) | `partner.name` | flex-1 |
 | 2 | `partner.focus_area[0]` (first only) | 200px |
-| 3 | `partner.alliance_lead` | 160px |
-| 4 | `partner.psa` | 140px |
+| 3 | `partner.partner_contacts` JSONB (filtered by role) | 160px |
+| 4 | `partner.aws_team` JSONB (filtered by role) | 140px |
 
 ```tsx
 <TableList
@@ -121,8 +121,8 @@ Card visual treatment:
     columns: [
       { value: p.name },
       { value: p.focus_area[0] ?? "", width: "200px" },
-      { value: p.alliance_lead ?? "", width: "160px" },
-      { value: p.psa ?? "", width: "140px" },
+      { value: (p.partner_contacts ?? []).find((c: {role: string}) => c.role === "Alliance Lead")?.name ?? "", width: "160px" },
+      { value: (p.aws_team ?? []).find((c: {role: string}) => c.role === "PSA")?.name ?? "", width: "140px" },
     ],
   }))}
 />
@@ -135,7 +135,7 @@ Card visual treatment:
 | title | `partner.name` |
 | badges | Segment chip |
 | subtitle | — (removed; what_they_do moved into Partner Context card) |
-| fields | Alliance Lead (with email), PSA, SPMS ID, Focus Areas |
+| fields | Contacts (JSONB), SPMS ID, Focus Areas |
 | actions | — (no actions currently) |
 
 ### Detail Page Layout (full-width, no sidebar)
@@ -361,7 +361,7 @@ The meeting detail page uses a **full-width layout** (no sidebar). Sections top 
 | 1 (name) | `rel.name` | flex-1 |
 | 2 | `rel.aws_org` | 180px |
 | 3 | `rel.aws_service` | 160px |
-| 4 | `rel.primary_contact_name` | 140px |
+| 4 | `rel.contacts` JSONB array | 140px |
 
 ```tsx
 <TableList
@@ -378,7 +378,7 @@ The meeting detail page uses a **full-width layout** (no sidebar). Sections top 
       { value: rel.name },
       { value: rel.aws_org ?? "", width: "180px" },
       { value: rel.aws_service ?? "", width: "160px" },
-      { value: rel.primary_contact_name ?? "", width: "140px" },
+      { value: (rel.contacts ?? [])[0]?.name ?? "", width: "140px" },
     ],
   }))}
 />
@@ -391,7 +391,7 @@ The meeting detail page uses a **full-width layout** (no sidebar). Sections top 
 | title | `relationship.name` |
 | badges | RelationshipTypeBadge |
 | subtitle | Notes or description |
-| fields | AWS Org, AWS Service, Primary Contact, Contact Email |
+| fields | AWS Org, AWS Service, Contacts (JSONB) |
 | actions | RelationshipActions |
 
 ### Notes

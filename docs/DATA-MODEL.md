@@ -1,179 +1,63 @@
-# Roadrunner — Data Model
+# Data Model
 
-## System Ownership
+> Last updated: 2026-03-01 (post-Phase 3 contact standardization)
 
-| System | Owns | Sync Direction |
-|--------|------|----------------|
-| **Airtable** | Partners, Programs, Events, AWS Relationships | AT → RR (pull) |
-| **Roadrunner** | Engagements, Meetings, Messages, Approval Queue | RR → AT (push, engagements + meetings only) |
+## Overview
 
-Catalog tables are read from Airtable into Roadrunner. Activity tables are written from Roadrunner to Airtable. This one-directional ownership per entity prevents sync conflicts.
+Roadrunner uses Supabase PostgreSQL with 14 tables. Data flows bidirectionally with Airtable:
+- **Catalog tables** (partners, programs, events, aws_relationships): Airtable → Supabase via pull sync
+- **Activity tables** (engagements, meetings): Supabase → Airtable via push sync
+- **Internal tables** (participants, participant_links, entity_links, approval_queue, notes, messages): Roadrunner-only
 
-For the complete field-level mapping between Airtable and Supabase, see [FIELD-MAPPING.md](FIELD-MAPPING.md).
+Field mapping details: [FIELD-MAPPING.md](./FIELD-MAPPING.md)
 
----
+## Tables
 
-## Catalog Entities (Airtable → Roadrunner)
-
-### Partners
-
-ISV companies in the portfolio. Classified by operational segment and focus area.
+### partners
+Source: Airtable (pull sync)
 
 | Column | Type | Notes |
 |--------|------|-------|
 | id | uuid PK | |
-| name | text NOT NULL | |
-| segment | text | Security, SecOps, DevOps, CloudOps, Observability, OT/IoT |
-| focus_area | text[] | Multiple select: Network Security, API Security, IaC, IT Management, etc. |
-| alliance_lead | text | Partner-side alliance manager |
-| alliance_lead_email | text | Used for email matching + name resolution |
-| psa | text | AWS Partner Solutions Architect |
-| psa_email | text | PSA email; used for name resolution |
-| account_manager | text | AWS Account Manager name |
-| account_manager_email | text | AM email; used for name resolution |
-| pmm | text | Partner Marketing Manager name |
-| pmm_email | text | PMM email; used for name resolution |
-| spms_id | integer | AWS SPMS identifier |
-| what_they_do | text | Brief description of the partner's business |
-| partner_contact_emails | text[] | Array; used for email-to-partner matching |
-| aws_stickiness | text | Narrative: how likely is a customer to use more AWS services |
-| key_aws_services | text[] | EC2, S3, Lambda, Security Hub, etc. |
-| airtable_record_id | text UNIQUE | Airtable record ID for sync |
+| name | text | Partner company name |
+| segment | text | Security, DevOps, CloudOps, Observability, OT/IoT |
+| focus_area | text[] | Array of focus areas |
+| what_they_do | text | Partner description |
+| aws_stickiness | text | Narrative on customer AWS adoption likelihood |
+| key_aws_services | text[] | EC2, S3, Lambda, etc. |
+| aws_team | jsonb | Array of {name, email, title, role} — PSA, AM, PMM |
+| partner_contacts | jsonb | Array of {name, email, title, role} — Alliance Lead + others |
+| spms_id | integer | AWS partner ID |
+| airtable_record_id | text | Sync key |
 | created_at / updated_at | timestamptz | |
 
-### Programs (Tier 1 — Catalog)
-
-AWS partner programs. This is the canonical list of available programs.
-
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid PK | |
-| name | text NOT NULL | |
-| type | text | singleSelect from Airtable |
-| description | text | |
-| requirements | text | Requirements/eligibility criteria |
-| what_it_unlocks | text | What the program unlocks for partners |
-| notes | text | Additional notes |
-| lifecycle_type | text | |
-| lifecycle_duration | text | |
-| airtable_record_id | text UNIQUE | |
-| created_at / updated_at | timestamptz | |
-
-**Note:** There is also a Tier 2 "Partner Programs" table in Airtable (per-partner enrollment status). This is NOT synced to Roadrunner — it's Airtable-only.
-
-### Events
-
-Shared calendar anchors: conferences, summits, workshops, partner days.
+### engagements
+Source: Roadrunner (push sync)
 
 | Column | Type | Notes |
 |--------|------|-------|
 | id | uuid PK | |
-| name | text NOT NULL | |
-| type | text | Conference, Summit, Workshop, Partner Day, etc. |
-| description | text | |
-| start_date / end_date | date | |
-| location | text | |
-| host | text | |
-| geo | text | Geographic region: NAMER, EMEA, APJ, LATAM, Global |
-| source | text | "seed", "email_extracted", or "user_created" |
-| sponsor_option | boolean | Sponsorship opportunity available |
-| partner_day | boolean | Has a partner day component |
-| partner_day_date | date | Date of partner day (if applicable) |
-| verified | boolean DEFAULT false | |
-| airtable_record_id | text UNIQUE | |
-| created_at / updated_at | timestamptz | |
-
-**Events ARE:** Shared calendar anchors that multiple partners might attend — re:Invent, AWS Summits, partner-hosted conferences, industry events.
-
-**Events are NOT:** Meetings within a single engagement (a call, a review, a demo), vague future intentions ("we should meet next week"), or unconfirmed scheduling negotiations.
-
-### AWS Relationships
-
-Named relationships with AWS people or teams. Decoupled from single-partner ownership — a relationship can be linked to multiple engagements across partners.
-
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid PK | |
-| name | text NOT NULL | e.g., "Taylor Murphy - ISV SA" |
-| relationship_type | text | Exec/Leader, Product Team, Program Team, Seller |
-| aws_org | text | |
-| aws_service | text | |
-| primary_contact_name | text | |
-| primary_contact_email | text | Used for email matching |
-| aws_contact_emails | text[] | Array; used for email matching |
-| notes | text | |
-| airtable_record_id | text UNIQUE | |
-| created_at / updated_at | timestamptz | |
-
----
-
-## Activity Entities (Roadrunner → Airtable)
-
-### Engagements
-
-The core entity. A trackable workstream with a partner, created and evolved by AI classification.
-
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid PK | |
-| name | text NOT NULL | AI-generated, user-editable |
-| partner_id | uuid FK→partners | |
+| name | text | Engagement title |
+| status | text | CHECK: active, blocked, completed, archived |
+| pillar | text | CHECK: Co-Sell, Co-Market, Co-Build (nullable) |
+| partner_id | uuid FK → partners | |
 | partner_name | text | Denormalized; used when partner_id is null |
-| status | text NOT NULL | active, blocked, completed, archived |
-| current_state | text | Living summary — updated with each new email |
-| pillar | text | Co-Sell, Co-Market, Co-Build |
-| program_id | uuid FK→programs | Direct link to program (if applicable) |
-| topic | text | What the engagement is about |
-| goal | text | What success looks like |
-| engagement_type | text | Taxonomy TBD from real data patterns |
-| closed_at | timestamptz | |
-| airtable_record_id | text UNIQUE | |
+| program_id | uuid FK → programs | Nullable |
+| engagement_type | text | |
+| topic | text | AI-generated topic summary |
+| goal | text | AI-generated goal |
+| current_state | text | AI-generated evolving state narrative |
+| closed_at | timestamptz | Set when status → archived |
+| airtable_record_id | text | Sync key |
 | created_at / updated_at | timestamptz | |
 
-### Meetings
-
-Calendar events extracted from ICS attachments or created manually. Three types supported:
-
-1. **Event meetings** — linked to Event + Partner (re:Invent prep, summit follow-up)
-2. **Program meetings** — linked to Program + Partner (competency reviews, program calls)
-3. **Standalone engagement meetings** — linked to Engagement + Partner only
+### messages
+Source: Roadrunner (internal)
 
 | Column | Type | Notes |
 |--------|------|-------|
 | id | uuid PK | |
-| title | text NOT NULL | Written to Airtable "Meeting Name" primary field |
-| engagement_id | uuid FK→engagements | ON DELETE SET NULL |
-| event_id | uuid FK→events | ON DELETE SET NULL |
-| partner_id | uuid FK→partners | ON DELETE SET NULL |
-| partner_name | text | Denormalized; used when partner_id is null |
-| program_id | uuid FK→programs | ON DELETE SET NULL |
-| message_id | uuid FK→messages | Source email; not synced to AT |
-| status | text NOT NULL | scheduled, completed, cancelled, did_not_occur. Mapped to title case for AT. |
-| meeting_date | date | |
-| start_time / end_time | text | |
-| location | text | |
-| organizer_email | text | Extracted from ICS ORGANIZER |
-| attendees | jsonb | Array of {name, email} |
-| ics_uid | text UNIQUE | Calendar event unique ID for dedup/update |
-| sequence | integer | ICS SEQUENCE for update ordering |
-| is_recurring | boolean | True if ICS contains RRULE |
-| source | text NOT NULL | "manual" or "ics_parsed" |
-| notes | text | Not synced to AT (see ADR-001). ICS-parsed meetings leave null; manual-only scratch space. |
-| airtable_record_id | text UNIQUE | |
-| created_at / updated_at | timestamptz | |
-
----
-
-## Internal Entities (Roadrunner Only — Not Synced)
-
-### Messages
-
-Raw emails stored for reference and audit trail. Deduplication is handled at the application layer via Mailgun message ID checks before insertion.
-
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid PK | |
-| engagement_id | uuid FK→engagements | Set during classification |
+| engagement_id | uuid FK → engagements | Set during classification |
 | sender_name | text | Parsed from email headers |
 | sender_email | text | |
 | sent_at | timestamptz | |
@@ -193,55 +77,113 @@ Raw emails stored for reference and audit trail. Deduplication is handled at the
 | cc_header | text | Original CC header |
 | created_at | timestamptz | |
 
-### Approval Queue
-
-Low-confidence classifications waiting for human review.
+### meetings
+Source: Roadrunner (push sync)
 
 | Column | Type | Notes |
 |--------|------|-------|
 | id | uuid PK | |
-| type | text NOT NULL | Always 'engagement_assignment' (CHECK constraint) |
-| message_id | uuid FK→messages | ON DELETE SET NULL |
-| engagement_id | uuid FK→engagements | ON DELETE SET NULL |
-| classification_result | jsonb | The proposed classification |
-| options_sent | jsonb | Legacy (Twilio removed) — always null on new rows |
-| sms_sent | boolean | Legacy — always false on new rows |
-| sms_sent_at | timestamptz | Legacy |
-| resolved | boolean NOT NULL | False = pending review |
-| resolved_at | timestamptz | |
-| resolution | text | How it was resolved |
-| created_at | timestamptz | |
+| title | text | Meeting title |
+| engagement_id | uuid FK → engagements | ON DELETE SET NULL |
+| event_id | uuid FK → events | ON DELETE SET NULL |
+| partner_id | uuid FK → partners | ON DELETE SET NULL |
+| partner_name | text | Denormalized; used when partner_id is null |
+| program_id | uuid FK → programs | ON DELETE SET NULL |
+| message_id | uuid FK → messages | Source email; not synced to AT |
+| status | text | scheduled, completed, cancelled, did_not_occur |
+| meeting_date | date | |
+| start_time / end_time | text | |
+| location | text | |
+| organizer_email | text | Extracted from ICS ORGANIZER |
+| organizer_name | text | From ICS ORGANIZER |
+| attendees | jsonb | Array of {name, email} |
+| ics_uid | text UNIQUE | Calendar event unique ID for dedup/update |
+| sequence | integer | ICS SEQUENCE for update ordering |
+| is_recurring | boolean | True if ICS contains RRULE |
+| source | text NOT NULL | "manual" or "ics_parsed" |
+| notes | text | |
+| airtable_record_id | text UNIQUE | |
+| created_at / updated_at | timestamptz | |
 
-### Participants
+### programs
+Source: Airtable (pull sync)
 
-People mentioned in emails. Shared across engagements via participant_links. Participant type (aws, partner, other) is not stored — it's inferred from email domain during classification and sync.
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| name | text | Program name |
+| type | text | Competency, Service Ready, SCA, Program, Funding, Channel, Enablement |
+| description | text | |
+| requirements | text | |
+| what_it_unlocks | text | MDF funding, badges, etc. |
+| lifecycle_type | text | recurring, expiring, indefinite |
+| lifecycle_duration | text | |
+| notes | text | |
+| airtable_record_id | text | Sync key |
+| created_at / updated_at | timestamptz | |
+
+### events
+Source: Airtable (pull sync)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| name | text | Event name |
+| type | text | conference, summit, workshop, trade_show, training, kickoff, deadline, review_cycle |
+| start_date / end_date | date | |
+| location | text | |
+| host | text | |
+| description | text | |
+| geo | text | NAMER, EMEA, APJ, LATAM, GCR |
+| sponsor_option | boolean | |
+| partner_day | boolean | |
+| partner_day_date | date | |
+| verified | boolean DEFAULT false | |
+| airtable_record_id | text | Sync key |
+| created_at / updated_at | timestamptz | |
+
+### aws_relationships
+Source: Airtable (pull sync)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| name | text | Relationship name (e.g., "Taylor Murphy - ISV SA") |
+| relationship_type | text | Exec/Leader, Product Team, Program Team, Seller |
+| aws_org | text | Platform, Security, Observability, etc. |
+| aws_service | text | |
+| contacts | jsonb | Array of {name, email, title} — Lead + team contacts |
+| notes | text | |
+| airtable_record_id | text | Sync key |
+| created_at / updated_at | timestamptz | |
+
+### participants
+Source: Roadrunner (internal)
 
 | Column | Type | Notes |
 |--------|------|-------|
 | id | uuid PK | |
 | name | text | |
-| email | text | Nullable (migration 007); UNIQUE when present |
+| email | text | Nullable; UNIQUE when present |
 | organization | text | Company or org name |
 | title | text | Job title |
 | notes | text | |
 | created_at | timestamptz | |
 
-### Participant Links
-
-Polymorphic junction table: which participants are involved in which engagements or events.
+### participant_links
+Junction: participants ↔ entities (polymorphic)
 
 | Column | Type | Notes |
 |--------|------|-------|
 | id | uuid PK | |
-| participant_id | uuid FK→participants | |
+| participant_id | uuid FK → participants | |
 | entity_type | text NOT NULL | 'engagement' or 'event' |
 | entity_id | uuid NOT NULL | FK to engagements or events |
 | role | text | Role in the context of this entity |
 | created_at | timestamptz | |
 
-### Entity Links
-
-Generic many-to-many junction between engagements, events, and programs.
+### entity_links
+Junction: generic M:M between engagements, events, and programs
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -255,16 +197,62 @@ Generic many-to-many junction between engagements, events, and programs.
 | created_by | text NOT NULL | 'ai' or 'user' |
 | created_at | timestamptz | |
 
-### Meeting ↔ AWS Relationships (Junction)
+### engagement_aws_relationships
+Junction: engagements ↔ aws_relationships
 
 | Column | Type | Notes |
 |--------|------|-------|
 | id | uuid PK | |
-| meeting_id | uuid FK→meetings | ON DELETE CASCADE |
-| aws_relationship_id | uuid FK→aws_relationships | ON DELETE CASCADE |
+| engagement_id | uuid FK → engagements | ON DELETE CASCADE |
+| aws_relationship_id | uuid FK → aws_relationships | ON DELETE CASCADE |
 | created_at | timestamptz | |
 
----
+### meeting_aws_relationships
+Junction: meetings ↔ aws_relationships
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| meeting_id | uuid FK → meetings | ON DELETE CASCADE |
+| aws_relationship_id | uuid FK → aws_relationships | ON DELETE CASCADE |
+| created_at | timestamptz | |
+
+### approval_queue
+Source: Roadrunner (internal)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| type | text NOT NULL | Always 'engagement_assignment' (CHECK constraint) |
+| message_id | uuid FK → messages | ON DELETE SET NULL |
+| engagement_id | uuid FK → engagements | ON DELETE SET NULL |
+| classification_result | jsonb | The proposed classification |
+| options_sent | jsonb | Legacy (Twilio removed) — always null on new rows |
+| sms_sent | boolean | Legacy — always false on new rows |
+| sms_sent_at | timestamptz | Legacy |
+| resolved | boolean NOT NULL | False = pending review |
+| resolved_at | timestamptz | |
+| resolution | text | How it was resolved |
+| created_at | timestamptz | |
+
+### notes
+Source: Roadrunner (internal)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| engagement_id | uuid FK → engagements | ON DELETE CASCADE |
+| content | text | |
+| created_at / updated_at | timestamptz | |
+
+## Contact Architecture
+
+All contacts use the universal format: `Name <email> (Title)`
+- Parser: `src/lib/contact-parser.ts`
+- Missing email: `<—>`, missing title: `(—)`
+- Partners: `aws_team` (PSA, AM, PMM) + `partner_contacts` (Alliance Lead + others)
+- AWS Relationships: `contacts` (Lead + team)
+- See [FIELD-MAPPING.md](./FIELD-MAPPING.md) for Airtable field ID mappings
 
 ## Sync Architecture
 
@@ -275,33 +263,20 @@ Generic many-to-many junction between engagements, events, and programs.
 
 ### Match Strategies
 
-**Engagements:** Match by `airtable_record_id` (existing) or `roadrunnerId` field in Airtable + partner resolution.
+**Engagements:** Match by `airtable_record_id` (existing) or `roadrunnerId` field in Airtable, then by name.
 
 **Meetings (3-tier):**
 1. `airtable_record_id` — exact record match
 2. `roadrunnerId` — Roadrunner UUID match
 3. `title + meeting_date` — fallback for manually-created Airtable records
 
-### Auto-Push Hooks
+### Auto-Push
 
-Engagements auto-push to Airtable on: create, update (name/status/pillar/notes), delete.
+Engagements and meetings are pushed to Airtable immediately on create, update, or delete (awaited, not fire-and-forget). Bulk sync available via `/api/sync` as a safety net.
 
-Meetings auto-push on: create, update (any field), delete, relationship link changes.
+## Migrations
 
-### Linked Record Resolution
-
-When pushing to Airtable, Roadrunner resolves UUIDs to Airtable record IDs:
-- `partner_id` → lookup partner's `airtable_record_id` → write to Partner link field
-- `event_id` → lookup event's `airtable_record_id` → write to Event link field
-- `program_id` → lookup program's `airtable_record_id` → write to Program link field
-- `engagement_id` → lookup engagement's `airtable_record_id` → write to Engagement link field
-- AWS Relationships → lookup via junction table → write to AWS Relationships link field
-
-### Attendee Filtering
-
-Before splitting attendees into AWS vs. partner contacts, these are filtered out:
-- `*@relay.stevenromero.dev` — Roadrunner forwarding address
-- `*salesforce*` — Salesforce system emails
-- Any email matching `isUserEmail()` from user-config.ts
-
-Remaining: `@amazon.com` → AWS Contact(s), everything else → Partner Contact(s).
+48 migrations in `supabase/migrations/` (001–048). Key recent:
+- 043: Dropped legacy `initiatives_status_check` constraint
+- 047: Added JSONB contact columns (`aws_team`, `partner_contacts`, `contacts`, `organizer_name`)
+- 048: Dropped 12 legacy scalar contact columns
