@@ -145,9 +145,9 @@ export default async function EngagementDetailPage({
                   <span className="text-sm font-medium text-foreground">
                     {rel.name}
                   </span>
-                  {rel.primary_contact_name && (
+                  {rel.contacts?.[0]?.name && (
                     <span className="text-xs text-muted">
-                      {rel.primary_contact_name}
+                      {rel.contacts[0].name}
                     </span>
                   )}
                 </Link>

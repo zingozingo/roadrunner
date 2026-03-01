@@ -104,20 +104,12 @@ function mapRelationship(
   const teamRaw = str(rec.fields[RF.teamContacts]);
   if (teamRaw) contacts.push(...parseContactList(teamRaw, "Team Member"));
 
-  // Dual-write old columns from parsed contacts
-  const leadContact = contacts.find((c) => c.role === "Lead Contact");
-  const allEmails = contacts.map((c) => c.email).filter(Boolean) as string[];
-
   return {
     name,
     relationship_type: relationshipType,
     aws_org: str(rec.fields[RF.awsOrg]),
     aws_service: str(rec.fields[RF.awsService]),
     contacts,
-    // Dual-write legacy columns
-    primary_contact_name: leadContact?.name ?? null,
-    primary_contact_email: leadContact?.email ?? null,
-    aws_contact_emails: allEmails,
     notes: str(rec.fields[RF.notes]),
   };
 }
@@ -153,32 +145,12 @@ function mapPartner(rec: AirtableRecord): Record<string, unknown> | null {
   const pmmRaw = str(rec.fields[PTRF.pmm]);
   if (pmmRaw) awsTeam.push(parseRoleContact(pmmRaw, "PMM"));
 
-  // Dual-write old columns by extracting from parsed contacts
-  const allianceLead = partnerContacts.find((c) => c.role === "Alliance Lead");
-  const psa = awsTeam.find((c) => c.role === "PSA");
-  const accountManager = awsTeam.find((c) => c.role === "Account Manager");
-  const pmm = awsTeam.find((c) => c.role === "PMM");
-
-  const partnerContactEmails = partnerContacts
-    .map((c) => c.email)
-    .filter(Boolean) as string[];
-
   return {
     name,
     segment,
     focus_area: arr(rec.fields[PTRF.focusArea]),
     aws_team: awsTeam,
     partner_contacts: partnerContacts,
-    // Dual-write legacy columns
-    alliance_lead: allianceLead?.name ?? null,
-    alliance_lead_email: allianceLead?.email ?? null,
-    psa: psa?.name ?? null,
-    psa_email: psa?.email ?? null,
-    account_manager: accountManager?.name ?? null,
-    account_manager_email: accountManager?.email ?? null,
-    pmm: pmm?.name ?? null,
-    pmm_email: pmm?.email ?? null,
-    partner_contact_emails: partnerContactEmails.length > 0 ? partnerContactEmails : null,
     aws_stickiness: str(rec.fields[PTRF.awsStickiness]),
     key_aws_services: arr(rec.fields[PTRF.keyAwsServices]),
     what_they_do: str(rec.fields[PTRF.whatTheyDo]),

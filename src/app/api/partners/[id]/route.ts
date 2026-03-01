@@ -88,10 +88,8 @@ export async function PUT(
     if (body.focus_area !== undefined) updates.focus_area = Array.isArray(body.focus_area) ? body.focus_area : [];
     if (body.aws_stickiness !== undefined) updates.aws_stickiness = body.aws_stickiness || null;
     if (body.key_aws_services !== undefined) updates.key_aws_services = Array.isArray(body.key_aws_services) ? body.key_aws_services : [];
-    if (body.alliance_lead !== undefined) updates.alliance_lead = body.alliance_lead || null;
-    if (body.alliance_lead_email !== undefined) updates.alliance_lead_email = body.alliance_lead_email || null;
-    if (body.psa !== undefined) updates.psa = body.psa || null;
-    if (body.partner_contact_emails !== undefined) updates.partner_contact_emails = body.partner_contact_emails;
+    if (body.aws_team !== undefined) updates.aws_team = Array.isArray(body.aws_team) ? body.aws_team : [];
+    if (body.partner_contacts !== undefined) updates.partner_contacts = Array.isArray(body.partner_contacts) ? body.partner_contacts : [];
 
     const { data, error } = await getSupabaseClient()
       .from("partners")

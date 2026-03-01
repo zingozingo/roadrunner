@@ -38,8 +38,8 @@ export default function PartnersClient({ partners }: PartnersClientProps) {
         const matchesName = p.name.toLowerCase().includes(q);
         const matchesSegment = p.segment?.toLowerCase().includes(q);
         const matchesFocusArea = p.focus_area.some((a) => a.toLowerCase().includes(q));
-        const matchesLead = p.alliance_lead?.toLowerCase().includes(q);
-        const matchesPsa = p.psa?.toLowerCase().includes(q);
+        const matchesLead = p.partner_contacts?.find(c => c.role === 'Alliance Lead')?.name?.toLowerCase().includes(q);
+        const matchesPsa = p.aws_team?.find(c => c.role === 'PSA')?.name?.toLowerCase().includes(q);
         if (!matchesName && !matchesSegment && !matchesFocusArea && !matchesLead && !matchesPsa) return false;
       }
       if (activeFilter && p.segment !== activeFilter) {
@@ -150,8 +150,8 @@ export default function PartnersClient({ partners }: PartnersClientProps) {
                         columns: [
                           { value: partner.name },
                           { value: partner.focus_area[0] ?? "", width: "200px" },
-                          { value: partner.alliance_lead ?? "", width: "160px" },
-                          { value: partner.psa ?? "", width: "140px" },
+                          { value: partner.partner_contacts?.find(c => c.role === 'Alliance Lead')?.name ?? "", width: "160px" },
+                          { value: partner.aws_team?.find(c => c.role === 'PSA')?.name ?? "", width: "140px" },
                         ],
                       }))}
                     />

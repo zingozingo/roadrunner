@@ -55,17 +55,21 @@ export default async function RelationshipDetailPage({
         fields={[
           { label: "AWS Org", value: relationship.aws_org ?? "—" },
           { label: "AWS Service", value: relationship.aws_service ?? "—" },
-          { label: "Primary Contact", value: relationship.primary_contact_name ?? "—" },
-          {
-            label: "Contact Email",
-            value: relationship.primary_contact_email ?? "—",
-          },
-          ...(relationship.aws_contact_emails.length > 0
-            ? [{
-                label: "AWS Contacts",
-                value: relationship.aws_contact_emails.join(", "),
-              }]
-            : []),
+          ...(relationship.contacts && relationship.contacts.length > 0
+            ? relationship.contacts.map((c, i) => ({
+                label: i === 0 ? "Lead Contact" : `Contact ${i + 1}`,
+                value: (
+                  <span>
+                    {c.name ?? "Unknown"}
+                    {c.email && c.email !== "—" && (
+                      <a href={`mailto:${c.email}`} className="block text-xs text-muted break-all hover:text-accent">
+                        {c.email}
+                      </a>
+                    )}
+                  </span>
+                ),
+              }))
+            : [{ label: "Contacts", value: "—" }]),
         ]}
         actions={<RelationshipActions relationship={relationship} />}
       />

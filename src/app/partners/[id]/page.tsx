@@ -19,6 +19,13 @@ export default async function PartnerDetailPage({
   const partner = await getPartner(id);
   if (!partner) notFound();
 
+  // Extract role contacts from JSONB arrays
+  const allianceLead = partner.partner_contacts?.find(c => c.role === 'Alliance Lead');
+  const psa = partner.aws_team?.find(c => c.role === 'PSA');
+  const accountManager = partner.aws_team?.find(c => c.role === 'Account Manager');
+  const pmm = partner.aws_team?.find(c => c.role === 'PMM');
+  const otherPartnerContacts = partner.partner_contacts?.filter(c => c.role !== 'Alliance Lead') ?? [];
+
   const db = getSupabaseClient();
 
   // Fetch by partner_id FK, falling back to partner_name text match for unbackfilled rows
@@ -86,52 +93,52 @@ export default async function PartnerDetailPage({
         fields={[
           {
             label: "Alliance Lead",
-            value: partner.alliance_lead ? (
+            value: allianceLead?.name ? (
               <span>
-                {partner.alliance_lead}
-                {partner.alliance_lead_email && (
-                  <span className="block text-xs text-muted break-all">
-                    {partner.alliance_lead_email}
-                  </span>
+                {allianceLead.name}
+                {allianceLead.email && allianceLead.email !== "—" && (
+                  <a href={`mailto:${allianceLead.email}`} className="block text-xs text-muted break-all hover:text-accent">
+                    {allianceLead.email}
+                  </a>
                 )}
               </span>
             ) : "—",
           },
           {
             label: "PSA",
-            value: partner.psa ? (
+            value: psa?.name ? (
               <span>
-                {partner.psa}
-                {partner.psa_email && (
-                  <span className="block text-xs text-muted break-all">
-                    {partner.psa_email}
-                  </span>
+                {psa.name}
+                {psa.email && psa.email !== "—" && (
+                  <a href={`mailto:${psa.email}`} className="block text-xs text-muted break-all hover:text-accent">
+                    {psa.email}
+                  </a>
                 )}
               </span>
             ) : "—",
           },
           {
             label: "Account Manager",
-            value: partner.account_manager ? (
+            value: accountManager?.name ? (
               <span>
-                {partner.account_manager}
-                {partner.account_manager_email && (
-                  <span className="block text-xs text-muted break-all">
-                    {partner.account_manager_email}
-                  </span>
+                {accountManager.name}
+                {accountManager.email && accountManager.email !== "—" && (
+                  <a href={`mailto:${accountManager.email}`} className="block text-xs text-muted break-all hover:text-accent">
+                    {accountManager.email}
+                  </a>
                 )}
               </span>
             ) : "—",
           },
           {
             label: "PMM",
-            value: partner.pmm ? (
+            value: pmm?.name ? (
               <span>
-                {partner.pmm}
-                {partner.pmm_email && (
-                  <span className="block text-xs text-muted break-all">
-                    {partner.pmm_email}
-                  </span>
+                {pmm.name}
+                {pmm.email && pmm.email !== "—" && (
+                  <a href={`mailto:${pmm.email}`} className="block text-xs text-muted break-all hover:text-accent">
+                    {pmm.email}
+                  </a>
                 )}
               </span>
             ) : "—",
@@ -189,17 +196,23 @@ export default async function PartnerDetailPage({
           </div>
         )}
 
-        {/* Contact Emails — only show if present, compact inline */}
-        {partner.partner_contact_emails && partner.partner_contact_emails.length > 0 && (
+        {/* Partner Contacts — show non-Alliance-Lead contacts */}
+        {otherPartnerContacts.length > 0 && (
           <div className="rounded-xl border border-border bg-surface p-4">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted">
-              Contact Emails
+              Partner Contacts
             </h2>
-            <div className="flex flex-wrap gap-2">
-              {partner.partner_contact_emails.map((email, i) => (
-                <span key={i} className="text-sm text-foreground break-all">
-                  {email}{i < partner.partner_contact_emails!.length - 1 ? "," : ""}
-                </span>
+            <div className="space-y-1.5">
+              {otherPartnerContacts.map((c, i) => (
+                <div key={i} className="text-sm text-foreground">
+                  <span className="font-medium">{c.name ?? "Unknown"}</span>
+                  {c.role && <span className="text-xs text-muted ml-1.5">({c.role})</span>}
+                  {c.email && c.email !== "—" && (
+                    <a href={`mailto:${c.email}`} className="block text-xs text-muted break-all hover:text-accent">
+                      {c.email}
+                    </a>
+                  )}
+                </div>
               ))}
             </div>
           </div>
@@ -259,9 +272,9 @@ export default async function PartnerDetailPage({
                   <span className="text-sm font-medium text-foreground">
                     {rel.name}
                   </span>
-                  {rel.primary_contact_name && (
+                  {rel.contacts?.[0]?.name && (
                     <span className="text-xs text-muted">
-                      {rel.primary_contact_name}
+                      {rel.contacts[0].name}
                     </span>
                   )}
                 </Link>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AwsRelationship } from "@/lib/types";
+import { parseContactList, renderContactList } from "@/lib/contact-parser";
 
 export default function RelationshipActions({
   relationship,
@@ -16,17 +17,19 @@ export default function RelationshipActions({
 
   // Edit form state
   const [notes, setNotes] = useState(relationship.notes ?? "");
-  const [primaryContactEmail, setPrimaryContactEmail] = useState(
-    relationship.primary_contact_email ?? ""
-  );
-  const [awsContactEmails, setAwsContactEmails] = useState(
-    relationship.aws_contact_emails.join(", ")
+  const [contactsText, setContactsText] = useState(
+    renderContactList(
+      (relationship.contacts ?? []).map(c => ({ ...c, role: (c as { role?: string }).role ?? "Team Member" }))
+    )
   );
 
   function startEdit() {
     setNotes(relationship.notes ?? "");
-    setPrimaryContactEmail(relationship.primary_contact_email ?? "");
-    setAwsContactEmails(relationship.aws_contact_emails.join(", "));
+    setContactsText(
+      renderContactList(
+        (relationship.contacts ?? []).map(c => ({ ...c, role: (c as { role?: string }).role ?? "Team Member" }))
+      )
+    );
     setError(null);
     setEditing(true);
   }
@@ -40,18 +43,15 @@ export default function RelationshipActions({
     setSaving(true);
     setError(null);
     try {
-      const emailArray = awsContactEmails
-        .split(",")
-        .map((e) => e.trim())
-        .filter(Boolean);
+      const parsed = parseContactList(contactsText, "Team Member");
+      const contacts = parsed.map(({ name, email, title }) => ({ name, email, title }));
 
       const res = await fetch(`/api/relationships/${relationship.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           notes: notes.trim() || null,
-          primary_contact_email: primaryContactEmail.trim() || null,
-          aws_contact_emails: emailArray,
+          contacts: contacts.length > 0 ? contacts : null,
         }),
       });
 
@@ -79,29 +79,17 @@ export default function RelationshipActions({
     return (
       <div className="rounded-xl border border-border bg-surface p-5">
         <div className="space-y-4">
-          {/* Primary Contact Email */}
+          {/* Contacts */}
           <div>
-            <label className={labelClass}>Primary Contact Email</label>
-            <input
-              type="email"
-              value={primaryContactEmail}
-              onChange={(e) => setPrimaryContactEmail(e.target.value)}
-              placeholder="name@amazon.com"
-              className={inputClass}
+            <label className={labelClass}>Contacts</label>
+            <textarea
+              value={contactsText}
+              onChange={(e) => setContactsText(e.target.value)}
+              rows={3}
+              placeholder={"Name <email> (Title)\nName <email> (Title)"}
+              className={`${inputClass} resize-y min-h-[60px]`}
             />
-          </div>
-
-          {/* AWS Contact Emails */}
-          <div>
-            <label className={labelClass}>AWS Contact Emails</label>
-            <input
-              type="text"
-              value={awsContactEmails}
-              onChange={(e) => setAwsContactEmails(e.target.value)}
-              placeholder="email1@amazon.com, email2@amazon.com"
-              className={inputClass}
-            />
-            <p className="mt-1 text-xs text-muted">Comma-separated</p>
+            <p className="mt-1 text-xs text-muted">One per line: Name &lt;email&gt; (Title)</p>
           </div>
 
           {/* Notes */}

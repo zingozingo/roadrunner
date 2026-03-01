@@ -59,17 +59,8 @@ function buildPartner(overrides: Partial<Partner> = {}): Partner {
     name: "Acme Corp",
     segment: "isv",
     focus_area: [],
-    alliance_lead: "Alice Lead",
-    alliance_lead_email: "alice@amazon.com",
-    psa: "Bob PSA",
-    psa_email: "bob@amazon.com",
-    account_manager: null,
-    account_manager_email: null,
-    pmm: null,
-    pmm_email: null,
     spms_id: null,
     what_they_do: null,
-    partner_contact_emails: ["jane@partner.com", "john@partner.com"],
     aws_team: [
       { name: "Bob PSA", email: "bob@amazon.com", title: null, role: "PSA" },
     ],
@@ -173,7 +164,7 @@ describe("matchPartnerFromAttendees", () => {
 
   it("returns matching partner when single partner domain matches", async () => {
     setupPartnersQuery([
-      buildPartner({ id: "p-1", name: "Acme Corp", partner_contact_emails: ["jane@acme.com"] }),
+      buildPartner({ id: "p-1", name: "Acme Corp", partner_contacts: [{ name: "Jane", email: "jane@acme.com", title: null, role: "Contact" }] }),
     ]);
 
     const attendees: MeetingAttendee[] = [
@@ -188,7 +179,7 @@ describe("matchPartnerFromAttendees", () => {
 
   it("skips amazon.com attendees", async () => {
     setupPartnersQuery([
-      buildPartner({ id: "p-1", name: "Acme Corp", partner_contact_emails: ["a@amazon.com"] }),
+      buildPartner({ id: "p-1", name: "Acme Corp", partner_contacts: [{ name: "A", email: "a@amazon.com", title: null, role: "Contact" }] }),
     ]);
 
     const attendees: MeetingAttendee[] = [
@@ -202,7 +193,7 @@ describe("matchPartnerFromAttendees", () => {
 
   it("returns null when no partner domain matches", async () => {
     setupPartnersQuery([
-      buildPartner({ id: "p-1", name: "Acme Corp", partner_contact_emails: ["a@acme.com"] }),
+      buildPartner({ id: "p-1", name: "Acme Corp", partner_contacts: [{ name: "A", email: "a@acme.com", title: null, role: "Contact" }] }),
     ]);
 
     const attendees: MeetingAttendee[] = [
@@ -215,8 +206,8 @@ describe("matchPartnerFromAttendees", () => {
 
   it("returns null when multiple partner domains match (ambiguous)", async () => {
     setupPartnersQuery([
-      buildPartner({ id: "p-1", name: "Acme Corp", partner_contact_emails: ["a@acme.com"] }),
-      buildPartner({ id: "p-2", name: "Beta Inc", partner_contact_emails: ["b@beta.com"] }),
+      buildPartner({ id: "p-1", name: "Acme Corp", partner_contacts: [{ name: "A", email: "a@acme.com", title: null, role: "Contact" }] }),
+      buildPartner({ id: "p-2", name: "Beta Inc", partner_contacts: [{ name: "B", email: "b@beta.com", title: null, role: "Contact" }] }),
     ]);
 
     const attendees: MeetingAttendee[] = [
@@ -228,13 +219,13 @@ describe("matchPartnerFromAttendees", () => {
     expect(result.partner_id).toBeNull();
   });
 
-  it("matches via alliance_lead_email domain (non-Amazon)", async () => {
+  it("matches via aws_team contact domain (non-Amazon)", async () => {
     setupPartnersQuery([
       buildPartner({
         id: "p-1",
         name: "Acme Corp",
-        alliance_lead_email: "lead@acme.com",
-        partner_contact_emails: [],
+        aws_team: [{ name: "Lead", email: "lead@acme.com", title: null, role: "Alliance Lead" }],
+        partner_contacts: [],
       }),
     ]);
 
@@ -277,7 +268,7 @@ describe("createMeetingFromICS", () => {
 
   it("sets partner_id when attendee domain matches a partner", async () => {
     const partners = [
-      buildPartner({ id: "p-1", name: "PartnerCo", partner_contact_emails: ["jane@partner.com"] }),
+      buildPartner({ id: "p-1", name: "PartnerCo", partner_contacts: [{ name: "Jane", email: "jane@partner.com", title: null, role: "Contact" }] }),
     ];
     const captured = setupMeetingMocks(null, partners);
 

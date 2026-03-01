@@ -39,7 +39,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { notes, primary_contact_email, aws_contact_emails } = body;
+    const { notes, contacts } = body;
 
     const existing = await getAwsRelationship(id);
     if (!existing) {
@@ -49,17 +49,16 @@ export async function PUT(
       );
     }
 
-    if (aws_contact_emails !== undefined && !Array.isArray(aws_contact_emails)) {
+    if (contacts !== undefined && contacts !== null && !Array.isArray(contacts)) {
       return NextResponse.json(
-        { error: "aws_contact_emails must be an array" },
+        { error: "contacts must be an array or null" },
         { status: 400 }
       );
     }
 
-    const updates: Record<string, unknown> = {};
+    const updates: { notes?: string | null; contacts?: typeof contacts } = {};
     if (notes !== undefined) updates.notes = notes || null;
-    if (primary_contact_email !== undefined) updates.primary_contact_email = primary_contact_email || null;
-    if (aws_contact_emails !== undefined) updates.aws_contact_emails = aws_contact_emails;
+    if (contacts !== undefined) updates.contacts = contacts;
 
     const updated = await updateAwsRelationship(id, updates);
 

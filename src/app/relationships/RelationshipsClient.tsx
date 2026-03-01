@@ -44,7 +44,7 @@ export default function RelationshipsClient({ relationships }: RelationshipsClie
         const matchesName = rel.name.toLowerCase().includes(q);
         const matchesOrg = rel.aws_org?.toLowerCase().includes(q);
         const matchesService = rel.aws_service?.toLowerCase().includes(q);
-        const matchesContact = rel.primary_contact_name?.toLowerCase().includes(q);
+        const matchesContact = rel.contacts?.[0]?.name?.toLowerCase().includes(q);
         if (!matchesName && !matchesOrg && !matchesService && !matchesContact) return false;
       }
       // Type filter
@@ -147,7 +147,7 @@ export default function RelationshipsClient({ relationships }: RelationshipsClie
                           { value: rel.name },
                           { value: rel.aws_org ?? "", width: "180px" },
                           { value: rel.aws_service ?? "", width: "160px" },
-                          { value: rel.primary_contact_name ?? "", width: "140px" },
+                          { value: rel.contacts?.[0]?.name ?? "", width: "140px" },
                         ],
                       }))}
                     />

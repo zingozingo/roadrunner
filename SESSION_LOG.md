@@ -2340,3 +2340,26 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Rationale:** One format = one parser. Future format changes touch one file. 26 tests cover all edge cases.
 
 **Impact:** `parseContact`, `parseRoleContact`, `parseContactList`, `renderContact`, `renderContactList` are the only contact format functions in the codebase.
+
+---
+
+## 2026-03-01: Phase 3 — Drop Legacy Scalar Contact Columns
+
+**Decision:** Completed Phase 3 of contact standardization. Removed all 12 old scalar contact columns from TypeScript interfaces, all code references, dual-write logic, and created migration 048 to drop the database columns.
+
+**Context:** Phase 1 added JSONB columns (`aws_team`, `partner_contacts`, `contacts`). Phase 2 added the unified contact format parser and dual-write. Phase 3 cuts over completely — old columns are dead code.
+
+**Changes:**
+- Removed 9 Partner scalar fields: `alliance_lead`, `alliance_lead_email`, `psa`, `psa_email`, `account_manager`, `account_manager_email`, `pmm`, `pmm_email`, `partner_contact_emails`
+- Removed 3 AwsRelationship scalar fields: `primary_contact_name`, `primary_contact_email`, `aws_contact_emails`
+- Deduplicated `Contact`/`RoleContact` types — single definition in `types.ts`, imported everywhere
+- Removed dual-write from `pull.ts` (12 lines across `mapPartner` and `mapRelationship`)
+- Updated 7 UI pages/components to read from JSONB arrays with role-based lookup
+- Updated 2 API routes to accept JSONB payloads
+- Rewrote `RelationshipActions.tsx` edit form to use `Name <email> (Title)` textarea format
+- Fixed all 5 test fixture files to use new JSONB shape
+- Migration 048: `DROP COLUMN IF EXISTS` for all 12 columns
+
+**Rationale:** Compiler-driven refactoring — remove types first, let `tsc --noEmit` generate the 72-error fix list, fix systematically in dependency order (types → lib → UI → API → tests).
+
+**Impact:** 405 tests pass, 0 failures. 3 pre-existing unrelated compile errors remain. Zero old-column references in source code. JSONB arrays are now the only contact data path.
