@@ -62,7 +62,7 @@ Jazz Totten <—> (—)
 - `aws_team` — JSONB array of `{name, email, title, role}` parsed from PSA, Account Manager, PMM
 - `partner_contacts` — JSONB array of `{name, email, title, role}` parsed from Alliance Lead, Contacts
 
-**Dual-write note:** Old scalar columns (`alliance_lead`, `psa`, `am`, `pmm`, etc.) are still populated during sync for UI compatibility. Phase 3 will cut over UI to read JSONB and drop the scalar columns.
+**Phase 3 complete:** Old scalar columns (`alliance_lead`, `psa`, `am`, `pmm`, etc.) have been dropped. Migration 048 removes all 12 legacy columns. JSONB arrays are the only contact data path.
 
 **Airtable-only fields (not synced):** SPMS ID, Trailing 12 Months, Deployed on AWS, ISVa Status/Notes, PRM Status, all financial metrics (TCV, LARR, MDF), Listing Types, Pricing Model, Architecture, 2026 Partner Plans, MPOPP Funding, MDF Funding, Partner Programs (link), Partner Events (link), Meetings (reverse link), Partner Engagements (reverse link).
 
