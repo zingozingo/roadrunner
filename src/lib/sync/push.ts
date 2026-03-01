@@ -24,8 +24,9 @@ import type { SyncResult } from "./pull";
 import { renderContact } from "../contact-parser";
 
 export interface PushResult {
-  action: "created" | "updated" | "unchanged";
-  airtable_record_id: string;
+  action: "created" | "updated" | "unchanged" | "skipped";
+  airtable_record_id?: string;
+  reason?: string;
 }
 
 // ── Notes helpers ───────────────────────────────────────────
@@ -584,78 +585,23 @@ export async function syncEngagementsToAirtable(): Promise<SyncResult> {
 // ── Meeting push ────────────────────────────────────────────
 
 interface MeetingLookups {
-  partnerNameToAtId: Map<string, string>;
-  partnerDbToAtId: Map<string, string>;
-  eventDbToAtId: Map<string, string>;
-  programDbToAtId: Map<string, string>;
   engagementDbToAtId: Map<string, string>;
-  meetingRelAtIds: Map<string, string[]>;
 }
 
 async function buildMeetingLookups(): Promise<MeetingLookups> {
   const supabase = getSupabaseClient();
 
-  const [
-    partnerNameToAtId,
-    { data: partners },
-    { data: events },
-    { data: programs },
-    { data: engagements },
-    { data: junctions },
-    { data: relationships },
-  ] = await Promise.all([
-    fetchPartnerNameToIdMap(),
-    supabase.from("partners").select("id, airtable_record_id").not("airtable_record_id", "is", null),
-    supabase.from("events").select("id, airtable_record_id").not("airtable_record_id", "is", null),
-    supabase.from("programs").select("id, airtable_record_id").not("airtable_record_id", "is", null),
-    supabase.from("engagements").select("id, airtable_record_id").not("airtable_record_id", "is", null),
-    supabase.from("meeting_aws_relationships").select("meeting_id, aws_relationship_id"),
-    supabase.from("aws_relationships").select("id, airtable_record_id").not("airtable_record_id", "is", null),
-  ]);
-
-  const partnerDbToAtId = new Map<string, string>();
-  for (const p of (partners ?? []) as { id: string; airtable_record_id: string }[]) {
-    partnerDbToAtId.set(p.id, p.airtable_record_id);
-  }
-
-  const eventDbToAtId = new Map<string, string>();
-  for (const e of (events ?? []) as { id: string; airtable_record_id: string }[]) {
-    eventDbToAtId.set(e.id, e.airtable_record_id);
-  }
-
-  const programDbToAtId = new Map<string, string>();
-  for (const p of (programs ?? []) as { id: string; airtable_record_id: string }[]) {
-    programDbToAtId.set(p.id, p.airtable_record_id);
-  }
+  const { data: engagements } = await supabase
+    .from("engagements")
+    .select("id, airtable_record_id")
+    .not("airtable_record_id", "is", null);
 
   const engagementDbToAtId = new Map<string, string>();
   for (const e of (engagements ?? []) as { id: string; airtable_record_id: string }[]) {
     engagementDbToAtId.set(e.id, e.airtable_record_id);
   }
 
-  const relDbToAtId = new Map<string, string>();
-  for (const r of (relationships ?? []) as { id: string; airtable_record_id: string }[]) {
-    relDbToAtId.set(r.id, r.airtable_record_id);
-  }
-
-  const meetingRelAtIds = new Map<string, string[]>();
-  for (const j of (junctions ?? []) as { meeting_id: string; aws_relationship_id: string }[]) {
-    const atId = relDbToAtId.get(j.aws_relationship_id);
-    if (atId) {
-      const existing = meetingRelAtIds.get(j.meeting_id) ?? [];
-      existing.push(atId);
-      meetingRelAtIds.set(j.meeting_id, existing);
-    }
-  }
-
-  return {
-    partnerNameToAtId,
-    partnerDbToAtId,
-    eventDbToAtId,
-    programDbToAtId,
-    engagementDbToAtId,
-    meetingRelAtIds,
-  };
+  return { engagementDbToAtId };
 }
 
 function buildMeetingFields(
@@ -676,43 +622,20 @@ function buildMeetingFields(
   if (meeting.source) fields[MF.source] = meeting.source;
   if (meeting.ics_uid) fields[MF.icsUid] = meeting.ics_uid;
 
-  const partnerId = meeting.partner_id as string | null;
-  const partnerName = meeting.partner_name as string | null;
-  if (partnerId) {
-    const atId = lookups.partnerDbToAtId.get(partnerId);
-    if (atId) fields[MF.partner] = [atId];
-  }
-  if (!fields[MF.partner] && partnerName) {
-    const atId = lookups.partnerNameToAtId.get(partnerName.toLowerCase());
-    if (atId) fields[MF.partner] = [atId];
-  }
-
-  const eventId = meeting.event_id as string | null;
-  if (eventId) {
-    const atId = lookups.eventDbToAtId.get(eventId);
-    if (atId) fields[MF.event] = [atId];
-  }
-
-  const programId = meeting.program_id as string | null;
-  if (programId) {
-    const atId = lookups.programDbToAtId.get(programId);
-    if (atId) fields[MF.program] = [atId];
-  }
-
+  // Engagement is THE link — Partner, Program, Event, AWS Relationships
+  // are displayed in AT via lookup fields from the Engagement.
   const engagementId = meeting.engagement_id as string | null;
   if (engagementId) {
     const atId = lookups.engagementDbToAtId.get(engagementId);
     if (atId) fields[MF.engagement] = [atId];
   }
 
-  const relAtIds = lookups.meetingRelAtIds.get(meeting.id as string);
-  if (relAtIds && relAtIds.length > 0) {
-    fields[MF.awsRelationships] = relAtIds;
-  }
-
+  // Attendees → AWS / Partner / Third Party (three-bucket split, matches engagement pattern)
   const attendees = (meeting.attendees ?? []) as Record<string, unknown>[];
   const awsRendered: string[] = [];
   const partnerRendered: string[] = [];
+  const thirdPartyRendered: string[] = [];
+  const partnerNameLower = ((meeting.partner_name as string) ?? "").toLowerCase();
 
   for (const a of attendees) {
     const email = ((a.email as string) || "").toLowerCase();
@@ -738,15 +661,23 @@ function buildMeetingFields(
       org.includes("aws") ||
       org.includes("amazon");
 
+    const isPartner =
+      !isAws &&
+      partnerNameLower &&
+      org.includes(partnerNameLower);
+
     if (isAws) {
       awsRendered.push(rendered);
-    } else {
+    } else if (isPartner) {
       partnerRendered.push(rendered);
+    } else {
+      thirdPartyRendered.push(rendered);
     }
   }
 
-  if (awsRendered.length > 0) fields[MF.awsContacts] = awsRendered.join("\n");
-  if (partnerRendered.length > 0) fields[MF.partnerContacts] = partnerRendered.join("\n");
+  if (awsRendered.length > 0) fields[MF.awsStakeholders] = awsRendered.join("\n");
+  if (partnerRendered.length > 0) fields[MF.partnerStakeholders] = partnerRendered.join("\n");
+  if (thirdPartyRendered.length > 0) fields[MF.thirdParties] = thirdPartyRendered.join("\n");
 
   return fields;
 }
@@ -768,6 +699,14 @@ export async function pushMeetingToAirtable(
 
   if (fetchErr || !meeting) {
     throw new Error(`Meeting ${meetingId} not found`);
+  }
+
+  // Engagement gate — meetings without an engagement don't push to AT.
+  // ICS-parsed meetings are created before classification; they get linked
+  // to an engagement later via linkMeetingToEngagement, which re-triggers push.
+  if (!meeting.engagement_id) {
+    console.log(`Skipping AT push for meeting "${meeting.title}" — no engagement linked yet`);
+    return { action: "skipped" as const, reason: "no_engagement" };
   }
 
   const lookups = await buildMeetingLookups();
@@ -872,6 +811,11 @@ export async function syncMeetingsToAirtable(): Promise<SyncResult> {
 
   for (const mtg of meetings ?? []) {
     try {
+      // Engagement gate — skip meetings without an engagement
+      if (!mtg.engagement_id) {
+        continue;
+      }
+
       const fields = buildMeetingFields(mtg, lookups);
 
       let atRecord: AirtableRecord | undefined;

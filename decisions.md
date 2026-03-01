@@ -2435,3 +2435,30 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Rationale:** An engagement is a story; messages and meetings are chapters. Chapters belong to books — you don't put metadata on both independently. Making the engagement the definitive hub eliminates duplicate linking, simplifies push logic, and ensures Airtable reflects the full picture. Phase A wires event links. Phase B (future) will make engagement_id required on meetings. Phase C (future) will derive meeting AT links from the engagement.
 
 **Impact:** Created Event linked record field on AT Partner Engagements (fldscmkRoT65oa6Oy). Push logic resolves entity_links to populate event connections. Every engagement with a classifier-detected event relationship will now show that link in Airtable.
+
+---
+
+## 2026-03-01: Meeting Simplification (Phase B+C — Engagement-Centric Meetings)
+
+**Decision:** Meetings inherit all entity connections from their parent engagement. Meeting push to Airtable only includes meeting-specific data (title, date, time, location, status, attendees, source) plus the engagement link. Partner, Program, Event, and AWS Relationships are displayed in AT via lookup fields from the Engagement link.
+
+**Context:** The Meetings AT table had 18 fields including 4 direct linked record fields (Partner, Program, Event, AWS Relationships) that duplicated what the engagement already knew. The push logic independently resolved all 4 FKs plus a junction table — 5 separate resolution paths for data that should flow from one source. With meetings table empty (0 rows), this was a clean-slate opportunity.
+
+**Rationale:** A meeting is a chapter in an engagement's story. It doesn't independently know which partner or program it's about — the engagement does. Meeting-specific data is: when, where, who attended (a subset of the engagement's participants), and what was discussed. Everything else is inherited. AT lookup fields provide the same grid readability without data duplication or sync complexity.
+
+**Impact:**
+- Removed 4 AT linked record fields from Meetings, replaced with 3 lookup fields (Partner, Program, Event from Engagement)
+- Removed MF.partner, MF.program, MF.event, MF.awsRelationships from field-maps.ts
+- Simplified buildMeetingFields() — no more independent FK resolution for partner/event/program/awsRelationships
+- Added engagement gate — meetings without an engagement don't push to AT (prevents ICS temporal gap from creating orphans)
+- meeting_aws_relationships junction table no longer used by push (retained in schema for now)
+
+---
+
+## 2026-03-01: Consistent Stakeholder Naming + Three-Bucket Attendee Split
+
+**Decision:** Standardize attendee/stakeholder field naming across Engagements and Meetings tables. Both use: AWS Stakeholders, Partner Stakeholders, Third Parties. Meeting attendee splitting uses three buckets.
+
+**Context:** Engagements used "AWS Stakeholders / Partner Stakeholders / Third Parties" while Meetings used "AWS Contact(s) / Partner Contact(s)" with no third-party field. Meetings are a subset of the same participant pool — naming and bucketing should match. Third parties (analysts, consultants, other vendors) were previously dropped during meeting attendee classification.
+
+**Impact:** Renamed 2 AT fields on Meetings, created Third Parties field (fldhU8nE7uGE1agML). Updated field-maps.ts constants (MF.awsContacts → MF.awsStakeholders, MF.partnerContacts → MF.partnerStakeholders, added MF.thirdParties). Three-bucket splitting ensures no attendees are silently dropped. Verified linkMeetingToEngagement already triggers awaited AT push.

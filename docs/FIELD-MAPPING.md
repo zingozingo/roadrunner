@@ -160,21 +160,22 @@ Jazz Totten <—> (—)
 | Airtable Field | Field ID | Type | Sync Key | Notes |
 |----------------|----------|------|----------|-------|
 | Meeting Name | `fldcbatIDunJ00dLp` | singleLineText | `MF.meetingName` | Primary field |
-| Event | `fldT96Imgc7CFDBEX` | multipleRecordLinks | `MF.event` | Link to Events table |
-| Partner | `fldubdX4ZYXFQ2sIZ` | multipleRecordLinks | `MF.partner` | Link to Partners table |
+| Engagement | `fld2TczwxJXZLUwpW` | multipleRecordLinks | `MF.engagement` | Link to Partner Engagements — THE link. All other connections inherited via AT lookups. |
 | Status | `fldpXlLugkUgQsjcr` | singleSelect | `MF.status` | Scheduled, Completed, Cancelled, Did Not Occur. DB stores lowercase; sync maps via `MEETING_STATUS_MAP`. |
 | Meeting Date | `fldx9ZrIMundEMUko` | date | `MF.meetingDate` | |
-| AWS Contact(s) | `fldOVCmwhiisY8bDo` | singleLineText | `MF.awsContacts` | From attendee split (system addresses filtered) |
-| Partner Contact(s) | `fldJira79g9xWNTte` | singleLineText | `MF.partnerContacts` | From attendee split (system addresses filtered) |
-| Engagement | `fld2TczwxJXZLUwpW` | multipleRecordLinks | `MF.engagement` | Link to Partner Engagements |
-| AWS Relationships | `fldeDCWtZx7YoyYR6` | multipleRecordLinks | `MF.awsRelationships` | Link to AWS Relationships |
-| Program | `fldqhPAGvYppRZgCS` | multipleRecordLinks | `MF.program` | Link to Programs catalog (Tier 1) |
+| AWS Stakeholders | `fldOVCmwhiisY8bDo` | multilineText | `MF.awsStakeholders` | `@amazon.com` or AWS/Amazon org attendees. Newline-separated. |
+| Partner Stakeholders | `fldJira79g9xWNTte` | multilineText | `MF.partnerStakeholders` | Org matches meeting's partner name. Newline-separated. |
+| Third Parties | `fldhU8nE7uGE1agML` | multilineText | `MF.thirdParties` | Non-AWS, non-partner meeting attendees. Newline-separated. |
 | Start Time | `fldifWilEYICfifXz` | singleLineText | `MF.startTime` | |
 | End Time | `fldV78rQbzDhVK9NO` | singleLineText | `MF.endTime` | |
 | Location | `fldTyiMYT48aCHttx` | singleLineText | `MF.location` | |
 | Source | `fld2RW78vS1T91bab` | singleLineText | `MF.source` | "manual" or "ics_parsed" |
 | Roadrunner ID | `fldLveS95zGGVU4j1` | singleLineText | `MF.roadrunnerId` | Sync key |
 | ICS UID | `fldNb83l5XLtz8J9k` | singleLineText | `MF.icsUid` | Calendar event unique ID |
+
+**Partner, Program, and Event are displayed in AT via lookup fields from the Engagement link. They are not directly pushed by Roadrunner.**
+
+**Engagement gate:** Meetings without an `engagement_id` are not pushed to Airtable. ICS-parsed meetings are created before classification runs; once classification links them to an engagement, the push fires.
 
 **Match strategy (3-tier):**
 1. `airtable_record_id` — exact record match (existing synced records)
@@ -185,25 +186,25 @@ Jazz Totten <—> (—)
 - Meeting Type (`fldGWa1MFoqoc89qC`) — singleSelect for manual classification in AT
 - Notes (`fldzGUipu36EA9rax`) — manual scratch space, not pushed by RR
 
-**Meeting types supported:**
-- **Event meetings** — linked to Event + Partner (re:Invent, summits)
-- **Program meetings** — linked to Program + Partner (competency reviews)
-- **Standalone engagement meetings** — linked to Engagement + Partner only
-
 **Partner matching:** `createMeetingFromICS()` deterministically matches attendee email domains against the partner catalog before classification runs.
 
 ---
 
 ## Attendee Filtering
 
-The attendee split logic filters out system addresses before classifying contacts as AWS or partner:
+The attendee split logic filters out system addresses before classifying contacts into three buckets (AWS, Partner, Third Party):
 
 **Filtered addresses:**
 - `*@relay.stevenromero.dev` — Roadrunner forwarding address
 - `*salesforce*` — Salesforce system emails
 - Any email matching `isUserEmail()` from user-config.ts (corpmail, PRVS, personal aliases)
 
-Remaining attendees are split: `@amazon.com` → AWS Contact(s), everything else → Partner Contact(s).
+Remaining attendees are split into three buckets:
+- `@amazon.com` or AWS/Amazon org → **AWS Stakeholders**
+- Org matches the engagement/meeting partner name → **Partner Stakeholders**
+- Everyone else → **Third Parties**
+
+This three-bucket pattern is consistent across both Engagements and Meetings.
 
 ---
 
@@ -223,6 +224,8 @@ Remaining attendees are split: `@amazon.com` → AWS Contact(s), everything else
 
 | Date | Change |
 |------|--------|
+| 2026-03-01 | Renamed meeting attendee fields for consistency with engagements (AWS Stakeholders, Partner Stakeholders). Added Third Parties field. Three-bucket attendee split. |
+| 2026-03-01 | Removed Partner, Program, Event, AWS Relationships direct links from Meetings. Replaced with AT lookup fields from Engagement. Added engagement gate to meeting push. |
 | 2026-03-01 | Added Event linked record field to Partner Engagements. Resolved from entity_links table during push. |
 | 2026-03-01 | Removed 4 dead field ID constants from AWS Relationships (primaryContact, primaryContactEmail, awsContactEmails, partners) — deleted from AT during Phase 2, dead in code since Phase 3. |
 | 2026-03-01 | **Full rewrite.** Updated Partners (9 old fields → 5 unified contact fields + whatTheyDo + contacts), AWS Relationships (added leadContact, teamContacts, marked legacy fields), Events (added geo, sponsorOption, partnerDay, partnerDayDate), Programs (removed ghost URL, added whatItUnlocks, notes). Added contact format convention section. |

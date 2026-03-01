@@ -80,15 +80,17 @@ Source: Roadrunner (internal)
 ### meetings
 Source: Roadrunner (push sync)
 
+> **Engagement-centric:** Partner, Program, Event, and AWS Relationships are inherited from the engagement. The meeting's own `partner_id`, `event_id`, `program_id` FKs are retained in schema for query convenience but are NOT used for AT push. Only `engagement_id` drives the Airtable link.
+
 | Column | Type | Notes |
 |--------|------|-------|
 | id | uuid PK | |
 | title | text | Meeting title |
-| engagement_id | uuid FK → engagements | ON DELETE SET NULL |
-| event_id | uuid FK → events | ON DELETE SET NULL |
-| partner_id | uuid FK → partners | ON DELETE SET NULL |
-| partner_name | text | Denormalized; used when partner_id is null |
-| program_id | uuid FK → programs | ON DELETE SET NULL |
+| engagement_id | uuid FK → engagements | ON DELETE SET NULL. Required for AT push — meetings without an engagement are not synced to Airtable. |
+| event_id | uuid FK → events | ON DELETE SET NULL. Retained for query convenience; NOT used for AT push. |
+| partner_id | uuid FK → partners | ON DELETE SET NULL. Retained for query convenience; NOT used for AT push. |
+| partner_name | text | Denormalized; used when partner_id is null. NOT used for AT push. |
+| program_id | uuid FK → programs | ON DELETE SET NULL. Retained for query convenience; NOT used for AT push. |
 | message_id | uuid FK → messages | Source email; not synced to AT |
 | status | text | scheduled, completed, cancelled, did_not_occur |
 | meeting_date | date | |
