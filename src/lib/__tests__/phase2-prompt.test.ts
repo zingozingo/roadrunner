@@ -110,6 +110,7 @@ const MEETING: Meeting = {
   end_time: "11:00",
   location: "Chime",
   organizer_email: "sterme@amazon.com",
+  organizer_name: "Steven Romero",
   attendees: [
     { name: "Steven Romero", email: "sterme@amazon.com" },
     { name: "Alice Chen", email: "alice@cybershield.com" },
@@ -151,6 +152,10 @@ const PARTNER: Partner = {
   pmm_email: null,
   spms_id: null,
   partner_contact_emails: ["alice@cybershield.com"],
+  aws_team: [],
+  partner_contacts: [
+    { name: "Alice Chen", email: "alice@cybershield.com", title: "CTO", role: "Alliance Lead" },
+  ],
   aws_stickiness: null,
   key_aws_services: [],
   what_they_do: "Cloud-native endpoint security platform",
@@ -198,6 +203,9 @@ const RELATIONSHIP: AwsRelationship = {
   primary_contact_name: "Jane Doe",
   primary_contact_email: "janedoe@amazon.com",
   aws_contact_emails: ["janedoe@amazon.com"],
+  contacts: [
+    { name: "Jane Doe", email: "janedoe@amazon.com", title: null, role: "Lead Contact" },
+  ],
   notes: null,
   airtable_record_id: null,
   created_at: "2026-01-01T00:00:00Z",
@@ -359,11 +367,14 @@ describe("buildPhase2Context — existing engagement", () => {
     expect(result).toContain("attached is the architecture diagram");
   });
 
-  it("includes matched partner details", () => {
+  it("includes matched partner details with key contacts", () => {
     const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
     expect(result).toContain("## Matched Partner");
     expect(result).toContain("CyberShield");
     expect(result).toContain("security");
+    expect(result).toContain("Key Contacts:");
+    expect(result).toContain("Alice Chen");
+    expect(result).toContain("Alliance Lead");
     expect(result).toContain("Cloud-native endpoint security platform");
   });
 
@@ -767,6 +778,7 @@ describe("buildPhase2Context — incoming meeting data", () => {
     end_time: "15:00",
     location: "Chime",
     organizer_email: "alice@cybershield.com",
+    organizer_name: "Alice Chen",
     attendees: [
       { name: "Alice Chen", email: "alice@cybershield.com" },
       { name: "Steven Romero", email: "sterme@amazon.com" },

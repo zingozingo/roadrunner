@@ -222,9 +222,8 @@ export async function upsertParticipants(
           if (!existing[0].organization && participant.organization) {
             updates.organization = participant.organization;
           }
-          if (!existing[0].title && participant.role && participant.role !== "forwarder") {
-            updates.title = participant.role;
-          }
+          // title column reserved for non-classifier sources (AT catalog sync, email signatures, manual entry)
+          // participant.role goes to participant_links.role only (via ensureParticipantLink)
           if (Object.keys(updates).length > 0) {
             await db
               .from("participants")
@@ -242,7 +241,6 @@ export async function upsertParticipants(
               email: insertEmail,
               name: insertName,
               organization: participant.organization,
-              title: participant.role !== "forwarder" ? participant.role : null,
             })
             .select("id")
             .maybeSingle();
@@ -273,7 +271,6 @@ export async function upsertParticipants(
               email: null,
               name: participant.name,
               organization: participant.organization,
-              title: participant.role || null,
             })
             .select("id")
             .maybeSingle();

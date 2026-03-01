@@ -1,4 +1,18 @@
 // ============================================================
+// Contact types — unified "Name <email> (Title)" format
+// ============================================================
+
+export interface Contact {
+  name: string | null;
+  email: string | null;
+  title: string | null;
+}
+
+export interface RoleContact extends Contact {
+  role: string;
+}
+
+// ============================================================
 // Database row types
 // ============================================================
 
@@ -68,6 +82,7 @@ export interface AwsRelationship {
   primary_contact_name: string | null;
   primary_contact_email: string | null;
   aws_contact_emails: string[];
+  contacts: RoleContact[];
   notes: string | null;
   airtable_record_id: string | null;
   created_at: string;
@@ -90,6 +105,8 @@ export interface Partner {
   spms_id: number | null;
   what_they_do: string | null;
   partner_contact_emails: string[] | null;
+  aws_team: RoleContact[];
+  partner_contacts: RoleContact[];
   aws_stickiness: string | null;
   key_aws_services: string[];
   airtable_record_id: string | null;
@@ -119,6 +136,7 @@ export interface Meeting {
   end_time: string | null;
   location: string | null;
   organizer_email: string | null;
+  organizer_name: string | null;
   attendees: MeetingAttendee[];
   ics_uid: string | null;
   sequence: number | null;

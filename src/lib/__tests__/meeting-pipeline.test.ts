@@ -70,6 +70,14 @@ function buildPartner(overrides: Partial<Partner> = {}): Partner {
     spms_id: null,
     what_they_do: null,
     partner_contact_emails: ["jane@partner.com", "john@partner.com"],
+    aws_team: [
+      { name: "Bob PSA", email: "bob@amazon.com", title: null, role: "PSA" },
+    ],
+    partner_contacts: [
+      { name: "Alice Lead", email: "alice@amazon.com", title: null, role: "Alliance Lead" },
+      { name: "Jane Doe", email: "jane@partner.com", title: null, role: "Contact" },
+      { name: "John Smith", email: "john@partner.com", title: null, role: "Contact" },
+    ],
     aws_stickiness: null,
     key_aws_services: [],
     airtable_record_id: null,

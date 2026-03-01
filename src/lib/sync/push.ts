@@ -21,6 +21,7 @@ import { NOTES_MARKER, NOTES_FOOTER } from "./field-maps";
 import { hasChanges, STATUS_TO_AIRTABLE } from "./utils";
 import { mapMeetingStatus } from "./utils";
 import type { SyncResult } from "./pull";
+import { renderContact } from "../contact-parser";
 
 export interface PushResult {
   action: "created" | "updated" | "unchanged";
@@ -215,8 +216,6 @@ function buildEngagementFields(
     for (const p of participants) {
       const email = (p.email ?? "").toLowerCase();
       const org = (p.organization ?? "").toLowerCase();
-      const displayName = p.name || email || "Unknown";
-
       if (
         !email && !p.name ||
         email.includes("relay.stevenromero.dev") ||
@@ -225,6 +224,12 @@ function buildEngagementFields(
       ) {
         continue;
       }
+
+      const rendered = renderContact({
+        name: p.name || null,
+        email: p.email || null,
+        title: null,
+      });
 
       const isAws =
         email.includes("@amazon.com") ||
@@ -237,11 +242,11 @@ function buildEngagementFields(
         org.includes(partnerNameLower);
 
       if (isAws) {
-        awsNames.push(displayName);
+        awsNames.push(rendered);
       } else if (isPartner) {
-        partnerNames.push(displayName);
+        partnerNames.push(rendered);
       } else {
-        thirdPartyNames.push(displayName);
+        thirdPartyNames.push(rendered);
       }
     }
 
@@ -648,13 +653,12 @@ function buildMeetingFields(
   }
 
   const attendees = (meeting.attendees ?? []) as Record<string, unknown>[];
-  const awsNames: string[] = [];
-  const partnerContactNames: string[] = [];
+  const awsRendered: string[] = [];
+  const partnerRendered: string[] = [];
 
   for (const a of attendees) {
     const email = ((a.email as string) || "").toLowerCase();
     const org = ((a.organization as string) || "").toLowerCase();
-    const displayName = (a.name as string) || email;
 
     if (
       !email ||
@@ -665,20 +669,26 @@ function buildMeetingFields(
       continue;
     }
 
+    const rendered = renderContact({
+      name: (a.name as string) || null,
+      email: (a.email as string) || null,
+      title: null,
+    });
+
     const isAws =
       email.includes("@amazon.com") ||
       org.includes("aws") ||
       org.includes("amazon");
 
     if (isAws) {
-      awsNames.push(displayName);
+      awsRendered.push(rendered);
     } else {
-      partnerContactNames.push(displayName);
+      partnerRendered.push(rendered);
     }
   }
 
-  if (awsNames.length > 0) fields[MF.awsContacts] = awsNames.join("\n");
-  if (partnerContactNames.length > 0) fields[MF.partnerContacts] = partnerContactNames.join("\n");
+  if (awsRendered.length > 0) fields[MF.awsContacts] = awsRendered.join("\n");
+  if (partnerRendered.length > 0) fields[MF.partnerContacts] = partnerRendered.join("\n");
 
   return fields;
 }

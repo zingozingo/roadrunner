@@ -18,6 +18,8 @@ import {
   hasChanges,
   VALID_PROGRAM_TYPES, VALID_EVENT_TYPES, VALID_RELATIONSHIP_TYPES, VALID_LIFECYCLE_TYPES,
 } from "./utils";
+import { parseRoleContact, parseContactList } from "../contact-parser";
+import type { RoleContact } from "../types";
 import { syncEngagementsToAirtable, syncMeetingsToAirtable } from "./push";
 
 export interface SyncResult {
@@ -95,16 +97,27 @@ function mapRelationship(
   const rawType = str(rec.fields[RF.type]);
   const relationshipType = rawType && VALID_RELATIONSHIP_TYPES.has(rawType) ? rawType : null;
 
-  const awsContactEmails = strArr(rec.fields[RF.awsContactEmails]);
+  // Build contacts JSONB from new unified fields
+  const contacts: RoleContact[] = [];
+  const leadRaw = str(rec.fields[RF.leadContact]);
+  if (leadRaw) contacts.push(parseRoleContact(leadRaw, "Lead Contact"));
+  const teamRaw = str(rec.fields[RF.teamContacts]);
+  if (teamRaw) contacts.push(...parseContactList(teamRaw, "Team Member"));
+
+  // Dual-write old columns from parsed contacts
+  const leadContact = contacts.find((c) => c.role === "Lead Contact");
+  const allEmails = contacts.map((c) => c.email).filter(Boolean) as string[];
 
   return {
     name,
     relationship_type: relationshipType,
     aws_org: str(rec.fields[RF.awsOrg]),
     aws_service: str(rec.fields[RF.awsService]),
-    primary_contact_name: str(rec.fields[RF.primaryContact]),
-    primary_contact_email: str(rec.fields[RF.primaryContactEmail]),
-    aws_contact_emails: awsContactEmails,
+    contacts,
+    // Dual-write legacy columns
+    primary_contact_name: leadContact?.name ?? null,
+    primary_contact_email: leadContact?.email ?? null,
+    aws_contact_emails: allEmails,
     notes: str(rec.fields[RF.notes]),
   };
 }
@@ -116,28 +129,56 @@ function mapPartner(rec: AirtableRecord): Record<string, unknown> | null {
   const rawSegment = selectName(rec.fields[PTRF.segment]);
   const segment = rawSegment ? rawSegment.toLowerCase() : null;
 
-  const rawEmails = str(rec.fields[PTRF.partnerContactEmails]);
-  const partnerContactEmails = rawEmails
-    ? rawEmails.split(";").map((s) => s.trim()).filter(Boolean)
-    : null;
+  // Build JSONB arrays from new unified fields
+  const partnerContacts: RoleContact[] = [];
+  const awsTeam: RoleContact[] = [];
 
-  const rawSpmsId = rec.fields[PTRF.spmsId];
-  const spmsId = typeof rawSpmsId === "number" ? rawSpmsId : null;
+  // Alliance Lead → partner_contacts (partner-side role)
+  const allianceLeadRaw = str(rec.fields[PTRF.allianceLead]);
+  if (allianceLeadRaw) partnerContacts.push(parseRoleContact(allianceLeadRaw, "Alliance Lead"));
+
+  // Contacts (multi-line) → partner_contacts
+  const contactsRaw = str(rec.fields[PTRF.contacts]);
+  if (contactsRaw) partnerContacts.push(...parseContactList(contactsRaw, "Contact"));
+
+  // PSA → aws_team (AWS-side role)
+  const psaRaw = str(rec.fields[PTRF.psa]);
+  if (psaRaw) awsTeam.push(parseRoleContact(psaRaw, "PSA"));
+
+  // Account Manager → aws_team
+  const amRaw = str(rec.fields[PTRF.accountManager]);
+  if (amRaw) awsTeam.push(parseRoleContact(amRaw, "Account Manager"));
+
+  // PMM → aws_team
+  const pmmRaw = str(rec.fields[PTRF.pmm]);
+  if (pmmRaw) awsTeam.push(parseRoleContact(pmmRaw, "PMM"));
+
+  // Dual-write old columns by extracting from parsed contacts
+  const allianceLead = partnerContacts.find((c) => c.role === "Alliance Lead");
+  const psa = awsTeam.find((c) => c.role === "PSA");
+  const accountManager = awsTeam.find((c) => c.role === "Account Manager");
+  const pmm = awsTeam.find((c) => c.role === "PMM");
+
+  const partnerContactEmails = partnerContacts
+    .map((c) => c.email)
+    .filter(Boolean) as string[];
 
   return {
     name,
     segment,
     focus_area: arr(rec.fields[PTRF.focusArea]),
-    alliance_lead: str(rec.fields[PTRF.allianceLead]),
-    alliance_lead_email: str(rec.fields[PTRF.allianceLeadEmail]),
-    psa: selectName(rec.fields[PTRF.psa]),
-    psa_email: str(rec.fields[PTRF.psaEmail]),
-    account_manager: str(rec.fields[PTRF.accountManager]),
-    account_manager_email: str(rec.fields[PTRF.accountManagerEmail]),
-    pmm: str(rec.fields[PTRF.pmm]),
-    pmm_email: str(rec.fields[PTRF.pmmEmail]),
-    spms_id: spmsId,
-    partner_contact_emails: partnerContactEmails,
+    aws_team: awsTeam,
+    partner_contacts: partnerContacts,
+    // Dual-write legacy columns
+    alliance_lead: allianceLead?.name ?? null,
+    alliance_lead_email: allianceLead?.email ?? null,
+    psa: psa?.name ?? null,
+    psa_email: psa?.email ?? null,
+    account_manager: accountManager?.name ?? null,
+    account_manager_email: accountManager?.email ?? null,
+    pmm: pmm?.name ?? null,
+    pmm_email: pmm?.email ?? null,
+    partner_contact_emails: partnerContactEmails.length > 0 ? partnerContactEmails : null,
     aws_stickiness: str(rec.fields[PTRF.awsStickiness]),
     key_aws_services: arr(rec.fields[PTRF.keyAwsServices]),
     what_they_do: str(rec.fields[PTRF.whatTheyDo]),

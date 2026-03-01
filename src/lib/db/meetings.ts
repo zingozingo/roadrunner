@@ -383,6 +383,7 @@ export async function createMeetingFromICS(
     if (existing && parsed.is_cancellation) {
       const updates: Record<string, unknown> = { status: "cancelled" };
       if (parsed.title !== undefined) updates.title = parsed.title;
+      if (parsed.organizer_name) updates.organizer_name = parsed.organizer_name;
 
       const { error } = await db
         .from("meetings")
@@ -422,6 +423,7 @@ export async function createMeetingFromICS(
         end_time: parsed.end_time,
         location: parsed.location,
         organizer_email: parsed.organizer_email,
+        organizer_name: parsed.organizer_name,
         attendees: parsed.attendees,
         sequence: parsed.sequence,
         is_recurring: parsed.is_recurring,
@@ -462,6 +464,7 @@ export async function createMeetingFromICS(
         end_time: parsed.end_time,
         location: parsed.location,
         organizer_email: parsed.organizer_email,
+        organizer_name: parsed.organizer_name,
         attendees: parsed.attendees,
         ics_uid: parsed.ics_uid,
         sequence: parsed.sequence,

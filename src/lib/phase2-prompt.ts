@@ -458,7 +458,25 @@ function buildMatchedPartnerSection(partner: Partner | null): string {
 
   lines.push(`**Name:** ${partner.name} (id: ${partner.id})`);
   if (partner.segment) lines.push(`**Segment:** ${partner.segment}`);
-  if (partner.alliance_lead) lines.push(`**Alliance Lead:** ${partner.alliance_lead}`);
+
+  // Render key contacts from JSONB fields
+  const keyContacts = [
+    ...(partner.partner_contacts ?? []),
+    ...(partner.aws_team ?? []),
+  ].slice(0, 4); // Show up to 4 key contacts
+
+  if (keyContacts.length > 0) {
+    const contactStrs = keyContacts.map((c) => {
+      const namePart = c.name ?? "Unknown";
+      const emailPart = c.email ? ` <${c.email}>` : "";
+      return `${namePart}${emailPart} (${c.role})`;
+    });
+    lines.push(`**Key Contacts:** ${contactStrs.join(", ")}`);
+  } else if (partner.alliance_lead) {
+    // Fallback to legacy column during transition
+    lines.push(`**Alliance Lead:** ${partner.alliance_lead}`);
+  }
+
   if (partner.what_they_do) lines.push(`**What they do:** ${partner.what_they_do}`);
   lines.push("");
   return lines.join("\n");

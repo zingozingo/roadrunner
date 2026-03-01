@@ -73,14 +73,15 @@ describe("buildNameResolutionMap", () => {
     });
   });
 
-  it("builds map from aws_relationship primary contacts", async () => {
+  it("builds map from aws_relationship contacts JSONB", async () => {
     setupMockTables(
       [],
       [
         {
-          primary_contact_name: "Dana Wright",
-          primary_contact_email: "dana@amazon.com",
-          aws_contact_emails: ["team@amazon.com"],
+          contacts: [
+            { name: "Dana Wright", email: "dana@amazon.com", title: null, role: "Lead Contact" },
+            { name: null, email: "team@amazon.com", title: null, role: "Team Member" },
+          ],
         },
       ]
     );
@@ -91,17 +92,18 @@ describe("buildNameResolutionMap", () => {
       name: "Dana Wright",
       source: "aws_relationship",
     });
-    // aws_contact_emails without names are NOT added
+    // team@amazon.com has no name, so NOT added
     expect(map.emailToName.has("team@amazon.com")).toBe(false);
   });
 
-  it("builds map from partner alliance leads", async () => {
+  it("builds map from partner partner_contacts JSONB", async () => {
     setupMockTables([], [], [
       {
         name: "CyberShield",
-        alliance_lead: "Eve Torres",
-        alliance_lead_email: "eve@cybershield.io",
-        partner_contact_emails: ["support@cybershield.io"],
+        aws_team: [],
+        partner_contacts: [
+          { name: "Eve Torres", email: "eve@cybershield.io", title: "CTO", role: "Alliance Lead" },
+        ],
       },
     ]);
 
@@ -118,17 +120,18 @@ describe("buildNameResolutionMap", () => {
       [{ email: "alice@partner.com", name: "Alice (Participant)" }],
       [
         {
-          primary_contact_name: "Alice (Relationship)",
-          primary_contact_email: "alice@partner.com",
-          aws_contact_emails: [],
+          contacts: [
+            { name: "Alice (Relationship)", email: "alice@partner.com", title: null, role: "Lead Contact" },
+          ],
         },
       ],
       [
         {
           name: "PartnerCo",
-          alliance_lead: "Alice (Partner)",
-          alliance_lead_email: "alice@partner.com",
-          partner_contact_emails: [],
+          aws_team: [],
+          partner_contacts: [
+            { name: "Alice (Partner)", email: "alice@partner.com", title: null, role: "Alliance Lead" },
+          ],
         },
       ]
     );
@@ -148,9 +151,10 @@ describe("buildNameResolutionMap", () => {
       [
         {
           name: "AWS",
-          alliance_lead: "Bob (Partner)",
-          alliance_lead_email: "bob@aws.com",
-          partner_contact_emails: [],
+          aws_team: [
+            { name: "Bob (Partner)", email: "bob@aws.com", title: null, role: "PSA" },
+          ],
+          partner_contacts: [],
         },
       ]
     );
@@ -168,17 +172,18 @@ describe("buildNameResolutionMap", () => {
       [],
       [
         {
-          primary_contact_name: "Bob (Relationship)",
-          primary_contact_email: "bob@aws.com",
-          aws_contact_emails: [],
+          contacts: [
+            { name: "Bob (Relationship)", email: "bob@aws.com", title: null, role: "Lead Contact" },
+          ],
         },
       ],
       [
         {
           name: "AWS",
-          alliance_lead: "Bob (Partner)",
-          alliance_lead_email: "bob@aws.com",
-          partner_contact_emails: [],
+          aws_team: [
+            { name: "Bob (Partner)", email: "bob@aws.com", title: null, role: "PSA" },
+          ],
+          partner_contacts: [],
         },
       ]
     );
@@ -192,15 +197,13 @@ describe("buildNameResolutionMap", () => {
   });
 
   it("catalog name wins over participant name for same email", async () => {
-    // Simulates: crisresl@amazon.com is in aws_relationships as "Cristian Restrepo Lopez"
-    // AND in participants as "Cris R" — catalog (aws_relationship) must win
     setupMockTables(
       [{ email: "crisresl@amazon.com", name: "Cris R" }],
       [
         {
-          primary_contact_name: "Cristian Restrepo Lopez",
-          primary_contact_email: "crisresl@amazon.com",
-          aws_contact_emails: [],
+          contacts: [
+            { name: "Cristian Restrepo Lopez", email: "crisresl@amazon.com", title: null, role: "Lead Contact" },
+          ],
         },
       ],
       []
@@ -227,13 +230,15 @@ describe("buildNameResolutionMap", () => {
     expect(map.emailToName.has("valid@test.com")).toBe(true);
   });
 
-  it("builds domain→org map from partner contact emails", async () => {
+  it("builds domain→org map from partner_contacts JSONB emails", async () => {
     setupMockTables([], [], [
       {
         name: "NinjaOne",
-        alliance_lead: null,
-        alliance_lead_email: null,
-        partner_contact_emails: ["john@ninjaone.com", "jane@ninjaone.com"],
+        aws_team: [],
+        partner_contacts: [
+          { name: "John", email: "john@ninjaone.com", title: null, role: "Contact" },
+          { name: "Jane", email: "jane@ninjaone.com", title: null, role: "Contact" },
+        ],
       },
     ]);
 
@@ -242,13 +247,14 @@ describe("buildNameResolutionMap", () => {
     expect(map.domainToOrg.get("ninjaone.com")).toBe("NinjaOne");
   });
 
-  it("builds domain→org map from alliance lead email domain", async () => {
+  it("builds domain→org map from partner_contacts alliance lead email domain", async () => {
     setupMockTables([], [], [
       {
         name: "CyberShield",
-        alliance_lead: "Eve Torres",
-        alliance_lead_email: "eve@cybershield.io",
-        partner_contact_emails: [],
+        aws_team: [],
+        partner_contacts: [
+          { name: "Eve Torres", email: "eve@cybershield.io", title: null, role: "Alliance Lead" },
+        ],
       },
     ]);
 
@@ -257,19 +263,14 @@ describe("buildNameResolutionMap", () => {
     expect(map.domainToOrg.get("cybershield.io")).toBe("CyberShield");
   });
 
-  it("resolves account_manager_email → account_manager name", async () => {
+  it("resolves account_manager from aws_team JSONB", async () => {
     setupMockTables([], [], [
       {
         name: "Acme Corp",
-        alliance_lead: null,
-        alliance_lead_email: null,
-        psa: null,
-        psa_email: null,
-        account_manager: "Sam Wilson",
-        account_manager_email: "sam@acme.com",
-        pmm: null,
-        pmm_email: null,
-        partner_contact_emails: [],
+        aws_team: [
+          { name: "Sam Wilson", email: "sam@acme.com", title: null, role: "Account Manager" },
+        ],
+        partner_contacts: [],
       },
     ]);
 
@@ -281,19 +282,14 @@ describe("buildNameResolutionMap", () => {
     });
   });
 
-  it("resolves psa_email → psa name", async () => {
+  it("resolves psa from aws_team JSONB", async () => {
     setupMockTables([], [], [
       {
         name: "Acme Corp",
-        alliance_lead: null,
-        alliance_lead_email: null,
-        psa: "Tina Fey",
-        psa_email: "tina@acme.com",
-        account_manager: null,
-        account_manager_email: null,
-        pmm: null,
-        pmm_email: null,
-        partner_contact_emails: [],
+        aws_team: [
+          { name: "Tina Fey", email: "tina@acme.com", title: null, role: "PSA" },
+        ],
+        partner_contacts: [],
       },
     ]);
 
@@ -305,19 +301,14 @@ describe("buildNameResolutionMap", () => {
     });
   });
 
-  it("resolves pmm_email → pmm name", async () => {
+  it("resolves pmm from aws_team JSONB", async () => {
     setupMockTables([], [], [
       {
         name: "Acme Corp",
-        alliance_lead: null,
-        alliance_lead_email: null,
-        psa: null,
-        psa_email: null,
-        account_manager: null,
-        account_manager_email: null,
-        pmm: "Ray Park",
-        pmm_email: "ray@acme.com",
-        partner_contact_emails: [],
+        aws_team: [
+          { name: "Ray Park", email: "ray@acme.com", title: null, role: "PMM" },
+        ],
+        partner_contacts: [],
       },
     ]);
 
@@ -333,15 +324,14 @@ describe("buildNameResolutionMap", () => {
     setupMockTables([], [], [
       {
         name: "MultiContact Inc",
-        alliance_lead: "A Lead",
-        alliance_lead_email: "lead@multicontact.com",
-        psa: "B Psa",
-        psa_email: "psa@psadomain.com",
-        account_manager: "C AM",
-        account_manager_email: "am@amdomain.com",
-        pmm: "D PMM",
-        pmm_email: "pmm@pmmdomain.com",
-        partner_contact_emails: [],
+        aws_team: [
+          { name: "B Psa", email: "psa@psadomain.com", title: null, role: "PSA" },
+          { name: "C AM", email: "am@amdomain.com", title: null, role: "Account Manager" },
+          { name: "D PMM", email: "pmm@pmmdomain.com", title: null, role: "PMM" },
+        ],
+        partner_contacts: [
+          { name: "A Lead", email: "lead@multicontact.com", title: null, role: "Alliance Lead" },
+        ],
       },
     ]);
 
@@ -360,15 +350,10 @@ describe("buildNameResolutionMap", () => {
       [
         {
           name: "Acme Corp",
-          alliance_lead: null,
-          alliance_lead_email: null,
-          psa: null,
-          psa_email: null,
-          account_manager: "Sam Wilson",
-          account_manager_email: "sam@acme.com",
-          pmm: null,
-          pmm_email: null,
-          partner_contact_emails: [],
+          aws_team: [
+            { name: "Sam Wilson", email: "sam@acme.com", title: null, role: "Account Manager" },
+          ],
+          partner_contacts: [],
         },
       ]
     );
@@ -381,19 +366,15 @@ describe("buildNameResolutionMap", () => {
     });
   });
 
-  it("skips partner contact pairs where email or name is null", async () => {
+  it("skips JSONB contacts where email or name is null", async () => {
     setupMockTables([], [], [
       {
         name: "Acme Corp",
-        alliance_lead: null,
-        alliance_lead_email: null,
-        psa: null,
-        psa_email: "orphan@acme.com",  // email present but name null
-        account_manager: "No Email AM",
-        account_manager_email: null,     // name present but email null
-        pmm: null,
-        pmm_email: null,
-        partner_contact_emails: [],
+        aws_team: [
+          { name: null, email: "orphan@acme.com", title: null, role: "PSA" },
+          { name: "No Email AM", email: null, title: null, role: "Account Manager" },
+        ],
+        partner_contacts: [],
       },
     ]);
 
@@ -407,9 +388,12 @@ describe("buildNameResolutionMap", () => {
     setupMockTables([], [], [
       {
         name: "SomePartner",
-        alliance_lead: "Joe",
-        alliance_lead_email: "joe@gmail.com",
-        partner_contact_emails: ["jane@yahoo.com", "jill@outlook.com"],
+        aws_team: [],
+        partner_contacts: [
+          { name: "Joe", email: "joe@gmail.com", title: null, role: "Alliance Lead" },
+          { name: "Jane", email: "jane@yahoo.com", title: null, role: "Contact" },
+          { name: "Jill", email: "jill@outlook.com", title: null, role: "Contact" },
+        ],
       },
     ]);
 

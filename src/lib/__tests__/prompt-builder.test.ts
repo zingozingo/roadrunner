@@ -47,6 +47,9 @@ const RELATIONSHIP: AwsRelationship = {
   primary_contact_name: "Jane Doe",
   primary_contact_email: "janedoe@amazon.com",
   aws_contact_emails: ["janedoe@amazon.com"],
+  contacts: [
+    { name: "Jane Doe", email: "janedoe@amazon.com", title: null, role: "Lead Contact" },
+  ],
   notes: null,
   airtable_record_id: null,
   created_at: "2025-01-01T00:00:00Z",
@@ -127,13 +130,14 @@ describe("buildProgramsSection", () => {
 });
 
 describe("buildRelationshipsSection", () => {
-  it("renders relationship with contact info", () => {
+  it("renders relationship with contacts from JSONB", () => {
     const result = buildRelationshipsSection([RELATIONSHIP]);
     expect(result).toContain("Security Team - ISV");
     expect(result).toContain("rel-001");
     expect(result).toContain("Product Team");
     expect(result).toContain("Jane Doe");
     expect(result).toContain("janedoe@amazon.com");
+    expect(result).toContain("Lead Contact");
   });
 
   it("shows 'None yet' for empty list", () => {

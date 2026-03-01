@@ -89,11 +89,22 @@ export function buildRelationshipsSection(
     if (r.relationship_type) parts.push(`Type: ${r.relationship_type}`);
     if (r.aws_org) parts.push(`Org: ${r.aws_org}`);
     if (r.aws_service) parts.push(`Service: ${r.aws_service}`);
-    if (r.primary_contact_name)
+    // Render contacts from JSONB: "Name <email> (Role)"
+    const contacts = r.contacts ?? [];
+    if (contacts.length > 0) {
+      const contactStrs = contacts.map((c) => {
+        const namePart = c.name ?? "";
+        const emailPart = c.email ? ` <${c.email}>` : "";
+        const rolePart = c.role ? ` (${c.role})` : "";
+        return `${namePart}${emailPart}${rolePart}`.trim();
+      });
+      parts.push(`Contacts: ${contactStrs.join(", ")}`);
+    } else if (r.primary_contact_name) {
+      // Fallback to legacy columns during transition
       parts.push(`Contact: ${r.primary_contact_name}`);
-    // Include contact emails so Claude can match email participants to relationships
-    if (r.aws_contact_emails.length > 0) {
-      parts.push(`Emails: ${r.aws_contact_emails.join(", ")}`);
+      if (r.aws_contact_emails.length > 0) {
+        parts.push(`Emails: ${r.aws_contact_emails.join(", ")}`);
+      }
     }
 
     let line = parts[0];
