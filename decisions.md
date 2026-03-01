@@ -2462,3 +2462,15 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Context:** Engagements used "AWS Stakeholders / Partner Stakeholders / Third Parties" while Meetings used "AWS Contact(s) / Partner Contact(s)" with no third-party field. Meetings are a subset of the same participant pool — naming and bucketing should match. Third parties (analysts, consultants, other vendors) were previously dropped during meeting attendee classification.
 
 **Impact:** Renamed 2 AT fields on Meetings, created Third Parties field (fldhU8nE7uGE1agML). Updated field-maps.ts constants (MF.awsContacts → MF.awsStakeholders, MF.partnerContacts → MF.partnerStakeholders, added MF.thirdParties). Three-bucket splitting ensures no attendees are silently dropped. Verified linkMeetingToEngagement already triggers awaited AT push.
+
+---
+
+## 2026-03-01: Meetings as Timeline Events (Architectural Principle)
+
+**Decision:** Meetings and email messages are both timeline events within an engagement. They follow the same conceptual flow: inbound signal → classify → match or create engagement → engagement is the hub. A standalone meeting without an engagement is architecturally invalid — if a calendar invite can't match an existing engagement, a new engagement should be created, same as an unmatched email thread.
+
+**Context:** The ICS pipeline previously treated meetings as potentially independent entities with their own partner/event/program links. This created architectural ambiguity about whether the meeting or engagement was the source of truth for connections. During Phase B+C simplification, we established that engagements own ALL connections and meetings inherit through the engagement link.
+
+**Rationale:** If every signal (email or calendar) flows through the same classify→engage pipeline, the system has one code path, one mental model, and one source of truth. The Phase 1 prompt can treat ICS content the same as email content — just another signal about partner activity that needs an engagement home. This simplification directly enables the upcoming prompt rewrite.
+
+**Impact:** Guides Phase 1 prompt rewrite (ICS and email use same classification logic). Eliminates the concept of "standalone meetings." engagement_id on meetings is logically required even though the schema still allows NULL for the temporal gap during ICS processing (create meeting → classify → link → push).
