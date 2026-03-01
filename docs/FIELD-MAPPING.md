@@ -1,6 +1,6 @@
 # Roadrunner ↔ Airtable Field Mapping Guide
 
-> **Last updated:** 2026-02-28
+> **Last updated:** 2026-03-01
 > **Airtable Base:** Steven Partners 2026 MCP (`appy9TT1LRJTAuQ4W`)
 
 ## How the Sync Works
@@ -8,8 +8,10 @@
 Roadrunner connects to Airtable using **field IDs**, not field names. This means:
 
 - **Safe to do in Airtable:** Rename fields, reorder fields, add new fields, change colors, add views
-- **Requires sync.ts update:** Change a field's type, change select option values, delete a synced field, or add a new field you want Roadrunner to use
+- **Requires field-maps.ts update:** Change a field's type, change select option values, delete a synced field, or add a new field you want Roadrunner to use
 - **Key principle:** Field IDs are permanent. Names are cosmetic. Types are contracts.
+
+All field ID constants live in `src/lib/sync/field-maps.ts`. This file is the single source of truth for what Roadrunner reads from and writes to Airtable.
 
 ## System Ownership
 
@@ -20,6 +22,22 @@ Roadrunner connects to Airtable using **field IDs**, not field names. This means
 
 Catalog tables are read from Airtable into Roadrunner. Activity tables are written from Roadrunner to Airtable. This one-directional ownership prevents sync conflicts.
 
+## Contact Format Convention
+
+All contact fields use the universal format: `Name <email> (Title)`
+
+- Missing email → `<—>` (em-dash placeholder)
+- Missing title → `(—)` (em-dash placeholder)
+- Parser: `src/lib/contact-parser.ts` (single source of truth)
+- Role-based fields (PSA, Alliance Lead, etc.) store role in the Airtable column name, not in the contact string
+
+Examples:
+```
+CJ Sturgess <sturgeci@amazon.com> (Partner Solutions Architect)
+Julia Irion <juliai@spacelift.io> (—)
+Jazz Totten <—> (—)
+```
+
 ---
 
 ## Partners (AT → RR)
@@ -29,24 +47,24 @@ Catalog tables are read from Airtable into Roadrunner. Activity tables are writt
 | Airtable Field | Field ID | Type | Sync Key | Notes |
 |----------------|----------|------|----------|-------|
 | Partner Name | `fldlE5L12oES6IQSO` | multilineText | `PTRF.name` | Primary field |
-| Segment | `fldSoIAhWfmPgHzuc` | singleSelect | `PTRF.segment` | Security, SecOps, DevOps, CloudOps, Observability, OT/IoT. **Renamed from Category 2026-02-18.** |
-| Focus Area | `fldeW5BvDgSp1bLNX` | multipleSelects | `PTRF.focusArea` | Network Security, API Security, IaC, IT Management, etc. **Renamed from Sub-Category, converted text→multipleSelects 2026-02-18.** DB stores as text[]. |
-| Alliance Lead | `fldN2yZtjwetyHJwI` | singleLineText | `PTRF.allianceLead` | |
-| Alliance Lead Email | `fldgoSc6QMl6l1303` | email | `PTRF.allianceLeadEmail` | Used for email matching + name resolution |
-| PSA | `fldNRDPljDlJZkbds` | singleSelect | `PTRF.psa` | 5 options |
-| PSA Email | `fldYIdpq0rdKYLHWx` | email | `PTRF.psaEmail` | **New sync 2026-02-25.** Used for name resolution. |
-| Account Manager | `fldpJxHBJKGgVMJmP` | singleLineText | `PTRF.accountManager` | **New sync 2026-02-25.** Was Airtable-only combined string, split into name+email. |
-| Account Manager Email | `fldwYCgZeyPIKDbhk` | email | `PTRF.accountManagerEmail` | **New sync 2026-02-25.** Used for name resolution. |
-| PMM | `fld6ARMCUVUWyw30n` | singleLineText | `PTRF.pmm` | **New sync 2026-02-25.** Was Airtable-only. |
-| PMM Email | `fldz3g9UK7afUnOln` | email | `PTRF.pmmEmail` | **New sync 2026-02-25.** Used for name resolution. |
-| SPMS ID | `fld9gzD2CRM9NApUH` | number | `PTRF.spmsId` | |
-| Partner Contact Emails | `fldAEQSbi448tEjff` | multilineText | `PTRF.partnerContactEmails` | Semicolon-separated; used for email-to-partner matching |
-| AWS Stickiness | `fldlCzNjHA3Ziuqtv` | multilineText | `PTRF.awsStickiness` | **New sync 2026-02-18.** Narrative text about customer AWS adoption likelihood. |
-| Key AWS Services | `fldQwm8UtaNxAa9dI` | multipleSelects | `PTRF.keyAwsServices` | **New sync 2026-02-18.** EC2, S3, Lambda, IAM, VPC, EKS, CloudWatch, etc. DB stores as text[]. |
+| What They Do | `fldnoDB2la8oLgrqR` | multilineText | `PTRF.whatTheyDo` | Partner description |
+| Segment | `fldSoIAhWfmPgHzuc` | singleSelect | `PTRF.segment` | Security, DevOps, CloudOps, Observability, OT/IoT |
+| Focus Area | `fldeW5BvDgSp1bLNX` | multipleSelects | `PTRF.focusArea` | DB stores as text[] |
+| Alliance Lead | `fldLbBuiYhisMSqJu` | singleLineText | `PTRF.allianceLead` | Format: `Name <email> (Title)`. Partner-side alliance contact. |
+| PSA | `fldp175r0XAz4Cwbj` | singleLineText | `PTRF.psa` | Format: `Name <email> (Title)`. AWS Partner Solutions Architect. |
+| Account Manager | `fldLzr6Rn9hpciP70` | singleLineText | `PTRF.accountManager` | Format: `Name <email> (Title)`. AWS Account Manager. |
+| PMM | `fldgGnuwXCM7EWOVq` | singleLineText | `PTRF.pmm` | Format: `Name <email> (Title)`. AWS Partner Marketing Manager. |
+| Contacts | `fldwnagXCUQ0QIHDg` | multilineText | `PTRF.contacts` | Additional partner contacts. One per line, same format. |
+| AWS Stickiness | `fldlCzNjHA3Ziuqtv` | multilineText | `PTRF.awsStickiness` | Narrative text about customer AWS adoption likelihood |
+| Key AWS Services | `fldQwm8UtaNxAa9dI` | multipleSelects | `PTRF.keyAwsServices` | EC2, S3, Lambda, IAM, VPC, EKS, etc. DB stores as text[] |
 
-**Airtable-only fields (not synced):** Trailing 12 Months, Deployed on AWS, ISVa Status/Notes, PRM Status, all financial metrics (TCV, LARR, MDF), 2026 Partner Plans, MPOPP Funding, Partner Programs (link), Partner Event Status (link), Meetings (reverse link), ARCH. (legacy link), Partner Engagements (reverse link).
+**DB JSONB columns (populated from above fields during pull):**
+- `aws_team` — JSONB array of `{name, email, title, role}` parsed from PSA, Account Manager, PMM
+- `partner_contacts` — JSONB array of `{name, email, title, role}` parsed from Alliance Lead, Contacts
 
-**Note:** The `ARCH.` link field connects to the archived Partner Initiatives table. This is legacy — initiatives were replaced by engagements. Not breaking anything but is clutter you can delete when ready.
+**Dual-write note:** Old scalar columns (`alliance_lead`, `psa`, `am`, `pmm`, etc.) are still populated during sync for UI compatibility. Phase 3 will cut over UI to read JSONB and drop the scalar columns.
+
+**Airtable-only fields (not synced):** SPMS ID, Trailing 12 Months, Deployed on AWS, ISVa Status/Notes, PRM Status, all financial metrics (TCV, LARR, MDF), Listing Types, Pricing Model, Architecture, 2026 Partner Plans, MPOPP Funding, MDF Funding, Partner Programs (link), Partner Events (link), Meetings (reverse link), Partner Engagements (reverse link).
 
 ---
 
@@ -57,14 +75,15 @@ Catalog tables are read from Airtable into Roadrunner. Activity tables are writt
 | Airtable Field | Field ID | Type | Sync Key | Notes |
 |----------------|----------|------|----------|-------|
 | Program Name | `fldlJgX0tVWwA516E` | singleLineText | `PF.name` | Primary field |
-| Type | `fldCd7TnUOgxnWmNt` | singleSelect | `PF.type` | |
+| Type | `fldCd7TnUOgxnWmNt` | singleSelect | `PF.type` | Competency, Service Ready, SCA, Program, Funding, Channel, Enablement |
 | Description | `fldHN5mCWH6lXmoY1` | multilineText | `PF.description` | |
 | Requirements | `fldxxsFFMc649nZft` | multilineText | `PF.requirements` | |
-| Lifecycle | `fldo04XmU7rQhwOVT` | singleLineText | `PF.lifecycle` | |
+| What It Unlocks | `fld4870bblJTGbAgn` | multilineText | `PF.whatItUnlocks` | MDF funding, badges, co-marketing, etc. |
+| Lifecycle | `fldo04XmU7rQhwOVT` | singleLineText | `PF.lifecycle` | recurring, expiring, indefinite |
 | Lifecycle Duration | `fldeExdR8irrzC5GV` | singleLineText | `PF.lifecycleDuration` | |
-| URL | `fldj2uk4rf4ifqGLH` | url | `PF.url` | |
+| Notes | `fldzsmhcQ0Z6Rnjhk` | multilineText | `PF.notes` | |
 
-**Airtable-only fields:** Meetings (reverse link from Meetings.Program).
+**Airtable-only fields:** Meetings (reverse link), Partner Engagements (reverse link).
 
 ---
 
@@ -75,14 +94,18 @@ Catalog tables are read from Airtable into Roadrunner. Activity tables are writt
 | Airtable Field | Field ID | Type | Sync Key | Notes |
 |----------------|----------|------|----------|-------|
 | Event Name | `fld1hURggkL0DTHnC` | singleLineText | `EF.name` | Primary field |
-| Date | `fld62hHfwpOJw7nyZ` | date | `EF.date` | Start date |
+| Event Date | `fld62hHfwpOJw7nyZ` | date | `EF.date` | Start date |
 | End Date | `fldTUy6jHj4KpR6SZ` | date | `EF.endDate` | |
 | Location | `fldwjmRq0saFpFHao` | singleLineText | `EF.location` | |
-| Format | `fldpuxeQ5DRhMwizr` | singleSelect | `EF.format` | |
+| Format | `fldpuxeQ5DRhMwizr` | singleSelect | `EF.format` | conference, summit, workshop, trade_show, training |
 | Host | `fldaDlidcRmUCvxFK` | singleLineText | `EF.host` | |
 | Description | `fldTMiRJ7mqMzGqXY` | multilineText | `EF.description` | |
+| GEO | `fld9idvQawFVNu5sa` | singleLineText | `EF.geo` | NAMER, EMEA, APJ, LATAM, GCR |
+| Sponsor Option? | `fldyAVpfZbG1SaDJz` | checkbox | `EF.sponsorOption` | Whether partner sponsorship is available |
+| Partner Day? | `fldTWZbQSEruQYdLe` | checkbox | `EF.partnerDay` | Whether event includes a Partner Summit/Day |
+| Partner Day Date | `fldo8mDJ5vvXK5bu7` | date | `EF.partnerDayDate` | Date of Partner Day if different from main event |
 
-**Airtable-only fields:** Meetings (reverse link), Partner Event Status (reverse link).
+**Airtable-only fields:** Partner Event Status (reverse link), Meetings (reverse link).
 
 ---
 
@@ -93,18 +116,27 @@ Catalog tables are read from Airtable into Roadrunner. Activity tables are writt
 | Airtable Field | Field ID | Type | Sync Key | Notes |
 |----------------|----------|------|----------|-------|
 | Relationship Name | `fldeiFljVC5L61c3v` | singleLineText | `RF.name` | Primary field |
-| AWS Org | `fldKSmvO7Lhr5v9Fy` | singleLineText | `RF.awsOrg` | |
-| AWS Service | `fldiieBBkkAFYDOJC` | singleLineText | `RF.awsService` | |
+| AWS Org | `fldKSmvO7Lhr5v9Fy` | singleLineText | `RF.awsOrg` | Platform, Security, Observability, Analytics, Multicloud |
+| AWS Service(s) | `fldiieBBkkAFYDOJC` | singleLineText | `RF.awsService` | |
 | Relationship Type | `fld2cjVCECNIPGw2d` | singleSelect | `RF.type` | Exec/Leader, Product Team, Program Team, Seller |
-| Primary Contact(s) | `fldhCrECNQ0uBA2tD` | singleLineText | `RF.primaryContact` | |
-| Primary Contact Email | `fldoWXiosjUJBPDqF` | email | `RF.primaryContactEmail` | Used for email matching |
-| AWS Contact Emails | `fldEu6kRhcn1929CA` | singleLineText | `RF.awsContactEmails` | Comma-separated; used for email matching |
+| Lead Contact | `fldKELDdEYb8MsJCP` | singleLineText | `RF.leadContact` | Format: `Name <email> (Title)` |
+| Team Contacts | `fld472yolP2ujyJ5w` | multilineText | `RF.teamContacts` | One per line, same format |
 | Notes | `fldOcbNUrtfxjqiW5` | multilineText | `RF.notes` | |
 | Roadrunner ID | `fldfZksUDfLbvVQMT` | singleLineText | — | Sync key written by RR |
 
-**Airtable-only fields:** AWS Contacts, Last Touch, How We Connected, Partner Programs (link), Partner Event Status (link), Partner Engagements (reverse link), Meetings (reverse link).
+**DB JSONB column:** `contacts` — array of `{name, email, title}` parsed from Lead Contact + Team Contacts.
 
-**Note:** `How We Connected` and `Last Touch` exist in Airtable but are NOT synced to Roadrunner despite appearing in a previous version of this guide. They are Airtable-only manual fields.
+**Legacy constants (Phase 3 removal candidates):**
+
+| Constant | Field ID | Status |
+|----------|----------|--------|
+| `RF.primaryContact` | `fldhCrECNQ0uBA2tD` | Defined but not read during pull. Dual-write target. |
+| `RF.primaryContactEmail` | `fldoWXiosjUJBPDqF` | Defined but not read during pull. Dual-write target. |
+| `RF.awsContactEmails` | `fldEu6kRhcn1929CA` | Defined but not read during pull. Dual-write target. |
+
+**Additional constant:** `RF.partners` (`fldJHZfq28s58iuwX`) — linked record field, used for relationship context.
+
+**Airtable-only fields:** Partner Engagements (reverse link), Meetings (reverse link).
 
 ---
 
@@ -115,20 +147,18 @@ Catalog tables are read from Airtable into Roadrunner. Activity tables are writt
 | Airtable Field | Field ID | Type | Sync Key | Notes |
 |----------------|----------|------|----------|-------|
 | Name | `fldxq7bsx8PuRvodp` | singleLineText | `ENF.name` | Primary field |
-| Pillar | `fldvxfxhOPDGr5jBA` | singleSelect | `ENF.pillar` | |
-| Status | `fldUAOu4GG1Wme5OJ` | singleSelect | `ENF.status` | |
-| Notes | `flduVQ9wp3XXVUiwo` | multilineText | `ENF.notes` | Merge pattern (appends, doesn't overwrite) |
+| Pillar | `fldvxfxhOPDGr5jBA` | singleSelect | `ENF.pillar` | Co-Sell, Co-Market, Co-Build |
+| Status | `fldUAOu4GG1Wme5OJ` | singleSelect | `ENF.status` | Active, Blocked, Completed, Archived |
+| Notes | `flduVQ9wp3XXVUiwo` | multilineText | `ENF.notes` | Merge pattern (appends `=== Roadrunner Activity Summary ===`, doesn't overwrite) |
 | Roadrunner ID | `fldJJ8ZlwhePawiEl` | singleLineText | `ENF.roadrunnerId` | Sync key |
-| Partner | `fldkYNE9C0UcdnGCL` | multipleRecordLinks | `ENF.partner` | Link to Partners table. **Fixed field ID 2026-02-27** (was stale `fld8MJU06GPUU0iy6`). |
-| Program | `fldZ4IqdSvuEXgp83` | multipleRecordLinks | `ENF.program` | **New sync 2026-02-27.** Link to Programs catalog. Resolved from `engagements.program_id` FK. |
-| AWS Relationships | `fldhVQTAP2wucnzNC` | multipleRecordLinks | `ENF.awsRelationships` | **New sync 2026-02-27.** Link to AWS Relationships. Resolved from `engagement_aws_relationships` junction table. |
-| AWS Stakeholders | `fldLVPbg7iyz0Nli9` | multilineText | `ENF.awsStakeholders` | Newline-separated names from participants table. `@amazon.com` email or "AWS"/"Amazon" org. |
-| Partner Stakeholders | `fldj6vaWwDKJy6aci` | multilineText | `ENF.partnerStakeholders` | Newline-separated names from participants table. Org matches engagement partner_name. |
-| Third Parties | `flduajBotnT6x5ZXD` | multilineText | `ENF.thirdParties` | Newline-separated names. Everyone else (excluding system/relay/user addresses). |
+| Partner | `fldkYNE9C0UcdnGCL` | multipleRecordLinks | `ENF.partner` | Link to Partners table |
+| Program | `fldZ4IqdSvuEXgp83` | multipleRecordLinks | `ENF.program` | Link to Programs catalog. Resolved from `engagements.program_id` FK. |
+| AWS Relationships | `fldhVQTAP2wucnzNC` | multipleRecordLinks | `ENF.awsRelationships` | Link to AWS Relationships. Resolved from `engagement_aws_relationships` junction table. |
+| AWS Stakeholders | `fldLVPbg7iyz0Nli9` | multilineText | `ENF.awsStakeholders` | Newline-separated. `@amazon.com` email or "AWS"/"Amazon" org. |
+| Partner Stakeholders | `fldj6vaWwDKJy6aci` | multilineText | `ENF.partnerStakeholders` | Newline-separated. Org matches engagement partner name. |
+| Third Parties | `flduajBotnT6x5ZXD` | multilineText | `ENF.thirdParties` | Everyone else (excluding system/relay/user addresses). |
 
 **Airtable-only fields:** Meetings (reverse link).
-
-**Removed fields (2026-02-27):** Tags (`fldkgcbEZZSJv0cbN`) — column dropped from DB, field deleted from Airtable. Priority (`fld4N2kKPFJEqwYtN`) — never existed on live Airtable table.
 
 ---
 
@@ -138,17 +168,16 @@ Catalog tables are read from Airtable into Roadrunner. Activity tables are writt
 
 | Airtable Field | Field ID | Type | Sync Key | Notes |
 |----------------|----------|------|----------|-------|
-| Meeting Name | `fldcbatIDunJ00dLp` | singleLineText | `MF.meetingName` | **Primary field.** Was formula, converted to writable text 2026-02-18. RR writes `meeting.title`. |
+| Meeting Name | `fldcbatIDunJ00dLp` | singleLineText | `MF.meetingName` | Primary field |
 | Event | `fldT96Imgc7CFDBEX` | multipleRecordLinks | `MF.event` | Link to Events table |
-| Partner | `fldubdX4ZYXFQ2sIZ` | multipleRecordLinks | `MF.partner` | Link to Partners table. **Fixed field ID 2026-02-27** (was stale `fldZjCUMpBtgpU13X`). |
-| Status | `fldpXlLugkUgQsjcr` | singleSelect | `MF.status` | Scheduled, Completed, Cancelled, Did Not Occur. DB stores lowercase; sync maps via `MEETING_STATUS_MAP` to title case. |
+| Partner | `fldubdX4ZYXFQ2sIZ` | multipleRecordLinks | `MF.partner` | Link to Partners table |
+| Status | `fldpXlLugkUgQsjcr` | singleSelect | `MF.status` | Scheduled, Completed, Cancelled, Did Not Occur. DB stores lowercase; sync maps via `MEETING_STATUS_MAP`. |
 | Meeting Date | `fldx9ZrIMundEMUko` | date | `MF.meetingDate` | |
-| AWS Contact(s) | `fldOVCmwhiisY8bDo` | singleLineText | `MF.awsContacts` | Text from attendee split (system addresses filtered) |
-| Partner Contact(s) | `fldJira79g9xWNTte` | singleLineText | `MF.partnerContacts` | Text from attendee split (system addresses filtered) |
-| Notes | `fldzGUipu36EA9rax` | multilineText | — | **Airtable-only** as of 2026-02-18. Not pushed by Roadrunner; manual scratch space. |
+| AWS Contact(s) | `fldOVCmwhiisY8bDo` | singleLineText | `MF.awsContacts` | From attendee split (system addresses filtered) |
+| Partner Contact(s) | `fldJira79g9xWNTte` | singleLineText | `MF.partnerContacts` | From attendee split (system addresses filtered) |
 | Engagement | `fld2TczwxJXZLUwpW` | multipleRecordLinks | `MF.engagement` | Link to Partner Engagements |
 | AWS Relationships | `fldeDCWtZx7YoyYR6` | multipleRecordLinks | `MF.awsRelationships` | Link to AWS Relationships |
-| Program | `fldqhPAGvYppRZgCS` | multipleRecordLinks | `MF.program` | **New 2026-02-18.** Link to Programs catalog (Tier 1). |
+| Program | `fldqhPAGvYppRZgCS` | multipleRecordLinks | `MF.program` | Link to Programs catalog (Tier 1) |
 | Start Time | `fldifWilEYICfifXz` | singleLineText | `MF.startTime` | |
 | End Time | `fldV78rQbzDhVK9NO` | singleLineText | `MF.endTime` | |
 | Location | `fldTyiMYT48aCHttx` | singleLineText | `MF.location` | |
@@ -162,83 +191,21 @@ Catalog tables are read from Airtable into Roadrunner. Activity tables are writt
 3. `title + meeting_date` — fallback for manually-created Airtable records
 
 **Airtable-only fields (not synced by Roadrunner):**
-- Meeting Type (`fldGWa1MFoqoc89qC`) — singleSelect: Partner Cadence Call, Co-Build Cadence, Co-Market Cadence, SCA Review, QBR, Product Team Sync, Co-Sell Cadence, Co-Sell Strategy, Executive Meeting. Manual classification in AT; `meeting_type` DB column dropped in migration 046.
-- Cadence — planned AT field for recurring meeting frequency (not yet created in Airtable).
-- Notes (`fldzGUipu36EA9rax`) — manual scratch space.
+- Meeting Type (`fldGWa1MFoqoc89qC`) — singleSelect for manual classification in AT
+- Notes (`fldzGUipu36EA9rax`) — manual scratch space, not pushed by RR
 
 **Meeting types supported:**
 - **Event meetings** — linked to Event + Partner (re:Invent, summits)
-- **Program meetings** — linked to Program + Partner (competency reviews, program calls)
-- **Standalone engagement meetings** — linked to Engagement + Partner only (general partner calls)
+- **Program meetings** — linked to Program + Partner (competency reviews)
+- **Standalone engagement meetings** — linked to Engagement + Partner only
 
-**Partner matching:** `createMeetingFromICS()` deterministically matches attendee email domains against the partner catalog before classification runs. This `partner_id` is also passed as a hint to the classifier for higher-confidence engagement matching.
-
----
-
-## Supabase Meetings Table (DB Schema)
-
-For reference, the Supabase `meetings` table columns and their Airtable counterparts:
-
-| DB Column | DB Type | Airtable Field | Notes |
-|-----------|---------|----------------|-------|
-| `id` | uuid PK | — | Internal only |
-| `title` | text NOT NULL | Meeting Name (`MF.meetingName`) | Written to primary field |
-| `engagement_id` | uuid FK→engagements | Engagement (`MF.engagement`) | Resolved to AT record ID |
-| `event_id` | uuid FK→events | Event (`MF.event`) | Resolved to AT record ID |
-| `partner_id` | uuid FK→partners | Partner (`MF.partner`) | Resolved to AT record ID |
-| `partner_name` | text | — | Legacy; used for partner matching when partner_id is null |
-| `program_id` | uuid FK→programs | Program (`MF.program`) | **New migration 032.** Resolved to AT record ID |
-| `message_id` | uuid FK→messages | — | Links meeting to source email; not synced to AT |
-| `status` | text NOT NULL | Status (`MF.status`) | CHECK: scheduled, completed, cancelled, did_not_occur. Mapped to title case for AT via `MEETING_STATUS_MAP`. |
-| `meeting_date` | date | Meeting Date (`MF.meetingDate`) | |
-| `start_time` | text | Start Time (`MF.startTime`) | |
-| `end_time` | text | End Time (`MF.endTime`) | |
-| `location` | text | Location (`MF.location`) | |
-| `organizer_email` | text | — | Not synced to AT. Extracted from ICS ORGANIZER. |
-| `attendees` | jsonb | AWS/Partner Contact(s) split | Array of {name, email}; split into two text fields |
-| `ics_uid` | text UNIQUE | ICS UID (`MF.icsUid`) | Calendar event unique ID for dedup/update |
-| `sequence` | integer | — | ICS SEQUENCE number for update ordering. Stale updates (lower sequence) rejected. |
-| `is_recurring` | boolean | — | True if ICS contains RRULE. Not synced to AT. |
-| `source` | text NOT NULL | Source (`MF.source`) | "manual" or "ics_parsed" |
-| `notes` | text | — | Not synced to AT. Used for manual meetings only; ICS-parsed meetings leave null. |
-| `airtable_record_id` | text UNIQUE | — | AT record ID for sync matching |
-| `created_at` | timestamptz | — | |
-| `updated_at` | timestamptz | — | Auto-updated via trigger |
+**Partner matching:** `createMeetingFromICS()` deterministically matches attendee email domains against the partner catalog before classification runs.
 
 ---
 
-## Tables NOT Synced to Roadrunner
+## Attendee Filtering
 
-These Airtable tables exist in the base but are purely Airtable-managed:
-
-| Table | Purpose |
-|-------|---------|
-| Partner Programs (`tbl1CPtbVzQvRN8LA`) | Tier 2 enrollment records (per-partner program status) |
-| Partner Events (`tblYljQDnXwjTDy2T`) | Per-partner event attendance/status |
-| Partner Plans 2026 (`tbligbfCTvpCkG7tS`) | Annual partner plans |
-| MPOPP Funding 2026 (`tbl2ilHOaXYsgxqFY`) | Marketplace funding tracking |
-| MDF Funding 2026 (`tblRSsochM23QGQpS`) | Marketing development fund tracking |
-| ARCH. (`tblyuSSG76oL0OlsF`) | Archived Partner Initiatives (legacy, replaced by Engagements) |
-
----
-
-## Inverse Link Field Renames (2026-02-18)
-
-All stale "Big Event Meetings" and "Event Meetings" reverse link fields were renamed to "Meetings" across synced tables to reflect broader meeting scope:
-
-| Table | Old Name | New Name | Field ID |
-|-------|----------|----------|----------|
-| Partners | Big Event Meetings | Meetings | `fldRsH7eI2YhP67eg` |
-| Events | Big Event Meetings | Meetings | `fldkoNCXfHrvU1knw` |
-| Partner Engagements | Event Meetings | Meetings | `fldqM0QO5VWjhmvw3` |
-| AWS Relationships | Event Meetings | Meetings | `fldTyEGdlnaCxftOt` |
-| Programs | *(auto-created)* | Meetings | `fldFjEvIHYp12TXzF` |
-
----
-
-## Attendee Filtering (2026-02-18)
-
-The attendee split logic in sync.ts filters out system addresses before classifying contacts as AWS or partner:
+The attendee split logic filters out system addresses before classifying contacts as AWS or partner:
 
 **Filtered addresses:**
 - `*@relay.stevenromero.dev` — Roadrunner forwarding address
@@ -246,3 +213,26 @@ The attendee split logic in sync.ts filters out system addresses before classify
 - Any email matching `isUserEmail()` from user-config.ts (corpmail, PRVS, personal aliases)
 
 Remaining attendees are split: `@amazon.com` → AWS Contact(s), everything else → Partner Contact(s).
+
+---
+
+## Tables NOT Synced to Roadrunner
+
+| Table | Table ID | Purpose |
+|-------|----------|---------|
+| Partner Programs | `tbl1CPtbVzQvRN8LA` | Per-partner program enrollment status |
+| Partner Events | `tblYljQDnXwjTDy2T` | Per-partner event attendance/status |
+| Partner Plans 2026 | `tbligbfCTvpCkG7tS` | Annual partner plans with targets |
+| MPOPP Funding 2026 | `tbl2ilHOaXYsgxqFY` | Marketplace funding tracking |
+| MDF Funding 2026 | `tblRSsochM23QGQpS` | Marketing development fund tracking |
+
+---
+
+## Changelog
+
+| Date | Change |
+|------|--------|
+| 2026-03-01 | **Full rewrite.** Updated Partners (9 old fields → 5 unified contact fields + whatTheyDo + contacts), AWS Relationships (added leadContact, teamContacts, marked legacy fields), Events (added geo, sponsorOption, partnerDay, partnerDayDate), Programs (removed ghost URL, added whatItUnlocks, notes). Added contact format convention section. |
+| 2026-02-28 | Contact standardization: universal `Name <email> (Title)` format. Old separate name+email fields deleted from AT. |
+| 2026-02-27 | Fixed stale Partner/Meeting link field IDs. Added Program + AWS Relationships links to Engagements. |
+| 2026-02-18 | Added event fields (geo, sponsor, partner day). Renamed inverse link fields. Meeting Name converted from formula to writable text. |
