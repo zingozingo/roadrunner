@@ -7,15 +7,7 @@
  *   - Missing angle brackets / parens means that field is absent
  */
 
-export interface Contact {
-  name: string | null;
-  email: string | null;
-  title: string | null;
-}
-
-export interface RoleContact extends Contact {
-  role: string;
-}
+import type { Contact, RoleContact } from "./types";
 
 const EM_DASH = "—";
 

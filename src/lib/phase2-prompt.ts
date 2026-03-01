@@ -472,9 +472,6 @@ function buildMatchedPartnerSection(partner: Partner | null): string {
       return `${namePart}${emailPart} (${c.role})`;
     });
     lines.push(`**Key Contacts:** ${contactStrs.join(", ")}`);
-  } else if (partner.alliance_lead) {
-    // Fallback to legacy column during transition
-    lines.push(`**Alliance Lead:** ${partner.alliance_lead}`);
   }
 
   if (partner.what_they_do) lines.push(`**What they do:** ${partner.what_they_do}`);

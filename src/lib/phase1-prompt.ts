@@ -181,12 +181,10 @@ export function buildCompactPartnerCatalog(partners: Partner[]): string {
   const lines: string[] = ["## Partner Catalog"];
 
   const partnersWithDomains = partners.filter((p) => {
-    // Check new JSONB partner_contacts for emails
-    const jsonbEmails = (p.partner_contacts ?? []).map((c) => c.email).filter(Boolean);
-    if (jsonbEmails.length > 0) return true;
-    // Fallback to legacy partner_contact_emails during transition
-    if (!p.partner_contact_emails || p.partner_contact_emails.length === 0) return false;
-    return p.partner_contact_emails.some((e) => e.includes("@"));
+    const emails = (p.partner_contacts ?? [])
+      .map((c) => c.email)
+      .filter((e): e is string => e !== null && e !== "—");
+    return emails.length > 0;
   });
 
   if (partnersWithDomains.length === 0) {
@@ -196,9 +194,9 @@ export function buildCompactPartnerCatalog(partners: Partner[]): string {
   }
 
   for (const p of partnersWithDomains) {
-    // Prefer JSONB partner_contacts for domain extraction
-    const jsonbEmails = (p.partner_contacts ?? []).map((c) => c.email).filter(Boolean) as string[];
-    const emailSource = jsonbEmails.length > 0 ? jsonbEmails : (p.partner_contact_emails ?? []);
+    const emailSource = (p.partner_contacts ?? [])
+      .map((c) => c.email)
+      .filter((e): e is string => e !== null && e !== "—");
 
     const domains = [
       ...new Set(

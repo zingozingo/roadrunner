@@ -320,23 +320,21 @@ export async function matchPartnerFromAttendees(
   for (const partner of partners) {
     const partnerDomains = new Set<string>();
     // Collect domains from partner contact emails
-    for (const emailField of [
-      partner.alliance_lead_email,
-      partner.psa_email,
-      partner.account_manager_email,
-      partner.pmm_email,
-    ]) {
-      if (emailField) {
-        const d = emailField.toLowerCase().split("@")[1];
-        // Skip amazon.com — PSA/AM/PMM are AWS staff, not partner domains
+    // Collect domains from aws_team (skip amazon.com — AWS staff, not partner domains)
+    for (const c of partner.aws_team ?? []) {
+      if (c.email && c.email !== "—") {
+        const d = c.email.toLowerCase().split("@")[1];
         if (d && !d.endsWith("amazon.com") && !d.endsWith("amazon.co.uk")) {
           partnerDomains.add(d);
         }
       }
     }
-    for (const email of partner.partner_contact_emails ?? []) {
-      const d = email.toLowerCase().split("@")[1];
-      if (d) partnerDomains.add(d);
+    // Collect domains from partner_contacts (these ARE partner domains)
+    for (const c of partner.partner_contacts ?? []) {
+      if (c.email && c.email !== "—") {
+        const d = c.email.toLowerCase().split("@")[1];
+        if (d) partnerDomains.add(d);
+      }
     }
 
     // Check if any attendee domain matches this partner

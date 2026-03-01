@@ -99,12 +99,6 @@ export function buildRelationshipsSection(
         return `${namePart}${emailPart}${rolePart}`.trim();
       });
       parts.push(`Contacts: ${contactStrs.join(", ")}`);
-    } else if (r.primary_contact_name) {
-      // Fallback to legacy columns during transition
-      parts.push(`Contact: ${r.primary_contact_name}`);
-      if (r.aws_contact_emails.length > 0) {
-        parts.push(`Emails: ${r.aws_contact_emails.join(", ")}`);
-      }
     }
 
     let line = parts[0];

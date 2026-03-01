@@ -1,5 +1,5 @@
 import { getSupabaseClient } from "./client";
-import { AwsRelationship, Engagement, Meeting } from "../types";
+import { AwsRelationship, Contact, Engagement, Meeting } from "../types";
 
 export async function getAwsRelationships(): Promise<AwsRelationship[]> {
   const { data, error } = await getSupabaseClient()
@@ -76,8 +76,7 @@ export async function updateAwsRelationship(
   id: string,
   updates: {
     notes?: string | null;
-    primary_contact_email?: string | null;
-    aws_contact_emails?: string[];
+    contacts?: Contact[] | null;
   }
 ): Promise<AwsRelationship> {
   const { data, error } = await getSupabaseClient()

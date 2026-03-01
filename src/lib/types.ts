@@ -79,9 +79,6 @@ export interface AwsRelationship {
   aws_org: string | null;
   aws_service: string | null;
   relationship_type: RelationshipType | null;
-  primary_contact_name: string | null;
-  primary_contact_email: string | null;
-  aws_contact_emails: string[];
   contacts: RoleContact[];
   notes: string | null;
   airtable_record_id: string | null;
@@ -94,17 +91,8 @@ export interface Partner {
   name: string;
   segment: string | null;
   focus_area: string[];
-  alliance_lead: string | null;
-  alliance_lead_email: string | null;
-  psa: string | null;
-  psa_email: string | null;
-  account_manager: string | null;
-  account_manager_email: string | null;
-  pmm: string | null;
-  pmm_email: string | null;
   spms_id: number | null;
   what_they_do: string | null;
-  partner_contact_emails: string[] | null;
   aws_team: RoleContact[];
   partner_contacts: RoleContact[];
   aws_stickiness: string | null;
