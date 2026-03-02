@@ -37,7 +37,6 @@ export {
   updateMeeting,
   deleteMeeting,
   createMeetingFromICS,
-  createMeetingFromFallback,
   linkMeetingToEngagement,
   linkMeetingAwsRelationship,
   linkEngagementAwsRelationship,

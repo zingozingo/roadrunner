@@ -161,11 +161,9 @@ export async function POST(request: NextRequest) {
         console.error(`Airtable push failed for ${engagement.id}:`, err);
       }
 
-      // Link meetings
-      if (classResult.content_type === "meeting_invite") {
-        for (const msgId of messageIds) {
-          await linkMeetingToEngagement(msgId, engagement.id);
-        }
+      // Link any meetings associated with these messages to the engagement
+      for (const msgId of messageIds) {
+        await linkMeetingToEngagement(msgId, engagement.id);
       }
 
       const resolution = isNew
@@ -234,11 +232,9 @@ export async function POST(request: NextRequest) {
         console.error(`Airtable push failed for ${engagement.id}:`, err);
       }
 
-      // Link meetings
-      if (classResult.content_type === "meeting_invite") {
-        for (const msgId of messageIds) {
-          await linkMeetingToEngagement(msgId, engagement.id);
-        }
+      // Link any meetings associated with these messages to the engagement
+      for (const msgId of messageIds) {
+        await linkMeetingToEngagement(msgId, engagement.id);
       }
 
       await resolveApproval(review_id, `assigned:${engagement.id}:${engagement.name}`);

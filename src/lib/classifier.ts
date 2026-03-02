@@ -472,8 +472,9 @@ async function applyClassificationResult(
     await db.from("messages").update(messageUpdate).in("id", messageIds);
   }
 
-  // 3b. Link ICS meeting to engagement
-  if (result.content_type === "meeting_invite" && assignedEngagementId && !needsReview) {
+  // 3b. Link any meetings associated with these messages to the engagement.
+  // No content_type gate — if a meeting record exists for a message, link it.
+  if (assignedEngagementId && !needsReview) {
     for (const msgId of messageIds) {
       await linkMeetingToEngagement(msgId, assignedEngagementId);
     }

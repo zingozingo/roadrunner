@@ -231,7 +231,7 @@ describe("resolve route — meeting linking", () => {
     expect(mockLinkMeetingToEngagement).toHaveBeenCalledWith("msg-1", "eng-456");
   });
 
-  it("confirm: does NOT link when content_type is engagement_email", async () => {
+  it("confirm: links meetings even when content_type is engagement_email", async () => {
     const classResult = makeClassResult({ content_type: "engagement_email" });
     const approval = { ...APPROVAL_BASE, classification_result: classResult };
     const message = { id: "msg-1", content_type: "engagement_email", forwarder_note: null };
@@ -244,7 +244,8 @@ describe("resolve route — meeting linking", () => {
     const body = await res.json();
 
     expect(body.status).toBe("confirmed");
-    expect(mockLinkMeetingToEngagement).not.toHaveBeenCalled();
+    expect(mockLinkMeetingToEngagement).toHaveBeenCalledTimes(1);
+    expect(mockLinkMeetingToEngagement).toHaveBeenCalledWith("msg-1", "eng-123");
   });
 
   it("discard: does NOT link meeting invite", async () => {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { parseForwardedEmail, parseSenderField, stripExternalTag } from "@/lib/email-parser";
-import { storeMessages, createMeetingFromICS, createMeetingFromFallback } from "@/lib/db";
+import { storeMessages, createMeetingFromICS } from "@/lib/db";
 import { extractICSFromAttachments, parseICSContent } from "@/lib/ics-parser";
 import { processSingleMessage } from "@/lib/classifier";
 import { stripPRVS, isUserEmail, USER_CONFIG } from "@/lib/user-config";
@@ -173,58 +173,6 @@ export async function POST(request: NextRequest) {
 
     const { fields, method: parseMethod, rawFormData } = extracted;
     console.log(`Parsed ${fields.size} fields via ${parseMethod}`);
-
-    // ===== TEMPORARY DEBUG — remove after verifying Mailgun ICS delivery =====
-    {
-      const allKeys = Array.from(fields.keys());
-      console.log("[MAILGUN-DEBUG] All field keys:", allKeys);
-      console.log("[MAILGUN-DEBUG] content-type header:", request.headers.get("content-type"));
-
-      // Log each field's first 500 chars
-      for (const key of allKeys) {
-        const val = fields.get(key) ?? "";
-        const preview = val.length > 500 ? val.substring(0, 500) + `... (${val.length} total chars)` : val;
-        console.log(`[MAILGUN-DEBUG] field "${key}": ${preview}`);
-      }
-
-      // Specifically call out ICS-relevant fields
-      const bodyCalDbg = fields.get("body-calendar");
-      console.log(`[MAILGUN-DEBUG] body-calendar: ${bodyCalDbg ? `EXISTS (${bodyCalDbg.length} chars), has VCALENDAR: ${bodyCalDbg.includes("BEGIN:VCALENDAR")}` : "null/empty"}`);
-
-      const bodyPlainDbg = fields.get("body-plain") ?? "";
-      console.log(`[MAILGUN-DEBUG] body-plain first 1000 chars:`, bodyPlainDbg.substring(0, 1000));
-      console.log(`[MAILGUN-DEBUG] body-plain has VCALENDAR: ${bodyPlainDbg.includes("BEGIN:VCALENDAR")}`);
-      console.log(`[MAILGUN-DEBUG] body-plain has Original Appointment: ${/Original Appointment/i.test(bodyPlainDbg)}`);
-      console.log(`[MAILGUN-DEBUG] body-plain has When:/Where: ${/^When:\s/m.test(bodyPlainDbg)} / ${/^Where:\s/m.test(bodyPlainDbg)}`);
-
-      // Attachment-related fields
-      const attachmentKeys = allKeys.filter(k => /attachment|content-map|content-id/i.test(k));
-      console.log(`[MAILGUN-DEBUG] Attachment-related keys: ${attachmentKeys.length > 0 ? attachmentKeys.join(", ") : "NONE"}`);
-      for (const ak of attachmentKeys) {
-        const val = fields.get(ak) ?? "";
-        console.log(`[MAILGUN-DEBUG] ${ak}: ${val.substring(0, 500)}`);
-      }
-
-      // message-headers (MIME info lives here)
-      const msgHeaders = fields.get("message-headers");
-      console.log(`[MAILGUN-DEBUG] message-headers: ${msgHeaders ? msgHeaders.substring(0, 2000) : "null/empty"}`);
-
-      // Check rawFormData for File objects (ICS attachments)
-      if (rawFormData) {
-        const fileEntries: string[] = [];
-        rawFormData.forEach((value, key) => {
-          if (value instanceof File) {
-            fileEntries.push(`${key}: name="${value.name}", type="${value.type}", size=${value.size}`);
-          }
-        });
-        console.log(`[MAILGUN-DEBUG] File entries in FormData: ${fileEntries.length > 0 ? fileEntries.join(" | ") : "NONE"}`);
-      } else {
-        console.log("[MAILGUN-DEBUG] rawFormData is null (urlencoded fallback — no File objects)");
-      }
-
-      console.log(`[MAILGUN-DEBUG] attachment-count: ${fields.get("attachment-count") ?? "not present"}`);
-    }
-    // ===== END TEMPORARY DEBUG =====
 
     // Extract Mailgun signature fields
     const timestamp = fields.get("timestamp") ?? null;
@@ -436,24 +384,6 @@ export async function POST(request: NextRequest) {
       }
     } catch (icsError) {
       console.error("ICS extraction/parsing failed (non-blocking):", icsError);
-    }
-
-    // --- Fallback: detect meeting from plain-text body ---
-    // When Outlook forwards a meeting invite, it strips the ICS and delivers
-    // a plain-text "Original Appointment" block. This catches those cases.
-    if (!meetingCreated) {
-      try {
-        const { detectMeetingFromBody } = await import("@/lib/meeting-detector");
-        const fallbackMeeting = detectMeetingFromBody(bodyPlain, subject);
-        if (fallbackMeeting) {
-          console.log(`[MEETING-FALLBACK] Detected from body: "${fallbackMeeting.title}" on ${fallbackMeeting.meeting_date}`);
-          const meetingId = await createMeetingFromFallback(fallbackMeeting, storedIds[0]);
-          meetingCreated = meetingId !== null;
-          console.log(`[MEETING-FALLBACK] ${meetingCreated ? `Created meeting ${meetingId}` : "Deduped or failed"}`);
-        }
-      } catch (fallbackErr) {
-        console.error("Meeting fallback detection failed (non-blocking):", fallbackErr);
-      }
     }
 
     // Trigger classification — Claude responds in 2-3s, well within
