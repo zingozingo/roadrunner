@@ -1,7 +1,5 @@
--- Roadrunner live schema dump (from pg_catalog)
--- Generated: 2026-02-27T04:29:10.865Z
--- Source: supabase linked project (qdqdseuyjuyqgsjwizti)
--- Method: Direct query to pg_catalog via pg node driver
+-- Roadrunner schema (derived from migrations 001-048)
+-- Generated: 2026-03-01
 -- Tables: 14
 
 CREATE TABLE public.approval_queue (
@@ -23,13 +21,9 @@ CREATE TABLE public.approval_queue (
 CREATE TABLE public.aws_relationships (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
   name text NOT NULL,
-  partner_name text,
   aws_org text,
   aws_service text,
   relationship_type text,
-  primary_contact_name text,
-  primary_contact_email text,
-  aws_contact_emails text[] DEFAULT '{}'::text[] NOT NULL,
   contacts jsonb DEFAULT '[]'::jsonb,
   notes text,
   airtable_record_id text,
@@ -124,7 +118,6 @@ CREATE TABLE public.meetings (
   title text NOT NULL,
   engagement_id uuid,
   partner_name text,
-  meeting_type text,
   status text DEFAULT 'scheduled'::text NOT NULL,
   meeting_date date,
   start_time text,
@@ -143,6 +136,8 @@ CREATE TABLE public.meetings (
   partner_id uuid,
   program_id uuid,
   event_id uuid,
+  sequence integer,
+  is_recurring boolean DEFAULT false,
   PRIMARY KEY (id),
   FOREIGN KEY (engagement_id) REFERENCES engagements(id) ON DELETE SET NULL,
   FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE SET NULL,
@@ -150,7 +145,7 @@ CREATE TABLE public.meetings (
   FOREIGN KEY (partner_id) REFERENCES partners(id) ON DELETE SET NULL,
   FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE SET NULL,
   CONSTRAINT meetings_source_check CHECK ((source = ANY (ARRAY['manual'::text, 'ics_parsed'::text]))),
-  CONSTRAINT meetings_status_check CHECK ((status = ANY (ARRAY['scheduled'::text, 'completed'::text, 'did_not_occur'::text]))),
+  CONSTRAINT meetings_status_check CHECK ((status = ANY (ARRAY['scheduled'::text, 'completed'::text, 'cancelled'::text, 'did_not_occur'::text]))),
   UNIQUE (airtable_record_id),
   UNIQUE (ics_uid)
 );
@@ -218,22 +213,13 @@ CREATE TABLE public.partners (
   name text NOT NULL,
   segment text,
   focus_area text[],
-  alliance_lead text,
-  alliance_lead_email text,
-  psa text,
   spms_id integer,
-  partner_contact_emails text[],
   airtable_record_id text,
   created_at timestamp with time zone DEFAULT now() NOT NULL,
   updated_at timestamp with time zone DEFAULT now() NOT NULL,
   aws_stickiness text,
   key_aws_services text[] DEFAULT '{}'::text[] NOT NULL,
   what_they_do text,
-  psa_email text,
-  account_manager text,
-  account_manager_email text,
-  pmm text,
-  pmm_email text,
   aws_team jsonb DEFAULT '[]'::jsonb,
   partner_contacts jsonb DEFAULT '[]'::jsonb,
   PRIMARY KEY (id),
@@ -267,8 +253,6 @@ CREATE UNIQUE INDEX engagement_aws_relationships_pkey ON public.engagement_aws_r
 CREATE UNIQUE INDEX entity_links_pkey ON public.entity_links USING btree (id);
 CREATE UNIQUE INDEX events_pkey ON public.events USING btree (id);
 CREATE INDEX idx_approval_queue_unresolved ON public.approval_queue USING btree (resolved) WHERE (resolved = false);
-CREATE INDEX idx_aws_relationships_partner_name ON public.aws_relationships USING btree (partner_name);
-CREATE INDEX idx_aws_relationships_primary_contact_email ON public.aws_relationships USING btree (primary_contact_email);
 CREATE INDEX idx_engagement_aws_rel_relationship ON public.engagement_aws_relationships USING btree (aws_relationship_id);
 CREATE UNIQUE INDEX idx_engagements_airtable_record_id ON public.engagements USING btree (airtable_record_id) WHERE (airtable_record_id IS NOT NULL);
 CREATE INDEX idx_engagements_partner_id ON public.engagements USING btree (partner_id);
