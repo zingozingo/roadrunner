@@ -144,7 +144,7 @@ CREATE TABLE public.meetings (
   FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE SET NULL,
   FOREIGN KEY (partner_id) REFERENCES partners(id) ON DELETE SET NULL,
   FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE SET NULL,
-  CONSTRAINT meetings_source_check CHECK ((source = ANY (ARRAY['manual'::text, 'ics_parsed'::text]))),
+  CONSTRAINT meetings_source_check CHECK ((source = ANY (ARRAY['manual'::text, 'ics_parsed'::text, 'body_parsed'::text]))),
   CONSTRAINT meetings_status_check CHECK ((status = ANY (ARRAY['scheduled'::text, 'completed'::text, 'cancelled'::text, 'did_not_occur'::text]))),
   UNIQUE (airtable_record_id),
   UNIQUE (ics_uid)

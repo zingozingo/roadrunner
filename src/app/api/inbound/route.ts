@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { parseForwardedEmail, parseSenderField, stripExternalTag } from "@/lib/email-parser";
-import { storeMessages, createMeetingFromICS } from "@/lib/db";
+import { storeMessages, createMeetingFromICS, createMeetingFromFallback } from "@/lib/db";
 import { extractICSFromAttachments, parseICSContent } from "@/lib/ics-parser";
 import { processSingleMessage } from "@/lib/classifier";
 import { stripPRVS, isUserEmail, USER_CONFIG } from "@/lib/user-config";
@@ -384,6 +384,24 @@ export async function POST(request: NextRequest) {
       }
     } catch (icsError) {
       console.error("ICS extraction/parsing failed (non-blocking):", icsError);
+    }
+
+    // --- Fallback: detect meeting from plain-text body ---
+    // When Outlook forwards a meeting invite, it strips the ICS and delivers
+    // a plain-text "Original Appointment" block. This catches those cases.
+    if (!meetingCreated) {
+      try {
+        const { detectMeetingFromBody } = await import("@/lib/meeting-detector");
+        const fallbackMeeting = detectMeetingFromBody(bodyPlain, subject);
+        if (fallbackMeeting) {
+          console.log(`[MEETING-FALLBACK] Detected from body: "${fallbackMeeting.title}" on ${fallbackMeeting.meeting_date}`);
+          const meetingId = await createMeetingFromFallback(fallbackMeeting, storedIds[0]);
+          meetingCreated = meetingId !== null;
+          console.log(`[MEETING-FALLBACK] ${meetingCreated ? `Created meeting ${meetingId}` : "Deduped or failed"}`);
+        }
+      } catch (fallbackErr) {
+        console.error("Meeting fallback detection failed (non-blocking):", fallbackErr);
+      }
     }
 
     // Trigger classification — Claude responds in 2-3s, well within

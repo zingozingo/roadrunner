@@ -129,7 +129,7 @@ export interface Meeting {
   ics_uid: string | null;
   sequence: number | null;
   is_recurring: boolean;
-  source: "manual" | "ics_parsed";
+  source: "manual" | "ics_parsed" | "body_parsed";
   notes: string | null;
   airtable_record_id: string | null;
   created_at: string;
