@@ -47,6 +47,7 @@ import {
   buildCompactPartnerCatalog,
   buildMeetingHint,
   parsePhase1Response,
+  truncateToWords,
   PHASE1_SYSTEM_PROMPT,
 } from "../phase1-prompt";
 
@@ -193,18 +194,33 @@ describe("PHASE1_SYSTEM_PROMPT", () => {
 
   it("includes ordered decision framework steps", () => {
     expect(PHASE1_SYSTEM_PROMPT).toContain("Step 1: Check the forwarder note");
-    expect(PHASE1_SYSTEM_PROMPT).toContain("Step 2: Match the sender and participants");
-    expect(PHASE1_SYSTEM_PROMPT).toContain("Step 3: Match by partner");
-    expect(PHASE1_SYSTEM_PROMPT).toContain("Step 4: Disambiguate within a partner");
-    expect(PHASE1_SYSTEM_PROMPT).toContain("Step 5: Handle internal and third-party");
-    expect(PHASE1_SYSTEM_PROMPT).toContain("Step 6: Identify new engagements");
-    expect(PHASE1_SYSTEM_PROMPT).toContain("Step 7: When uncertain, flag for review");
+    expect(PHASE1_SYSTEM_PROMPT).toContain("Step 2: Identify the partner");
+    expect(PHASE1_SYSTEM_PROMPT).toContain("Step 3: Evaluate against ALL engagements");
+    expect(PHASE1_SYSTEM_PROMPT).toContain("Step 4: Route based on evaluation");
+    expect(PHASE1_SYSTEM_PROMPT).toContain("Step 5: Identify new engagements");
+    expect(PHASE1_SYSTEM_PROMPT).toContain("Step 6: When uncertain, flag for review");
   });
 
-  it("references participant overlap for disambiguation", () => {
+  it("references evaluation signals for routing", () => {
+    expect(PHASE1_SYSTEM_PROMPT).toContain("Topic/Context alignment");
     expect(PHASE1_SYSTEM_PROMPT).toContain("Participant overlap");
     expect(PHASE1_SYSTEM_PROMPT).toContain("Pillar alignment");
     expect(PHASE1_SYSTEM_PROMPT).toContain("Linked entities");
+    expect(PHASE1_SYSTEM_PROMPT).toContain("External parties");
+  });
+
+  it("does NOT treat single-engagement partners as a routing shortcut", () => {
+    // The old prompt had "If the partner has only one active engagement ... route there"
+    // This shortcut bypassed content evaluation and caused the Spacelift merge bug
+    expect(PHASE1_SYSTEM_PROMPT).not.toMatch(/only one .*engagement/i);
+    expect(PHASE1_SYSTEM_PROMPT).not.toMatch(/single.*engagement/i);
+    expect(PHASE1_SYSTEM_PROMPT).not.toMatch(/has one .*engagement/i);
+    expect(PHASE1_SYSTEM_PROMPT).toContain("number of engagements a partner has is IRRELEVANT");
+  });
+
+  it("requires content evaluation, not just partner match, for confidence", () => {
+    expect(PHASE1_SYSTEM_PROMPT).toContain("Partner identification alone");
+    expect(PHASE1_SYSTEM_PROMPT).toContain("NEVER sufficient for high confidence");
   });
 
   it("treats noise as rare given curated input", () => {
@@ -360,6 +376,51 @@ describe("buildEngagementIndex", () => {
 
     expect(result).toContain("### Unassigned (1 engagement)");
   });
+
+  it("includes goal when populated", () => {
+    const engWithGoal = { ...ENGAGEMENT_A, goal: "Achieve Security Competency and list on Marketplace." };
+    const result = buildEngagementIndex([engWithGoal], new Map());
+
+    expect(result).toContain('Goal: "Achieve Security Competency and list on Marketplace."');
+  });
+
+  it("omits goal when null", () => {
+    const result = buildEngagementIndex([ENGAGEMENT_A], new Map());
+    expect(result).not.toContain("Goal:");
+  });
+
+  it("includes truncated current_state as Context", () => {
+    const engWithState = {
+      ...ENGAGEMENT_A,
+      current_state: "Pursuing Security Competency. Technical validation in progress with AWS security team.",
+    };
+    const result = buildEngagementIndex([engWithState], new Map());
+
+    expect(result).toContain("Context: Pursuing Security Competency. Technical validation in progress with AWS security team.");
+  });
+
+  it("omits Context when current_state is null", () => {
+    const engNoState = { ...ENGAGEMENT_B, current_state: null };
+    const result = buildEngagementIndex([engNoState], new Map());
+
+    expect(result).not.toContain("Context:");
+  });
+
+  it("truncates long current_state to ~150 words", () => {
+    // Generate a 200-word current_state
+    const words = Array.from({ length: 200 }, (_, i) => `word${i}`);
+    const longState = words.join(" ");
+    const engLongState = { ...ENGAGEMENT_A, current_state: longState };
+    const result = buildEngagementIndex([engLongState], new Map());
+
+    expect(result).toContain("Context:");
+    // Should end with ellipsis
+    expect(result).toContain("…");
+    // Should NOT contain word199 (the 200th word)
+    expect(result).not.toContain("word199");
+    // Should contain word149 (the 150th word)
+    expect(result).toContain("word149");
+  });
 });
 
 describe("buildCompactPartnerCatalog", () => {
@@ -448,10 +509,10 @@ describe("buildPhase1Context", () => {
     expect(result).not.toContain("AWS Relationships");
   });
 
-  it("does NOT include current_state or open_items", async () => {
+  it("includes engagement context from current_state", async () => {
+    mockGetActiveEngagements.mockResolvedValue([ENGAGEMENT_A]);
     const result = await buildPhase1Context([makeMessage()]);
-    expect(result).not.toContain("Current state:");
-    expect(result).not.toContain("Open items:");
+    expect(result).toContain("Context: Pursuing Security Competency.");
   });
 });
 
@@ -593,5 +654,81 @@ describe("buildMeetingHint", () => {
 
   it("returns empty string when no meetings", () => {
     expect(buildMeetingHint([])).toBe("");
+  });
+});
+
+// ============================================================
+// truncateToWords
+// ============================================================
+
+describe("truncateToWords", () => {
+  it("returns text unchanged when under word limit", () => {
+    expect(truncateToWords("hello world", 10)).toBe("hello world");
+  });
+
+  it("returns text unchanged when exactly at word limit", () => {
+    expect(truncateToWords("one two three", 3)).toBe("one two three");
+  });
+
+  it("truncates and appends ellipsis when over limit", () => {
+    expect(truncateToWords("one two three four five", 3)).toBe("one two three…");
+  });
+
+  it("handles empty string", () => {
+    expect(truncateToWords("", 10)).toBe("");
+  });
+});
+
+// ============================================================
+// Prompt design: single-engagement partner with unrelated email
+// ============================================================
+
+describe("prompt design — new engagement detection", () => {
+  it("engagement index provides enough context for topic mismatch detection", () => {
+    // Scenario: Spacelift has one engagement about DevOps/OpenTofu.
+    // A Solution Spotlight email arrives — completely different initiative.
+    // The engagement index must include enough semantic context for the AI
+    // to recognize the mismatch and classify as is_new: true.
+    const spaceliftEngagement: Engagement = {
+      id: "eng-spacelift-001",
+      name: "Spacelift - DevOps and OpenTofu Collaboration",
+      status: "active",
+      current_state: "Technical collaboration with AWS IaC team on OpenTofu support. Spacelift integrating with AWS CloudFormation and Terraform workflows. Joint blog post in review.",
+      topic: "DevOps and OpenTofu Collaboration",
+      goal: "Establish technical and commercial collaboration around DevOps tooling.",
+      engagement_type: null,
+      partner_name: "Spacelift",
+      partner_id: "partner-spacelift",
+      pillar: "Co-Build",
+      program_id: null,
+      airtable_record_id: null,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-02-15T00:00:00Z",
+      closed_at: null,
+    };
+
+    const lastSubjects = new Map([["eng-spacelift-001", "Re: OpenTofu integration update"]]);
+    const result = buildEngagementIndex([spaceliftEngagement], lastSubjects);
+
+    // The index must include enough information for the AI to see that
+    // a "Solution Spotlight" email (Co-Market, Bridge Partners, Marketplace listing)
+    // is a completely different initiative than what this engagement describes
+    expect(result).toContain('Topic: "DevOps and OpenTofu Collaboration"');
+    expect(result).toContain('Goal: "Establish technical and commercial collaboration around DevOps tooling."');
+    expect(result).toContain("Context: Technical collaboration with AWS IaC team on OpenTofu support.");
+    expect(result).toContain("Pillar: Co-Build");
+    expect(result).toContain('Last Subject: "Re: OpenTofu integration update"');
+  });
+
+  it("prompt instructs AI to evaluate content match, not engagement count", () => {
+    // The decision framework must require content evaluation for ALL partners,
+    // regardless of how many engagements they have
+    expect(PHASE1_SYSTEM_PROMPT).toContain("Evaluate against ALL engagements");
+    expect(PHASE1_SYSTEM_PROMPT).toContain("number of engagements a partner has is IRRELEVANT");
+
+    // New engagement detection must be explicit about what makes engagements distinct
+    expect(PHASE1_SYSTEM_PROMPT).toContain("Different project/campaign name");
+    expect(PHASE1_SYSTEM_PROMPT).toContain("Different external parties");
+    expect(PHASE1_SYSTEM_PROMPT).toContain("Different pillar");
   });
 });

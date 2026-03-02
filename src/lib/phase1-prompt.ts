@@ -23,32 +23,43 @@ Route this email to the correct engagement. There are exactly three outcomes:
 
 ## Decision Framework
 
-Follow these steps in order. Stop when you have a confident answer.
+Follow these steps in order.
 
 **Step 1: Check the forwarder note.**
 If the PDM included a note, treat it as high-authority context for routing.
 
-**Step 2: Match the sender and participants.**
-Compare the email's From, To, and CC addresses against the participant lists in the engagement index. A sender who is a known participant in exactly ONE engagement is a strong routing signal.
+**Step 2: Identify the partner.**
+Use the Partner Catalog to identify which partner the sender belongs to (match by email domain). For @amazon.com or third-party senders, identify the partner from email content (partner names, engagement references, participant names).
 
-**Step 3: Match by partner.**
-Use the Partner Catalog to identify which partner the sender belongs to (match by email domain). If the partner has only one active engagement, and the email content is consistent with it, route there.
+**Step 3: Evaluate against ALL engagements for that partner.**
+For EVERY engagement belonging to the identified partner, evaluate whether the email's content matches that engagement. Use these signals:
+  a. **Topic/Context alignment** — Does the email describe the SAME initiative, project, or workstream as the engagement's topic and context? Read the engagement's Context field carefully — it describes what the engagement is actually about.
+  b. **Participant overlap** — Is the sender or any CC'd address a known participant in this engagement?
+  c. **Pillar alignment** — Is the email about selling (Co-Sell), building/integrating (Co-Build), or marketing/events (Co-Market)? Does it match the engagement's pillar?
+  d. **Linked entities** — Does the email reference a program or event name that's linked to this engagement?
+  e. **Subject continuity** — Does the subject line continue a thread matching this engagement's last subject?
+  f. **External parties** — Are different third-party companies involved? (e.g., Bridge Partners vs. AWS IaC team = different engagements)
 
-**Step 4: Disambiguate within a partner.**
-If the partner has multiple engagements, use these signals (strongest first):
-  a. **Participant overlap** — Is the sender or any CC'd address unique to one engagement?
-  b. **Topic alignment** — Does the email's subject and content align with a specific engagement's topic?
-  c. **Pillar alignment** — Is the email about selling (Co-Sell), building/integrating (Co-Build), or marketing/events (Co-Market)?
-  d. **Linked entities** — Does the email reference a program or event name that's linked to a specific engagement?
-  e. **Subject continuity** — Does the subject line continue a thread matching an engagement's last subject?
+The number of engagements a partner has is IRRELEVANT to routing. A partner with one engagement still requires content evaluation — the email might describe a completely different initiative.
 
-**Step 5: Handle internal and third-party senders.**
-Emails from @amazon.com or third-party domains (not matching any partner) will reference the partner and engagement context by name in their content. Use topic, participant overlap, and subject matching to route these.
+**Step 4: Route based on evaluation.**
+- If exactly ONE engagement clearly matches (strong topic/context alignment + supporting signals) → route to it.
+- If NO engagement matches the email's content → this is a new engagement. Set is_new: true (see Step 5).
+- If MULTIPLE engagements could match → use the strongest combination of signals to pick one, or flag for review if genuinely ambiguous.
 
-**Step 6: Identify new engagements.**
-If the email clearly involves a known partner but discusses a genuinely different initiative than any of that partner's existing engagements, this is a new engagement — not a low-confidence match. Set is_new: true with a suggested name in "Partner - Initiative" format.
+**Step 5: Identify new engagements.**
+If the email involves a known partner but describes an initiative, project, campaign, or workstream that does NOT match any existing engagement's described activity, this is a new engagement — not a low-confidence match to the closest one.
 
-**Step 7: When uncertain, flag for review.**
+Signs of a new engagement:
+- Different project/campaign name (e.g., "Solution Spotlight" vs. "OpenTofu Collaboration")
+- Different external parties involved (e.g., Bridge Partners vs. AWS IaC team)
+- Different pillar (Co-Market campaign vs. Co-Build integration)
+- Different AWS program referenced
+- Fundamentally different objective or workstream
+
+Set is_new: true with confidence 0.85+ when the partner is clear and the initiative is clearly distinct. Use "Partner - Initiative" format for the suggested name.
+
+**Step 6: When uncertain, flag for review.**
 If you cannot confidently determine the engagement, set confidence below 0.70. Do not guess. The human review queue exists for this purpose.
 
 ## Content Type
@@ -62,11 +73,13 @@ Classify the email's content type for downstream processing:
 
 ## Confidence Calibration
 
-- **0.95–1.0:** Sender is a known participant in exactly one engagement, AND topic/subject aligns
-- **0.85–0.94:** Partner identified + topic clearly aligns with one engagement, or strong subject continuity
-- **0.70–0.84:** Partner identified but topic alignment is partial, or sender appears in multiple engagements
-- **Below 0.70:** Cannot determine routing — multiple plausible matches, or no clear partner/topic signal
-- **New engagement:** 0.85+ when partner is clear and initiative is clearly distinct from existing engagements
+- **0.95–1.0:** Strong topic/context alignment with one engagement AND participant overlap confirms it
+- **0.85–0.94:** Clear topic/context alignment with one engagement, or strong subject continuity with supporting signals
+- **0.70–0.84:** Partner identified but topic alignment is weak or partial, or multiple engagements could plausibly match
+- **Below 0.70:** Cannot determine routing — no clear topic/context match, or genuinely ambiguous between engagements
+- **New engagement:** 0.85+ when partner is clear and the email's initiative is clearly distinct from ALL existing engagements for that partner
+
+IMPORTANT: Partner identification alone (matching the sender's domain) is NEVER sufficient for high confidence. You must also confirm that the email's content matches the engagement's topic and context.
 
 ## Response Format
 
@@ -211,6 +224,15 @@ export function buildEngagementIndex(
       if (eng.pillar) metaParts.push(`Pillar: ${eng.pillar}`);
       if (eng.topic) metaParts.push(`Topic: "${eng.topic}"`);
       if (metaParts.length > 0) lines.push(metaParts.join(" | "));
+
+      // Goal
+      if (eng.goal) lines.push(`Goal: "${eng.goal}"`);
+
+      // Context — truncated current_state for semantic understanding
+      if (eng.current_state) {
+        const truncated = truncateToWords(eng.current_state, 150);
+        lines.push(`Context: ${truncated}`);
+      }
 
       // Participants (capped at 8, forwarder excluded, partner domains first)
       const allEmails = participantMap.get(eng.id) ?? [];
@@ -461,6 +483,15 @@ export function buildMeetingHint(meetings: Meeting[]): string {
 
   lines.push("");
   return lines.join("\n");
+}
+
+/**
+ * Truncate text to approximately N words. If truncated, appends "…"
+ */
+export function truncateToWords(text: string, maxWords: number): string {
+  const words = text.split(/\s+/);
+  if (words.length <= maxWords) return text;
+  return words.slice(0, maxWords).join(" ") + "…";
 }
 
 // Exported for testing
