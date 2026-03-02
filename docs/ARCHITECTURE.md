@@ -20,10 +20,11 @@ roadrunner/
 ├── docs/                          # Project documentation
 │   ├── PROJECT.md                 #   Business context & principles
 │   ├── ARCHITECTURE.md            #   This file — tech stack & structure
+│   ├── CLASSIFICATION.md          #   Two-phase AI pipeline & prompt architecture
 │   ├── DATA-MODEL.md              #   Entity schemas & relationships
 │   ├── FIELD-MAPPING.md           #   Airtable ↔ Supabase field IDs
-│   ├── CLASSIFICATION.md          #   AI pipeline & prompt architecture
-│   └── DEVELOPMENT.md             #   Setup, testing, workflows
+│   ├── DEVELOPMENT.md             #   Setup, testing, workflows
+│   └── goal-state.md              #   Living orientation doc — current state & next steps
 ├── src/
 │   ├── app/                       # Next.js App Router
 │   │   ├── api/                   #   API routes (grouped by entity)
@@ -58,18 +59,38 @@ roadrunner/
 │   │   └── shared/                #   Reusable primitives — CompactRow, DetailHeader, badges (10 files)
 │   └── lib/                       # Core business logic
 │       ├── airtable.ts            #   Airtable REST API client
-│       ├── classifier.ts          #   Email classification orchestrator
-│       ├── claude.ts              #   Claude API wrapper
-│       ├── email-parser.ts        #   Forwarded email chain parser
+│       ├── classifier.ts          #   Two-phase classification orchestrator
+│       ├── claude.ts              #   Anthropic API client (Phase 1 + Phase 2)
+│       ├── phase1-prompt.ts       #   Phase 1 system prompt + context builders
+│       ├── phase2-prompt.ts       #   Phase 2 system prompt + context builders
+│       ├── prompt-builder.ts      #   Shared section builders (events, programs, etc.)
+│       ├── email-parser.ts        #   Forwarded email chain parser (two-pass)
 │       ├── ics-parser.ts          #   ICS calendar event parser (RFC 5545)
-│       ├── prompt-builder.ts      #   Modular context builders for Claude
-│       ├── supabase.ts            #   Database client + 80+ query functions
-│       ├── sync.ts                #   Airtable ↔ Supabase sync engine
+│       ├── name-resolver.ts       #   Contact name resolution from JSONB columns
+│       ├── contact-parser.ts      #   Universal "Name <email> (Title)" parser
+│       ├── format-utils.ts        #   Display name formatting utilities
 │       ├── types.ts               #   Shared TypeScript interfaces
 │       ├── user-config.ts         #   Canonical user identity config
-│       └── __tests__/             #   350 tests across 11 test files
+│       ├── db/                    #   Database layer (11 modules)
+│       │   ├── client.ts          #     Supabase singleton client
+│       │   ├── engagements.ts     #     Engagement CRUD + history
+│       │   ├── messages.ts        #     Message storage + fingerprint dedup
+│       │   ├── meetings.ts        #     Meeting CRUD + ICS creation
+│       │   ├── partners.ts        #     Partner queries (read-only)
+│       │   ├── catalog.ts         #     Events + Programs CRUD
+│       │   ├── relationships.ts   #     AWS Relationships + junction queries
+│       │   ├── participants.ts    #     Participant upsert + linking
+│       │   ├── entity-links.ts    #     Entity link CRUD
+│       │   ├── inbox.ts           #     Approval queue operations
+│       │   └── index.ts           #     Barrel re-exports
+│       ├── sync/                  #   Airtable sync engine (4 modules)
+│       │   ├── pull.ts            #     AT → RR catalog sync
+│       │   ├── push.ts            #     RR → AT activity sync
+│       │   ├── field-maps.ts      #     Airtable field ID constants
+│       │   └── utils.ts           #     Coercion helpers + validation
+│       └── __tests__/             #   414 tests across 14 test files
 ├── supabase/
-│   └── migrations/                # 40 migration files (001-040)
+│   └── migrations/                # 48 migration files (001-048)
 ├── scripts/
 │   └── seed-data.ts               # CLI script to seed events/programs
 ├── data/
@@ -96,19 +117,20 @@ roadrunner/
    Extracts: meeting title, date, time, location, attendees, UID
    Source: Mailgun body-calendar field (NOT file attachments)
    ↓
-5. MESSAGE STORED (supabase.ts)
+5. MESSAGE STORED (db/messages.ts)
    Raw email saved to messages table with parsed metadata
+   Per-message fingerprint dedup (sender_email + body prefix)
    ↓
-6. CLASSIFIER (classifier.ts → claude.ts → prompt-builder.ts)
-   Builds context: partner list, programs, events, relationships, existing engagements
-   Sends to Claude API with modular prompt sections
-   Returns: engagement match/create, participants, entity links, meetings, confidence score
+6. TWO-PHASE CLASSIFIER (classifier.ts)
+   Phase 1 (phase1-prompt.ts): Compact engagement index → routing decision
+   Phase 2 (phase2-prompt.ts): Full engagement history → deep analysis
+   Returns: engagement match, current_state, participants, entity links, pillar
    ↓
 7. CONFIDENCE CHECK
    ≥ 0.85 → auto-persist (step 8)
    < 0.85 → create approval_queue item → appears in Inbox UI
    ↓
-8. PERSIST (supabase.ts → persistClassificationResult)
+8. PERSIST (classifier.ts → persistClassificationResult)
    Single function handles both auto-assign and approval-resolve paths:
    - Create or update engagement (current_state, topic, goal, pillar)
    - Create participants + participant_links
@@ -116,7 +138,7 @@ roadrunner/
    - Create meetings (if ICS data present)
    - Link message to engagement
    ↓
-9. SYNC TO AIRTABLE (sync.ts)
+9. SYNC TO AIRTABLE (sync/push.ts — awaited)
    Push: engagements → Partner Engagements table
    Push: meetings → Meetings table
    Pull: partners, programs, events, relationships ← catalog tables
@@ -130,9 +152,9 @@ roadrunner/
 
 The app uses two data access patterns:
 
-**Server Components (reads):** List and detail pages query Supabase directly via server-side functions in supabase.ts. No API route involved — the component IS the server.
+**Server Components (reads):** List and detail pages query Supabase directly via server-side functions in db/. No API route involved — the component IS the server.
 
-**Client Components (writes):** Action buttons, forms, and mutations call API routes. The routes validate input and call supabase.ts functions.
+**Client Components (writes):** Action buttons, forms, and mutations call API routes. The routes validate input and call db/ functions.
 
 **External Webhooks:** /api/inbound (Mailgun) and /api/health (monitoring) are called by external services, not the frontend.
 

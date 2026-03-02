@@ -1,0 +1,39 @@
+# Roadrunner Goal State
+
+## What Roadrunner Is
+
+AI-powered email classification and engagement tracking for AWS Partner Development Managers. Forward a partner email to Mailgun, Claude AI classifies it into a structured engagement with participants, entity links, and a living summary, then syncs everything bidirectionally with Airtable.
+
+## Current State
+
+- 48 migrations, 14 DB tables, 22 API routes, 15 UI pages, 414 tests across 14 suites
+- Two-phase classification pipeline: curated-input Phase 1 (enriched engagement index with participants, pillar, entity links) + deep-analysis Phase 2 (full thread history, entity matching, state evolution)
+- Bidirectional Airtable sync: pull catalogs (partners, programs, events, relationships), push activity (engagements, meetings)
+- Engagement-hub architecture: meetings and entity links flow through engagements, not independently
+- Contact architecture: universal JSONB format `{name, email, title, role}`, single parser (`contact-parser.ts`)
+- Push reliability: all Airtable push/delete calls awaited (no fire-and-forget)
+- 5 active engagements processing real email data (Nozomi Networks, Spacelift x3, Qualys)
+
+## MVP Target
+
+A system where a PDM forwards an email and Roadrunner:
+1. Correctly routes it to the right engagement (or creates a new one) with high accuracy
+2. Extracts participants, topics, and entity links automatically
+3. Syncs the structured data to Airtable in real-time
+4. Requires human review only for genuinely ambiguous cases
+
+## What's Next
+
+- Real email + ICS testing with new Phase 1 prompt (curated-input, enriched engagement index)
+- Phase 2 prompt review through same curated-input lens
+- Inbox UX redesign (sender names, assign buttons, simpler with engagement-hub model)
+- Meeting notes feature (replace OneNote)
+- UI consistency pass across all entity pages
+
+## Architecture Principles
+
+- **Curated input** — PDMs forward what matters. Route, don't filter.
+- **Engagement hub** — Everything connects through engagements. One resolution path.
+- **Constrained intelligence** — Match to existing entities, never fabricate.
+- **Data ownership** — Airtable owns catalogs, Roadrunner owns activity.
+- **Measure twice, cut once** — Diagnose before building, plan before implementing.

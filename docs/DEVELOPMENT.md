@@ -6,9 +6,8 @@
 
 ```env
 # Supabase
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_URL=
+SUPABASE_SERVICE_KEY=
 
 # Anthropic (Claude API)
 ANTHROPIC_API_KEY=
@@ -34,26 +33,25 @@ npx tsc --noEmit     # TypeScript check (no output files)
 ## Testing
 
 **Framework:** Vitest
-**Test count:** 405 tests across 14 test suites
+**Test count:** 414 tests across 14 test suites
 **Location:** `src/lib/__tests__/`
 
 | Test File | Tests | Covers |
 |-----------|-------|--------|
 | email-parser.test.ts | 123 | Email chain parsing, forwarded content extraction |
+| phase2-prompt.test.ts | 54 | Phase 2 prompt building, context sections |
+| phase1-prompt.test.ts | 45 | Phase 1 prompt building, engagement index enrichment |
+| format-utils.test.ts | 39 | Display name formatting utilities |
+| ics-parser.test.ts | 31 | ICS calendar parsing (RFC 5545) |
 | name-resolver.test.ts | 28 | Contact name resolution from JSONB columns |
 | contact-parser.test.ts | 26 | Universal contact format parsing/rendering |
-| prompt-builder.test.ts | 19 | Context section builders |
-| ics-parser.test.ts | 18 | ICS calendar parsing (RFC 5545) |
 | user-config.test.ts | 18 | User identity matching |
-| claude.test.ts | 16 | Claude API wrapper, response parsing |
-| phase1-prompt.test.ts | 14 | Phase 1 prompt building |
-| phase2-prompt.test.ts | 14 | Phase 2 prompt building |
-| resolve-open-items.test.ts | 13 | Open item extraction |
+| meeting-pipeline.test.ts | 13 | Meeting creation, ICS parsing, linking |
 | classifier.test.ts | 11 | Classification orchestration, confidence routing |
-| meeting-pipeline.test.ts | 87 | Meeting creation, ICS parsing, linking |
-| meeting-status-map.test.ts | 5 | Meeting status mapping |
+| prompt-builder.test.ts | 11 | Shared context section builders |
 | dedup.test.ts | 6 | Message deduplication |
-| resolve-route.test.ts | 7 | Inbox resolve route logic |
+| meeting-status-map.test.ts | 5 | Meeting status mapping |
+| resolve-route.test.ts | 4 | Inbox resolve route logic |
 
 ```bash
 npx vitest run                              # All tests
@@ -89,7 +87,7 @@ The sync engine lives in `src/lib/sync/` (pull.ts, push.ts, field-maps.ts, utils
 3. **pull.ts/push.ts:** Add the field mapping in the relevant build/map function.
 4. **types.ts:** Add the field to the TypeScript interface.
 5. **Migration:** Add the column to the Supabase table (if it doesn't exist).
-6. **supabase.ts:** Update any query functions that need the new field.
+6. **db/ module:** Update any query functions that need the new field.
 7. **UI:** Add display in the relevant detail/list page.
 8. **FIELD-MAPPING.md:** Document the new field.
 
@@ -116,8 +114,8 @@ The sync engine lives in `src/lib/sync/` (pull.ts, push.ts, field-maps.ts, utils
 
 1. **Migration:** Create the table with standard columns (id, name, airtable_record_id, created_at, updated_at).
 2. **types.ts:** Add the TypeScript interface.
-3. **supabase.ts:** Add query functions (getAll, getById, create, update, delete).
-4. **sync.ts:** Add field constant + mapping functions (if synced with Airtable).
+3. **db/ module:** Add query functions (getAll, getById, create, update, delete) + export from `db/index.ts`.
+4. **sync/ module:** Add field constant in `field-maps.ts` + mapping functions in `pull.ts`/`push.ts` (if synced with Airtable).
 5. **API routes:** Create `src/app/api/[entity]/route.ts` and `[id]/route.ts`.
 6. **Pages:** Create list page, detail page, and client component.
 7. **Components:** Create action component in `src/components/actions/`.

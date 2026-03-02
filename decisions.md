@@ -2474,3 +2474,39 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Rationale:** If every signal (email or calendar) flows through the same classify→engage pipeline, the system has one code path, one mental model, and one source of truth. The Phase 1 prompt can treat ICS content the same as email content — just another signal about partner activity that needs an engagement home. This simplification directly enables the upcoming prompt rewrite.
 
 **Impact:** Guides Phase 1 prompt rewrite (ICS and email use same classification logic). Eliminates the concept of "standalone meetings." engagement_id on meetings is logically required even though the schema still allows NULL for the temporal gap during ICS processing (create meeting → classify → link → push).
+
+---
+
+## 2026-03-01: Phase 1 Prompt Rewrite — Curated-Input Philosophy
+
+**Decision:** Rewrote the Phase 1 system prompt from scratch around curated-input philosophy and a strict 7-step decision framework: (1) forwarder note, (2) participant match, (3) partner match, (4) disambiguation (5 sub-signals), (5) internal/third-party senders, (6) new engagement, (7) flag for review.
+
+**Context:** The original Phase 1 prompt was written before the engagement-hub model solidified. It treated routing as a filtering problem and lacked explicit disambiguation logic for multi-engagement partners. With 3 concurrent Spacelift engagements in production, the prompt needed structured disambiguation — not just "pick the best match."
+
+**Rationale:** PDMs forward intentionally. The classifier routes, it doesn't filter. The 7-step framework gives Claude a deterministic escalation path: try the strongest signal first, fall through to weaker signals, and flag for review only when genuinely ambiguous. This matches how a human would triage the same email.
+
+**Impact:** Replaced PHASE1_SYSTEM_PROMPT in phase1-prompt.ts. No changes to Phase1Result contract, Phase 2, or classifier orchestration. 45 tests pass (up from 34).
+
+---
+
+## 2026-03-01: Engagement Index Enrichment — Participants, Pillar, Entity Links
+
+**Decision:** Enriched the Phase 1 engagement index with participant emails (capped at 8, forwarder excluded, partner domains first), pillar, and linked entity names (programs/events from entity_links table). Engagements grouped by partner in the rendered index.
+
+**Context:** The original engagement index showed only engagement name, partner, and last email subject. Multi-engagement partners (e.g., Spacelift with 3 concurrent engagements) couldn't be disambiguated without participant overlap or entity link signals. Live data queries confirmed participant emails are the strongest disambiguation signal — austinm@spacelift.io appears in IC Marketplace + Solution Spotlight but NOT OpenTofu.
+
+**Rationale:** Participant emails give Claude the same signal a human PDM uses: "who's on this thread?" Partner-domain-first sorting surfaces the most distinctive emails (partner contacts) before the less distinctive ones (internal Amazon). Cap at 8 keeps token count reasonable. Entity links add a secondary signal for program/event-specific emails.
+
+**Impact:** Added getEngagementParticipants() and getEngagementEntityLinks() fetchers in phase1-prompt.ts. Updated buildPhase1Context() with parallel data fetching. Rewrote buildEngagementIndex() with 4-param signature (backward-compatible defaults). No changes to Phase1Result contract or downstream pipeline.
+
+---
+
+## 2026-03-01: Docs Consolidation — Kill PHASE-2-DESIGN.md, Rewrite CLASSIFICATION.md
+
+**Decision:** Deleted docs/PHASE-2-DESIGN.md (653 lines, fatally stale). Rewrote docs/CLASSIFICATION.md as the single authoritative classification pipeline doc. Updated ARCHITECTURE.md and DEVELOPMENT.md with targeted fixes. Created docs/goal-state.md as a living orientation doc.
+
+**Context:** PHASE-2-DESIGN.md still referenced open_items, suggested_tags, Haiku model, and SESSION_LOG.md — all removed months ago. CLASSIFICATION.md was outdated but structurally sound. ARCHITECTURE.md had stale directory trees, wrong migration counts, and old file references. DEVELOPMENT.md had wrong env var names and outdated test counts.
+
+**Rationale:** One stale doc is worse than no doc — it actively misleads. PHASE-2-DESIGN.md had diverged so far from implementation that updating it would be a full rewrite with no value over CLASSIFICATION.md. The goal-state.md gives future sessions a 30-second orientation without reading 7 files.
+
+**Impact:** docs/ now has 7 files (was 8). All docs reflect current implementation: 48 migrations, 414 tests, 14 suites, correct env var names, two-phase pipeline with curated-input philosophy. No code changes.

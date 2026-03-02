@@ -1,137 +1,183 @@
-# Roadrunner — Classification Pipeline
+# Classification Pipeline
+
+> Last updated: 2026-03-01
 
 ## Overview
 
-The classification pipeline is the heart of Roadrunner. It takes a raw forwarded email and produces a structured classification: which engagement it belongs to, what participants were mentioned, which programs/events/relationships are relevant, whether any meetings were scheduled, and what the current state of the engagement is.
+Roadrunner uses a **two-phase classification pipeline** to process forwarded emails:
 
-The pipeline follows the **constrained intelligence** principle: Claude matches emails to existing entities rather than fabricating new ones. Every program, event, partner, and relationship Claude references must already exist in the database.
+- **Phase 1 (Routing)** — Lightweight engagement matching. "Which engagement does this email belong to?" Uses a compact engagement index with participant emails, pillar, topic, and linked entities. Fast, focused, high-accuracy.
+- **Phase 2 (Analysis)** — Deep extraction with full thread history. Produces topic, goal, current_state, participants, entity matches, and pillar. Only runs after routing is determined.
+
+### Curated-Input Philosophy
+
+Every email Roadrunner receives has been **intentionally forwarded** by the PDM because it's relevant to their partner work. The classifier's job is **routing** ("which engagement?"), not **filtering** ("is this relevant?"). Noise handling exists but is treated as a rare edge case, not a primary concern.
+
+### Engagement-Hub Model
+
+The classifier's primary output is an engagement assignment. Everything else — partner, program, event, AWS relationships — is resolved **through the engagement**, not independently. Meetings inherit their entity connections from their parent engagement. This creates a single resolution path for all entity relationships.
+
+## Phase 1: Routing
+
+**Purpose:** Determine which engagement an email belongs to (existing, new, or unclear). Nothing else — no state updates, no participant extraction, no entity matching.
+
+**Model:** `claude-sonnet-4-20250514` · 512 output tokens
+
+### Input Context
+
+Phase 1 receives a compact, enriched context built by `buildPhase1Context()`:
+
+| Section | Builder | Content |
+|---------|---------|---------|
+| Forwarder | `buildCompactForwarder()` | PDM name, email, role + optional forwarding note |
+| Engagement Index | `buildEngagementIndex()` | Grouped by partner. Per engagement: pillar, topic, participant emails (capped at 8, forwarder excluded, partner domains first), linked programs/events, last email subject |
+| Partner Catalog | `buildCompactPartnerCatalog()` | Partner name, ID, email domains (extracted from `partner_contacts` JSONB) |
+| Email | `buildEmailSection()` | From, To, CC, Subject, Date, body text |
+| Meeting Data | `buildMeetingHint()` | Only if ICS attachment: partner hint, organizer, attendees, recurring flag |
+
+### Decision Framework
+
+The system prompt instructs Claude to follow these steps in order, stopping when confident:
+
+1. **Forwarder note** — High-authority routing context from the PDM
+2. **Participant match** — Compare sender/CC against engagement participant lists. A sender in exactly one engagement is a strong signal.
+3. **Partner match** — Identify partner by email domain. Single-engagement partners route directly.
+4. **Disambiguation** (for multi-engagement partners, strongest first):
+   - a. Participant overlap — sender/CC unique to one engagement
+   - b. Topic alignment — email subject/content matches engagement topic
+   - c. Pillar alignment — Co-Sell vs Co-Build vs Co-Market
+   - d. Linked entities — email references a program/event linked to a specific engagement
+   - e. Subject continuity — subject line matches an engagement's last email subject
+5. **Internal/third-party senders** — Route by topic, participant overlap, and subject matching
+6. **New engagement** — Clearly different initiative for a known partner → `is_new: true`
+7. **Flag for review** — Cannot determine → confidence below 0.70
+
+### Output
+
+```typescript
+interface Phase1Result {
+  content_type: "engagement_email" | "meeting_invite" | "mixed" | "noise";
+  engagement_match: {
+    id: string | null;       // existing engagement UUID, or null if new/noise
+    name: string;            // existing name, or suggested "Partner - Initiative"
+    confidence: number;      // 0.0–1.0
+    is_new: boolean;
+    partner_name: string | null;
+    partner_id: string | null;
+  };
+}
+```
+
+### Confidence Routing
+
+| Score | Action |
+|-------|--------|
+| 0.95–1.0 | Sender is known participant in exactly one engagement + topic aligns |
+| 0.85–0.94 | Partner + topic clearly align, or strong subject continuity |
+| 0.70–0.84 | Partner identified but topic partial, or sender in multiple engagements |
+| < 0.70 | Cannot determine → approval queue for human review |
+| Noise | Always 1.0 |
+
+**Routing:** ≥ 0.85 → auto-assign (or auto-create if `is_new`). < 0.85 → create `approval_queue` item → appears in Inbox UI.
+
+## Phase 2: Deep Analysis
+
+**Purpose:** Extract structured engagement data after routing is determined. Runs with the full engagement context.
+
+**Model:** `claude-sonnet-4-20250514` · 4096 output tokens
+
+### Input Context
+
+Phase 2 receives everything Phase 1 sees, plus the matched engagement's full history. Built by `buildPhase2Context()`:
+
+| Section | Content |
+|---------|---------|
+| Current date | Temporal anchor for date discipline |
+| Forwarder identity | Full PDM identity + optional note |
+| Phase 1 pass-through | content_type + engagement_match (to echo back) |
+| Engagement context | Name, partner, topic, goal, status, pillar, current_state anchor, message count |
+| Engagement history | All prior messages (oldest first) with From/To/CC/Subject/Date/body |
+| Linked meetings | Existing meetings for this engagement |
+| New email(s) | Clearly marked with `>>> NEW EMAIL — CLASSIFY THIS <<<` |
+| Incoming meeting data | Structured ICS data (if present) |
+| Matched partner | Segment, key contacts, what_they_do |
+| Reference catalogs | Events, programs, AWS relationships (with JSONB contacts) |
+
+### Output
+
+```typescript
+interface CombinedClassificationResult {
+  // Echoed from Phase 1
+  content_type: "engagement_email" | "meeting_invite" | "mixed" | "noise";
+  engagement_match: { id, name, confidence, is_new, partner_name, partner_id };
+
+  // Phase 2 extractions
+  topic: string | null;           // 3-8 word engagement subject (stable across emails)
+  goal: string | null;            // 1 sentence success definition (stable)
+  engagement_name: string | null; // "{Partner} - {topic}"
+  current_state: string | null;   // 3-8 sentence prose snapshot, date-anchored
+  pillar: "Co-Sell" | "Co-Build" | "Co-Market" | null;
+  participants: { name, email, organization, role }[];
+  matched_events: { id, name, relationship }[];
+  matched_programs: { id, name, relationship }[];
+  matched_relationships: { id, name, relationship }[];
+}
+```
+
+### Key Rules
+
+- **Extract from NEW email only** — history is context, not a source of new participants or entity matches
+- **Explicit entity references only** — match programs/events/relationships by name or participant presence, never by topic similarity
+- **Date discipline** — no relative time words ("recently", "soon"), present progressive for ongoing actions, include factual dates from emails
+- **Topic/goal stability** — return existing values exactly unless the engagement has fundamentally changed direction
+- **current_state evolution** — update the anchor, don't replace it. Preserve important context from prior state.
 
 ## Pipeline Flow
 
 ```
-Email arrives (Mailgun webhook)
+Mailgun webhook → POST /api/inbound
+  → email-parser.ts: parse forwarded email chain (two-pass)
+  → ics-parser.ts: extract meeting data (if calendar attachment)
+  → messages.ts: store messages (per-message fingerprint dedup)
+  → meetings.ts: createMeetingFromICS (if ICS present)
   ↓
-email-parser.ts — Extract sender, recipients, subject, body, forwarded content
+classifyTwoPhase(messages, forwarderNote, nameMap)
+  → Phase 1: buildPhase1Context() → classifyPhase1()
+     → Noise? Return early (no Phase 2)
+  → Between phases: fetch engagement history, partner, catalogs, name map (parallel)
+  → Phase 2: buildPhase2Context() → classifyPhase2()
   ↓
-ics-parser.ts — If calendar data present, extract meeting details
+applyClassificationResult(messages, result)
+  → confidence ≥ 0.85 + existing → auto-assign
+  → confidence ≥ 0.85 + is_new → createEngagement() → auto-assign
+  → confidence < 0.85 → createApproval() (Inbox review)
   ↓
-prompt-builder.ts — Build context sections from database
+persistClassificationResult(result, engagementId, messageIds, isNew)
+  → Update messages with classification data
+  → Update engagement (current_state, topic, goal, name, pillar)
+  → Create entity links (engagement↔event, engagement↔program)
+  → Create engagement↔relationship links
+  → Upsert participants and link to engagement
+  → Backfill message sender names
+  → Link meetings to engagement (if meeting_invite)
   ↓
-claude.ts — Send prompt + email to Claude API
-  ↓
-classifier.ts — Evaluate confidence, route to auto-persist or approval queue
+pushEngagementToAirtable(engagementId) — awaited
 ```
 
-## Modular Prompt Architecture
+### Inbox Resolve Flow
 
-The prompt is assembled from independent context builder functions in `prompt-builder.ts`. Each function queries the database and builds one section of the prompt. This is intentional — sections can be updated, reordered, or extended independently.
-
-### Context Sections
-
-1. **Partner Context** — All partners with names, segments, focus areas, email domains. Used for partner matching.
-2. **Program Context** — All programs with names, types, descriptions. Used for program linking.
-3. **Event Context** — All events with names, dates, types, locations. Used for event linking.
-4. **AWS Relationship Context** — All relationships with names, types, orgs, contact emails. Used for relationship linking.
-5. **Existing Engagements Context** — All active engagements for the matched partner, with current_state summaries. Critical for the "match to existing vs. create new" decision.
-6. **User Context** — The PDM's identity, email aliases, and role description. Helps Claude understand the user's perspective.
-
-### Key Prompt Instructions
-
-The prompt instructs Claude to:
-
-- **Match by partner AND topic.** Both must align — a partner name match alone is not sufficient. If a partner has multiple engagements, compare by topic to find the right one or create new.
-- **Match by ID** — entity references in the response must use database IDs, not names.
-- **Produce a living summary** (current_state) that evolves with each email — not a summary of the single email, but an updated state of the entire engagement.
-- **Classify participants** as AWS, partner, or other based on email domain.
-- **Detect noise** — auto-newsletter, marketing blasts, and non-actionable emails should be flagged.
-
-## Classification Output Schema
-
-Claude returns a JSON object with this structure:
-
-```json
-{
-  "engagement": {
-    "id": "uuid or null (null = create new)",
-    "name": "Engagement name",
-    "current_state": "Updated living summary",
-    "status": "active",
-    "pillar": "optional",
-    "pillar": "Co-Sell | Co-Market | Co-Build (optional)"
-  },
-  "partner_id": "matched partner UUID",
-  "participants": [
-    { "name": "...", "email": "...", "company": "...", "role": "...", "type": "aws|partner|other" }
-  ],
-  "entity_links": [
-    { "entity_type": "program|event|aws_relationship", "entity_id": "uuid" }
-  ],
-  "meetings": [
-    { "title": "...", "meeting_date": "...", "start_time": "...", "attendees": [...] }
-  ],
-  "confidence": 0.0-1.0,
-  "reasoning": "Why Claude made these choices"
-}
-```
-
-## Confidence Routing
-
-| Score | Action |
-|-------|--------|
-| ≥ 0.85 | Auto-persist — classification is applied immediately |
-| < 0.85 | Create approval_queue item — appears in Inbox UI for human review |
-
-The threshold is intentionally high. It's better to ask the user than to misclassify.
-
-When a user resolves an approval (approve, reject, or modify), the same `persistClassificationResult()` function is called. This ensures auto-assign and manual-resolve always produce identical database operations.
-
-## Classification Rules
-
-1. **Match by partner AND topic.** Same partner + different topic = new engagement. One partner can have multiple concurrent engagements.
-2. **Confidence calibration.** High confidence requires: clear partner match, unambiguous engagement match or clear new workstream, extractable summary content.
-3. **Noise detection.** Marketing emails, auto-newsletters, system notifications → flag as noise, do not create engagement.
-4. **Mixed content.** If an email touches multiple engagements, classify for the primary one.
-5. **Multi-message threads.** Forwarded threads may contain multiple messages — classify based on the most recent/relevant content.
-6. **Event linking threshold.** Only link to an event if the email explicitly references it by name or clear context. Do not infer event relevance from vague timing.
-
-## Living Summary Format
-
-The `current_state` field follows a structured format:
-
-```
-WHAT: One-line description of what this engagement is about
-STATUS: Current status and recent developments
-CONTEXT: Background context, stakeholders, timeline
-NEXT: Immediate next steps or pending items
-```
-
-This evolves with each email. Claude reads the existing current_state and updates it — not replaces it — incorporating new information while preserving historical context.
+When a user resolves an approval (assigns to existing or creates new engagement), the system runs **Phase 2 only** via `runPhase2ForResolve()`. This produces a `current_state` written with the correct engagement's full history — better than the original Phase 1 routing context.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `src/lib/classifier.ts` | Orchestrator — calls Claude, evaluates confidence, routes result |
-| `src/lib/claude.ts` | Claude API wrapper — sends prompt, parses response |
-| `src/lib/prompt-builder.ts` | Modular context section builders |
-| `src/lib/email-parser.ts` | Forwarded email chain parser (extracts body, strips quotes) |
+| `src/lib/classifier.ts` | Orchestrator — Phase 1 → Phase 2 → persist → push |
+| `src/lib/phase1-prompt.ts` | Phase 1 system prompt + context builders (engagement index, partner catalog) |
+| `src/lib/phase2-prompt.ts` | Phase 2 system prompt + context builders (history, catalogs, partner) |
+| `src/lib/prompt-builder.ts` | Shared section builders (forwarder, events, programs, relationships, email) |
+| `src/lib/claude.ts` | Anthropic API client (classifyPhase1, classifyPhase2) |
+| `src/lib/email-parser.ts` | Forwarded email chain parser (two-pass: headers then quoted replies) |
 | `src/lib/ics-parser.ts` | ICS calendar event parser (RFC 5545) |
-| `src/lib/__tests__/classifier.test.ts` | 11 tests |
-| `src/lib/__tests__/claude.test.ts` | 16 tests |
-| `src/lib/__tests__/prompt-builder.test.ts` | 19 tests |
-| `src/lib/__tests__/email-parser.test.ts` | 123 tests |
-| `src/lib/__tests__/ics-parser.test.ts` | 18 tests |
-
-## Deduplication
-
-Emails are deduplicated by `mailgun_message_id`. If a message ID already exists in the messages table, the email is silently dropped. This prevents re-processing if Mailgun retries the webhook or if the user accidentally forwards the same email twice.
-
-## Email Parsing Details
-
-The email parser handles several edge cases:
-
-- **Forwarded chains:** Extracts the original sender, recipients, and body from forwarded headers.
-- **Quoted replies:** Strips "On [date], [person] wrote:" blocks.
-- **Mailgun field hierarchy:** Uses `body-plain` for email content (not `stripped-text`, which removes forwarded content). Calendar data comes from Mailgun's `body-calendar` field, not file attachments.
-- **System address filtering:** Strips relay addresses, Salesforce system emails, and user aliases before participant extraction.
-- **Forwarder note signature filtering:** When the forwarding user adds a note above the forwarded content, `stripSignatureLines()` removes corporate signature blocks (title lines, phone numbers, addresses, disclaimers — 14 patterns). Only substantive text (sentences with lowercase words) is captured as `forwarder_note` and sent to Claude as editorial context. This prevents contact-card boilerplate from polluting classification.
+| `src/lib/name-resolver.ts` | Contact name resolution from JSONB columns |
+| `src/lib/contact-parser.ts` | Universal "Name \<email\> (Title)" format parser/renderer |
