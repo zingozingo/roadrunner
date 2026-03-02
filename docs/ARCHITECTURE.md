@@ -66,6 +66,7 @@ roadrunner/
 │       ├── prompt-builder.ts      #   Shared section builders (events, programs, etc.)
 │       ├── email-parser.ts        #   Forwarded email chain parser (two-pass)
 │       ├── ics-parser.ts          #   ICS calendar event parser (RFC 5545)
+│       ├── meeting-detector.ts    #   Fallback meeting detection from plain-text bodies
 │       ├── name-resolver.ts       #   Contact name resolution from JSONB columns
 │       ├── contact-parser.ts      #   Universal "Name <email> (Title)" parser
 │       ├── format-utils.ts        #   Display name formatting utilities
@@ -88,9 +89,9 @@ roadrunner/
 │       │   ├── push.ts            #     RR → AT activity sync
 │       │   ├── field-maps.ts      #     Airtable field ID constants
 │       │   └── utils.ts           #     Coercion helpers + validation
-│       └── __tests__/             #   414 tests across 14 test files
+│       └── __tests__/             #   466 tests across 15 test files
 ├── supabase/
-│   └── migrations/                # 48 migration files (001-048)
+│   └── migrations/                # 49 migration files (001-049)
 ├── scripts/
 │   └── seed-data.ts               # CLI script to seed events/programs
 ├── data/

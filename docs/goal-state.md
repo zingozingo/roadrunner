@@ -6,8 +6,10 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 48 migrations, 14 DB tables, 22 API routes, 15 UI pages, 414 tests across 14 suites
-- Two-phase classification pipeline: curated-input Phase 1 (enriched engagement index with participants, pillar, entity links) + deep-analysis Phase 2 (full thread history, entity matching, state evolution)
+- 49 migrations, 14 DB tables, 22 API routes, 15 UI pages, 466 tests across 15 suites
+- Two-phase classification pipeline: curated-input Phase 1 (enriched engagement index with participants, pillar, topic, goal, current_state, entity links) + deep-analysis Phase 2 (full thread history, entity matching, state evolution)
+- Phase 1 decision framework: 6-step content-evaluation-required (no single-engagement shortcuts)
+- Fallback meeting detection for Outlook-forwarded invites (plain-text "Original Appointment" blocks)
 - Bidirectional Airtable sync: pull catalogs (partners, programs, events, relationships), push activity (engagements, meetings)
 - Engagement-hub architecture: meetings and entity links flow through engagements, not independently
 - Contact architecture: universal JSONB format `{name, email, title, role}`, single parser (`contact-parser.ts`)
@@ -24,7 +26,8 @@ A system where a PDM forwards an email and Roadrunner:
 
 ## What's Next
 
-- Real email + ICS testing with new Phase 1 prompt (curated-input, enriched engagement index)
+- Real email testing with rewritten Phase 1 prompt (validate multi-engagement disambiguation)
+- Validate fallback meeting detection with real Outlook-forwarded invites
 - Phase 2 prompt review through same curated-input lens
 - Inbox UX redesign (sender names, assign buttons, simpler with engagement-hub model)
 - Meeting notes feature (replace OneNote)

@@ -1,6 +1,6 @@
 # Classification Pipeline
 
-> Last updated: 2026-03-01
+> Last updated: 2026-03-02
 
 ## Overview
 
@@ -30,27 +30,28 @@ Phase 1 receives a compact, enriched context built by `buildPhase1Context()`:
 | Section | Builder | Content |
 |---------|---------|---------|
 | Forwarder | `buildCompactForwarder()` | PDM name, email, role + optional forwarding note |
-| Engagement Index | `buildEngagementIndex()` | Grouped by partner. Per engagement: pillar, topic, participant emails (capped at 8, forwarder excluded, partner domains first), linked programs/events, last email subject |
+| Engagement Index | `buildEngagementIndex()` | Grouped by partner. Per engagement: pillar, topic, goal, current_state (150-word truncation), participant emails (capped at 8, forwarder excluded, partner domains first), linked programs/events, last email subject |
 | Partner Catalog | `buildCompactPartnerCatalog()` | Partner name, ID, email domains (extracted from `partner_contacts` JSONB) |
 | Email | `buildEmailSection()` | From, To, CC, Subject, Date, body text |
 | Meeting Data | `buildMeetingHint()` | Only if ICS attachment: partner hint, organizer, attendees, recurring flag |
 
 ### Decision Framework
 
-The system prompt instructs Claude to follow these steps in order, stopping when confident:
+The system prompt instructs Claude to follow a 6-step framework that requires content evaluation for every routing decision (no early exits on partner match alone):
 
 1. **Forwarder note** — High-authority routing context from the PDM
-2. **Participant match** — Compare sender/CC against engagement participant lists. A sender in exactly one engagement is a strong signal.
-3. **Partner match** — Identify partner by email domain. Single-engagement partners route directly.
-4. **Disambiguation** (for multi-engagement partners, strongest first):
+2. **Partner identification** — Identify partner by email domain or participant match
+3. **Content evaluation against ALL engagements** — Compare email content against every engagement for the matched partner using:
    - a. Participant overlap — sender/CC unique to one engagement
-   - b. Topic alignment — email subject/content matches engagement topic
+   - b. Topic alignment — email subject/content matches engagement topic/current_state/goal
    - c. Pillar alignment — Co-Sell vs Co-Build vs Co-Market
    - d. Linked entities — email references a program/event linked to a specific engagement
    - e. Subject continuity — subject line matches an engagement's last email subject
-5. **Internal/third-party senders** — Route by topic, participant overlap, and subject matching
-6. **New engagement** — Clearly different initiative for a known partner → `is_new: true`
-7. **Flag for review** — Cannot determine → confidence below 0.70
+4. **Internal/third-party senders** — Route by topic, participant overlap, and subject matching
+5. **New engagement** — Clearly different initiative for a known partner → `is_new: true`
+6. **Flag for review** — Cannot determine → confidence below 0.70
+
+**Key principle:** The number of existing engagements for a partner has zero influence on routing. A partner with one engagement still requires content evaluation — partner match alone never produces high confidence.
 
 ### Output
 
@@ -140,6 +141,7 @@ Mailgun webhook → POST /api/inbound
   → ics-parser.ts: extract meeting data (if calendar attachment)
   → messages.ts: store messages (per-message fingerprint dedup)
   → meetings.ts: createMeetingFromICS (if ICS present)
+  → meeting-detector.ts: fallback detection from plain-text body (if no ICS)
   ↓
 classifyTwoPhase(messages, forwarderNote, nameMap)
   → Phase 1: buildPhase1Context() → classifyPhase1()
@@ -179,5 +181,6 @@ When a user resolves an approval (assigns to existing or creates new engagement)
 | `src/lib/claude.ts` | Anthropic API client (classifyPhase1, classifyPhase2) |
 | `src/lib/email-parser.ts` | Forwarded email chain parser (two-pass: headers then quoted replies) |
 | `src/lib/ics-parser.ts` | ICS calendar event parser (RFC 5545) |
+| `src/lib/meeting-detector.ts` | Fallback meeting detection from plain-text bodies (Outlook forwarded invites) |
 | `src/lib/name-resolver.ts` | Contact name resolution from JSONB columns |
 | `src/lib/contact-parser.ts` | Universal "Name \<email\> (Title)" format parser/renderer |
