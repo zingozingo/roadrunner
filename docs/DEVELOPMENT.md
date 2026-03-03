@@ -33,7 +33,7 @@ npx tsc --noEmit     # TypeScript check (no output files)
 ## Testing
 
 **Framework:** Vitest
-**Test count:** 466 tests across 15 test suites
+**Test count:** 427 tests across 14 test suites
 **Location:** `src/lib/__tests__/`
 
 | Test File | Tests | Covers |
@@ -51,7 +51,6 @@ npx tsc --noEmit     # TypeScript check (no output files)
 | prompt-builder.test.ts | 11 | Shared context section builders |
 | dedup.test.ts | 6 | Message deduplication |
 | meeting-status-map.test.ts | 5 | Meeting status mapping |
-| meeting-detector.test.ts | 39 | Fallback meeting detection from plain-text bodies |
 | resolve-route.test.ts | 4 | Inbox resolve route logic |
 
 ```bash

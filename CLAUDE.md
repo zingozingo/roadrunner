@@ -23,8 +23,8 @@ src/components/    → React components (25, organized: layout/, shared/, inbox/
 src/lib/           → Business logic (classification, parsing, sync, formatting)
 src/lib/db/        → Database layer (10 modules)
 src/lib/sync/      → Airtable sync (field-maps, push, pull, utils)
-src/lib/__tests__/ → Test suites (14 suites, 414 tests)
-supabase/          → Migrations (001-048) + schema_live.sql
+src/lib/__tests__/ → Test suites (14 suites, 427 tests)
+supabase/          → Migrations (001-049) + schema_live.sql
 docs/              → 7 documentation files (all current as of 2026-03-01)
 ```
 
@@ -123,9 +123,9 @@ Universal format: `Name <email> (Title)`
 
 - **Framework:** Vitest
 - **Run:** `npx vitest run --reporter=verbose`
-- **Current:** 414 tests across 14 suites, all passing
+- **Current:** 427 tests across 14 suites, all passing
 - **Location:** `src/lib/__tests__/{module}.test.ts`
-- **Suites:** email-parser (123), name-resolver (28), contact-parser (26), phase2-prompt (42), prompt-builder (19), phase1-prompt (34), classifier (11), claude (16), user-config (18), ics-parser (18), resolve-route, dedup (6), meeting-pipeline, meeting-status-map (5), format-utils
+- **Suites:** email-parser (123), phase2-prompt (54), phase1-prompt (45), format-utils (39), ics-parser (31), name-resolver (28), contact-parser (26), user-config (18), meeting-pipeline (13), classifier (11), prompt-builder (11), dedup (6), meeting-status-map (5), resolve-route (4)
 - **DB mocking:** Supabase client is mocked via `vi.mock` with `vi.hoisted()` for mock variables — see existing tests for the pattern
 - **Type checking:** `npx tsc --noEmit` — must pass with zero errors
 - **Rule:** ALWAYS run tests after changes. NEVER commit with failing tests.
@@ -146,7 +146,7 @@ Steven's workflow is two-layer:
 
 ## Key Conventions
 
-- **Migrations:** Sequential numbering in `supabase/migrations/` (currently 001-048). New migrations get the next number (049, 050, ...).
+- **Migrations:** Sequential numbering in `supabase/migrations/` (currently 001-049). New migrations get the next number (050, 051, ...).
 - **Types:** All TypeScript types in `src/lib/types.ts` — keep them there, don't scatter.
 - **API routes:** `src/app/api/{resource}/route.ts` pattern. All CRUD follows same pattern.
 - **UI pages:** `src/app/{resource}/page.tsx` for list, `src/app/{resource}/[id]/page.tsx` for detail.
@@ -193,12 +193,13 @@ Steven's workflow is two-layer:
 ## Current State
 
 See `docs/goal-state.md` for the living version:
-- 48 migrations, 14 tables, 22 API routes, 15 UI pages, 414 tests across 14 suites
+- 49 migrations, 14 tables, 22 API routes, 15 UI pages, 427 tests across 14 suites
 - 5 active engagements (Nozomi Networks, Spacelift x3, Qualys)
-- Phase 1 prompt: curated-input philosophy, 7-step decision framework, enriched engagement index
+- Phase 1 prompt: curated-input philosophy, 6-step decision framework, enriched engagement index
 - Engagement-hub architecture: meetings and entity links flow through engagements
+- Meeting pipeline: ICS parse → create → classify → link to engagement (unconditional) → inherit partner → AT push
 - All Airtable pushes awaited (no fire-and-forget)
-- Docs: 7 files in `docs/`, all current as of 2026-03-01
+- Docs: 7 files in `docs/`, all current as of 2026-03-02
 
 ## What NOT to Do
 

@@ -278,7 +278,9 @@ Engagements and meetings are pushed to Airtable immediately on create, update, o
 
 ## Migrations
 
-48 migrations in `supabase/migrations/` (001–048). Key recent:
+49 migrations in `supabase/migrations/` (001–049). Key recent:
 - 043: Dropped legacy `initiatives_status_check` constraint
+- 046: Added `sequence`, `is_recurring` to meetings; dropped `meeting_type`; updated status CHECK
 - 047: Added JSONB contact columns (`aws_team`, `partner_contacts`, `contacts`, `organizer_name`)
 - 048: Dropped 12 legacy scalar contact columns
+- 049: Added `body_parsed` to meetings source CHECK constraint

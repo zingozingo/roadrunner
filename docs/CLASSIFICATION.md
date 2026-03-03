@@ -141,7 +141,6 @@ Mailgun webhook → POST /api/inbound
   → ics-parser.ts: extract meeting data (if calendar attachment)
   → messages.ts: store messages (per-message fingerprint dedup)
   → meetings.ts: createMeetingFromICS (if ICS present)
-  → meeting-detector.ts: fallback detection from plain-text body (if no ICS)
   ↓
 classifyTwoPhase(messages, forwarderNote, nameMap)
   → Phase 1: buildPhase1Context() → classifyPhase1()
@@ -161,7 +160,7 @@ persistClassificationResult(result, engagementId, messageIds, isNew)
   → Create engagement↔relationship links
   → Upsert participants and link to engagement
   → Backfill message sender names
-  → Link meetings to engagement (if meeting_invite)
+  → Link meetings to engagement (unconditional — if meeting record exists for message)
   ↓
 pushEngagementToAirtable(engagementId) — awaited
 ```
@@ -181,6 +180,5 @@ When a user resolves an approval (assigns to existing or creates new engagement)
 | `src/lib/claude.ts` | Anthropic API client (classifyPhase1, classifyPhase2) |
 | `src/lib/email-parser.ts` | Forwarded email chain parser (two-pass: headers then quoted replies) |
 | `src/lib/ics-parser.ts` | ICS calendar event parser (RFC 5545) |
-| `src/lib/meeting-detector.ts` | Fallback meeting detection from plain-text bodies (Outlook forwarded invites) |
 | `src/lib/name-resolver.ts` | Contact name resolution from JSONB columns |
 | `src/lib/contact-parser.ts` | Universal "Name \<email\> (Title)" format parser/renderer |

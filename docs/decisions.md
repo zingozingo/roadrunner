@@ -61,3 +61,78 @@
 **Rationale:** Can't control how Outlook forwards. The fallback creates real meeting records so the existing pipeline (Phase 1 Meeting Data hint, engagement linking) works without modification. ICS path still takes priority when available.
 
 **Impact:** Meeting invites forwarded from Outlook now get detected and processed. 39 new tests. Requires real-data validation next session.
+
+---
+
+### Decision 94: Apply Unapplied Migration 046
+
+**Date:** 2026-03-02
+**Status:** Implemented
+
+**Decision:** Run migration 046 against production to add `sequence` (INTEGER) and `is_recurring` (BOOLEAN) columns, drop stale `meeting_type` column, and update status CHECK constraint on meetings table.
+
+**Context:** All meeting creation (ICS and fallback) was silently failing with "Could not find the 'is_recurring' column" error. Migration existed in codebase since session ~March 1 but was never applied to production Supabase.
+
+**Rationale:** The code, types, tests, and schema_live.sql all depended on these columns. Applying the migration was the correct fix vs stripping columns from code (which would touch ICS parser, meeting creation, types, and UI).
+
+**Impact:** Immediately unblocked all meeting creation. Three meetings created and visible within minutes of applying.
+
+---
+
+### Decision 95: Decouple Meeting Linking from content_type
+
+**Date:** 2026-03-02
+**Status:** Implemented
+
+**Decision:** Remove the `content_type === "meeting_invite"` gate from meeting-to-engagement linking in `classifier.ts` (auto-assign path) and `reviews/resolve/route.ts` (confirm + assign_existing paths). Link meetings unconditionally when a meeting record exists for a classified message.
+
+**Context:** The gate caused meetings to stay orphaned (no `engagement_id`) whenever Claude classified the message as `"engagement_email"` or `"mixed"` instead of `"meeting_invite"`. Only 1 of 3 test meetings got linked because the other two had different content_type labels.
+
+**Rationale:** Whether a meeting record exists is a hard fact (ICS was parsed), not something Claude should have veto power over. `content_type` remains as informational metadata for display/analytics, not as a gate for data linking.
+
+**Impact:** Eliminates entire class of orphaned meeting bugs. Every meeting with a `message_id` will be linked to its classified engagement.
+
+---
+
+### Decision 96: Meetings Inherit Partner from Engagement
+
+**Date:** 2026-03-02
+**Status:** Implemented
+
+**Decision:** `linkMeetingToEngagement()` now queries the engagement's `partner_id` and `partner_name` and sets both on the meeting record, overriding any attendee-based partner matching from initial creation.
+
+**Context:** Meetings were showing "Partner: —" on the detail page because `createMeetingFromICS()` couldn't match a partner from attendee domains (e.g., when only Amazon emails were on the invite). But the engagement already knew its partner.
+
+**Rationale:** Engagement-hub architecture — the engagement is the single authority for partner, program, event, and relationship connections. Meetings are timeline events within engagements and inherit through that connection.
+
+**Impact:** Meeting detail pages now show correct partner and engagement links without requiring partner email addresses in the ICS attendee list.
+
+---
+
+### Decision 97: Remove Fallback Meeting Detector
+
+**Date:** 2026-03-02
+**Status:** Implemented
+
+**Decision:** Delete `meeting-detector.ts`, its test suite, `createMeetingFromFallback()`, and all calling code. ICS parsing is the sole meeting detection path.
+
+**Context:** The fallback detector (Tier 1 Outlook Original Appointment, Tier 2 generic When/Where) was built from diagnostic analysis of what Outlook "probably" delivers, never validated against real data. It also risked false positives on emails that mention dates/times/locations without being meeting invites.
+
+**Rationale:** With migration 046 applied, ICS parsing works correctly for both direct participant and forwarded invites. If ICS data arrives, we detect it. If it doesn't (e.g., Outlook strips it during forwarding), the email is classified normally. We don't guess.
+
+**Impact:** Removed ~200 lines of code + 39 tests. Simplified inbound route. Test count: 427 across 14 suites (down from 466/15, net cleaner).
+
+---
+
+### Decision 98: Create-Then-Link Pattern for Meetings Is Correct
+
+**Date:** 2026-03-02
+**Status:** Documented (no code change)
+
+**Decision:** Maintain the current order: ICS meeting creation (step 9) before classification (step 11). The brief UI window where a meeting appears without an engagement link is accepted as a timing artifact.
+
+**Context:** During testing, a meeting briefly appeared unlinked on the UI before classification completed and set the `engagement_id` (~20s later due to Claude API call). Initially appeared to be a bug.
+
+**Rationale:** Creating the meeting first is safer — if classification fails, the structured calendar data is preserved. The alternative (hold creation until after classification) risks data loss. The 20-second classification window is invisible in normal usage since users don't watch the UI in real-time during email forwarding.
+
+**Impact:** No code change needed. Documented as intentional design to prevent re-investigation in future sessions.
