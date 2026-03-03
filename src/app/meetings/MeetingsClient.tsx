@@ -8,7 +8,7 @@ import { MeetingStatusBadge } from "@/components/shared/TypeBadge";
 import { Meeting } from "@/lib/types";
 import { cleanMeetingTitle } from "@/lib/format-utils";
 
-type MeetingWithNames = Meeting & { engagement_name: string | null; event_name: string | null };
+type MeetingWithNames = Meeting & { engagement_name: string | null };
 
 const MEETING_TYPE_OPTIONS = [
   { label: "Executive", value: "Executive Meeting" },

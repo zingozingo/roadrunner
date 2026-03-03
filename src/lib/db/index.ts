@@ -30,15 +30,11 @@ export {
   getMeetingsWithEngagements,
   getMeeting,
   getMeetingsByEngagement,
-  getMeetingsByAwsRelationship,
-  getMeetingsByEvent,
-  getMeetingsByProgram,
   createMeeting,
   updateMeeting,
   deleteMeeting,
   createMeetingFromICS,
   linkMeetingToEngagement,
-  linkMeetingAwsRelationship,
   linkEngagementAwsRelationship,
 } from "./meetings";
 
@@ -67,7 +63,6 @@ export {
   getAwsRelationship,
   getEngagementsByAwsRelationship,
   updateAwsRelationship,
-  getAwsRelationshipsByMeeting,
   getAwsRelationshipsByEngagement,
   getAwsRelationshipsByPartner,
 } from "./relationships";

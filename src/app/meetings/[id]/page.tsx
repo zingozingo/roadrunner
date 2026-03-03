@@ -7,10 +7,7 @@ import MeetingActions from "@/components/actions/MeetingActions";
 import { MeetingStatusBadge } from "@/components/shared/TypeBadge";
 import {
   getMeeting,
-  getAwsRelationshipsByMeeting,
   getEngagementById,
-  getEventById,
-  getProgramById,
   getPartner,
 } from "@/lib/db";
 import { cleanMeetingTitle, formatFooterDate } from "@/lib/format-utils";
@@ -87,11 +84,8 @@ export default async function MeetingDetailPage({
   const meeting = await getMeeting(id);
   if (!meeting) notFound();
 
-  const [awsRelationships, engagement, event, program, partner] = await Promise.all([
-    getAwsRelationshipsByMeeting(id),
+  const [engagement, partner] = await Promise.all([
     meeting.engagement_id ? getEngagementById(meeting.engagement_id) : null,
-    meeting.event_id ? getEventById(meeting.event_id) : null,
-    meeting.program_id ? getProgramById(meeting.program_id) : null,
     meeting.partner_id ? getPartner(meeting.partner_id) : null,
   ]);
 
@@ -231,47 +225,9 @@ export default async function MeetingDetailPage({
           )}
         </div>
 
-        {/* AWS Relationships */}
-        {awsRelationships.length > 0 && (
-          <div className="rounded-xl border border-border bg-surface p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-              AWS Relationships
-            </h2>
-            <div className="space-y-1">
-              {awsRelationships.map((rel) => (
-                <Link
-                  key={rel.id}
-                  href={`/relationships/${rel.id}`}
-                  className="flex items-baseline gap-2 rounded px-2 py-1.5 transition-colors hover:bg-surface-hover"
-                >
-                  <span className="text-sm font-medium text-foreground">
-                    {rel.name}
-                  </span>
-                  {rel.contacts?.[0]?.name && (
-                    <span className="text-xs text-muted">
-                      {rel.contacts[0].name}
-                    </span>
-                  )}
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Compact footer */}
         <p className="mt-6 text-xs text-muted">
-          {/* meeting_type removed — Airtable-only field */}
           {meeting.organizer_email && <>Organizer: {meeting.organizer_email} · </>}
-          {event && (
-            <>
-              Event: <Link href={`/events/${event.id}`} className="text-accent hover:underline">{event.name}</Link> ·{" "}
-            </>
-          )}
-          {program && (
-            <>
-              Program: <Link href={`/programs/${program.id}`} className="text-accent hover:underline">{program.name}</Link> ·{" "}
-            </>
-          )}
           Created {formatFooterDate(meeting.created_at)}
         </p>
       </div>

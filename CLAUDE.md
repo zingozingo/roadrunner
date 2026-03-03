@@ -24,7 +24,7 @@ src/lib/           → Business logic (classification, parsing, sync, formatting
 src/lib/db/        → Database layer (10 modules)
 src/lib/sync/      → Airtable sync (field-maps, push, pull, utils)
 src/lib/__tests__/ → Test suites (14 suites, 427 tests)
-supabase/          → Migrations (001-049) + schema_live.sql
+supabase/          → Migrations (001-050) + schema_live.sql
 docs/              → 7 documentation files (all current as of 2026-03-01)
 ```
 
@@ -57,14 +57,13 @@ These are **NON-NEGOTIABLE**. Every code change must respect these:
 **Activity tables** (Roadrunner → Airtable, push only):
 - `engagements` — name, status, partner_id(FK), pillar, topic, goal, program_id(FK), current_state
 - `messages` — engagement_id(FK), sender_*, subject, body_text, content_type, classification_result(JSONB)
-- `meetings` — engagement_id(FK), title, meeting_date, status, attendees(JSONB), ics_uid
+- `meetings` — engagement_id(FK), partner_id(FK), title, meeting_date, status, attendees(JSONB), ics_uid
 - `participants` — email(UNIQUE), name, organization, title
 - `approval_queue` — low-confidence items pending manual review
 
 **Join/link tables:**
 - `entity_links` — polymorphic: engagement↔event, engagement↔program (source_type, target_type)
 - `engagement_aws_relationships` — engagement↔aws_relationship junction
-- `meeting_aws_relationships` — meeting↔aws_relationship junction (retained in schema, not used by push)
 - `participant_links` — participant↔engagement/event with role
 - `notes` — engagement notes (CASCADE delete)
 
@@ -146,7 +145,7 @@ Steven's workflow is two-layer:
 
 ## Key Conventions
 
-- **Migrations:** Sequential numbering in `supabase/migrations/` (currently 001-049). New migrations get the next number (050, 051, ...).
+- **Migrations:** Sequential numbering in `supabase/migrations/` (currently 001-050). New migrations get the next number (050, 051, ...).
 - **Types:** All TypeScript types in `src/lib/types.ts` — keep them there, don't scatter.
 - **API routes:** `src/app/api/{resource}/route.ts` pattern. All CRUD follows same pattern.
 - **UI pages:** `src/app/{resource}/page.tsx` for list, `src/app/{resource}/[id]/page.tsx` for detail.
@@ -193,7 +192,7 @@ Steven's workflow is two-layer:
 ## Current State
 
 See `docs/goal-state.md` for the living version:
-- 49 migrations, 14 tables, 22 API routes, 15 UI pages, 427 tests across 14 suites
+- 50 migrations, 13 tables, 22 API routes, 15 UI pages, 427 tests across 14 suites
 - 5 active engagements (Nozomi Networks, Spacelift x3, Qualys)
 - Phase 1 prompt: curated-input philosophy, 6-step decision framework, enriched engagement index
 - Engagement-hub architecture: meetings and entity links flow through engagements

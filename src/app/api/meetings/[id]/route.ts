@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getMeeting,
-  getAwsRelationshipsByMeeting,
   updateMeeting,
   deleteMeeting,
 } from "@/lib/db";
@@ -28,24 +27,15 @@ export async function GET(
       );
     }
 
-    const awsRelationships = await getAwsRelationshipsByMeeting(id);
-
-    // Resolve engagement and event names if linked
+    // Resolve engagement name if linked
     let engagementName: string | null = null;
-    let eventName: string | null = null;
-    if (meeting.engagement_id || meeting.event_id) {
-      const { getEngagementById, getEventById } = await import("@/lib/db");
-      if (meeting.engagement_id) {
-        const eng = await getEngagementById(meeting.engagement_id);
-        engagementName = eng?.name ?? null;
-      }
-      if (meeting.event_id) {
-        const evt = await getEventById(meeting.event_id);
-        eventName = evt?.name ?? null;
-      }
+    if (meeting.engagement_id) {
+      const { getEngagementById } = await import("@/lib/db");
+      const eng = await getEngagementById(meeting.engagement_id);
+      engagementName = eng?.name ?? null;
     }
 
-    return NextResponse.json({ meeting, engagementName, eventName, awsRelationships });
+    return NextResponse.json({ meeting, engagementName });
   } catch (error) {
     console.error("GET /api/meetings/[id] error:", error);
     return NextResponse.json(
@@ -62,7 +52,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { title, engagement_id, event_id, program_id, partner_name, status, meeting_date, start_time, end_time, location, attendees, notes } = body;
+    const { title, engagement_id, partner_name, status, meeting_date, start_time, end_time, location, attendees, notes } = body;
 
     if (title !== undefined && (typeof title !== "string" || !title.trim())) {
       return NextResponse.json(
@@ -96,8 +86,6 @@ export async function PUT(
     const updates: Record<string, unknown> = {};
     if (title !== undefined) updates.title = title.trim();
     if (engagement_id !== undefined) updates.engagement_id = engagement_id || null;
-    if (event_id !== undefined) updates.event_id = event_id || null;
-    if (program_id !== undefined) updates.program_id = program_id || null;
     if (partner_name !== undefined) updates.partner_name = partner_name?.trim() || null;
     if (status !== undefined) updates.status = status;
     if (meeting_date !== undefined) updates.meeting_date = meeting_date || null;

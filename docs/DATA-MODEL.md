@@ -1,10 +1,10 @@
 # Data Model
 
-> Last updated: 2026-03-01 (post-Phase 3 contact standardization)
+> Last updated: 2026-03-02 (removed meeting entity columns, engagement-hub enforcement)
 
 ## Overview
 
-Roadrunner uses Supabase PostgreSQL with 14 tables. Data flows bidirectionally with Airtable:
+Roadrunner uses Supabase PostgreSQL with 13 tables. Data flows bidirectionally with Airtable:
 - **Catalog tables** (partners, programs, events, aws_relationships): Airtable → Supabase via pull sync
 - **Activity tables** (engagements, meetings): Supabase → Airtable via push sync
 - **Internal tables** (participants, participant_links, entity_links, approval_queue, notes, messages): Roadrunner-only
@@ -80,17 +80,15 @@ Source: Roadrunner (internal)
 ### meetings
 Source: Roadrunner (push sync)
 
-> **Engagement-centric:** Partner, Program, Event, and AWS Relationships are inherited from the engagement. The meeting's own `partner_id`, `event_id`, `program_id` FKs are retained in schema for query convenience but are NOT used for AT push. Only `engagement_id` drives the Airtable link.
+> **Engagement-centric:** Meetings inherit Program, Event, and AWS Relationship connections from their parent engagement. Only `engagement_id` drives the Airtable link. Partner is retained directly on meetings for display convenience.
 
 | Column | Type | Notes |
 |--------|------|-------|
 | id | uuid PK | |
 | title | text | Meeting title |
 | engagement_id | uuid FK → engagements | ON DELETE SET NULL. Required for AT push — meetings without an engagement are not synced to Airtable. |
-| event_id | uuid FK → events | ON DELETE SET NULL. Retained for query convenience; NOT used for AT push. |
 | partner_id | uuid FK → partners | ON DELETE SET NULL. Retained for query convenience; NOT used for AT push. |
 | partner_name | text | Denormalized; used when partner_id is null. NOT used for AT push. |
-| program_id | uuid FK → programs | ON DELETE SET NULL. Retained for query convenience; NOT used for AT push. |
 | message_id | uuid FK → messages | Source email; not synced to AT |
 | status | text | scheduled, completed, cancelled, did_not_occur |
 | meeting_date | date | |
@@ -209,16 +207,6 @@ Junction: engagements ↔ aws_relationships
 | aws_relationship_id | uuid FK → aws_relationships | ON DELETE CASCADE |
 | created_at | timestamptz | |
 
-### meeting_aws_relationships
-Junction: meetings ↔ aws_relationships
-
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid PK | |
-| meeting_id | uuid FK → meetings | ON DELETE CASCADE |
-| aws_relationship_id | uuid FK → aws_relationships | ON DELETE CASCADE |
-| created_at | timestamptz | |
-
 ### approval_queue
 Source: Roadrunner (internal)
 
@@ -278,9 +266,10 @@ Engagements and meetings are pushed to Airtable immediately on create, update, o
 
 ## Migrations
 
-49 migrations in `supabase/migrations/` (001–049). Key recent:
+50 migrations in `supabase/migrations/` (001–050). Key recent:
 - 043: Dropped legacy `initiatives_status_check` constraint
 - 046: Added `sequence`, `is_recurring` to meetings; dropped `meeting_type`; updated status CHECK
 - 047: Added JSONB contact columns (`aws_team`, `partner_contacts`, `contacts`, `organizer_name`)
 - 048: Dropped 12 legacy scalar contact columns
 - 049: Added `body_parsed` to meetings source CHECK constraint
+- 050: Dropped `meeting_aws_relationships` table, `event_id`/`program_id` from meetings, tightened source CHECK (removed `body_parsed`)

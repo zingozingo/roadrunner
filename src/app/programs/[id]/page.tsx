@@ -5,13 +5,11 @@ import { notFound } from "next/navigation";
 import DetailHeader from "@/components/shared/DetailHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { ProgramTypeBadge } from "@/components/shared/TypeBadge";
-import MeetingTimeline from "@/components/shared/MeetingTimeline";
 import ExpandableList from "@/components/shared/ExpandableList";
 import ProgramActions from "@/components/actions/ProgramActions";
 import { formatFooterDate } from "@/lib/format-utils";
 import {
   getProgramById,
-  getMeetingsByProgram,
   getLinkedEngagementsForEntity,
 } from "@/lib/db";
 
@@ -25,16 +23,7 @@ export default async function ProgramDetailPage({
   const program = await getProgramById(id);
   if (!program) notFound();
 
-  const [linkedMeetings, linkedEngagements] = await Promise.all([
-    getMeetingsByProgram(id),
-    getLinkedEngagementsForEntity("program", id),
-  ]);
-
-  // Build engagement name map for MeetingTimeline
-  const engagementNames = new Map<string, string>();
-  for (const eng of linkedEngagements) {
-    engagementNames.set(eng.id, eng.name);
-  }
+  const linkedEngagements = await getLinkedEngagementsForEntity("program", id);
 
   const hasDescription = !!program.description;
   const hasRequirements = !!program.requirements;
@@ -124,19 +113,6 @@ export default async function ProgramDetailPage({
                 </Link>
               ))}
             </ExpandableList>
-          </div>
-        )}
-
-        {/* Meetings Timeline */}
-        {linkedMeetings.length > 0 && (
-          <div className="rounded-xl border border-border bg-surface p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-              Meetings
-            </h2>
-            <MeetingTimeline
-              meetings={linkedMeetings}
-              engagementNames={engagementNames}
-            />
           </div>
         )}
 

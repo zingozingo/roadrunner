@@ -113,8 +113,6 @@ export interface Meeting {
   id: string;
   title: string;
   engagement_id: string | null;
-  event_id: string | null;
-  program_id: string | null;
   partner_name: string | null;
   partner_id: string | null;
   message_id: string | null;
@@ -129,7 +127,7 @@ export interface Meeting {
   ics_uid: string | null;
   sequence: number | null;
   is_recurring: boolean;
-  source: "manual" | "ics_parsed" | "body_parsed";
+  source: "manual" | "ics_parsed";
   notes: string | null;
   airtable_record_id: string | null;
   created_at: string;

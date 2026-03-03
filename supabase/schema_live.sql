@@ -1,6 +1,6 @@
--- Roadrunner schema (derived from migrations 001-048)
--- Generated: 2026-03-01
--- Tables: 14
+-- Roadrunner schema (derived from migrations 001-050)
+-- Generated: 2026-03-02
+-- Tables: 13
 
 CREATE TABLE public.approval_queue (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -105,14 +105,6 @@ CREATE TABLE public.events (
   CONSTRAINT events_type_check CHECK ((type = ANY (ARRAY['conference'::text, 'summit'::text, 'workshop'::text, 'kickoff'::text, 'trade_show'::text, 'deadline'::text, 'review_cycle'::text, 'training'::text])))
 );
 
-CREATE TABLE public.meeting_aws_relationships (
-  meeting_id uuid NOT NULL,
-  aws_relationship_id uuid NOT NULL,
-  PRIMARY KEY (meeting_id, aws_relationship_id),
-  FOREIGN KEY (aws_relationship_id) REFERENCES aws_relationships(id) ON DELETE CASCADE,
-  FOREIGN KEY (meeting_id) REFERENCES meetings(id) ON DELETE CASCADE
-);
-
 CREATE TABLE public.meetings (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
   title text NOT NULL,
@@ -134,17 +126,13 @@ CREATE TABLE public.meetings (
   updated_at timestamp with time zone DEFAULT now() NOT NULL,
   message_id uuid,
   partner_id uuid,
-  program_id uuid,
-  event_id uuid,
   sequence integer,
   is_recurring boolean DEFAULT false,
   PRIMARY KEY (id),
   FOREIGN KEY (engagement_id) REFERENCES engagements(id) ON DELETE SET NULL,
-  FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE SET NULL,
   FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE SET NULL,
   FOREIGN KEY (partner_id) REFERENCES partners(id) ON DELETE SET NULL,
-  FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE SET NULL,
-  CONSTRAINT meetings_source_check CHECK ((source = ANY (ARRAY['manual'::text, 'ics_parsed'::text, 'body_parsed'::text]))),
+  CONSTRAINT meetings_source_check CHECK ((source = ANY (ARRAY['manual'::text, 'ics_parsed'::text]))),
   CONSTRAINT meetings_status_check CHECK ((status = ANY (ARRAY['scheduled'::text, 'completed'::text, 'cancelled'::text, 'did_not_occur'::text]))),
   UNIQUE (airtable_record_id),
   UNIQUE (ics_uid)
@@ -259,13 +247,10 @@ CREATE INDEX idx_engagements_partner_id ON public.engagements USING btree (partn
 CREATE INDEX idx_entity_links_source ON public.entity_links USING btree (source_type, source_id);
 CREATE INDEX idx_entity_links_target ON public.entity_links USING btree (target_type, target_id);
 CREATE UNIQUE INDEX idx_events_airtable_record_id ON public.events USING btree (airtable_record_id) WHERE (airtable_record_id IS NOT NULL);
-CREATE INDEX idx_meeting_aws_rel_relationship ON public.meeting_aws_relationships USING btree (aws_relationship_id);
 CREATE INDEX idx_meetings_engagement_id ON public.meetings USING btree (engagement_id);
-CREATE INDEX idx_meetings_event_id ON public.meetings USING btree (event_id);
 CREATE INDEX idx_meetings_meeting_date ON public.meetings USING btree (meeting_date);
 CREATE INDEX idx_meetings_message_id ON public.meetings USING btree (message_id);
 CREATE INDEX idx_meetings_partner_id ON public.meetings USING btree (partner_id);
-CREATE INDEX idx_meetings_program_id ON public.meetings USING btree (program_id);
 CREATE INDEX idx_messages_engagement_id ON public.messages USING btree (engagement_id);
 CREATE INDEX idx_messages_forwarded_at ON public.messages USING btree (forwarded_at);
 CREATE INDEX idx_messages_pending_review ON public.messages USING btree (pending_review) WHERE (pending_review = true);
@@ -276,7 +261,6 @@ CREATE INDEX idx_partners_name ON public.partners USING btree (name);
 CREATE INDEX idx_partners_segment ON public.partners USING btree (segment);
 CREATE UNIQUE INDEX idx_programs_airtable_record_id ON public.programs USING btree (airtable_record_id) WHERE (airtable_record_id IS NOT NULL);
 CREATE UNIQUE INDEX initiatives_pkey ON public.engagements USING btree (id);
-CREATE UNIQUE INDEX meeting_aws_relationships_pkey ON public.meeting_aws_relationships USING btree (meeting_id, aws_relationship_id);
 CREATE UNIQUE INDEX meetings_airtable_record_id_key ON public.meetings USING btree (airtable_record_id);
 CREATE UNIQUE INDEX meetings_ics_uid_key ON public.meetings USING btree (ics_uid);
 CREATE UNIQUE INDEX meetings_pkey ON public.meetings USING btree (id);

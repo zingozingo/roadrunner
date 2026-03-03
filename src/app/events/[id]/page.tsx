@@ -5,7 +5,6 @@ import { notFound } from "next/navigation";
 import DetailHeader from "@/components/shared/DetailHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { EventTypeBadge } from "@/components/shared/TypeBadge";
-import MeetingTimeline from "@/components/shared/MeetingTimeline";
 import EntityLinkChip from "@/components/shared/EntityLink";
 import ExpandableList from "@/components/shared/ExpandableList";
 import EventActions from "@/components/actions/EventActions";
@@ -14,7 +13,6 @@ import {
   getEventById,
   getEntityLinksForEntity,
   resolveEntityLinkNames,
-  getMeetingsByEvent,
   getLinkedEngagementsForEntity,
 } from "@/lib/db";
 
@@ -41,18 +39,11 @@ export default async function EventDetailPage({
   const event = await getEventById(id);
   if (!event) notFound();
 
-  const [entityLinks, linkedMeetings, linkedEngagements] = await Promise.all([
+  const [entityLinks, linkedEngagements] = await Promise.all([
     getEntityLinksForEntity("event", id),
-    getMeetingsByEvent(id),
     getLinkedEngagementsForEntity("event", id),
   ]);
   const nameMap = await resolveEntityLinkNames(entityLinks);
-
-  // Build engagement name map for MeetingTimeline
-  const engagementNames = new Map<string, string>();
-  for (const eng of linkedEngagements) {
-    engagementNames.set(eng.id, eng.name);
-  }
 
   // Separate non-engagement entity links for EntityLinkChip rendering
   const nonEngagementLinks = entityLinks.filter((link) => {
@@ -155,19 +146,6 @@ export default async function EventDetailPage({
                 </Link>
               ))}
             </ExpandableList>
-          </div>
-        )}
-
-        {/* Meetings Timeline */}
-        {linkedMeetings.length > 0 && (
-          <div className="rounded-xl border border-border bg-surface p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-              Meetings
-            </h2>
-            <MeetingTimeline
-              meetings={linkedMeetings}
-              engagementNames={engagementNames}
-            />
           </div>
         )}
 

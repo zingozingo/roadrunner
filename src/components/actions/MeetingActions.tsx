@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Meeting, Engagement, Event, MeetingAttendee, MeetingStatus } from "@/lib/types";
+import { Meeting, Engagement, MeetingAttendee, MeetingStatus } from "@/lib/types";
 import ConfirmDialog from "../shared/ConfirmDialog";
 
 const MEETING_STATUSES: MeetingStatus[] = [
@@ -15,11 +15,9 @@ const MEETING_STATUSES: MeetingStatus[] = [
 export default function MeetingActions({
   meeting,
   engagements: initialEngagements,
-  events: initialEvents,
 }: {
   meeting: Meeting;
   engagements?: Engagement[];
-  events?: Event[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -28,14 +26,12 @@ export default function MeetingActions({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [engagements, setEngagements] = useState<Engagement[]>(initialEngagements ?? []);
-  const [events, setEvents] = useState<Event[]>(initialEvents ?? []);
 
   // Edit form state
   const [title, setTitle] = useState(meeting.title);
   const [meetingDate, setMeetingDate] = useState(meeting.meeting_date ?? "");
   const [status, setStatus] = useState<string>(meeting.status);
   const [engagementId, setEngagementId] = useState(meeting.engagement_id ?? "");
-  const [eventId, setEventId] = useState(meeting.event_id ?? "");
   const [partnerName, setPartnerName] = useState(meeting.partner_name ?? "");
   const [startTime, setStartTime] = useState(meeting.start_time ?? "");
   const [endTime, setEndTime] = useState(meeting.end_time ?? "");
@@ -45,7 +41,7 @@ export default function MeetingActions({
     meeting.attendees.map((a) => `${a.name ?? ""}|${a.email}`).join("\n")
   );
 
-  // Fetch engagements and events for dropdowns if not passed as props
+  // Fetch engagements for dropdown if not passed as props
   useEffect(() => {
     if (!initialEngagements) {
       fetch("/api/engagements")
@@ -53,20 +49,13 @@ export default function MeetingActions({
         .then((data) => setEngagements(data.engagements ?? []))
         .catch(() => {});
     }
-    if (!initialEvents) {
-      fetch("/api/events")
-        .then((res) => res.json())
-        .then((data) => setEvents(data.events ?? []))
-        .catch(() => {});
-    }
-  }, [initialEngagements, initialEvents]);
+  }, [initialEngagements]);
 
   function startEdit() {
     setTitle(meeting.title);
     setMeetingDate(meeting.meeting_date ?? "");
     setStatus(meeting.status);
     setEngagementId(meeting.engagement_id ?? "");
-    setEventId(meeting.event_id ?? "");
     setPartnerName(meeting.partner_name ?? "");
     setStartTime(meeting.start_time ?? "");
     setEndTime(meeting.end_time ?? "");
@@ -126,7 +115,6 @@ export default function MeetingActions({
           meeting_date: meetingDate || null,
           status: status || "scheduled",
           engagement_id: engagementId || null,
-          event_id: eventId || null,
           partner_name: partnerName.trim() || null,
           start_time: startTime.trim() || null,
           end_time: endTime.trim() || null,
@@ -283,23 +271,6 @@ export default function MeetingActions({
                       {e.name}{e.partner_name ? ` (${e.partner_name})` : ""}
                     </option>
                   ))}
-              </select>
-            </div>
-
-            {/* Event */}
-            <div>
-              <label className={labelClass}>Event</label>
-              <select
-                value={eventId}
-                onChange={(e) => setEventId(e.target.value)}
-                className={inputClass}
-              >
-                <option value="">None</option>
-                {events.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.name}
-                  </option>
-                ))}
               </select>
             </div>
           </div>

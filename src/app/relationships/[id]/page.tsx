@@ -5,14 +5,12 @@ import { notFound } from "next/navigation";
 import DetailHeader from "@/components/shared/DetailHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { RelationshipTypeBadge } from "@/components/shared/TypeBadge";
-import MeetingTimeline from "@/components/shared/MeetingTimeline";
 import ExpandableList from "@/components/shared/ExpandableList";
 import RelationshipActions from "@/components/actions/RelationshipActions";
 import { formatFooterDate } from "@/lib/format-utils";
 import {
   getAwsRelationship,
   getEngagementsByAwsRelationship,
-  getMeetingsByAwsRelationship,
 } from "@/lib/db";
 
 export default async function RelationshipDetailPage({
@@ -25,16 +23,7 @@ export default async function RelationshipDetailPage({
   const relationship = await getAwsRelationship(id);
   if (!relationship) notFound();
 
-  const [linkedEngagements, linkedMeetings] = await Promise.all([
-    getEngagementsByAwsRelationship(id),
-    getMeetingsByAwsRelationship(id),
-  ]);
-
-  // Build engagement name map for MeetingTimeline
-  const engagementNames = new Map<string, string>();
-  for (const eng of linkedEngagements) {
-    engagementNames.set(eng.id, eng.name);
-  }
+  const linkedEngagements = await getEngagementsByAwsRelationship(id);
 
   return (
     <div className="p-6 lg:p-8">
@@ -104,19 +93,6 @@ export default async function RelationshipDetailPage({
                 </Link>
               ))}
             </ExpandableList>
-          </div>
-        )}
-
-        {/* Linked Meetings */}
-        {linkedMeetings.length > 0 && (
-          <div className="rounded-xl border border-border bg-surface p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-              Linked Meetings
-            </h2>
-            <MeetingTimeline
-              meetings={linkedMeetings}
-              engagementNames={engagementNames}
-            />
           </div>
         )}
 

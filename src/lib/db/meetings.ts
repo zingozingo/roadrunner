@@ -2,7 +2,7 @@ import { getSupabaseClient } from "./client";
 import { Meeting, MeetingAttendee, ParsedMeeting, Partner } from "../types";
 
 export async function getMeetingsWithEngagements(): Promise<
-  (Meeting & { engagement_name: string | null; event_name: string | null })[]
+  (Meeting & { engagement_name: string | null })[]
 > {
   const db = getSupabaseClient();
   const { data: meetings, error } = await db
@@ -14,10 +14,8 @@ export async function getMeetingsWithEngagements(): Promise<
 
   // Resolve engagement names
   const engagementIds = new Set<string>();
-  const eventIds = new Set<string>();
   for (const m of (meetings ?? []) as Meeting[]) {
     if (m.engagement_id) engagementIds.add(m.engagement_id);
-    if (m.event_id) eventIds.add(m.event_id);
   }
 
   const engagementNames = new Map<string, string>();
@@ -33,24 +31,9 @@ export async function getMeetingsWithEngagements(): Promise<
     }
   }
 
-  // Resolve event names
-  const eventNames = new Map<string, string>();
-  if (eventIds.size > 0) {
-    const { data: events } = await db
-      .from("events")
-      .select("id, name")
-      .in("id", [...eventIds]);
-
-    for (const e of events ?? []) {
-      const row = e as { id: string; name: string };
-      eventNames.set(row.id, row.name);
-    }
-  }
-
   return ((meetings ?? []) as Meeting[]).map((m) => ({
     ...m,
     engagement_name: m.engagement_id ? engagementNames.get(m.engagement_id) ?? null : null,
-    event_name: m.event_id ? eventNames.get(m.event_id) ?? null : null,
   }));
 }
 
@@ -76,56 +59,9 @@ export async function getMeetingsByEngagement(engagementId: string): Promise<Mee
   return (data ?? []) as Meeting[];
 }
 
-export async function getMeetingsByAwsRelationship(relationshipId: string): Promise<Meeting[]> {
-  const db = getSupabaseClient();
-
-  const { data: junctionRows, error: junctionErr } = await db
-    .from("meeting_aws_relationships")
-    .select("meeting_id")
-    .eq("aws_relationship_id", relationshipId);
-
-  if (junctionErr) throw new Error(`Failed to fetch meeting junctions: ${junctionErr.message}`);
-
-  const ids = (junctionRows ?? []).map((r: { meeting_id: string }) => r.meeting_id);
-  if (ids.length === 0) return [];
-
-  const { data, error } = await db
-    .from("meetings")
-    .select("*")
-    .in("id", ids)
-    .order("meeting_date", { ascending: false, nullsFirst: false });
-
-  if (error) throw new Error(`Failed to fetch meetings: ${error.message}`);
-  return (data ?? []) as Meeting[];
-}
-
-export async function getMeetingsByEvent(eventId: string): Promise<Meeting[]> {
-  const { data, error } = await getSupabaseClient()
-    .from("meetings")
-    .select("*")
-    .eq("event_id", eventId)
-    .order("meeting_date", { ascending: false, nullsFirst: false });
-
-  if (error) throw new Error(`Failed to fetch meetings: ${error.message}`);
-  return (data ?? []) as Meeting[];
-}
-
-export async function getMeetingsByProgram(programId: string): Promise<Meeting[]> {
-  const { data, error } = await getSupabaseClient()
-    .from("meetings")
-    .select("*")
-    .eq("program_id", programId)
-    .order("meeting_date", { ascending: false, nullsFirst: false });
-
-  if (error) throw new Error(`Failed to fetch meetings: ${error.message}`);
-  return (data ?? []) as Meeting[];
-}
-
 export async function createMeeting(data: {
   title: string;
   engagement_id?: string | null;
-  event_id?: string | null;
-  program_id?: string | null;
   partner_name?: string | null;
   status?: string;
   meeting_date?: string | null;
@@ -157,8 +93,6 @@ export async function createMeeting(data: {
     .insert({
       title: data.title,
       engagement_id: data.engagement_id ?? null,
-      event_id: data.event_id ?? null,
-      program_id: data.program_id ?? null,
       partner_name: data.partner_name ?? null,
       partner_id: partnerId,
       status: data.status ?? "scheduled",
@@ -194,8 +128,6 @@ export async function updateMeeting(
   updates: {
     title?: string;
     engagement_id?: string | null;
-    event_id?: string | null;
-    program_id?: string | null;
     partner_name?: string | null;
     status?: string;
     meeting_date?: string | null;
@@ -237,30 +169,11 @@ export async function deleteMeeting(id: string): Promise<void> {
     }
   }
 
-  // 1. Delete junction records
-  const { error: junctionErr } = await db
-    .from("meeting_aws_relationships")
-    .delete()
-    .eq("meeting_id", id);
-  if (junctionErr) throw new Error(`Failed to delete meeting relationships: ${junctionErr.message}`);
-
-  // 2. Delete the meeting
   const { error } = await db
     .from("meetings")
     .delete()
     .eq("id", id);
   if (error) throw new Error(`Failed to delete meeting: ${error.message}`);
-}
-
-export async function linkMeetingAwsRelationship(
-  meetingId: string,
-  relationshipId: string
-): Promise<void> {
-  const { error } = await getSupabaseClient()
-    .from("meeting_aws_relationships")
-    .insert({ meeting_id: meetingId, aws_relationship_id: relationshipId });
-
-  if (error) throw new Error(`Failed to link relationship: ${error.message}`);
 }
 
 export async function linkEngagementAwsRelationship(
@@ -322,7 +235,6 @@ export async function matchPartnerFromAttendees(
 
   for (const partner of partners) {
     const partnerDomains = new Set<string>();
-    // Collect domains from partner contact emails
     // Collect domains from aws_team (skip amazon.com — AWS staff, not partner domains)
     for (const c of partner.aws_team ?? []) {
       if (c.email && c.email !== "—") {

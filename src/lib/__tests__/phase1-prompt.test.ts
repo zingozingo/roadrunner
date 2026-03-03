@@ -594,8 +594,6 @@ describe("buildMeetingHint", () => {
     id: "mtg-001",
     title: "Security Review Sync",
     engagement_id: null,
-    event_id: null,
-    program_id: null,
     partner_name: "CyberShield",
     partner_id: "partner-001",
     message_id: "msg-001",

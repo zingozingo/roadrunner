@@ -141,8 +141,6 @@ function makeMeeting(overrides: Partial<Meeting> & { id: string; meeting_date?: 
     id: overrides.id,
     title: "Test Meeting",
     engagement_id: null,
-    event_id: null,
-    program_id: null,
     partner_name: null,
     partner_id: null,
     message_id: null,
