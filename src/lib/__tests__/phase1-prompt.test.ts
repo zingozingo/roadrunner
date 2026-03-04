@@ -202,7 +202,8 @@ describe("PHASE1_SYSTEM_PROMPT", () => {
   });
 
   it("references evaluation signals for routing", () => {
-    expect(PHASE1_SYSTEM_PROMPT).toContain("Topic/Context alignment");
+    expect(PHASE1_SYSTEM_PROMPT).toContain("Topic alignment");
+    expect(PHASE1_SYSTEM_PROMPT).toContain("Context alignment");
     expect(PHASE1_SYSTEM_PROMPT).toContain("Participant overlap");
     expect(PHASE1_SYSTEM_PROMPT).toContain("Pillar alignment");
     expect(PHASE1_SYSTEM_PROMPT).toContain("Linked entities");

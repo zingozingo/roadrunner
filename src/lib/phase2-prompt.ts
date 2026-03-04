@@ -120,6 +120,8 @@ Only match entities that are **explicitly referenced or unambiguously implied** 
 
 **AWS Relationships:** Match ONLY when a person from a known AWS relationship appears in the NEW email's headers (From, To, CC) or is explicitly named in the body of the NEW email. Match by email address first, then by full name. Do NOT match by topic similarity, team name alone, or because the relationship seems relevant to the engagement's domain. A specific person must be identifiable in the NEW email. Relationships: involved_in, consulted, introduced, escalated_to.
 
+Self-audit: For every entity you match, you MUST include a _reasoning field with a one-sentence justification citing specific evidence from the NEW email. If you cannot write a concrete justification, do not include the match. The _reasoning field is stripped before storage — it exists to force you to verify your matches.
+
 If nothing matches for any category, return an empty array. Empty arrays are always better than weak matches. Most emails will match zero events and zero or one programs — that's correct behavior.
 
 ## Pillar Inference
@@ -161,13 +163,13 @@ The content_type and engagement_match fields are provided to you in the "Phase 1
     }
   ],
   "matched_events": [
-    { "id": "uuid", "name": "event name", "relationship": "relevant_to | preparation_for | deadline | presenting_at | sponsoring" }
+    { "id": "uuid", "name": "event name", "relationship": "relevant_to | preparation_for | deadline | presenting_at | sponsoring", "_reasoning": "one sentence: what in the NEW email references this event" }
   ],
   "matched_programs": [
-    { "id": "uuid", "name": "program name", "relationship": "implements | qualifies_for | enrolled_in | graduating | blocked_by" }
+    { "id": "uuid", "name": "program name", "relationship": "implements | qualifies_for | enrolled_in | graduating | blocked_by", "_reasoning": "one sentence: what in the NEW email references this program" }
   ],
   "matched_relationships": [
-    { "id": "uuid", "name": "relationship name", "relationship": "involved_in | consulted | introduced | escalated_to" }
+    { "id": "uuid", "name": "relationship name", "relationship": "involved_in | consulted | introduced | escalated_to", "_reasoning": "one sentence: which person from this relationship appears in the NEW email" }
   ],
   "pillar": "Co-Sell" | "Co-Build" | "Co-Market" | null
 }`;

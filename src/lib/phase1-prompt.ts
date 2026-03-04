@@ -33,17 +33,18 @@ Use the Partner Catalog to identify which partner the sender belongs to (match b
 
 **Step 3: Evaluate against ALL engagements for that partner.**
 For EVERY engagement belonging to the identified partner, evaluate whether the email's content matches that engagement. Use these signals:
-  a. **Topic/Context alignment** — Does the email describe the SAME initiative, project, or workstream as the engagement's topic and context? Read the engagement's Context field carefully — it describes what the engagement is actually about.
-  b. **Participant overlap** — Is the sender or any CC'd address a known participant in this engagement?
-  c. **Pillar alignment** — Is the email about selling (Co-Sell), building/integrating (Co-Build), or marketing/events (Co-Market)? Does it match the engagement's pillar?
-  d. **Linked entities** — Does the email reference a program or event name that's linked to this engagement?
-  e. **Subject continuity** — Does the subject line continue a thread matching this engagement's last subject?
-  f. **External parties** — Are different third-party companies involved? (e.g., Bridge Partners vs. AWS IaC team = different engagements)
+  a. **Topic alignment** — Does the email describe the SAME initiative, project, or workstream as the engagement's Topic field? Topic is a stable identifier (e.g., "Security Competency Technical Validation").
+  b. **Context alignment** — Does the email's content connect to the situation described in the engagement's Context field? Context is the current narrative state (e.g., "Steven is coordinating the technical review with the security team"). An email about scheduling a prep call might not match the Topic strongly, but it connects directly to the Context.
+  c. **Participant overlap** — Is the sender or any CC'd address a known participant in this engagement?
+  d. **Pillar alignment** — Is the email about selling (Co-Sell), building/integrating (Co-Build), or marketing/events (Co-Market)? Does it match the engagement's pillar?
+  e. **Linked entities** — Does the email reference a program or event name that's linked to this engagement?
+  f. **Subject continuity** — Does the subject line continue a thread matching this engagement's last subject?
+  g. **External parties** — Are different third-party companies involved? (e.g., Bridge Partners vs. AWS IaC team = different engagements)
 
 The number of engagements a partner has is IRRELEVANT to routing. A partner with one engagement still requires content evaluation — the email might describe a completely different initiative.
 
 **Step 4: Route based on evaluation.**
-- If exactly ONE engagement clearly matches (strong topic/context alignment + supporting signals) → route to it.
+- If exactly ONE engagement clearly matches (strong topic and context alignment + supporting signals) → route to it.
 - If NO engagement matches the email's content → this is a new engagement. Set is_new: true (see Step 5).
 - If MULTIPLE engagements could match → use the strongest combination of signals to pick one, or flag for review if genuinely ambiguous.
 
@@ -56,6 +57,12 @@ Signs of a new engagement:
 - Different pillar (Co-Market campaign vs. Co-Build integration)
 - Different AWS program referenced
 - Fundamentally different objective or workstream
+
+NOT a new engagement (do not create new for these):
+- A new email thread about the same initiative — different subject line, but the work described matches an existing engagement's topic and context. Route to the existing engagement.
+- A sub-task or scheduling email for an existing workstream — "Can we set up a call about the technical review?" belongs to the engagement that owns the technical review.
+- An email that mentions multiple existing engagements — route to the PRIMARY one (the engagement whose topic/context most directly matches the email's main subject). Do not create a new engagement as an escape hatch for ambiguity.
+- A follow-up or status update on existing work — even if the tone, participants, or framing has shifted, if the underlying initiative is the same, it belongs to the existing engagement.
 
 Set is_new: true with confidence 0.85+ when the partner is clear and the initiative is clearly distinct. Use "Partner - Initiative" format for the suggested name.
 
@@ -73,10 +80,10 @@ Classify the email's content type for downstream processing:
 
 ## Confidence Calibration
 
-- **0.95–1.0:** Strong topic/context alignment with one engagement AND participant overlap confirms it
-- **0.85–0.94:** Clear topic/context alignment with one engagement, or strong subject continuity with supporting signals
+- **0.95–1.0:** Strong topic and context alignment with one engagement AND participant overlap confirms it
+- **0.85–0.94:** Clear topic and context alignment with one engagement, or strong subject continuity with supporting signals
 - **0.70–0.84:** Partner identified but topic alignment is weak or partial, or multiple engagements could plausibly match
-- **Below 0.70:** Cannot determine routing — no clear topic/context match, or genuinely ambiguous between engagements
+- **Below 0.70:** Cannot determine routing — no clear topic or context match, or genuinely ambiguous between engagements
 - **New engagement:** 0.85+ when partner is clear and the email's initiative is clearly distinct from ALL existing engagements for that partner
 
 IMPORTANT: Partner identification alone (matching the sender's domain) is NEVER sufficient for high confidence. You must also confirm that the email's content matches the engagement's topic and context.
