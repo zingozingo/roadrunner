@@ -116,12 +116,13 @@ describe("buildEventsSection", () => {
 });
 
 describe("buildProgramsSection", () => {
-  it("renders program with requirements", () => {
+  it("renders Competency program in compact tier", () => {
     const result = buildProgramsSection([PROGRAM]);
     expect(result).toContain("AWS Security Competency");
     expect(result).toContain("prog-001");
-    expect(result).toContain("Validates partner security expertise");
-    expect(result).toContain("Requirements: Must pass technical review");
+    expect(result).toContain("Competencies");
+    // Competencies render in compact tier — no individual description/requirements
+    expect(result).not.toContain("Validates partner security expertise");
   });
 
   it("shows 'None yet' for empty list", () => {

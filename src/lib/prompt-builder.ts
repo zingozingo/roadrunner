@@ -62,12 +62,35 @@ export function buildProgramsSection(programs: Program[]): string {
     return lines.join("\n");
   }
 
-  for (const prog of programs) {
-    const typeStr = prog.type ? `, type: ${prog.type}` : "";
-    let line = `- **${prog.name}** (id: ${prog.id}${typeStr})`;
-    if (prog.description) line += ` — ${prog.description}`;
-    if (prog.requirements) line += ` [Requirements: ${prog.requirements}]`;
-    lines.push(line);
+  // Tier 1: Structurally unique programs (full detail)
+  const competencies = programs.filter(p => p.type === "Competency");
+  const serviceReady = programs.filter(p => p.type === "Service Ready");
+  const detailed = programs.filter(p => p.type !== "Competency" && p.type !== "Service Ready");
+
+  if (detailed.length > 0) {
+    for (const prog of detailed) {
+      const typeStr = prog.type ? `, type: ${prog.type}` : "";
+      let line = `- **${prog.name}** (id: ${prog.id}${typeStr})`;
+      if (prog.description) line += ` — ${prog.description}`;
+      if (prog.requirements) line += ` [Requirements: ${prog.requirements}]`;
+      lines.push(line);
+    }
+  }
+
+  // Tier 2: Competencies as compact list with shared description
+  if (competencies.length > 0) {
+    lines.push("");
+    lines.push(`**Competencies** (${competencies.length} total) — All follow the same process: rolling 12-month renewal requiring launched ACE opportunities tied to Specialization Solutions. Each earns $10K MDF (not SCA stackable), a competency badge, co-marketing eligibility, and enhanced ISV Accelerate benefits. Exception: AI Competency earns $50K MDF (SCA stackable).`);
+    const compactList = competencies.map(c => `"${c.name}" (id: ${c.id})`).join(", ");
+    lines.push(compactList);
+  }
+
+  // Tier 3: Service Ready as compact list with shared description
+  if (serviceReady.length > 0) {
+    lines.push("");
+    lines.push(`**Service Ready Designations** (${serviceReady.length} total) — AWS service-level technical validations. Rolling 12-month renewal. Each earns $5K MDF (not SCA stackable), Service Ready badge, and co-marketing with the relevant AWS service team.`);
+    const compactList = serviceReady.map(s => `"${s.name}" (id: ${s.id})`).join(", ");
+    lines.push(compactList);
   }
 
   lines.push("");

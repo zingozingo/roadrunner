@@ -44,6 +44,7 @@ The source emails below are the COMPLETE conversation history for this engagemen
 - Extract information ONLY from the NEW email for participants and entity matches
 - Use the history emails for CONTEXT ONLY — to understand what has already been discussed, who the key players are, and what the engagement's trajectory looks like
 - Do NOT re-extract participants from history emails — those have already been processed
+- Existing participants are listed in the "Existing Participants" section. They are already linked to this engagement. Do NOT include them in your participants output — only extract NEW people from the NEW email who are not in the existing list. If the NEW email has zero new participants, return an empty array.
 
 ## topic Instructions
 
@@ -63,39 +64,35 @@ Compute as "{Partner Name} - {topic}". Must start with the partner name. Example
 
 ## current_state Instructions
 
-You are given the engagement's existing current_state as an anchor. Your job is to EVOLVE it.
+You are given the engagement's existing current_state as an anchor. Your job is to EVOLVE it — not replace it.
 
-**For existing engagements:**
-- Read the existing current_state carefully — it represents the accumulated knowledge so far
-- If the NEW email contains material information (decisions, scope changes, new stakeholders, status updates, blockers), update the relevant parts while preserving the rest
-- If the NEW email is routine (scheduling ack, brief reply, "thanks"), make minimal or no changes to current_state
-- Never drop important context just because a new email arrived
-- Keep it 3-5 sentences for typical engagements, up to 7 for complex multi-workstream engagements with extensive history
+**Decision Matrix — follow the FIRST matching scenario:**
 
-**For new engagements (no history):**
-- If this engagement has no history (new engagement), write a fresh briefing based on the email content. Use the partner name from the engagement context for consistent naming.
+| Scenario | Detection | Action |
+|----------|-----------|--------|
+| New engagement | current_state says "(none yet)" or engagement has no history | Write a fresh 3-5 sentence briefing from the email content |
+| Late-arriving email | NEW email's date is OLDER than the engagement's last_activity date | Conservative merge — add only facts not already captured in existing state. Do not overwrite newer information with older. |
+| Routine email | Content is administrative: scheduling ack, brief reply, "thanks", "received", forwarding without substance | Make minimal or no changes to existing current_state. A routine email does not warrant rewriting the summary. |
+| Material update | Content has decisions, scope changes, new stakeholders, status updates, blockers, or deliverable progress | Update the relevant parts of existing current_state. Preserve parts that are still accurate. Add new facts. |
+| Complex engagement | Engagement has multiple active workstreams or extensive history | Up to 7 sentences allowed. Organize by workstream if needed. |
 
-**Temporal awareness:**
-- Compare the NEW email's date against the engagement's last_activity date
-- If the NEW email is OLDER than the existing state (late-arriving forward), be conservative — incorporate only facts not already captured, don't overwrite newer information with older
-- If the NEW email is newer, update state normally
-
-**Date discipline (CRITICAL):**
-- Write as a point-in-time snapshot. Maximum 3-8 sentences, approximately 150 words.
+**Temporal Discipline (applies to ALL scenarios):**
+- Write as a point-in-time snapshot. Target 3-5 sentences, ~150 words.
 - NEVER use relative time words: recently, soon, this week, last month, in the coming weeks.
-- Dates that appear in emails are facts — include them. Do NOT infer or predict dates.
+- Dates from emails are facts — include them. Do NOT infer or predict dates.
 - Describe states, not futures: "The blog is in final review" NOT "The blog will be published next week."
-- If referencing ongoing activity, use present progressive: "Steven is following up on ticket status."
-- For grounding, you may reference: "As of {today's date}, ..." when describing current status.
+- Use present progressive for ongoing activity: "Steven is following up on ticket status."
+- You may reference "As of {today's date}, ..." for grounding current status.
 
-**Style rules:**
-- Write concretely: names, specifics, outcomes. "Brian sent the architecture diagram to the security team on Feb 15" not "stakeholders are facilitating comprehensive collaboration"
-- Use first names only — full details are in the participants field
-- No fabricated dates or timelines
-- No bullet points or markdown formatting
-- No vague filler ("various stakeholders", "ongoing discussions", "comprehensive approach")
+**Style Rules (applies to ALL scenarios):**
+- Write concretely: names, specifics, outcomes. "Brian sent the architecture diagram to the security team on Feb 15" not "stakeholders are facilitating comprehensive collaboration."
+- Use first names only — full details are in the participants field.
+- No fabricated dates or timelines.
+- No bullet points or markdown formatting.
+- No vague filler ("various stakeholders", "ongoing discussions", "comprehensive approach").
+- Never drop important context just because a new email arrived.
 
-Return null if this is noise (shouldn't normally happen in Phase 2, but handle gracefully).
+Return null if this is noise (shouldn't normally happen in Phase 2).
 
 ## Participants
 
@@ -112,6 +109,8 @@ Extract all people mentioned in the NEW email (From, To, CC headers and body). E
 Set email to null only if truly unavailable. The forwarder is identified in the context — always include them once with role "forwarder", do not duplicate if they appear in headers.
 
 ## Entity Matching
+
+Existing entity links are listed in the "Existing Entity Links" section. They are already connected to this engagement. Your matched_events, matched_programs, and matched_relationships arrays should contain ONLY NEW matches from the NEW email — entities not already in the existing links. If nothing new matches, return empty arrays.
 
 Only match entities that are **explicitly referenced or unambiguously implied** in the NEW email. The catalog is large — most items will NOT match any given email. That's expected and correct.
 
@@ -220,7 +219,11 @@ export function buildPhase2Context(
   matchedPartner: Partner | null,
   forwarderNote?: string | null,
   nameResolutionMap?: NameResolutionMap | null,
-  newMeetings?: Meeting[] | null
+  newMeetings?: Meeting[] | null,
+  existingLinks?: {
+    entityLinks: { type: string; name: string; relationship: string }[];
+    awsRelationships: { name: string; relationship: string }[];
+  } | null
 ): string {
   const parts: string[] = [];
 
@@ -237,6 +240,8 @@ export function buildPhase2Context(
   // Section 3 & 4: Engagement context + history (existing engagements only)
   if (history) {
     parts.push(buildEngagementContext(history));
+    parts.push(buildExistingParticipants(history.participants));
+    parts.push(buildExistingEntityLinks(existingLinks));
     parts.push(buildEngagementHistory(history.messages, nameResolutionMap));
     parts.push(buildLinkedMeetings(history.meetings));
   }
@@ -252,9 +257,21 @@ export function buildPhase2Context(
   // Section 6: Matched partner
   parts.push(buildMatchedPartnerSection(matchedPartner));
 
-  // Section 7: Reference catalogs
+  // Section 7: Reference catalogs (events filtered to relevant time window)
+  const now = new Date();
+  const past30 = new Date(now);
+  past30.setDate(past30.getDate() - 30);
+  const future6m = new Date(now);
+  future6m.setMonth(future6m.getMonth() + 6);
+
+  const filteredEvents = catalogs.events.filter(evt => {
+    if (!evt.start_date) return true; // Include events with no date (TBD)
+    const eventDate = new Date(evt.start_date);
+    return eventDate >= past30 && eventDate <= future6m;
+  });
+
   parts.push("## Reference Data\n");
-  parts.push(buildEventsSection(catalogs.events));
+  parts.push(buildEventsSection(filteredEvents));
   parts.push(buildProgramsSection(catalogs.programs));
   parts.push(buildRelationshipsSection(catalogs.relationships));
 
@@ -395,6 +412,52 @@ function buildLinkedMeetings(meetings: Meeting[]): string {
       lines.push(`  Attendees: ${formatted.join(", ")}`);
     }
   }
+  lines.push("");
+  return lines.join("\n");
+}
+
+function buildExistingParticipants(
+  participants: (Participant & { role: string | null })[]
+): string {
+  if (participants.length === 0) return "";
+
+  const lines = ["### Existing Participants (already linked — do NOT re-extract)\n"];
+  for (const p of participants) {
+    const email = p.email ? ` <${p.email}>` : "";
+    const org = p.organization ? ` (${p.organization})` : "";
+    const role = p.role ? ` — ${p.role}` : "";
+    lines.push(`- ${p.name || "Unknown"}${email}${org}${role}`);
+  }
+  lines.push("");
+  return lines.join("\n");
+}
+
+function buildExistingEntityLinks(
+  links?: {
+    entityLinks: { type: string; name: string; relationship: string }[];
+    awsRelationships: { name: string; relationship: string }[];
+  } | null
+): string {
+  if (!links) return "";
+
+  const { entityLinks, awsRelationships } = links;
+  if (entityLinks.length === 0 && awsRelationships.length === 0) return "";
+
+  const lines = ["### Existing Entity Links (already linked — preserve these)\n"];
+
+  const programs = entityLinks.filter(l => l.type === "program");
+  const events = entityLinks.filter(l => l.type === "event");
+
+  if (programs.length > 0) {
+    lines.push(`**Programs:** ${programs.map(p => `${p.name} (${p.relationship})`).join(", ")}`);
+  }
+  if (events.length > 0) {
+    lines.push(`**Events:** ${events.map(e => `${e.name} (${e.relationship})`).join(", ")}`);
+  }
+  if (awsRelationships.length > 0) {
+    lines.push(`**AWS Relationships:** ${awsRelationships.map(r => r.name).join(", ")}`);
+  }
+
   lines.push("");
   return lines.join("\n");
 }

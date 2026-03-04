@@ -251,8 +251,8 @@ describe("PHASE2_SYSTEM_PROMPT", () => {
   });
 
   it("contains temporal awareness instructions", () => {
-    expect(PHASE2_SYSTEM_PROMPT).toContain("Temporal awareness");
-    expect(PHASE2_SYSTEM_PROMPT).toContain("late-arriving forward");
+    expect(PHASE2_SYSTEM_PROMPT).toContain("Temporal Discipline");
+    expect(PHASE2_SYSTEM_PROMPT).toContain("Late-arriving email");
     expect(PHASE2_SYSTEM_PROMPT).toContain("last_activity");
   });
 
@@ -288,12 +288,12 @@ describe("PHASE2_SYSTEM_PROMPT", () => {
   });
 
   it("supports up to 7 sentences for complex engagements", () => {
-    expect(PHASE2_SYSTEM_PROMPT).toContain("3-5 sentences for typical engagements, up to 7 for complex");
+    expect(PHASE2_SYSTEM_PROMPT).toContain("Up to 7 sentences allowed");
   });
 
   it("has fresh briefing instruction for new engagements", () => {
-    expect(PHASE2_SYSTEM_PROMPT).toContain("no history (new engagement)");
-    expect(PHASE2_SYSTEM_PROMPT).toContain("fresh briefing");
+    expect(PHASE2_SYSTEM_PROMPT).toContain("New engagement");
+    expect(PHASE2_SYSTEM_PROMPT).toContain("fresh 3-5 sentence briefing");
   });
 });
 

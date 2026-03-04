@@ -173,6 +173,8 @@ vi.mock("../db", () => ({
   backfillMessageSenderNames: vi.fn().mockResolvedValue(0),
   linkMeetingToEngagement: vi.fn().mockResolvedValue(undefined),
   linkEngagementAwsRelationship: mockLinkEngagementAwsRelationship,
+  getEntityLinksForEntity: vi.fn().mockResolvedValue([]),
+  getAwsRelationshipsByEngagement: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("../user-config", () => ({
