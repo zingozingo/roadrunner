@@ -136,3 +136,93 @@
 **Rationale:** Creating the meeting first is safer — if classification fails, the structured calendar data is preserved. The alternative (hold creation until after classification) risks data loss. The 20-second classification window is invisible in normal usage since users don't watch the UI in real-time during email forwarding.
 
 **Impact:** No code change needed. Documented as intentional design to prevent re-investigation in future sessions.
+
+---
+
+### Decision 99: Complete Meeting Entity Inheritance Through Engagement
+
+**Date:** 2026-03-03
+**Status:** Implemented
+
+**Decision:** Remove `program_id`, `event_id` columns and `meeting_aws_relationships` junction table from meetings. All entity relationships inherit exclusively through the parent engagement.
+
+**Context:** Meetings table carried redundant FK columns for program and event, plus a junction table for AWS relationships. None were ever populated by the automated pipeline (ICS parser, classifier, Phase 2). Airtable already used lookup fields through the Engagement link for all of these.
+
+**Rationale:** Engagement-hub model proved itself with partner inheritance (Decision #96). Extending it to all entities eliminates data inconsistency (meeting pointing to Program X while engagement points to Program Y), simplifies the meeting pipeline (no independent entity resolution), and matches Airtable's existing architecture.
+
+**Impact:** Migration 050 created and applied. 18 files modified. Dead code removed from DB layer (5 functions), API routes, UI pages, types, and tests. 13 tables (down from 14). 427 tests maintained.
+
+---
+
+### Decision 100: Phase 2 Structural Improvements + Phase 1 Tightening
+
+**Date:** 2026-03-03
+**Status:** Implemented
+
+**Decision:** Five interconnected changes to the classification pipeline: (1) Expose existing participants and entity links to Phase 2, (2) Restructure current_state instructions as decision matrix, (3) Implement 3-tier program catalog rendering with event time filtering, (4) Add `_reasoning` self-audit to entity matching, (5) Split Phase 1 Topic/Context evaluation and add negative constraints on new engagement path.
+
+**Context:** Phase 2 was blind to its own structured state (couldn't see existing participants or entity links). current_state instructions were prose rules requiring simultaneous constraint juggling. Full catalog (65 programs, 43 events) sent to every classification. Phase 1 had a "new engagement" escape hatch with no negative constraints.
+
+**Rationale:** Make it structurally harder for the model to be wrong, rather than asking it more persuasively to be right. Phase 2 quality feeds Phase 1 accuracy through the current_state flywheel. Each change reduces a specific failure mode: blind evolution, constraint overload, false match surface, unjustified matches, and escape hatch routing.
+
+**Impact:** 9 files modified across two implementation commands. classifier.ts now fetches and passes existing state. Phase 2 prompt uses decision matrix. prompt-builder.ts renders 3 program tiers (42 competencies + 6 service ready compressed, ~24 detailed). Events filtered to 7-month window. Phase 1 has 7 evaluation criteria (up from 6) and explicit "NOT a new engagement" examples. 427 tests maintained.
+
+---
+
+### Decision 100a: Participants Are Add-Only in Phase 2
+
+**Date:** 2026-03-03
+**Status:** Implemented
+
+**Decision:** Phase 2 can add new participants but never remove existing ones.
+
+**Context:** Needed to decide whether Phase 2 should have full CRUD over participants or just append.
+
+**Rationale:** Once someone is linked, they were linked for a reason. AI removing participants risks pruning legitimate contacts. Manual removal remains available for corrections.
+
+**Impact:** Phase 2 prompt instructs "only extract NEW people not in the existing list."
+
+---
+
+### Decision 100b: Entity Match _reasoning Preserved in JSONB, Not Stripped
+
+**Date:** 2026-03-03
+**Status:** Implemented
+
+**Decision:** The `_reasoning` self-audit field is not stripped from `parsePhase2Response`. It flows through as extra untyped JSON.
+
+**Context:** Needed to decide where to strip the debugging field. Options: strip in parser, strip in persistence, or don't strip.
+
+**Rationale:** TypeScript interfaces act as natural filters — downstream code only accesses typed fields. Keeping `_reasoning` in the JSONB provides free debugging data. No type changes or parser changes needed.
+
+**Impact:** `classification_result` JSONB in `approval_queue` and `messages` contains entity match justifications for debugging.
+
+---
+
+### Decision 100c: Program Catalog Rendered in 3 Tiers
+
+**Date:** 2026-03-03
+**Status:** Implemented
+
+**Decision:** Competencies (42) and Service Ready (6) rendered as compact lists with shared headers. Structurally unique programs (~24) retain full detail.
+
+**Context:** All competencies follow identical lifecycle, MDF, requirements, and renewal patterns. Only the subject domain differs. Sending 42 near-identical entries with full boilerplate created false match noise.
+
+**Rationale:** Reduce false match surface. Model can match any competency by name + ID without wading through 42 copies of identical boilerplate. Token savings are secondary to accuracy improvement.
+
+**Impact:** `buildProgramsSection` in `prompt-builder.ts` now filters by program type and renders accordingly.
+
+---
+
+### Decision 100d: Events Filtered to 7-Month Window
+
+**Date:** 2026-03-03
+**Status:** Implemented
+
+**Decision:** Phase 2 only receives events within past 30 days through future 6 months (plus events with no date set).
+
+**Context:** 43 events in catalog, most are international AWS Summits unlikely to appear in partner emails. Stale events are noise.
+
+**Rationale:** Every irrelevant event is a potential false match. Time filtering removes the vast majority of noise while preserving any event that could plausibly be referenced.
+
+**Impact:** Event filtering applied in `buildPhase2Context` before calling `buildEventsSection`.
