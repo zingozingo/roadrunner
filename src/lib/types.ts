@@ -534,3 +534,21 @@ export interface DisplayContext {
   hasSeedNote: boolean;
 }
 
+// ============================================================
+// Notes AI summarization types
+// ============================================================
+
+export interface NoteSummaryResult {
+  summary: string;
+  tasks: Array<{
+    description: string;
+    owner: "me" | "partner" | "aws_internal";
+    owner_name: string | null;
+    due_date: string | null;
+  }>;
+  flags: Array<{
+    type: "gap" | "intel" | "question" | "followup";
+    description: string;
+  }>;
+}
+
