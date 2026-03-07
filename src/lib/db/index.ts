@@ -91,3 +91,19 @@ export {
   getUnresolvedApprovalCount,
   resolveApproval,
 } from "./inbox";
+
+// Meeting Notes
+export {
+  createMeetingNote,
+  getMeetingNote,
+  getMeetingNotesByPartner,
+  updateMeetingNote,
+  deleteMeetingNote,
+  listMeetingNotes,
+  createNoteTask,
+  updateNoteTask,
+  deleteNoteTask,
+  getTasksByPartner,
+  getOpenTasks,
+  getRecentNoteSummaries,
+} from "./meeting-notes";

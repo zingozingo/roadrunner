@@ -349,6 +349,94 @@ export interface ParsedMessage {
   cc_header?: string | null;
 }
 
+// ============================================================
+// Meeting Notes types
+// ============================================================
+
+export interface MeetingNote {
+  id: string;
+  partner_id: string;
+  meeting_id: string | null;
+  engagement_id: string | null;
+  note_type: "meeting" | "seed";
+  title: string | null;
+  meeting_date: string | null;
+  date_range_start: string | null;
+  date_range_end: string | null;
+  raw_notes: string;
+  ai_summary: string | null;
+  ai_tasks: unknown | null;
+  ai_flags: unknown | null;
+  context_snapshot: unknown | null;
+  status: "draft" | "summarized" | "finalized";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NoteTask {
+  id: string;
+  meeting_note_id: string;
+  partner_id: string;
+  description: string;
+  owner: "me" | "partner" | "aws_internal";
+  owner_name: string | null;
+  status: "open" | "done" | "cancelled";
+  due_date: string | null;
+  source: "meeting" | "seed";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MeetingNoteWithTasks extends MeetingNote {
+  tasks: NoteTask[];
+  partner_name?: string;
+}
+
+export interface CreateMeetingNoteInput {
+  partner_id: string;
+  meeting_id?: string | null;
+  engagement_id?: string | null;
+  note_type?: "meeting" | "seed";
+  title?: string | null;
+  meeting_date?: string | null;
+  date_range_start?: string | null;
+  date_range_end?: string | null;
+  raw_notes: string;
+}
+
+export interface UpdateMeetingNoteInput {
+  title?: string | null;
+  raw_notes?: string;
+  ai_summary?: string | null;
+  ai_tasks?: unknown | null;
+  ai_flags?: unknown | null;
+  context_snapshot?: unknown | null;
+  status?: "draft" | "summarized" | "finalized";
+  engagement_id?: string | null;
+}
+
+export interface CreateNoteTaskInput {
+  meeting_note_id: string;
+  partner_id: string;
+  description: string;
+  owner: "me" | "partner" | "aws_internal";
+  owner_name?: string | null;
+  due_date?: string | null;
+  source?: "meeting" | "seed";
+}
+
+export interface UpdateNoteTaskInput {
+  description?: string;
+  owner?: "me" | "partner" | "aws_internal";
+  owner_name?: string | null;
+  status?: "open" | "done" | "cancelled";
+  due_date?: string | null;
+}
+
+// ============================================================
+// Approval Queue types
+// ============================================================
+
 export interface ApprovalQueueItem {
   id: string;
   type: "engagement_assignment";
