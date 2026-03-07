@@ -449,5 +449,88 @@ export interface ApprovalQueueItem {
   created_at: string;
 }
 
+// ============================================================
+// Partner Context types (for meeting notes)
+// ============================================================
 
+export interface PartnerContext {
+  partner: {
+    name: string;
+    segment: string | null;
+    focus_area: string[];
+    what_they_do: string | null;
+    aws_stickiness: string | null;
+    key_aws_services: string[];
+  };
+  contacts: {
+    alliance_lead: string | null;
+    account_manager: string | null;
+    psa: string | null;
+    other_contacts: string[];
+  };
+  engagements: Array<{
+    id: string;
+    name: string;
+    pillar: Pillar | null;
+    status: string;
+    topic: string | null;
+    program_name: string | null;
+    event_name: string | null;
+  }>;
+  recentMeetings: Array<{
+    id: string;
+    title: string;
+    meeting_date: string | null;
+    status: string;
+  }>;
+  previousNotes: Array<{
+    title: string | null;
+    meeting_date: string | null;
+    ai_summary: string;
+    note_type: string;
+  }>;
+  openTasks: Array<{
+    description: string;
+    owner: string;
+    owner_name: string | null;
+    status: string;
+    due_date: string | null;
+  }>;
+}
+
+export interface DisplayContext {
+  profile: {
+    name: string;
+    segment: string | null;
+    focus_areas: string[];
+    what_they_do: string | null;
+    aws_stickiness: string | null;
+    key_aws_services: string[];
+  };
+  contacts: {
+    alliance_lead: string | null;
+    account_manager: string | null;
+    psa: string | null;
+    others: string[];
+  };
+  activeEngagements: Array<{
+    id: string;
+    name: string;
+    pillar: Pillar | null;
+    status: string;
+  }>;
+  recentMeetings: Array<{
+    id: string;
+    title: string;
+    date: string | null;
+    status: string;
+  }>;
+  openTaskCount: number;
+  openTasks: Array<{
+    description: string;
+    owner: string;
+    owner_name: string | null;
+  }>;
+  hasSeedNote: boolean;
+}
 
