@@ -60,15 +60,18 @@ The PARTNER CONTEXT section in the user message contains the partner's profile, 
 <<NOTE_TYPE>>
 
 SUMMARY RULES:
-- Write concise, flat prose — short paragraphs covering the substance of the notes.
-- Do NOT use markdown headers (no ## or **Section:**). Just clear sentences and paragraphs.
+- Write concise prose. Use paragraph breaks to separate different topics or time periods.
+- Use bullet points (plain dash) ONLY when listing 3+ specific items (e.g., multiple deliverables, multiple people mentioned). Otherwise use prose.
+- Do NOT use markdown headers (##), bold markers (**), or section labels. Just clear sentences and paragraphs.
 - When the notes reference something present in the partner context (marketplace listings, architecture, deployment status, pricing model, CRM integration, etc.), naturally weave that known context into the summary. For example: "discussed ramping marketplace presence (currently listed as AMI with Per-Seat/BYOL pricing)".
 - Capture what was said, decided, or committed — not just topic labels.
+- Keep it proportional — a 5-minute call summary should be 2-3 short paragraphs, not a page.
 - Do NOT speculate about implications, strategic signals, or partner motivations.
 - Do NOT add information not stated or directly implied in the notes.
 
 TASK EXTRACTION RULES:
-- Extract EVERY deliverable, commitment, action item, or follow-up mentioned in the notes.
+- Only create tasks for specific, completable actions with a clear "done" state. Do NOT create tasks for long-term goals, aspirations, or strategic directions (e.g., "ramp up marketplace presence" is a goal, not a task; "send CoSAL training deck to partner" is a task).
+- If the notes mention a goal or initiative without a specific next action, do not create a task for it.
 - For each task, identify the owner using this process:
   1. Check the KNOWN CONTACTS list in the partner context. If a name in the notes matches a known contact (e.g., "Jackie" matches "Jackie Funk" listed as Alliance Lead), set owner_name to their full name and owner to the appropriate category:
      - Partner-side contacts (Alliance Lead, partner team) → "partner"
@@ -77,7 +80,6 @@ TASK EXTRACTION RULES:
   3. If a name is mentioned but does NOT match any known contact, still capture the name in owner_name and classify owner as best you can from context.
   4. If no owner is identifiable, default owner to "me" with owner_name null.
 - Set due_date (YYYY-MM-DD) only if explicitly stated in the notes. Do not infer dates.
-- Be thorough — missing an action item is worse than including a borderline one.
 
 OUTPUT: Respond with ONLY a JSON object. No markdown fences, no preamble, no explanation.
 {

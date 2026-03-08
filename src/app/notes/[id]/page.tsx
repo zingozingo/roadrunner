@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import type { MeetingNoteWithTasks, NoteTask, NoteSummaryResult } from "@/lib/types";
+import type { MeetingNoteWithTasks, NoteTask } from "@/lib/types";
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-zinc-500/20 text-zinc-400",
@@ -57,7 +57,6 @@ export default function NoteDetailPage() {
   if (loading) return <div className="p-6 lg:p-8 text-sm text-muted">Loading...</div>;
   if (error || !note) return <div className="p-6 lg:p-8 text-sm text-red-400">{error ?? "Note not found"}</div>;
 
-  const flags = (note.ai_flags ?? []) as { type: string; description: string }[];
   const openTasks = note.tasks.filter((t) => t.status === "open");
 
   // Group tasks by owner
@@ -66,14 +65,6 @@ export default function NoteDetailPage() {
     const group = taskGroups.get(t.owner) ?? [];
     group.push(t);
     taskGroups.set(t.owner, group);
-  }
-
-  // Group flags by type
-  const flagGroups = new Map<string, { type: string; description: string }[]>();
-  for (const f of flags) {
-    const group = flagGroups.get(f.type) ?? [];
-    group.push(f);
-    flagGroups.set(f.type, group);
   }
 
   const dateDisplay = note.meeting_date
@@ -347,7 +338,7 @@ export default function NoteDetailPage() {
           </div>
         </div>
 
-        {/* Right column — tasks + flags */}
+        {/* Right column — tasks */}
         <div className="space-y-6">
           {/* Action Items */}
           <div className="rounded-xl border border-border bg-surface p-4">
@@ -459,49 +450,6 @@ export default function NoteDetailPage() {
             )}
           </div>
 
-          {/* Flags */}
-          {flags.length > 0 && (
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-                AI Flags ({flags.length})
-              </h2>
-              <div className="space-y-4">
-                {(["gap", "intel", "question", "followup"] as const).map((flagType) => {
-                  const group = flagGroups.get(flagType);
-                  if (!group || group.length === 0) return null;
-                  const colors: Record<string, string> = {
-                    gap: "border-l-red-500/50",
-                    intel: "border-l-blue-500/50",
-                    question: "border-l-amber-500/50",
-                    followup: "border-l-emerald-500/50",
-                  };
-                  const labels: Record<string, string> = {
-                    gap: "Gaps",
-                    intel: "Intel",
-                    question: "Questions",
-                    followup: "Follow-ups",
-                  };
-                  return (
-                    <div key={flagType}>
-                      <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted">
-                        {labels[flagType]} ({group.length})
-                      </h3>
-                      <div className="space-y-1.5">
-                        {group.map((f, i) => (
-                          <div
-                            key={i}
-                            className={`border-l-2 ${colors[flagType]} rounded-r-lg bg-background px-3 py-2 text-sm text-foreground/90`}
-                          >
-                            {f.description}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
