@@ -531,6 +531,12 @@ export interface DisplayContext {
     owner: string;
     owner_name: string | null;
   }>;
+  previousNotes: Array<{
+    title: string | null;
+    meeting_date: string | null;
+    ai_summary: string;
+    note_type: string;
+  }>;
   hasSeedNote: boolean;
 }
 

@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { partner_id, raw_notes } = body;
+    const { partner_id } = body;
 
     if (!partner_id || typeof partner_id !== "string") {
       return NextResponse.json(
@@ -32,13 +32,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    if (!raw_notes || typeof raw_notes !== "string" || !raw_notes.trim()) {
-      return NextResponse.json(
-        { error: "raw_notes is required" },
-        { status: 400 }
-      );
-    }
-
     const note = await createMeetingNote({
       partner_id: body.partner_id,
       meeting_id: body.meeting_id ?? null,
@@ -48,7 +41,7 @@ export async function POST(request: NextRequest) {
       meeting_date: body.meeting_date ?? null,
       date_range_start: body.date_range_start ?? null,
       date_range_end: body.date_range_end ?? null,
-      raw_notes: raw_notes.trim(),
+      raw_notes: (body.raw_notes ?? "").trim(),
     });
 
     return NextResponse.json({ note }, { status: 201 });

@@ -224,6 +224,12 @@ export function formatContextForDisplay(context: PartnerContext): DisplayContext
       owner: t.owner,
       owner_name: t.owner_name,
     })),
+    previousNotes: context.previousNotes.map((n) => ({
+      title: n.title,
+      meeting_date: n.meeting_date,
+      ai_summary: n.ai_summary,
+      note_type: n.note_type,
+    })),
     hasSeedNote: context.previousNotes.some((n) => n.note_type === "seed"),
   };
 }
