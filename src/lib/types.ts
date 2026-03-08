@@ -390,6 +390,7 @@ export interface NoteTask {
   status: "open" | "done" | "cancelled";
   due_date: string | null;
   source: "meeting" | "seed";
+  origin: "ai" | "manual";
   created_at: string;
   updated_at: string;
 }
@@ -430,6 +431,7 @@ export interface CreateNoteTaskInput {
   owner_name?: string | null;
   due_date?: string | null;
   source?: "meeting" | "seed";
+  origin?: "ai" | "manual";
 }
 
 export interface UpdateNoteTaskInput {

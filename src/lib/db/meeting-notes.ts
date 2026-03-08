@@ -278,6 +278,7 @@ export async function createNoteTask(
       owner_name: input.owner_name ?? null,
       due_date: input.due_date ?? null,
       source: input.source ?? "meeting",
+      origin: input.origin ?? "manual",
     })
     .select()
     .single();
@@ -299,6 +300,16 @@ export async function updateNoteTask(
 
   if (error) throw new Error(`Failed to update note task: ${error.message}`);
   return data as NoteTask;
+}
+
+export async function deleteAiTasksForNote(meetingNoteId: string): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .from("note_tasks")
+    .delete()
+    .eq("meeting_note_id", meetingNoteId)
+    .eq("origin", "ai");
+
+  if (error) throw new Error(`Failed to delete AI tasks: ${error.message}`);
 }
 
 export async function deleteNoteTask(id: string): Promise<void> {

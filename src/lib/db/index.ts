@@ -103,6 +103,7 @@ export {
   createNoteTask,
   updateNoteTask,
   deleteNoteTask,
+  deleteAiTasksForNote,
   getTasksByPartner,
   getOpenTasks,
   getRecentNoteSummaries,
