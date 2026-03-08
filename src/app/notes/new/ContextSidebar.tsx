@@ -27,6 +27,15 @@ export default function ContextSidebar({ context }: { context: DisplayContext })
         {profile.key_aws_services.length > 0 && (
           <p className="mt-1 text-xs text-muted">AWS: {profile.key_aws_services.join(", ")}</p>
         )}
+        {profile.architecture && (
+          <p className="mt-1 text-xs text-muted">Architecture: <span className="text-foreground/80">{profile.architecture}</span></p>
+        )}
+        {profile.listing_types.length > 0 && (
+          <p className="mt-1 text-xs text-muted">Listings: <span className="text-foreground/80">{profile.listing_types.join(", ")}</span></p>
+        )}
+        {profile.pricing_model.length > 0 && (
+          <p className="mt-1 text-xs text-muted">Pricing: <span className="text-foreground/80">{profile.pricing_model.join(", ")}</span></p>
+        )}
         {hasSeedNote && (
           <span className="mt-2 inline-block rounded-full bg-purple-500/15 px-2 py-0.5 text-xs font-medium text-purple-400">
             Has Seed Note

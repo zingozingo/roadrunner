@@ -468,6 +468,13 @@ export interface PartnerContext {
     what_they_do: string | null;
     aws_stickiness: string | null;
     key_aws_services: string[];
+    architecture: string | null;
+    listing_types: string[];
+    pricing_model: string[];
+    isva_status: string | null;
+    deployed_on_aws: string | null;
+    prm_status: string | null;
+    crm_status: string | null;
   };
   contacts: {
     alliance_lead: string | null;
@@ -513,6 +520,13 @@ export interface DisplayContext {
     what_they_do: string | null;
     aws_stickiness: string | null;
     key_aws_services: string[];
+    architecture: string | null;
+    listing_types: string[];
+    pricing_model: string[];
+    isva_status: string | null;
+    deployed_on_aws: string | null;
+    prm_status: string | null;
+    crm_status: string | null;
   };
   contacts: {
     alliance_lead: string | null;

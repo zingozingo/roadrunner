@@ -80,6 +80,13 @@ export async function buildPartnerContext(
       what_they_do: partner.what_they_do ?? null,
       aws_stickiness: partner.aws_stickiness ?? null,
       key_aws_services: partner.key_aws_services ?? [],
+      architecture: partner.architecture ?? null,
+      listing_types: partner.listing_types ?? [],
+      pricing_model: partner.pricing_model ?? [],
+      isva_status: partner.isva_status ?? null,
+      deployed_on_aws: partner.deployed_on_aws ?? null,
+      prm_status: partner.prm_status ?? null,
+      crm_status: partner.crm_status ?? null,
     },
     contacts,
     engagements: engagements.map((e) => ({
@@ -130,6 +137,13 @@ export function formatContextForPrompt(context: PartnerContext): string {
   if (p.what_they_do) profileLines.push(`What They Do: ${p.what_they_do}`);
   if (p.aws_stickiness) profileLines.push(`AWS Stickiness: ${p.aws_stickiness}`);
   if (p.key_aws_services.length > 0) profileLines.push(`Key AWS Services: ${p.key_aws_services.join(", ")}`);
+  if (p.architecture) profileLines.push(`Architecture: ${p.architecture}`);
+  if (p.listing_types.length > 0) profileLines.push(`Listing Types: ${p.listing_types.join(", ")}`);
+  if (p.pricing_model.length > 0) profileLines.push(`Pricing Model: ${p.pricing_model.join(", ")}`);
+  if (p.isva_status) profileLines.push(`ISVa Status: ${p.isva_status}`);
+  if (p.deployed_on_aws) profileLines.push(`Deployed on AWS: ${p.deployed_on_aws}`);
+  if (p.prm_status) profileLines.push(`PRM Status: ${p.prm_status}`);
+  if (p.crm_status) profileLines.push(`CRM Status: ${p.crm_status}`);
   sections.push(profileLines.join("\n"));
 
   // Contacts
@@ -199,6 +213,13 @@ export function formatContextForDisplay(context: PartnerContext): DisplayContext
       what_they_do: context.partner.what_they_do,
       aws_stickiness: context.partner.aws_stickiness,
       key_aws_services: context.partner.key_aws_services,
+      architecture: context.partner.architecture,
+      listing_types: context.partner.listing_types,
+      pricing_model: context.partner.pricing_model,
+      isva_status: context.partner.isva_status,
+      deployed_on_aws: context.partner.deployed_on_aws,
+      prm_status: context.partner.prm_status,
+      crm_status: context.partner.crm_status,
     },
     contacts: {
       alliance_lead: context.contacts.alliance_lead,

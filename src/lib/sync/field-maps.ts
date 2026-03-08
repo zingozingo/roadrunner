@@ -55,6 +55,13 @@ export const PTRF = {
   awsStickiness: "fldlCzNjHA3Ziuqtv",
   keyAwsServices: "fldQwm8UtaNxAa9dI",
   whatTheyDo: "fldnoDB2la8oLgrqR",
+  architecture: "fldjzkMqOVIaProi2",
+  listingTypes: "fldV5OAuGxca1hDW8",
+  pricingModel: "fldkStAdCBT16HJPS",
+  isvaStatus: "fldHYucRg9ZIJ6PWI",
+  deployedOnAws: "fldNtBO1Wlh9mOL0c",
+  prmStatus: "fldDV1UhZjAuR1Xxl",
+  crmStatus: "fldPdisuSJruZqLbo",
 } as const;
 
 export const ENF = {

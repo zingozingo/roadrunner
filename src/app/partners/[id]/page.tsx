@@ -196,6 +196,85 @@ export default async function PartnerDetailPage({
           </div>
         )}
 
+        {/* Partner Profile — architecture, listings, pricing, status */}
+        {(partner.architecture || partner.listing_types?.length || partner.pricing_model?.length || partner.isva_status || partner.deployed_on_aws || partner.prm_status || partner.crm_status) && (
+          <div className="rounded-xl border border-border bg-surface p-5">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted mb-3">
+              Partner Profile
+            </h3>
+            <div className="flex flex-wrap gap-x-8 gap-y-4">
+              {partner.architecture && (
+                <div>
+                  <span className="block text-xs text-muted mb-1">Architecture</span>
+                  <span className="rounded-full bg-blue-500/15 px-2.5 py-0.5 text-xs font-medium text-blue-400 whitespace-nowrap">
+                    {partner.architecture}
+                  </span>
+                </div>
+              )}
+              {partner.listing_types && partner.listing_types.length > 0 && (
+                <div>
+                  <span className="block text-xs text-muted mb-1">Listing Types</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {partner.listing_types.map((t) => (
+                      <span key={t} className="rounded-full bg-purple-500/15 px-2.5 py-0.5 text-xs font-medium text-purple-400 whitespace-nowrap">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {partner.pricing_model && partner.pricing_model.length > 0 && (
+                <div>
+                  <span className="block text-xs text-muted mb-1">Pricing Model</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {partner.pricing_model.map((m) => (
+                      <span key={m} className="rounded-full bg-indigo-500/15 px-2.5 py-0.5 text-xs font-medium text-indigo-400 whitespace-nowrap">
+                        {m}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {partner.isva_status && (
+                <div>
+                  <span className="block text-xs text-muted mb-1">ISVa Status</span>
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap ${
+                    partner.isva_status === "Approved"
+                      ? "bg-emerald-500/15 text-emerald-400"
+                      : "bg-amber-500/15 text-amber-400"
+                  }`}>
+                    {partner.isva_status}
+                  </span>
+                </div>
+              )}
+              {partner.deployed_on_aws && (
+                <div>
+                  <span className="block text-xs text-muted mb-1">Deployed on AWS</span>
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap ${
+                    partner.deployed_on_aws === "Approved"
+                      ? "bg-emerald-500/15 text-emerald-400"
+                      : "bg-gray-500/15 text-gray-400"
+                  }`}>
+                    {partner.deployed_on_aws}
+                  </span>
+                </div>
+              )}
+              {partner.prm_status && (
+                <div>
+                  <span className="block text-xs text-muted mb-1">PRM Status</span>
+                  <span className="text-sm text-foreground">{partner.prm_status}</span>
+                </div>
+              )}
+              {partner.crm_status && (
+                <div>
+                  <span className="block text-xs text-muted mb-1">CRM Status</span>
+                  <span className="text-sm text-foreground">{partner.crm_status}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Partner Contacts — show non-Alliance-Lead contacts */}
         {otherPartnerContacts.length > 0 && (
           <div className="rounded-xl border border-border bg-surface p-4">

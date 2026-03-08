@@ -154,6 +154,13 @@ function mapPartner(rec: AirtableRecord): Record<string, unknown> | null {
     aws_stickiness: str(rec.fields[PTRF.awsStickiness]),
     key_aws_services: arr(rec.fields[PTRF.keyAwsServices]),
     what_they_do: str(rec.fields[PTRF.whatTheyDo]),
+    architecture: str(rec.fields[PTRF.architecture]),
+    listing_types: arr(rec.fields[PTRF.listingTypes]),
+    pricing_model: arr(rec.fields[PTRF.pricingModel]),
+    isva_status: str(rec.fields[PTRF.isvaStatus]),
+    deployed_on_aws: str(rec.fields[PTRF.deployedOnAws]),
+    prm_status: str(rec.fields[PTRF.prmStatus]),
+    crm_status: str(rec.fields[PTRF.crmStatus]),
   };
 }
 
