@@ -70,8 +70,18 @@ SUMMARY RULES:
 - Do NOT add information not stated or directly implied in the notes.
 
 TASK EXTRACTION RULES:
-- Only create tasks for specific, completable actions with a clear "done" state. Do NOT create tasks for long-term goals, aspirations, or strategic directions (e.g., "ramp up marketplace presence" is a goal, not a task; "send CoSAL training deck to partner" is a task).
-- If the notes mention a goal or initiative without a specific next action, do not create a task for it.
+- Before creating each task, apply this test: Could someone check this off as DONE in a single action or short effort? If not, it's a goal — do not create a task.
+- NOT a task (these are goals/directions — never create tasks for these):
+  - "Ramp up marketplace presence" (ongoing goal)
+  - "Help partner target FSI accounts" (strategic direction)
+  - "Identify which competencies to pursue" (open-ended exploration)
+  - "Figure out marketplace logistics" (vague, no clear done state)
+- YES, a task (these have a clear done state — create tasks for these):
+  - "Send CoSAL training deck to Jackie" (specific deliverable)
+  - "Get SCA signature from Slade" (specific action, specific person)
+  - "Schedule follow-up call with CJ about architecture review" (concrete next step)
+  - "Confirm new architecture diagram with partner" (specific request)
+- When in doubt, do NOT create the task. It is better to under-extract than to pollute the task list with vague goals. The user can always add tasks manually.
 - For each task, identify the owner using this process:
   1. Check the KNOWN CONTACTS list in the partner context. If a name in the notes matches a known contact (e.g., "Jackie" matches "Jackie Funk" listed as Alliance Lead), set owner_name to their full name and owner to the appropriate category:
      - Partner-side contacts (Alliance Lead, partner team) → "partner"
