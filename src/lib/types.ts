@@ -97,6 +97,13 @@ export interface Partner {
   partner_contacts: RoleContact[];
   aws_stickiness: string | null;
   key_aws_services: string[];
+  architecture?: string | null;
+  listing_types?: string[] | null;
+  pricing_model?: string[] | null;
+  isva_status?: string | null;
+  deployed_on_aws?: string | null;
+  prm_status?: string | null;
+  crm_status?: string | null;
   airtable_record_id: string | null;
   created_at: string;
   updated_at: string;
