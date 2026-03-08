@@ -226,3 +226,125 @@
 **Rationale:** Every irrelevant event is a potential false match. Time filtering removes the vast majority of noise while preserving any event that could plausibly be referenced.
 
 **Impact:** Event filtering applied in `buildPhase2Context` before calling `buildEventsSection`.
+
+---
+
+## 2026-03-07 — Meeting Notes Feature
+
+### Decision 101: Meeting Notes Module Lives Inside Roadrunner
+
+**Date:** 2026-03-07
+**Status:** Implemented
+
+**Decision:** Notes feature built as new tables/routes/pages within the existing Roadrunner codebase, not a separate application.
+
+**Context:** Steven needed meeting note-taking ASAP and considered a separate lightweight app. Evaluated shared infrastructure needs (Supabase, Airtable sync, Claude API, UI shell, partner catalog).
+
+**Rationale:** Both systems need the same data (partners, engagements, contacts), same infra (Supabase, Vercel, Claude API), and same UI patterns. Separate app = re-wire all plumbing for zero benefit. "Slightly decoupled" means new tables + routes, not new deployment.
+
+**Impact:** New tables (meeting_notes, note_tasks), 7 new API route files, 8 new page/component files — all within existing project structure.
+
+---
+
+### Decision 102: Partner Context Sourced from Local Supabase, Not Airtable MCP
+
+**Date:** 2026-03-07
+**Status:** Implemented
+
+**Decision:** `buildPartnerContext()` reads exclusively from local Supabase tables. Airtable MCP is never called during note-taking or summarization.
+
+**Context:** Steven raised concern about MCP reliability. Evaluated whether context should pull fresh from Airtable vs use synced local data.
+
+**Rationale:** Roadrunner already syncs Airtable catalog data into Supabase (partners, programs, events, relationships). Local queries are ~50ms, always available, no MCP dependency. Catalog freshness depends on periodic sync, which is acceptable.
+
+**Impact:** Note-taking is fast and reliable. Trade-off: context is only as fresh as last catalog sync. Running `POST /api/sync` before a notes session ensures currency.
+
+---
+
+### Decision 103: Two Note Types — Meeting and Seed
+
+**Date:** 2026-03-07
+**Status:** Implemented
+
+**Decision:** `meeting_notes` table supports `note_type` 'meeting' (regular) and 'seed' (historical context dump). Same table, same AI pipeline, different prompt strategies.
+
+**Context:** Steven has 12+ months of OneNote notes per partner that need to be ingested before taking new notes. Needed a way to bootstrap partner context.
+
+**Rationale:** A seed is structurally identical to a meeting note — it has raw_notes, gets AI-summarized, produces tasks and flags. Only the prompt changes (chronological narrative vs single meeting summary). Separate tables would duplicate everything for no benefit.
+
+**Impact:** Seed notes become foundational context. `getRecentNoteSummaries()` returns seeds first, then meeting notes by date — so Claude always has the historical base when summarizing new meetings.
+
+---
+
+### Decision 104: Three-Phase Note Workflow
+
+**Date:** 2026-03-07
+**Status:** Implemented
+
+**Decision:** `/notes/new` is a single-page state machine with three phases: Setup (partner selection + context load), Note-taking (textarea + auto-save + context sidebar), Review (AI summary edit + task management + flags).
+
+**Context:** Needed a flow that works during live calls — fast to start, unobtrusive during note-taking, structured review after.
+
+**Rationale:** No page reloads between phases keeps the experience fluid. Draft is created at Phase 1→2 transition so auto-save has an ID immediately. Phase 3 is optional — user can save as draft and summarize later.
+
+**Impact:** 4 sub-components (NoteWorkspace, ContextSidebar, PreviousNotes, TaskEditor) manage the phases. Auto-save interval set up in Phase 2, cleaned up on unmount.
+
+---
+
+### Decision 105: Context Snapshot at Summarization Time
+
+**Date:** 2026-03-07
+**Status:** Implemented
+
+**Decision:** `context_snapshot` JSONB field stores the full PartnerContext object that was fed to Claude when summarization ran.
+
+**Context:** Partner data changes over time. Need to know what Claude knew when it produced a specific summary.
+
+**Rationale:** Without snapshots, you can't audit AI decisions retroactively. With snapshots, you can always compare "what did Claude see?" vs "what's true now?" — critical for the eventual slot registry feature.
+
+**Impact:** Adds ~2-5KB per note. Stored as untyped JSONB (same pattern as `classification_result` on messages).
+
+---
+
+### Decision 106: Tasks as First-Class Entities with Owner Classification
+
+**Date:** 2026-03-07
+**Status:** Implemented
+
+**Decision:** `note_tasks` table with owner enum ('me', 'partner', 'aws_internal'), separate from `meeting_notes`. CASCADE delete on parent note.
+
+**Context:** Steven needs to track what he owes vs what partners owe vs what AWS internal teams owe. Currently tracks this mentally or in scattered OneNote lists.
+
+**Rationale:** Separate table enables cross-partner task queries (`getOpenTasks`, `getTasksByPartner`) without parsing JSONB. Owner classification enables the "what do I owe?" and "what am I waiting on?" views. `source` field distinguishes fresh tasks from seed-extracted historical ones.
+
+**Impact:** `/api/notes/tasks` endpoint provides cross-cutting task view. Foundation for future task dashboard and Airtable push.
+
+---
+
+### Decision 107: AI Gap Detection via Typed Flags
+
+**Date:** 2026-03-07
+**Status:** Implemented
+
+**Decision:** `ai_flags` JSONB with typed flags: 'gap' (missing/contradictory data), 'intel' (partner intelligence), 'question' (ambiguous items), 'followup' (next meeting items).
+
+**Context:** Steven described wanting the AI to notice when notes mention something that's missing from Airtable (e.g., "they use Tackle" but CRM Status field is empty).
+
+**Rationale:** Structured flag types enable future automation — gaps can trigger Airtable update prompts, intel can auto-populate partner fields, followups can seed next meeting agendas. For MVP, flags are displayed as colored cards in the review phase.
+
+**Impact:** Foundation for the "slot registry" vision. AI compares notes against partner context and surfaces discrepancies proactively.
+
+---
+
+### Decision 108: Auto-Save with 30-Second Interval
+
+**Date:** 2026-03-07
+**Status:** Implemented
+
+**Decision:** Draft created on "Start Taking Notes" click. Raw notes auto-saved via PUT every 30 seconds and on browser tab switch (`visibilitychange` event). Subtle save indicator.
+
+**Context:** Notes are taken during live calls. Browser crash or accidental tab close would lose everything without auto-save.
+
+**Rationale:** 30 seconds balances data safety vs API load. Saving on visibility change catches the "laptop lid close" and "switch to screen share" scenarios. Creating the draft first (POST) gives us an ID for all subsequent PUTs.
+
+**Impact:** Notes are never more than 30 seconds stale. No explicit "save" action needed during note-taking.

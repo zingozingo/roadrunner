@@ -6,7 +6,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 50 migrations, 13 DB tables, 22 API routes, 15 UI pages, 427 tests across 14 suites
+- 51 migrations, 15 DB tables, 29 API routes, 17 UI pages, 427 tests across 14 suites
 - Two-phase classification pipeline: curated-input Phase 1 (enriched engagement index with participants, pillar, topic, goal, current_state, entity links) + deep-analysis Phase 2 (full thread history, entity matching, state evolution)
 - Phase 1 decision framework: 6-step content-evaluation-required (no single-engagement shortcuts)
 - Meeting pipeline: ICS parse → create record → classify → link to engagement (unconditional) → inherit partner → Airtable push
@@ -15,6 +15,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 - Contact architecture: universal JSONB format `{name, email, title, role}`, single parser (`contact-parser.ts`)
 - Push reliability: all Airtable push/delete calls awaited (no fire-and-forget)
 - 5 active engagements processing real email data (Nozomi Networks, Spacelift x3, Qualys)
+- Meeting notes MVP: 3-phase note-taking workspace, AI summarization with partner context, task extraction with owner classification, gap/intel/question/followup flags
 
 ## MVP Target
 
@@ -30,7 +31,8 @@ A system where a PDM forwards an email and Roadrunner:
 - Clean up 2 orphaned meetings (1 has message_id but pre-dates fix, 1 has no message_id)
 - Phase 2 prompt review through same curated-input lens
 - Inbox UX redesign (sender names, assign buttons, simpler with engagement-hub model)
-- Meeting notes feature (replace OneNote)
+- ~~Meeting notes feature (replace OneNote)~~ — **Implemented** (decisions 101-108)
+- Meeting notes follow-ups: apply migration 051 to production, seed historical OneNote data, task dashboard view
 - UI consistency pass across all entity pages
 
 ## Architecture Principles
