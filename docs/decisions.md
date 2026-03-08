@@ -348,3 +348,20 @@
 **Rationale:** 30 seconds balances data safety vs API load. Saving on visibility change catches the "laptop lid close" and "switch to screen share" scenarios. Creating the draft first (POST) gives us an ID for all subsequent PUTs.
 
 **Impact:** Notes are never more than 30 seconds stale. No explicit "save" action needed during note-taking.
+
+---
+
+## 2026-03-07 — Partner Profile Enrichment
+
+### Decision 109: Partner Profile Enrichment for AI Context
+
+**Date:** 2026-03-07
+**Status:** Implemented
+
+**Decision:** Added 7 fields to Supabase partners table (architecture, listing_types, pricing_model, isva_status, deployed_on_aws, prm_status, crm_status) synced from Airtable, exposed in AI meeting notes prompts, context sidebar, and partner detail page UI.
+
+**Context:** The AI summarizer had a significant context gap — it knew partner name/segment/what they do, but not deployment model, listing types, pricing, or program statuses. These fields are critical for intelligent gap detection (e.g., "notes mention a new SaaS listing but current Listing Types only shows AMI").
+
+**Rationale:** All 7 fields already existed in Airtable with rich data for all 21 partners. Adding them to the sync layer (field-maps.ts + pull.ts), context builder (notes-context.ts), and partner detail page was a focused additive change. No new tables, no new routes — just enriching existing data flow. Multi-select fields (listing_types, pricing_model) use TEXT[] arrays matching the existing focus_area pattern.
+
+**Impact:** Migration 052, sync field-maps updated (7 new Airtable field ID mappings), context builder enriched (formatContextForPrompt includes architecture/listings/pricing/statuses), partner detail page enhanced (new "Partner Profile" card with colored badges), notes context sidebar updated. Every AI summarization call now sees the full partner operating model.
