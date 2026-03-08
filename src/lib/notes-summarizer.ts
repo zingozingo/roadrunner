@@ -48,67 +48,46 @@ export async function summarizeNotes(input: {
 // Prompt construction
 // ============================================================
 
-const MEETING_SYSTEM_PROMPT = `You are a meeting note analyst for an AWS Partner Development Manager (PDM). Your job is to transform raw meeting notes into structured, actionable output.
+const NOTE_TYPE_MODIFIER = {
+  meeting: "These are notes from a single meeting session. Summarize what was discussed in this meeting.",
+  seed: "These notes span a longer period of historical context — possibly months or years of interactions. Summarize the key events and relationship arc chronologically. For tasks, only extract items that appear to still be open or unresolved; omit anything clearly completed in later notes.",
+} as const;
 
-INSTRUCTIONS:
+const SYSTEM_PROMPT = `You are a note analyst for an AWS Partner Development Manager (PDM) named Steven. Your job is to produce a concise summary and extract every action item from raw notes.
 
-1. SUMMARY: Produce a clean, structured summary of the meeting in markdown. Use sections:
-   - **Key Discussion Points** — what was discussed, with enough detail to understand the substance
-   - **Decisions Made** — any decisions, agreements, or commitments reached
-   - **Updates/Status Changes** — changes to project status, timelines, blockers
-   Keep it concise but complete — capture what was said, not just topics.
+The PARTNER CONTEXT section in the user message contains the partner's profile, known contacts, active engagements, recent meetings, previous note summaries, and open tasks. Use this context to enrich your output — but never add information that isn't present or directly implied in the notes.
 
-2. TASKS: Extract action items. For each:
-   - description: specific, actionable task description
-   - owner: classify as 'me' (the PDM/Steven), 'partner' (partner team members), or 'aws_internal' (other AWS people like PSA, SA, AM)
-   - owner_name: specific person name if mentioned, null otherwise
-   - due_date: ISO date (YYYY-MM-DD) if stated or clearly inferable, null otherwise
+<<NOTE_TYPE>>
 
-3. FLAGS: Identify gaps, intel, questions, and follow-ups:
-   - type 'gap': Something in the notes that contradicts or is missing from the partner context (e.g., "Notes mention Tackle as CRM integrator but partner profile shows no CRM status")
-   - type 'intel': Useful partner intelligence worth recording (e.g., "Partner evaluating Bedrock integration", "New VP of Alliances starting next month")
-   - type 'question': Ambiguous items that need clarification
-   - type 'followup': Items to raise in the next meeting
+SUMMARY RULES:
+- Write concise, flat prose — short paragraphs covering the substance of the notes.
+- Do NOT use markdown headers (no ## or **Section:**). Just clear sentences and paragraphs.
+- When the notes reference something present in the partner context (marketplace listings, architecture, deployment status, pricing model, CRM integration, etc.), naturally weave that known context into the summary. For example: "discussed ramping marketplace presence (currently listed as AMI with Per-Seat/BYOL pricing)".
+- Capture what was said, decided, or committed — not just topic labels.
+- Do NOT speculate about implications, strategic signals, or partner motivations.
+- Do NOT add information not stated or directly implied in the notes.
 
-OUTPUT: Respond with ONLY a JSON object. No markdown fences, no preamble, no explanation.
-{
-  "summary": "markdown string",
-  "tasks": [{"description": "...", "owner": "me|partner|aws_internal", "owner_name": "...|null", "due_date": "YYYY-MM-DD|null"}],
-  "flags": [{"type": "gap|intel|question|followup", "description": "..."}]
-}`;
-
-const SEED_SYSTEM_PROMPT = `You are a meeting note analyst for an AWS Partner Development Manager (PDM). You are processing a historical dump of meeting notes and context for a partner. This may span months or years of interactions.
-
-INSTRUCTIONS:
-
-1. SUMMARY: Produce a chronological narrative of key events, decisions, and relationship evolution in markdown. If the notes span multiple workstreams, organize by theme with timeline markers. Focus on:
-   - Major milestones and decisions
-   - How the relationship evolved over time
-   - Key people and their roles in the partnership
-   - Technical decisions and architectural choices
-   - Business outcomes and program enrollments
-
-2. TASKS: Extract action items that appear to still be open or unresolved. When an item was clearly resolved in later notes, omit it. When uncertain whether something was completed, include it with a note. Be conservative — only flag items that genuinely seem outstanding.
-   - description: specific, actionable task description
-   - owner: classify as 'me' (the PDM/Steven), 'partner' (partner team members), or 'aws_internal' (other AWS people)
-   - owner_name: specific person name if mentioned, null otherwise
-   - due_date: ISO date if mentioned, null otherwise
-
-3. FLAGS: Identify gaps, intel, questions, and follow-ups:
-   - type 'gap': Historical intel that should be in the partner profile but isn't (compare notes against the partner context provided)
-   - type 'intel': Key relationship insights — who are the decision makers, what motivates the partner, recurring themes or blockers, competitive dynamics
-   - type 'question': Unresolved ambiguities from the historical record
-   - type 'followup': Items that appear to have been dropped and should be revisited
+TASK EXTRACTION RULES:
+- Extract EVERY deliverable, commitment, action item, or follow-up mentioned in the notes.
+- For each task, identify the owner using this process:
+  1. Check the KNOWN CONTACTS list in the partner context. If a name in the notes matches a known contact (e.g., "Jackie" matches "Jackie Funk" listed as Alliance Lead), set owner_name to their full name and owner to the appropriate category:
+     - Partner-side contacts (Alliance Lead, partner team) → "partner"
+     - AWS-side contacts (PSA, Account Manager, SA) → "aws_internal"
+  2. If the PDM (Steven) is the owner ("I need to...", "my action is...", "I'll send..."), set owner to "me".
+  3. If a name is mentioned but does NOT match any known contact, still capture the name in owner_name and classify owner as best you can from context.
+  4. If no owner is identifiable, default owner to "me" with owner_name null.
+- Set due_date (YYYY-MM-DD) only if explicitly stated in the notes. Do not infer dates.
+- Be thorough — missing an action item is worse than including a borderline one.
 
 OUTPUT: Respond with ONLY a JSON object. No markdown fences, no preamble, no explanation.
 {
-  "summary": "markdown string",
+  "summary": "plain text string — no markdown headers",
   "tasks": [{"description": "...", "owner": "me|partner|aws_internal", "owner_name": "...|null", "due_date": "YYYY-MM-DD|null"}],
-  "flags": [{"type": "gap|intel|question|followup", "description": "..."}]
+  "flags": []
 }`;
 
 function buildSystemPrompt(noteType: "meeting" | "seed"): string {
-  return noteType === "seed" ? SEED_SYSTEM_PROMPT : MEETING_SYSTEM_PROMPT;
+  return SYSTEM_PROMPT.replace("<<NOTE_TYPE>>", NOTE_TYPE_MODIFIER[noteType]);
 }
 
 function buildUserMessage(input: {
@@ -158,12 +137,7 @@ function parseResponse(raw: string): NoteSummaryResult {
             due_date: typeof t.due_date === "string" ? t.due_date : null,
           }))
         : [],
-      flags: Array.isArray(parsed.flags)
-        ? parsed.flags.map((f: Record<string, unknown>) => ({
-            type: validateFlagType(f.type),
-            description: String(f.description ?? ""),
-          }))
-        : [],
+      flags: [],
     };
   } catch {
     // Graceful fallback — never lose the user's notes
@@ -179,11 +153,6 @@ function parseResponse(raw: string): NoteSummaryResult {
 function validateOwner(value: unknown): "me" | "partner" | "aws_internal" {
   if (value === "me" || value === "partner" || value === "aws_internal") return value;
   return "me";
-}
-
-function validateFlagType(value: unknown): "gap" | "intel" | "question" | "followup" {
-  if (value === "gap" || value === "intel" || value === "question" || value === "followup") return value;
-  return "intel";
 }
 
 // ============================================================
