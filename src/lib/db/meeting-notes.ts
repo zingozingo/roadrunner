@@ -404,7 +404,7 @@ export async function getRecentNoteSummaries(
     .from("meeting_notes")
     .select("title, meeting_date, ai_summary, note_type")
     .eq("partner_id", partnerId)
-    .in("status", ["summarized", "finalized"])
+    .eq("status", "complete")
     .not("ai_summary", "is", null)
     .order("note_type", { ascending: false }) // 'seed' > 'meeting' alphabetically
     .order("meeting_date", { ascending: false, nullsFirst: false })

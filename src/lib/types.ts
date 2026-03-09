@@ -375,7 +375,7 @@ export interface MeetingNote {
   ai_tasks: unknown | null;
   ai_flags: unknown | null;
   context_snapshot: unknown | null;
-  status: "draft" | "summarized" | "finalized";
+  status: "draft" | "complete";
   created_at: string;
   updated_at: string;
 }
@@ -419,7 +419,7 @@ export interface UpdateMeetingNoteInput {
   ai_tasks?: unknown | null;
   ai_flags?: unknown | null;
   context_snapshot?: unknown | null;
-  status?: "draft" | "summarized" | "finalized";
+  status?: "draft" | "complete";
   engagement_id?: string | null;
 }
 

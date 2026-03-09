@@ -7,8 +7,7 @@ import type { MeetingNoteWithTasks, NoteTask } from "@/lib/types";
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-zinc-500/20 text-zinc-400",
-  summarized: "bg-amber-500/20 text-amber-400",
-  finalized: "bg-emerald-500/20 text-emerald-400",
+  complete: "bg-emerald-500/20 text-emerald-400",
 };
 
 const OWNER_LABELS: Record<string, string> = {
@@ -109,15 +108,6 @@ export default function NoteDetailPage() {
     } finally {
       setSummarizing(false);
     }
-  }
-
-  async function handleStatusChange(status: string) {
-    await fetch(`/api/notes/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    fetchNote();
   }
 
   async function handleDelete() {
@@ -248,15 +238,6 @@ export default function NoteDetailPage() {
 
           {/* Actions */}
           <div className="flex shrink-0 items-center gap-2">
-            <select
-              value={note.status}
-              onChange={(e) => handleStatusChange(e.target.value)}
-              className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground focus:border-accent focus:outline-none"
-            >
-              <option value="draft">Draft</option>
-              <option value="summarized">Summarized</option>
-              <option value="finalized">Finalized</option>
-            </select>
             <button
               onClick={() => setShowDeleteConfirm(true)}
               className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-red-400 transition-colors hover:border-red-500 hover:text-red-300"

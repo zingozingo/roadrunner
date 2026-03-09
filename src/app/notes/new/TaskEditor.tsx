@@ -7,28 +7,13 @@ const OWNER_LABELS: Record<string, string> = {
   aws_internal: "AWS Internal",
 };
 
-const FLAG_COLORS: Record<string, string> = {
-  gap: "border-l-red-500/50",
-  intel: "border-l-blue-500/50",
-  question: "border-l-amber-500/50",
-  followup: "border-l-emerald-500/50",
-};
-
-const FLAG_LABELS: Record<string, string> = {
-  gap: "Gaps",
-  intel: "Intel",
-  question: "Questions",
-  followup: "Follow-ups",
-};
-
 interface TaskEditorProps {
   tasks: NoteTask[];
-  flags: Array<{ type: string; description: string }>;
   noteId: string;
   onRefresh: () => void;
 }
 
-export default function TaskEditor({ tasks, flags, noteId, onRefresh }: TaskEditorProps) {
+export default function TaskEditor({ tasks, noteId, onRefresh }: TaskEditorProps) {
   const [showForm, setShowForm] = useState(false);
   const [desc, setDesc] = useState("");
   const [owner, setOwner] = useState<"me" | "partner" | "aws_internal">("me");
@@ -40,14 +25,6 @@ export default function TaskEditor({ tasks, flags, noteId, onRefresh }: TaskEdit
     const group = taskGroups.get(t.owner) ?? [];
     group.push(t);
     taskGroups.set(t.owner, group);
-  }
-
-  // Group flags by type
-  const flagGroups = new Map<string, Array<{ type: string; description: string }>>();
-  for (const f of flags) {
-    const group = flagGroups.get(f.type) ?? [];
-    group.push(f);
-    flagGroups.set(f.type, group);
   }
 
   const openCount = tasks.filter((t) => t.status === "open").length;
@@ -185,37 +162,6 @@ export default function TaskEditor({ tasks, flags, noteId, onRefresh }: TaskEdit
         )}
       </div>
 
-      {/* Flags */}
-      {flags.length > 0 && (
-        <div>
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
-            AI Flags ({flags.length})
-          </h3>
-          <div className="space-y-4">
-            {(["gap", "intel", "question", "followup"] as const).map((flagType) => {
-              const group = flagGroups.get(flagType);
-              if (!group || group.length === 0) return null;
-              return (
-                <div key={flagType}>
-                  <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted">
-                    {FLAG_LABELS[flagType]} ({group.length})
-                  </h4>
-                  <div className="space-y-1.5">
-                    {group.map((f, i) => (
-                      <div
-                        key={i}
-                        className={`border-l-2 ${FLAG_COLORS[flagType]} rounded-r-lg bg-background px-3 py-2 text-sm text-foreground/90`}
-                      >
-                        {f.description}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

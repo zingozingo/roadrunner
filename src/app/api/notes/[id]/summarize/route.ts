@@ -40,7 +40,7 @@ export async function POST(
       ai_tasks: result.tasks,
       ai_flags: result.flags,
       context_snapshot: context,
-      status: "summarized",
+      status: "complete",
     });
 
     // Materialize AI tasks as first-class note_tasks rows.

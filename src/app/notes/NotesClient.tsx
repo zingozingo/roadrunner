@@ -13,8 +13,7 @@ interface NotesClientProps {
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-zinc-500/20 text-zinc-400",
-  summarized: "bg-amber-500/20 text-amber-400",
-  finalized: "bg-emerald-500/20 text-emerald-400",
+  complete: "bg-emerald-500/20 text-emerald-400",
 };
 
 export default function NotesClient({ notes, partners }: NotesClientProps) {
@@ -111,7 +110,7 @@ export default function NotesClient({ notes, partners }: NotesClientProps) {
               ))}
 
               {/* Status chips */}
-              {(["draft", "summarized", "finalized"] as const).map((s) => (
+              {(["draft", "complete"] as const).map((s) => (
                 <button
                   key={s}
                   onClick={() => setStatusFilter(statusFilter === s ? null : s)}

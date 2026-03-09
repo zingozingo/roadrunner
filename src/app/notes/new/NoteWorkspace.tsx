@@ -38,7 +38,7 @@ export default function NoteWorkspace({
   const [editingSummary, setEditingSummary] = useState(false);
   const [summaryDraft, setSummaryDraft] = useState("");
   const [tasks, setTasks] = useState<NoteTask[]>([]);
-  const [flags, setFlags] = useState<Array<{ type: string; description: string }>>([]);
+
 
   const lastSavedRef = useRef(rawNotes);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -104,7 +104,6 @@ export default function NoteWorkspace({
       if (!res.ok) throw new Error("Summarization failed");
       const result: NoteSummaryResult = await res.json();
       setSummary(result.summary);
-      setFlags(result.flags);
 
       // Fetch full note to get persisted tasks
       const noteRes = await fetch(`/api/notes/${noteId}`);
@@ -133,7 +132,6 @@ export default function NoteWorkspace({
       const { note } = await res.json() as { note: MeetingNoteWithTasks };
       setTasks(note.tasks);
       if (note.ai_summary) setSummary(note.ai_summary);
-      if (note.ai_flags) setFlags(note.ai_flags as Array<{ type: string; description: string }>);
     }
   }
 
@@ -152,20 +150,9 @@ export default function NoteWorkspace({
     await fetch(`/api/notes/${noteId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "finalized" }),
+      body: JSON.stringify({ status: "complete" }),
     });
     router.push(`/notes/${noteId}`);
-  }
-
-  async function handleSaveAsSummarized() {
-    await saveDraft(rawNotes);
-    await fetch(`/api/notes/${noteId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "summarized" }),
-    });
-    setSaveStatus("saved");
-    setTimeout(() => setSaveStatus("idle"), 2000);
   }
 
   const dateDisplay = meetingDate
@@ -253,7 +240,7 @@ export default function NoteWorkspace({
               {([
                 { key: "raw" as const, label: "Raw Notes" },
                 { key: "summary" as const, label: "Summary" },
-                { key: "tasks" as const, label: "Tasks & Flags" },
+                { key: "tasks" as const, label: "Tasks" },
               ]).map(({ key, label }) => (
                 <button
                   key={key}
@@ -328,7 +315,6 @@ export default function NoteWorkspace({
               {reviewTab === "tasks" && (
                 <TaskEditor
                   tasks={tasks}
-                  flags={flags}
                   noteId={noteId}
                   onRefresh={refreshNote}
                 />
@@ -342,12 +328,6 @@ export default function NoteWorkspace({
                 className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
               >
                 Finalize & Save
-              </button>
-              <button
-                onClick={handleSaveAsSummarized}
-                className="rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground transition-colors hover:border-muted"
-              >
-                Save as Summarized
               </button>
               <button
                 onClick={() => setPhase("editing")}

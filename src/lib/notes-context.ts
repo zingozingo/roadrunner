@@ -66,7 +66,7 @@ export async function buildPartnerContext(
     .from("meeting_notes")
     .select("title, meeting_date, ai_summary, note_type")
     .eq("partner_id", partnerId)
-    .in("status", ["summarized", "finalized"])
+    .eq("status", "complete")
     .not("ai_summary", "is", null)
     .order("note_type", { ascending: false })
     .order("meeting_date", { ascending: false, nullsFirst: false })
