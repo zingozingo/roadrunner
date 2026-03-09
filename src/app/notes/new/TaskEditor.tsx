@@ -7,16 +7,31 @@ const OWNER_LABELS: Record<string, string> = {
   aws_internal: "AWS Internal",
 };
 
+interface ContactInfo {
+  alliance_lead: string | null;
+  account_manager: string | null;
+  psa: string | null;
+  others: string[];
+}
+
 interface TaskEditorProps {
   tasks: NoteTask[];
   noteId: string;
+  contacts?: ContactInfo;
   onRefresh: () => void;
 }
 
-export default function TaskEditor({ tasks, noteId, onRefresh }: TaskEditorProps) {
+function extractName(contact: string | null): string | null {
+  if (!contact) return null;
+  const idx = contact.indexOf(" <");
+  return idx > 0 ? contact.slice(0, idx) : contact;
+}
+
+export default function TaskEditor({ tasks, noteId, contacts, onRefresh }: TaskEditorProps) {
   const [showForm, setShowForm] = useState(false);
   const [desc, setDesc] = useState("");
   const [owner, setOwner] = useState<"me" | "partner" | "aws_internal">("me");
+  const [ownerName, setOwnerName] = useState("");
   const [dueDate, setDueDate] = useState("");
 
   // Group tasks by owner
@@ -34,9 +49,10 @@ export default function TaskEditor({ tasks, noteId, onRefresh }: TaskEditorProps
     await fetch(`/api/notes/${noteId}/tasks`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ description: desc.trim(), owner, due_date: dueDate || null }),
+      body: JSON.stringify({ description: desc.trim(), owner, owner_name: ownerName.trim() || null, due_date: dueDate || null }),
     });
     setDesc("");
+    setOwnerName("");
     setDueDate("");
     setShowForm(false);
     onRefresh();
@@ -83,7 +99,7 @@ export default function TaskEditor({ tasks, noteId, onRefresh }: TaskEditorProps
             <div className="flex items-center gap-2">
               <select
                 value={owner}
-                onChange={(e) => setOwner(e.target.value as typeof owner)}
+                onChange={(e) => { setOwner(e.target.value as typeof owner); setOwnerName(""); }}
                 className="rounded-lg border border-border bg-surface px-2 py-1 text-xs text-foreground focus:border-accent focus:outline-none"
               >
                 <option value="me">Me</option>
@@ -103,6 +119,47 @@ export default function TaskEditor({ tasks, noteId, onRefresh }: TaskEditorProps
                 Add
               </button>
             </div>
+            {owner !== "me" && (
+              <div className="flex items-center gap-2 flex-wrap">
+                {contacts && (() => {
+                  const picks: string[] = [];
+                  if (owner === "partner") {
+                    const al = extractName(contacts.alliance_lead);
+                    if (al) picks.push(al);
+                    for (const o of contacts.others) {
+                      const n = extractName(o);
+                      if (n && !picks.includes(n)) picks.push(n);
+                    }
+                  } else {
+                    const psa = extractName(contacts.psa);
+                    if (psa) picks.push(psa);
+                    const am = extractName(contacts.account_manager);
+                    if (am) picks.push(am);
+                  }
+                  return picks.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => setOwnerName(name)}
+                      className={`rounded-full border px-2 py-0.5 text-xs transition-colors ${
+                        ownerName === name
+                          ? "border-accent bg-accent/10 text-accent"
+                          : "border-border text-muted hover:text-foreground hover:border-muted"
+                      }`}
+                    >
+                      {name}
+                    </button>
+                  ));
+                })()}
+                <input
+                  type="text"
+                  value={ownerName}
+                  onChange={(e) => setOwnerName(e.target.value)}
+                  placeholder="Name (optional)"
+                  className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-2 py-0.5 text-xs text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+                />
+              </div>
+            )}
           </div>
         )}
 

@@ -311,6 +311,7 @@ export default function NoteWorkspace({
                 <TaskEditor
                   tasks={tasks}
                   noteId={noteId}
+                  contacts={context.contacts}
                   onRefresh={refreshNote}
                 />
               </div>
