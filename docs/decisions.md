@@ -365,3 +365,95 @@
 **Rationale:** All 7 fields already existed in Airtable with rich data for all 21 partners. Adding them to the sync layer (field-maps.ts + pull.ts), context builder (notes-context.ts), and partner detail page was a focused additive change. No new tables, no new routes — just enriching existing data flow. Multi-select fields (listing_types, pricing_model) use TEXT[] arrays matching the existing focus_area pattern.
 
 **Impact:** Migration 052, sync field-maps updated (7 new Airtable field ID mappings), context builder enriched (formatContextForPrompt includes architecture/listings/pricing/statuses), partner detail page enhanced (new "Partner Profile" card with colored badges), notes context sidebar updated. Every AI summarization call now sees the full partner operating model.
+
+---
+
+## 2026-03-08 — Meeting Notes Summarizer Redesign
+
+### Decision 110: Unified Summarizer Prompt
+
+**Date:** 2026-03-08
+**Status:** Implemented
+
+**Decision:** Replaced two separate prompts (MEETING_SYSTEM_PROMPT, SEED_SYSTEM_PROMPT) with one unified SYSTEM_PROMPT + NOTE_TYPE_MODIFIER object.
+
+**Context:** Two prompts with different section structures created maintenance burden and artificial divergence. Seed vs meeting is only a temporal scope difference.
+
+**Rationale:** One prompt is easier to tune, test, and evolve. Note type modifier is a 2-line inline string replacement (<<NOTE_TYPE>>), not a separate code path.
+
+**Impact:** Single prompt in notes-summarizer.ts. All future prompt improvements apply to both note types automatically.
+
+---
+
+### Decision 111: Kill AI Flags, Flat Prose Summaries
+
+**Date:** 2026-03-08
+**Status:** Implemented
+
+**Decision:** Removed 4-category AI flags (gap/intel/question/followup) from prompt output and detail page UI. Summary format changed from rigid markdown sections to concise flat prose with optional bullet points for 3+ item lists.
+
+**Context:** AI flags were generating speculation ("Appgate making significant investment with re:Invent sponsorship — indicates strong commitment"). Summary sections (## Key Discussion Points, ## Decisions Made, ## Updates/Status Changes) forced arbitrary categorization.
+
+**Rationale:** The AI's job is to extract and organize, not analyze. Future intelligence comes from controlled slot registry with defined partner requirements, not open-ended speculation. Summaries should read like a quick Slack recap, not a report.
+
+**Impact:** flags field in NoteSummaryResult always returns []. ai_flags JSONB column preserved in DB for backward compatibility but no longer populated. AI Flags section removed from note detail page.
+
+---
+
+### Decision 112: Task Extraction with 4-Step Contact Matching
+
+**Date:** 2026-03-08
+**Status:** Implemented
+
+**Decision:** AI resolves mentioned names against known contacts list using 4-step priority: (1) Match to known partner contacts → owner: "partner", (2) PDM self-reference → owner: "me", (3) Unknown name → capture name, classify from context, (4) No owner identifiable → default to "me".
+
+**Context:** Previous prompt said "owner_name: specific person name if mentioned, null otherwise" with no instruction to match against known contacts.
+
+**Rationale:** Named, role-aware task ownership is the foundation for cross-partner task visibility and accountability tracking.
+
+**Impact:** Tasks now have accurate owner_name matched to known contacts (e.g., "Jackie" → "Jackie Funk", Alliance Lead).
+
+---
+
+### Decision 113: Task Done-State Gate with Examples
+
+**Date:** 2026-03-08
+**Status:** Implemented
+
+**Decision:** Added strict guardrail: "Before creating each task, apply this test: Could someone check this off as DONE in a single action or short effort? If not, it's a goal — do not create a task." Includes 4 negative examples (goals) and 4 positive examples (tasks). Bias: "When in doubt, do NOT create the task."
+
+**Context:** AI was generating vague goals as tasks ("Ramp up marketplace presence", "Help partner target FSI accounts", "Identify which competencies to pursue").
+
+**Rationale:** Polluted task lists erode trust faster than missing tasks. Users can manually add tasks; they can't easily filter AI noise. Eventually partner plans and slot registry will track strategic goals separately.
+
+**Impact:** KnowBe4 seed went from 4 vague tasks to 1 real task. Dramatically cleaner task extraction.
+
+---
+
+### Decision 114: Task Materialization on Summarize
+
+**Date:** 2026-03-08
+**Status:** Implemented
+
+**Decision:** AI-extracted tasks become real note_tasks rows immediately when summarization completes, not deferred to finalization.
+
+**Context:** Previous flow saved ai_tasks as JSONB blob on meeting_notes record but never created note_tasks rows. Detail page queried note_tasks, found none, showed "No tasks yet" even with AI-extracted tasks.
+
+**Rationale:** Decision #106 established tasks as first-class entities. Deferring materialization contradicted this — tasks existed only as unstructured JSON.
+
+**Impact:** Tasks visible on detail page immediately after Summarize. Re-summarization deletes only origin='ai' tasks, preserving manual tasks.
+
+---
+
+### Decision 115: Origin Column for Task Provenance
+
+**Date:** 2026-03-08
+**Status:** Implemented
+
+**Decision:** Added origin TEXT NOT NULL DEFAULT 'manual' CHECK (origin IN ('ai', 'manual')) to note_tasks table (Migration 053).
+
+**Context:** Needed to distinguish AI-generated tasks from manually-added tasks to enable safe re-summarization (delete AI tasks without losing manual ones).
+
+**Rationale:** Considered alternatives: (a) delete all tasks on re-summarize (loses manual), (b) only re-create if no manual tasks (fragile). Origin column is cleanest — explicit provenance, no ambiguity.
+
+**Impact:** Migration 053 applied. createNoteTask() accepts optional origin parameter. deleteAiTasksForNote() function added for targeted cleanup.

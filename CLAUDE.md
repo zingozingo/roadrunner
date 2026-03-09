@@ -18,7 +18,7 @@ Roadrunner (codename **Relay**) is an AI-powered email classification and engage
 
 **Directory structure:**
 ```
-src/app/           → Next.js pages + API routes (22 routes, 15 pages)
+src/app/           → Next.js pages + API routes (29 routes, 17 pages)
 src/components/    → React components (25, organized: layout/, shared/, inbox/, engagement/, actions/)
 src/lib/           → Business logic (classification, parsing, sync, formatting)
 src/lib/db/        → Database layer (10 modules)
@@ -145,7 +145,7 @@ Steven's workflow is two-layer:
 
 ## Key Conventions
 
-- **Migrations:** Sequential numbering in `supabase/migrations/` (currently 001-050). New migrations get the next number (050, 051, ...).
+- **Migrations:** Sequential numbering in `supabase/migrations/` (currently 001-053). New migrations get the next number (054, 055, ...).
 - **Types:** All TypeScript types in `src/lib/types.ts` — keep them there, don't scatter.
 - **API routes:** `src/app/api/{resource}/route.ts` pattern. All CRUD follows same pattern.
 - **UI pages:** `src/app/{resource}/page.tsx` for list, `src/app/{resource}/[id]/page.tsx` for detail.
@@ -192,7 +192,7 @@ Steven's workflow is two-layer:
 ## Current State
 
 See `docs/goal-state.md` for the living version:
-- 50 migrations, 13 tables, 22 API routes, 15 UI pages, 427 tests across 14 suites
+- 53 migrations, 15 tables, 29 API routes, 17 UI pages, 427 tests across 14 suites
 - 5 active engagements (Nozomi Networks, Spacelift x3, Qualys)
 - Phase 1 prompt: curated-input philosophy, 6-step decision framework, enriched engagement index
 - Engagement-hub architecture: meetings and entity links flow through engagements

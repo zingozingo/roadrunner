@@ -6,7 +6,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 52 migrations, 15 DB tables, 29 API routes, 17 UI pages, 427 tests across 14 suites
+- 53 migrations, 15 DB tables, 29 API routes, 17 UI pages, 427 tests across 14 suites
 - Two-phase classification pipeline: curated-input Phase 1 (enriched engagement index with participants, pillar, topic, goal, current_state, entity links) + deep-analysis Phase 2 (full thread history, entity matching, state evolution)
 - Phase 1 decision framework: 6-step content-evaluation-required (no single-engagement shortcuts)
 - Meeting pipeline: ICS parse → create record → classify → link to engagement (unconditional) → inherit partner → Airtable push
@@ -15,7 +15,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 - Contact architecture: universal JSONB format `{name, email, title, role}`, single parser (`contact-parser.ts`)
 - Push reliability: all Airtable push/delete calls awaited (no fire-and-forget)
 - 5 active engagements processing real email data (Nozomi Networks, Spacelift x3, Qualys)
-- Meeting notes MVP: 3-phase note-taking workspace, AI summarization with partner context, task extraction with owner classification, gap/intel/question/followup flags
+- Meeting notes: 3-phase note-taking workspace, unified AI summarizer (flat prose, no flags), strict task extraction with done-state gate and 4-step contact matching, task materialization on summarize with origin tracking (ai/manual)
 - Partner profile enrichment: architecture, listing_types, pricing_model, ISVa/deployed status, PRM/CRM status synced from Airtable into AI context and partner detail UI (decision 109)
 
 ## MVP Target
