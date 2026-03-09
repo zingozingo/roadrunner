@@ -457,3 +457,63 @@
 **Rationale:** Considered alternatives: (a) delete all tasks on re-summarize (loses manual), (b) only re-create if no manual tasks (fragile). Origin column is cleanest — explicit provenance, no ambiguity.
 
 **Impact:** Migration 053 applied. createNoteTask() accepts optional origin parameter. deleteAiTasksForNote() function added for targeted cleanup.
+
+---
+
+### Decision 116: Status Model Simplified to Draft/Complete
+
+**Date:** 2026-03-08
+**Status:** Implemented
+
+**Decision:** Replaced 3-state model (draft/summarized/finalized) with 2-state (draft/complete). Migration 054 converts existing rows.
+
+**Context:** "Summarized" vs "finalized" distinction had no practical value — what would you do with a note that's summarized but not finalized?
+
+**Rationale:** The act of reviewing and saving IS the finalization. Simpler mental model, fewer UI elements (removed status dropdown from detail page), cleaner filters on list page.
+
+**Impact:** Migration 054 applied. 8 files updated. DB constraint now CHECK (status IN ('draft', 'complete')).
+
+---
+
+### Decision 117: Review Flow — Stacked Layout, No Tabs
+
+**Date:** 2026-03-08
+**Status:** Implemented
+
+**Decision:** Replaced 3-tab review phase (Raw Notes / Summary / Tasks) with stacked layout showing all content at once. Raw notes collapsible at top, summary always visible, tasks always visible below.
+
+**Context:** Tasks were hidden behind a tab click — users couldn't see summary and tasks simultaneously to approve both.
+
+**Rationale:** The review phase exists so the user can verify AI output before saving. Hiding tasks behind a tab defeats this purpose. One view, one approval, one Save button.
+
+**Impact:** NoteWorkspace.tsx rewritten. ReviewTab type eliminated. "Finalize & Save" simplified to "Save".
+
+---
+
+### Decision 118: Task Form with Contact Quick-Pick
+
+**Date:** 2026-03-08
+**Status:** Implemented
+
+**Decision:** Manual task add form now includes owner_name field with quick-pick buttons from known partner contacts. Partner-side contacts shown when "Partner" selected, AWS-side contacts shown when "AWS Internal" selected.
+
+**Context:** The add form only had owner category dropdown (me/partner/aws_internal) with no way to specify the person. API already accepted owner_name end-to-end.
+
+**Rationale:** When AI misses a task, manual add is the safety net. It needs to be fast and accurate — selecting a known contact should be two clicks, not typing from memory.
+
+**Impact:** TaskEditor.tsx updated with contacts prop, extractName() helper, quick-pick pills. NoteWorkspace passes context.contacts through.
+
+---
+
+### Decision 119: PDM-Grounded Task Extraction + Deadline Rule
+
+**Date:** 2026-03-08
+**Status:** Implemented
+
+**Decision:** Replaced generic task examples with real PDM work patterns (co-sell deliverables, Salesforce updates, portal completions, signature requests, event prep). Added explicit deadline rule: any mention of a date triggers task extraction with due_date.
+
+**Context:** AI missed "complete partner migration portal before July 31" because it treated a deadline-bearing commitment as context. Generic examples ("Send training deck") didn't cover the breadth of PDM work.
+
+**Rationale:** LLMs pattern-match against examples. PDM-specific examples (swap contacts in Salesforce, review briefings, submit architecture diagrams) teach the model what real tasks look like in this domain.
+
+**Impact:** notes-summarizer.ts prompt updated. 6 positive examples, 4 negative examples, all grounded in PDM workflow.

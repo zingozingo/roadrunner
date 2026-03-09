@@ -24,7 +24,7 @@ src/lib/           → Business logic (classification, parsing, sync, formatting
 src/lib/db/        → Database layer (10 modules)
 src/lib/sync/      → Airtable sync (field-maps, push, pull, utils)
 src/lib/__tests__/ → Test suites (14 suites, 427 tests)
-supabase/          → Migrations (001-050) + schema_live.sql
+supabase/          → Migrations (001-054) + schema_live.sql
 docs/              → 7 documentation files (all current as of 2026-03-01)
 ```
 
@@ -145,7 +145,7 @@ Steven's workflow is two-layer:
 
 ## Key Conventions
 
-- **Migrations:** Sequential numbering in `supabase/migrations/` (currently 001-053). New migrations get the next number (054, 055, ...).
+- **Migrations:** Sequential numbering in `supabase/migrations/` (currently 001-054). New migrations get the next number (055, 056, ...).
 - **Types:** All TypeScript types in `src/lib/types.ts` — keep them there, don't scatter.
 - **API routes:** `src/app/api/{resource}/route.ts` pattern. All CRUD follows same pattern.
 - **UI pages:** `src/app/{resource}/page.tsx` for list, `src/app/{resource}/[id]/page.tsx` for detail.
@@ -192,7 +192,7 @@ Steven's workflow is two-layer:
 ## Current State
 
 See `docs/goal-state.md` for the living version:
-- 53 migrations, 15 tables, 29 API routes, 17 UI pages, 427 tests across 14 suites
+- 54 migrations, 15 tables, 29 API routes, 17 UI pages, 427 tests across 14 suites
 - 5 active engagements (Nozomi Networks, Spacelift x3, Qualys)
 - Phase 1 prompt: curated-input philosophy, 6-step decision framework, enriched engagement index
 - Engagement-hub architecture: meetings and entity links flow through engagements
