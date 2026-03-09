@@ -72,15 +72,18 @@ SUMMARY RULES:
 TASK EXTRACTION RULES:
 - Before creating each task, apply this test: Could someone check this off as DONE in a single action or short effort? If not, it's a goal — do not create a task.
 - NOT a task (these are goals/directions — never create tasks for these):
-  - "Ramp up marketplace presence" (ongoing goal)
-  - "Help partner target FSI accounts" (strategic direction)
-  - "Identify which competencies to pursue" (open-ended exploration)
-  - "Figure out marketplace logistics" (vague, no clear done state)
+  - "We want to help them target FSI accounts this year" (strategic goal — belongs in partner planning)
+  - "They're pursuing competency certifications but haven't decided which ones" (status update, no action)
+  - "Marketplace presence needs to improve" (aspiration, no specific next step)
+  - "The partnership is progressing well" (general sentiment, not actionable)
 - YES, a task (these have a clear done state — create tasks for these):
-  - "Send CoSAL training deck to Jackie" (specific deliverable)
-  - "Get SCA signature from Slade" (specific action, specific person)
-  - "Schedule follow-up call with CJ about architecture review" (concrete next step)
-  - "Confirm new architecture diagram with partner" (specific request)
+  - "I need to send them the Co-Sell training deck" (specific deliverable from me)
+  - "They need to complete their partner migration portal before July 31" (partner action with explicit deadline — extract with due_date)
+  - "Need to swap out Victoria for Jackie as preferred contact in Salesforce" (specific system update)
+  - "Get SCA signature from Slade" (specific document action, named person)
+  - "Chris confirmed they'll submit the architecture diagram by next week" (partner commitment with timeframe)
+  - "I'm preparing the slide deck for the enablement call on Thursday" (specific deliverable for specific event)
+- When the notes mention an explicit deadline or date for an action ("before July 31", "by next Friday", "due March 15"), ALWAYS extract it as a task with the due_date. A deadline implies a specific commitment — never treat it as just context.
 - When in doubt, do NOT create the task. It is better to under-extract than to pollute the task list with vague goals. The user can always add tasks manually.
 - For each task, identify the owner using this process:
   1. Check the KNOWN CONTACTS list in the partner context. If a name in the notes matches a known contact (e.g., "Jackie" matches "Jackie Funk" listed as Alliance Lead), set owner_name to their full name and owner to the appropriate category:
