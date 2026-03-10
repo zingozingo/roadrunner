@@ -25,7 +25,7 @@ src/lib/db/        → Database layer (10 modules)
 src/lib/sync/      → Airtable sync (field-maps, push, pull, utils)
 src/lib/__tests__/ → Test suites (14 suites, 427 tests)
 supabase/          → Migrations (001-054) + schema_live.sql
-docs/              → 7 documentation files (all current as of 2026-03-01)
+docs/              → 9 documentation files (entity-model.md is canonical schema reference)
 ```
 
 ## Core Architectural Principles
@@ -145,7 +145,7 @@ Steven's workflow is two-layer:
 
 ## Key Conventions
 
-- **Migrations:** Sequential numbering in `supabase/migrations/` (currently 001-054). New migrations get the next number (055, 056, ...).
+- **Migrations:** Sequential numbering in `supabase/migrations/` (currently 001-055). New migrations get the next number (056, 057, ...).
 - **Types:** All TypeScript types in `src/lib/types.ts` — keep them there, don't scatter.
 - **API routes:** `src/app/api/{resource}/route.ts` pattern. All CRUD follows same pattern.
 - **UI pages:** `src/app/{resource}/page.tsx` for list, `src/app/{resource}/[id]/page.tsx` for detail.
@@ -192,13 +192,13 @@ Steven's workflow is two-layer:
 ## Current State
 
 See `docs/goal-state.md` for the living version:
-- 54 migrations, 15 tables, 29 API routes, 17 UI pages, 427 tests across 14 suites
+- 55 migrations, 15 tables, 29 API routes, 17 UI pages, 427 tests across 14 suites
 - 5 active engagements (Nozomi Networks, Spacelift x3, Qualys)
 - Phase 1 prompt: curated-input philosophy, 6-step decision framework, enriched engagement index
 - Engagement-hub architecture: meetings and entity links flow through engagements
 - Meeting pipeline: ICS parse → create → classify → link to engagement (unconditional) → inherit partner → AT push
 - All Airtable pushes awaited (no fire-and-forget)
-- Docs: 7 files in `docs/`, all current as of 2026-03-02
+- Docs: 9 files in `docs/` (DATA-MODEL.md and FIELD-MAPPING.md deprecated in favor of entity-model.md)
 
 ## What NOT to Do
 

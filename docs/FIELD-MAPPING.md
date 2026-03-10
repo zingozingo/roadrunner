@@ -1,5 +1,7 @@
 # Roadrunner ↔ Airtable Field Mapping Guide
 
+> **⚠️ DEPRECATED** — This document has been superseded by [`docs/entity-model.md`](entity-model.md), which includes all field mappings alongside schema definitions, sync directions, and ownership badges. This file is kept for historical reference only.
+
 > **Last updated:** 2026-03-01
 > **Airtable Base:** Steven Partners 2026 MCP (`appy9TT1LRJTAuQ4W`)
 

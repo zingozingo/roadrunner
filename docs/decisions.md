@@ -517,3 +517,168 @@
 **Rationale:** LLMs pattern-match against examples. PDM-specific examples (swap contacts in Salesforce, review briefings, submit architecture diagrams) teach the model what real tasks look like in this domain.
 
 **Impact:** notes-summarizer.ts prompt updated. 6 positive examples, 4 negative examples, all grounded in PDM workflow.
+
+---
+
+### Decision 120: Entity Model as Single Source of Truth
+
+**Date:** 2026-03-09
+**Status:** Implemented
+
+**Decision:** Created unified `docs/entity-model.md` replacing DATA-MODEL.md and FIELD-MAPPING.md. Two layers: Mermaid ERD (all 15 Supabase tables + 5 Airtable-only tables) and field-level registry with sync directions, AT field IDs, ownership badges, and UI locations.
+
+**Context:** DATA-MODEL.md (13 tables, last updated 2026-03-02) and FIELD-MAPPING.md (field IDs only, no schema context) were diverging. Neither covered Airtable-only tables, planned connections, or the full field-level picture.
+
+**Rationale:** One document that answers "what exists, who owns it, where does it sync, and what's planned" eliminates cross-referencing. The ERD shows relationships at a glance; the registry provides field-level precision for implementation.
+
+**Impact:** entity-model.md is 712 lines covering all tables, all AT field IDs, sync directions, and a planned connections roadmap. DATA-MODEL.md and FIELD-MAPPING.md deprecated with pointer to replacement.
+
+---
+
+### Decision 121: Sync Alignment Governing Principle
+
+**Date:** 2026-03-09
+**Status:** Implemented
+
+**Decision:** Every field on a synced table either syncs now, syncs later (documented), or gets deleted. No permanent partial sync. Tables are binary: fully synced or not yet started.
+
+**Context:** Audit revealed engagement_type, partner_name, and ai_flags columns that existed in Supabase but had no Airtable counterpart and no sync implementation. They were dead weight masquerading as schema.
+
+**Rationale:** Partial sync creates false confidence — developers assume a field is tracked when it isn't. The entity model registry makes sync gaps visible. If a field doesn't sync and isn't planned to, it shouldn't exist on a synced table.
+
+**Impact:** Migration 055 drops 4 dead columns. Entity model documents every field's sync status. Future additions must declare sync intent at creation time.
+
+---
+
+### Decision 122: Engagement Status Expanded to 5 States
+
+**Date:** 2026-03-09
+**Status:** Implemented
+
+**Decision:** Engagement status now supports 5 values: planned, active, blocked, completed, archived. All map bidirectionally to Airtable single-select options. STATUS_TO_AIRTABLE updated to include blocked→"Blocked" and completed→"Completed".
+
+**Context:** STATUS_TO_AIRTABLE only mapped active→"Active" and archived→"Archived". Engagements with status "blocked" or "completed" silently fell through to the default ("Active") during Airtable push, losing status fidelity.
+
+**Rationale:** Status is a core field for PDM workflow. If Airtable supports 5 statuses and Supabase supports 5 statuses, the sync layer must map all 5, not just 2.
+
+**Impact:** Migration 055 adds 'planned' to CHECK constraint. sync/utils.ts STATUS_TO_AIRTABLE maps all 5 states. Airtable now accurately reflects engagement lifecycle.
+
+---
+
+### Decision 123: Drop engagement_type
+
+**Date:** 2026-03-09
+**Status:** Implemented
+
+**Decision:** Removed `engagement_type` column from engagements table and TypeScript types. Pillar (Co-Sell/Co-Market/Co-Build) is the categorical axis, topic+goal are the specifics.
+
+**Context:** engagement_type was added speculatively in migration 039 ("taxonomy TBD from real data patterns"). After 5 active engagements and months of use, it was never populated, never synced to Airtable, and never displayed in UI.
+
+**Rationale:** Meetings have types (event format: intro call, QBR, demo, etc.). Engagements don't — they're categorized by pillar and described by topic+goal. Adding a type taxonomy would duplicate pillar's function or create a confusing second dimension.
+
+**Impact:** Migration 055 drops column. Removed from Engagement type in types.ts. No code references existed (field was always null).
+
+---
+
+### Decision 124: Drop partner_name Legacy Columns
+
+**Date:** 2026-03-09
+**Status:** Implemented
+
+**Decision:** Removed `partner_name` column from both engagements and meetings tables. All partner resolution now flows through `partner_id` FK → partners table. DB query functions return computed `partner_name` via batch FK lookup.
+
+**Context:** partner_name was a denormalized text column written at creation time. The Airtable push layer used a name-text-to-AT-record-ID map to resolve partner links — fragile and case-sensitive.
+
+**Rationale:** FK-based lookup is reliable, case-insensitive, and doesn't go stale when partner names change. The computed field pattern (`& { partner_name: string | null }` on return types) preserves downstream convenience without schema denormalization.
+
+**Impact:** Migration 055 drops columns. push.ts refactored from `partnerNameToId` map to `partnerDbToAtId` map. 31 files updated across DB, sync, API, UI, and tests.
+
+---
+
+### Decision 125: Meeting Type Added to Supabase
+
+**Date:** 2026-03-09
+**Status:** Implemented
+
+**Decision:** Added `meeting_type` column to meetings table with 9-option CHECK constraint matching Airtable exactly: intro_call, follow_up, qbr, demo, workshop, executive_briefing, partner_day, event_meeting, other.
+
+**Context:** Meeting type existed in Airtable (fldGWa1MFoqoc89qC) but had no Supabase counterpart. Meetings couldn't be categorized in Roadrunner.
+
+**Rationale:** Meeting categorization enables filtering, reporting, and AI context. The 9 options cover the PDM meeting taxonomy observed in real data.
+
+**Impact:** Migration 055 adds column. Meeting type syncs to AT when not null. Meeting type added to Meeting TypeScript interface.
+
+---
+
+### Decision 126: Topic + Goal Pushed to Airtable
+
+**Date:** 2026-03-09
+**Status:** Implemented
+
+**Decision:** Engagement topic and goal fields now push to Airtable via new fields (topic: fldDRMrtkVHOdDYVy, goal: fld1yU46baF052MHd).
+
+**Context:** Topic and goal were extracted by Phase 2 classification and stored in Supabase since decision 107, but never synced to Airtable. PDMs couldn't see AI-generated context in their Airtable views.
+
+**Rationale:** Topic and goal are the most concise summary of what an engagement is about. Making them visible in Airtable closes the information gap between the two systems.
+
+**Impact:** field-maps.ts ENF updated. buildEngagementFields in push.ts includes topic and goal. AT fields created and mapped.
+
+---
+
+### Decision 127: Meeting Notes Pushed to Airtable
+
+**Date:** 2026-03-09
+**Status:** Implemented
+
+**Decision:** Meeting `notes` field now syncs to Airtable Notes field (fldzGUipu36EA9rax). Organizer, sequence, and is_recurring remain RR-internal (ICS parsing plumbing, not user-facing data).
+
+**Context:** Meetings had a notes column in Supabase but no AT sync. Other ICS-derived fields (organizer_name, sequence, is_recurring) also lacked sync — intentionally, as they're parsing metadata.
+
+**Rationale:** Notes are user-facing content that should be visible in both systems. ICS metadata (who organized, sequence number, recurrence flag) is internal plumbing that Airtable doesn't need.
+
+**Impact:** field-maps.ts MF updated. buildMeetingFields in push.ts includes notes when present.
+
+---
+
+### Decision 128: Dead Column Cleanup — ai_flags
+
+**Date:** 2026-03-09
+**Status:** Implemented
+
+**Decision:** Dropped `ai_flags` column from meeting_notes table and removed `flags` array from `NoteSummaryResult` TypeScript type.
+
+**Context:** ai_flags was added early in notes development for AI-generated warning flags. Decision 115 (unified AI summarizer) switched to flat prose format. The flags array was hardcoded to `[]` in the summarizer — dead code.
+
+**Rationale:** A column that's always null and a type field that's always `[]` are noise. They mislead developers into thinking flag functionality exists.
+
+**Impact:** Migration 055 drops column. NoteSummaryResult simplified. notes-summarizer.ts cleaned up. Route handlers no longer pass ai_flags.
+
+---
+
+### Decision 129: Airtable Dead Text Fields Deleted
+
+**Date:** 2026-03-09
+**Status:** Implemented
+
+**Decision:** Deleted 4 singleLineText pseudo-link fields from Airtable: "Partner Meetings" on Partners table, "Meetings" on Programs/Events/AWS Relationships tables.
+
+**Context:** These were plain text fields manually maintained in Airtable, predating the Roadrunner engagement-hub architecture. Real meeting connections flow through the Engagement hub: Meeting → Engagement → Partner/Program/Event/Relationship.
+
+**Rationale:** Text fields that pretend to be links create maintenance burden and confusion. The engagement-hub architecture makes them redundant — Airtable lookup fields through the Engagement link provide the real connections.
+
+**Impact:** No Supabase changes needed (fields were AT-only). AT base cleaned up. entity-model.md documents the real lookup field paths.
+
+---
+
+### Decision 130: Third Parties Handled by Participant System
+
+**Date:** 2026-03-09
+**Status:** Implemented
+
+**Decision:** Third-party stakeholders (consultants, integrators, ISVs) are tracked via the participant system (participants + participant_links with role="third_party") and rendered to Airtable display fields at sync time. No dedicated Supabase column needed.
+
+**Context:** Airtable has "Third Parties" multilineText fields on both Engagements and Meetings. The question was whether to add a third_parties column to Supabase.
+
+**Rationale:** The participant system already captures third-party contacts with role attribution. Adding a denormalized text column would duplicate data and diverge from the engagement-hub principle. The sync layer computes the AT display text from participant_links at push time.
+
+**Impact:** No schema change. entity-model.md documents the AT computed fields and their participant system source.

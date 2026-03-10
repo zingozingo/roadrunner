@@ -1,5 +1,7 @@
 # Data Model
 
+> **⚠️ DEPRECATED** — This document has been superseded by [`docs/entity-model.md`](entity-model.md), which provides a unified Mermaid ERD + field-level registry with AT field IDs, sync directions, and ownership badges. This file is kept for historical reference only.
+
 > Last updated: 2026-03-02 (removed meeting entity columns, engagement-hub enforcement)
 
 ## Overview

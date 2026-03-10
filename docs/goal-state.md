@@ -6,11 +6,13 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 54 migrations, 15 DB tables, 29 API routes, 17 UI pages, 427 tests across 14 suites
+- 55 migrations, 15 DB tables, 29 API routes, 17 UI pages, 427 tests across 14 suites
 - Two-phase classification pipeline: curated-input Phase 1 (enriched engagement index with participants, pillar, topic, goal, current_state, entity links) + deep-analysis Phase 2 (full thread history, entity matching, state evolution)
 - Phase 1 decision framework: 6-step content-evaluation-required (no single-engagement shortcuts)
 - Meeting pipeline: ICS parse → create record → classify → link to engagement (unconditional) → inherit partner → Airtable push
-- Bidirectional Airtable sync: pull catalogs (partners + 7 profile fields, programs, events, relationships), push activity (engagements, meetings)
+- Bidirectional Airtable sync: pull catalogs (partners + 7 profile fields, programs, events, relationships), push activity (engagements with topic+goal, meetings with meeting_type+notes)
+- Sync alignment: all synced columns either sync now or are documented as "sync later" — no dead columns on synced tables (decisions 120-130)
+- Entity model: unified docs/entity-model.md with Mermaid ERD + field-level registry (AT field IDs, sync directions, ownership badges)
 - Engagement-hub architecture: meetings and entity links flow through engagements, not independently
 - Contact architecture: universal JSONB format `{name, email, title, role}`, single parser (`contact-parser.ts`)
 - Push reliability: all Airtable push/delete calls awaited (no fire-and-forget)
@@ -33,7 +35,7 @@ A system where a PDM forwards an email and Roadrunner:
 - Phase 2 prompt review through same curated-input lens
 - Inbox UX redesign (sender names, assign buttons, simpler with engagement-hub model)
 - ~~Meeting notes feature (replace OneNote)~~ — **Implemented** (decisions 101-108)
-- Meeting notes follow-ups: apply migration 051 to production, seed historical OneNote data, task dashboard view
+- Meeting notes follow-ups: apply migrations 051-055 to production, seed historical OneNote data, task dashboard view
 - UI consistency pass across all entity pages
 
 ## Architecture Principles

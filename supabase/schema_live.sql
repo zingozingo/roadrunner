@@ -1,6 +1,11 @@
 -- Roadrunner schema (derived from migrations 001-050)
 -- Generated: 2026-03-02
 -- Tables: 13
+--
+-- ⚠️ STALE: This file reflects migrations 001-050 only.
+-- Current state is 55 migrations, 15 tables.
+-- Missing: migrations 051-055 (meeting_notes, note_tasks, sync alignment cleanup).
+-- Canonical field-level reference: docs/entity-model.md
 
 CREATE TABLE public.approval_queue (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
