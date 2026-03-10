@@ -47,10 +47,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Resolve partner_name to partner_id
+    let partner_id: string | null = null;
+    if (partner_name?.trim()) {
+      const { getSupabaseClient } = await import("@/lib/db");
+      const db = getSupabaseClient();
+      const { data: partnerRows } = await db
+        .from("partners")
+        .select("id")
+        .ilike("name", partner_name.trim())
+        .limit(1);
+      partner_id = partnerRows?.[0]?.id ?? null;
+    }
+
     const meeting = await createMeeting({
       title: title.trim(),
       engagement_id: engagement_id || null,
-      partner_name: partner_name?.trim() || null,
+      partner_id,
       status: status || "scheduled",
       meeting_date: meeting_date || null,
       start_time: start_time?.trim() || null,

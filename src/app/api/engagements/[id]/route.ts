@@ -57,6 +57,23 @@ export async function PUT(
     const body = await request.json();
     const { name, partner_name, status, current_state, pillar } = body;
 
+    // Resolve partner_name to partner_id if provided
+    let partner_id: string | null | undefined;
+    if (partner_name !== undefined) {
+      if (partner_name) {
+        const { getSupabaseClient } = await import("@/lib/db");
+        const db = getSupabaseClient();
+        const { data: partnerRows } = await db
+          .from("partners")
+          .select("id")
+          .ilike("name", partner_name.trim())
+          .limit(1);
+        partner_id = partnerRows?.[0]?.id ?? null;
+      } else {
+        partner_id = null;
+      }
+    }
+
     // Validate: at least one field must be provided
     if (
       name === undefined &&
@@ -103,7 +120,7 @@ export async function PUT(
 
     const updated = await updateEngagement(id, {
       name: name?.trim(),
-      partner_name,
+      partner_id,
       status,
       current_state,
       pillar,

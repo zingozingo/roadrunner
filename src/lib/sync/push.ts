@@ -14,7 +14,7 @@ import {
 import { getSupabaseClient } from "../db";
 import { isUserEmail } from "../user-config";
 import {
-  ENGAGEMENTS_TABLE, MEETINGS_TABLE, PARTNERS_TABLE,
+  ENGAGEMENTS_TABLE, MEETINGS_TABLE,
   ENF, MF,
 } from "./field-maps";
 import { NOTES_MARKER, NOTES_FOOTER } from "./field-maps";
@@ -77,35 +77,23 @@ function mergeNotes(existingNotes: string | null, roadrunnerSection: string): st
 
 // ── Partner lookup helpers ──────────────────────────────────
 
-/** Build a recordId → partner name lookup from the Partners table */
-async function fetchPartnerLookup(): Promise<Map<string, string>> {
-  try {
-    const records = await fetchAllRecords(PARTNERS_TABLE);
-    const map = new Map<string, string>();
-    for (const rec of records) {
-      const values = Object.values(rec.fields);
-      for (const val of values) {
-        if (typeof val === "string" && val.trim()) {
-          map.set(rec.id, val.trim());
-          break;
-        }
-      }
-    }
-    return map;
-  } catch (err) {
-    console.warn("Failed to fetch partner lookup:", err);
-    return new Map();
-  }
-}
+/** Build partner DB id → AT record id and DB id → name lookups */
+async function fetchPartnerMaps(): Promise<{
+  partnerDbToAtId: Map<string, string>;
+  partnerDbToName: Map<string, string>;
+}> {
+  const supabase = getSupabaseClient();
+  const { data: partners } = await supabase
+    .from("partners")
+    .select("id, name, airtable_record_id");
 
-/** Build name → recordId reverse lookup from the Partners table */
-async function fetchPartnerNameToIdMap(): Promise<Map<string, string>> {
-  const lookup = await fetchPartnerLookup();
-  const reversed = new Map<string, string>();
-  for (const [recordId, name] of lookup) {
-    reversed.set(name.toLowerCase(), recordId);
+  const partnerDbToAtId = new Map<string, string>();
+  const partnerDbToName = new Map<string, string>();
+  for (const p of (partners ?? []) as { id: string; name: string; airtable_record_id: string | null }[]) {
+    if (p.airtable_record_id) partnerDbToAtId.set(p.id, p.airtable_record_id);
+    partnerDbToName.set(p.id, p.name);
   }
-  return reversed;
+  return { partnerDbToAtId, partnerDbToName };
 }
 
 // ── Engagement participant helpers ──────────────────────────
@@ -169,7 +157,8 @@ async function fetchEngagementParticipants(
 // ── Engagement field builder ────────────────────────────────
 
 interface EngagementLookups {
-  partnerNameToId: Map<string, string>;
+  partnerDbToAtId: Map<string, string>;
+  partnerDbToName: Map<string, string>;
   programDbToAtId: Map<string, string>;
   engagementRelAtIds: Map<string, string[]>;
   engagementEventAtIds: Map<string, string[]>;
@@ -187,14 +176,16 @@ function buildEngagementFields(
   };
 
   if (engagement.pillar) fields[ENF.pillar] = engagement.pillar;
+  if (engagement.topic) fields[ENF.topic] = engagement.topic;
+  if (engagement.goal) fields[ENF.goal] = engagement.goal;
 
-  const partnerName = engagement.partner_name as string | null;
-  if (partnerName) {
-    const partnerId = lookups.partnerNameToId.get(partnerName.toLowerCase());
-    if (partnerId) {
-      fields[ENF.partner] = [partnerId];
+  const partnerId = engagement.partner_id as string | null;
+  if (partnerId) {
+    const atId = lookups.partnerDbToAtId.get(partnerId);
+    if (atId) {
+      fields[ENF.partner] = [atId];
     } else {
-      console.warn(`Partner "${partnerName}" not found in Airtable Partners table`);
+      console.warn(`Partner DB id "${partnerId}" not found in Airtable`);
     }
   }
 
@@ -218,7 +209,8 @@ function buildEngagementFields(
     const awsNames: string[] = [];
     const partnerNames: string[] = [];
     const thirdPartyNames: string[] = [];
-    const partnerNameLower = partnerName?.toLowerCase() ?? "";
+    const resolvedPartnerName = partnerId ? lookups.partnerDbToName.get(partnerId) ?? "" : "";
+    const partnerNameLower = resolvedPartnerName.toLowerCase();
 
     for (const p of participants) {
       const email = (p.email ?? "").toLowerCase();
@@ -287,7 +279,7 @@ export async function pushEngagementToAirtable(
   }
 
   const [
-    partnerNameToId,
+    partnerMaps,
     participantMap,
     { data: programs },
     { data: junctions },
@@ -295,7 +287,7 @@ export async function pushEngagementToAirtable(
     { data: eventLinks },
     { data: events },
   ] = await Promise.all([
-    fetchPartnerNameToIdMap(),
+    fetchPartnerMaps(),
     fetchEngagementParticipants([engagementId]),
     supabase.from("programs").select("id, airtable_record_id").not("airtable_record_id", "is", null),
     supabase.from("engagement_aws_relationships").select("engagement_id, aws_relationship_id").eq("engagement_id", engagementId),
@@ -341,7 +333,7 @@ export async function pushEngagementToAirtable(
     }
   }
 
-  const lookups: EngagementLookups = { partnerNameToId, programDbToAtId, engagementRelAtIds, engagementEventAtIds };
+  const lookups: EngagementLookups = { partnerDbToAtId: partnerMaps.partnerDbToAtId, partnerDbToName: partnerMaps.partnerDbToName, programDbToAtId, engagementRelAtIds, engagementEventAtIds };
   const fields = buildEngagementFields(
     engagement, lookups, participantMap.get(engagementId)
   );
@@ -431,7 +423,7 @@ export async function syncEngagementsToAirtable(): Promise<SyncResult> {
   const [
     { data: engagements, error: fetchErr },
     atRecords,
-    partnerNameToId,
+    partnerMaps,
     participantMap,
     { data: programs },
     { data: junctions },
@@ -441,7 +433,7 @@ export async function syncEngagementsToAirtable(): Promise<SyncResult> {
   ] = await Promise.all([
       supabase.from("engagements").select("*"),
       fetchAllRecords(ENGAGEMENTS_TABLE),
-      fetchPartnerNameToIdMap(),
+      fetchPartnerMaps(),
       fetchEngagementParticipants(),
       supabase.from("programs").select("id, airtable_record_id").not("airtable_record_id", "is", null),
       supabase.from("engagement_aws_relationships").select("engagement_id, aws_relationship_id"),
@@ -499,7 +491,7 @@ export async function syncEngagementsToAirtable(): Promise<SyncResult> {
     }
   }
 
-  const lookups: EngagementLookups = { partnerNameToId, programDbToAtId, engagementRelAtIds, engagementEventAtIds };
+  const lookups: EngagementLookups = { partnerDbToAtId: partnerMaps.partnerDbToAtId, partnerDbToName: partnerMaps.partnerDbToName, programDbToAtId, engagementRelAtIds, engagementEventAtIds };
 
   const atByRoadrunnerId = new Map<string, AirtableRecord>();
   const atByName = new Map<string, AirtableRecord>();
@@ -586,22 +578,28 @@ export async function syncEngagementsToAirtable(): Promise<SyncResult> {
 
 interface MeetingLookups {
   engagementDbToAtId: Map<string, string>;
+  partnerDbToName: Map<string, string>;
 }
 
 async function buildMeetingLookups(): Promise<MeetingLookups> {
   const supabase = getSupabaseClient();
 
-  const { data: engagements } = await supabase
-    .from("engagements")
-    .select("id, airtable_record_id")
-    .not("airtable_record_id", "is", null);
+  const [{ data: engagements }, { data: partners }] = await Promise.all([
+    supabase.from("engagements").select("id, airtable_record_id").not("airtable_record_id", "is", null),
+    supabase.from("partners").select("id, name"),
+  ]);
 
   const engagementDbToAtId = new Map<string, string>();
   for (const e of (engagements ?? []) as { id: string; airtable_record_id: string }[]) {
     engagementDbToAtId.set(e.id, e.airtable_record_id);
   }
 
-  return { engagementDbToAtId };
+  const partnerDbToName = new Map<string, string>();
+  for (const p of (partners ?? []) as { id: string; name: string }[]) {
+    partnerDbToName.set(p.id, p.name);
+  }
+
+  return { engagementDbToAtId, partnerDbToName };
 }
 
 function buildMeetingFields(
@@ -621,6 +619,8 @@ function buildMeetingFields(
   if (meeting.location) fields[MF.location] = meeting.location;
   if (meeting.source) fields[MF.source] = meeting.source;
   if (meeting.ics_uid) fields[MF.icsUid] = meeting.ics_uid;
+  if (meeting.meeting_type) fields[MF.meetingType] = meeting.meeting_type;
+  if (meeting.notes) fields[MF.notes] = meeting.notes;
 
   // Engagement is THE link — Partner, Program, Event, AWS Relationships
   // are displayed in AT via lookup fields from the Engagement.
@@ -635,7 +635,8 @@ function buildMeetingFields(
   const awsRendered: string[] = [];
   const partnerRendered: string[] = [];
   const thirdPartyRendered: string[] = [];
-  const partnerNameLower = ((meeting.partner_name as string) ?? "").toLowerCase();
+  const meetingPartnerId = meeting.partner_id as string | null;
+  const partnerNameLower = (meetingPartnerId ? lookups.partnerDbToName.get(meetingPartnerId) ?? "" : "").toLowerCase();
 
   for (const a of attendees) {
     const email = ((a.email as string) || "").toLowerCase();

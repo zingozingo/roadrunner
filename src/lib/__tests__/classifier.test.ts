@@ -131,7 +131,7 @@ const {
     mockCreateApproval: vi.fn().mockResolvedValue({ id: "approval-001" }),
     mockCreateEngagement: vi.fn().mockResolvedValue({
       id: "init-auto", name: "Auto-Created", status: "active",
-      partner_name: null, pillar: null,
+      partner_id: null, pillar: null,
       created_at: "", updated_at: "", closed_at: null,
     }),
     mockCreateEntityLink: vi.fn().mockResolvedValue(undefined),

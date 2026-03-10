@@ -152,7 +152,6 @@ function parseResponse(raw: string): NoteSummaryResult {
             due_date: typeof t.due_date === "string" ? t.due_date : null,
           }))
         : [],
-      flags: [],
     };
   } catch {
     // Graceful fallback — never lose the user's notes
@@ -160,7 +159,6 @@ function parseResponse(raw: string): NoteSummaryResult {
     return {
       summary: raw,
       tasks: [],
-      flags: [],
     };
   }
 }

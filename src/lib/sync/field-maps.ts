@@ -77,6 +77,8 @@ export const ENF = {
   awsStakeholders: "fldLVPbg7iyz0Nli9",
   partnerStakeholders: "fldj6vaWwDKJy6aci",
   thirdParties: "flduajBotnT6x5ZXD",
+  topic: "fldDRMrtkVHOdDYVy",
+  goal: "fld1yU46baF052MHd",
 } as const;
 
 export const MF = {
@@ -93,6 +95,8 @@ export const MF = {
   source: "fld2RW78vS1T91bab",
   roadrunnerId: "fldLveS95zGGVU4j1",
   icsUid: "fldNb83l5XLtz8J9k",
+  meetingType: "fldGWa1MFoqoc89qC",
+  notes: "fldzGUipu36EA9rax",
 } as const;
 
 // ── Notes constants ─────────────────────────────────────────

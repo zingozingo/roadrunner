@@ -21,12 +21,10 @@ export type Pillar = "Co-Sell" | "Co-Market" | "Co-Build";
 export interface Engagement {
   id: string;
   name: string;
-  status: "active" | "blocked" | "completed" | "archived";
+  status: "active" | "planned" | "blocked" | "completed" | "archived";
   current_state: string | null;
   topic: string | null;
   goal: string | null;
-  engagement_type: string | null;
-  partner_name: string | null;
   partner_id: string | null;
   pillar: Pillar | null;
   program_id: string | null;
@@ -120,7 +118,6 @@ export interface Meeting {
   id: string;
   title: string;
   engagement_id: string | null;
-  partner_name: string | null;
   partner_id: string | null;
   message_id: string | null;
   status: MeetingStatus;
@@ -135,6 +132,7 @@ export interface Meeting {
   sequence: number | null;
   is_recurring: boolean;
   source: "manual" | "ics_parsed";
+  meeting_type: string | null;
   notes: string | null;
   airtable_record_id: string | null;
   created_at: string;
@@ -373,7 +371,6 @@ export interface MeetingNote {
   raw_notes: string;
   ai_summary: string | null;
   ai_tasks: unknown | null;
-  ai_flags: unknown | null;
   context_snapshot: unknown | null;
   status: "draft" | "complete";
   created_at: string;
@@ -417,7 +414,6 @@ export interface UpdateMeetingNoteInput {
   raw_notes?: string;
   ai_summary?: string | null;
   ai_tasks?: unknown | null;
-  ai_flags?: unknown | null;
   context_snapshot?: unknown | null;
   status?: "draft" | "complete";
   engagement_id?: string | null;
@@ -574,10 +570,6 @@ export interface NoteSummaryResult {
     owner: "me" | "partner" | "aws_internal";
     owner_name: string | null;
     due_date: string | null;
-  }>;
-  flags: Array<{
-    type: "gap" | "intel" | "question" | "followup";
-    description: string;
   }>;
 }
 

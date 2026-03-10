@@ -1,26 +1,80 @@
 import { getSupabaseClient } from "./client";
 import { Engagement, Message, Meeting, Participant, Pillar } from "../types";
 
-export async function getActiveEngagements(): Promise<Engagement[]> {
-  const { data, error } = await getSupabaseClient()
+export async function getActiveEngagements(): Promise<
+  (Engagement & { partner_name: string | null })[]
+> {
+  const db = getSupabaseClient();
+  const { data, error } = await db
     .from("engagements")
     .select("*")
     .eq("status", "active")
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(`Failed to fetch engagements: ${error.message}`);
-  return data as Engagement[];
+
+  const engagements = (data ?? []) as Engagement[];
+
+  // Resolve partner names via batch lookup
+  const partnerIds = new Set<string>();
+  for (const e of engagements) {
+    if (e.partner_id) partnerIds.add(e.partner_id);
+  }
+
+  const partnerNames = new Map<string, string>();
+  if (partnerIds.size > 0) {
+    const { data: partners } = await db
+      .from("partners")
+      .select("id, name")
+      .in("id", [...partnerIds]);
+    for (const p of partners ?? []) {
+      const row = p as { id: string; name: string };
+      partnerNames.set(row.id, row.name);
+    }
+  }
+
+  return engagements.map((e) => ({
+    ...e,
+    partner_name: e.partner_id ? partnerNames.get(e.partner_id) ?? null : null,
+  }));
 }
 
-export async function getAllEngagements(): Promise<Engagement[]> {
-  const { data, error } = await getSupabaseClient()
+export async function getAllEngagements(): Promise<
+  (Engagement & { partner_name: string | null })[]
+> {
+  const db = getSupabaseClient();
+  const { data, error } = await db
     .from("engagements")
     .select("*")
     .order("status", { ascending: true })
     .order("updated_at", { ascending: false });
 
   if (error) throw new Error(`Failed to fetch engagements: ${error.message}`);
-  return (data ?? []) as Engagement[];
+
+  const engagements = (data ?? []) as Engagement[];
+
+  // Resolve partner names via batch lookup
+  const partnerIds = new Set<string>();
+  for (const e of engagements) {
+    if (e.partner_id) partnerIds.add(e.partner_id);
+  }
+
+  const partnerNames = new Map<string, string>();
+  if (partnerIds.size > 0) {
+    const { data: partners } = await db
+      .from("partners")
+      .select("id, name")
+      .in("id", [...partnerIds]);
+    for (const p of partners ?? []) {
+      const row = p as { id: string; name: string };
+      partnerNames.set(row.id, row.name);
+    }
+  }
+
+  return engagements.map((e) => ({
+    ...e,
+    partner_name: e.partner_id ? partnerNames.get(e.partner_id) ?? null : null,
+  }));
 }
 
 export async function getEngagementById(id: string): Promise<Engagement | null> {
@@ -35,9 +89,10 @@ export async function getEngagementById(id: string): Promise<Engagement | null> 
 }
 
 export async function getEngagementsWithMessageCounts(): Promise<
-  (Engagement & { message_count: number })[]
+  (Engagement & { message_count: number; partner_name: string | null })[]
 > {
-  const { data, error } = await getSupabaseClient()
+  const db = getSupabaseClient();
+  const { data, error } = await db
     .from("engagements")
     .select("*, messages(count)")
     .order("status", { ascending: true })
@@ -45,18 +100,42 @@ export async function getEngagementsWithMessageCounts(): Promise<
 
   if (error) throw new Error(`Failed to fetch engagements: ${error.message}`);
 
-  return ((data ?? []) as (Engagement & { messages: { count: number }[] })[]).map(
+  const rows = ((data ?? []) as (Engagement & { messages: { count: number }[] })[]).map(
     (row) => ({
       ...row,
       message_count: row.messages?.[0]?.count ?? 0,
       messages: undefined as never,
     })
   );
+
+  // Resolve partner names via batch lookup
+  const partnerIds = new Set<string>();
+  for (const r of rows) {
+    if (r.partner_id) partnerIds.add(r.partner_id);
+  }
+
+  const partnerNames = new Map<string, string>();
+  if (partnerIds.size > 0) {
+    const { data: partners } = await db
+      .from("partners")
+      .select("id, name")
+      .in("id", [...partnerIds]);
+    for (const p of partners ?? []) {
+      const row = p as { id: string; name: string };
+      partnerNames.set(row.id, row.name);
+    }
+  }
+
+  return rows.map((r) => ({
+    ...r,
+    partner_name: r.partner_id ? partnerNames.get(r.partner_id) ?? null : null,
+  }));
 }
 
 export async function createEngagement(data: {
   name: string;
   partner_name?: string | null;
+  partner_id?: string | null;
   current_state?: string | null;
   topic?: string | null;
   goal?: string | null;
@@ -64,9 +143,9 @@ export async function createEngagement(data: {
 }): Promise<Engagement> {
   const db = getSupabaseClient();
 
-  // Resolve partner_id from partner_name (inline to avoid cross-module dep)
-  let partnerId: string | null = null;
-  if (data.partner_name) {
+  // Resolve partner_id: use explicit partner_id if provided, else resolve from partner_name
+  let partnerId: string | null = data.partner_id ?? null;
+  if (!partnerId && data.partner_name) {
     const { data: partnerRows } = await db
       .from("partners")
       .select("id")
@@ -81,7 +160,6 @@ export async function createEngagement(data: {
     .from("engagements")
     .insert({
       name: data.name,
-      partner_name: data.partner_name ?? null,
       partner_id: partnerId,
       current_state: data.current_state ?? null,
       topic: data.topic ?? null,
@@ -112,7 +190,7 @@ export async function updateEngagement(
   id: string,
   updates: {
     name?: string;
-    partner_name?: string | null;
+    partner_id?: string | null;
     status?: Engagement["status"];
     current_state?: string | null;
     pillar?: Pillar | null;
@@ -122,22 +200,7 @@ export async function updateEngagement(
   const row: Record<string, unknown> = {};
 
   if (updates.name !== undefined) row.name = updates.name;
-  if (updates.partner_name !== undefined) {
-    row.partner_name = updates.partner_name;
-    // Re-resolve partner_id when partner_name changes (inline)
-    if (updates.partner_name) {
-      const { data: partnerRows } = await db
-        .from("partners")
-        .select("id")
-        .ilike("name", updates.partner_name)
-        .limit(1);
-      row.partner_id = partnerRows && partnerRows.length > 0
-        ? (partnerRows[0] as { id: string }).id
-        : null;
-    } else {
-      row.partner_id = null;
-    }
-  }
+  if (updates.partner_id !== undefined) row.partner_id = updates.partner_id;
   if (updates.current_state !== undefined) row.current_state = updates.current_state;
   if (updates.pillar !== undefined) row.pillar = updates.pillar;
 

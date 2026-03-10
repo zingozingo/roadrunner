@@ -45,14 +45,13 @@ function makeMessage(overrides: Partial<Message> = {}): Message {
   };
 }
 
-const ENGAGEMENT: Engagement = {
+const ENGAGEMENT: Engagement & { partner_name: string | null } = {
   id: "eng-001",
   name: "CyberShield - Security Review",
   status: "active",
   current_state: "CyberShield is pursuing AWS Security Competency. Alice submitted the initial application last week. Steven connected them with the security team for technical review.",
   topic: "Security Competency Technical Validation",
   goal: "CyberShield achieves AWS Security Competency and lists on Marketplace.",
-  engagement_type: null,
   partner_name: "CyberShield",
   partner_id: "partner-001",
   pillar: "Co-Build",
@@ -100,7 +99,6 @@ const MEETING: Meeting = {
   id: "mtg-001",
   title: "CyberShield Security Review Call",
   engagement_id: "eng-001",
-  partner_name: "CyberShield",
   partner_id: "partner-001",
   message_id: null,
   status: "scheduled",
@@ -119,6 +117,7 @@ const MEETING: Meeting = {
   sequence: null,
   is_recurring: false,
   source: "manual",
+  meeting_type: null,
   notes: null,
   airtable_record_id: null,
   created_at: "2026-02-15T00:00:00Z",
@@ -753,7 +752,7 @@ describe("buildPhase2Context — name resolution", () => {
 // ============================================================
 
 describe("buildPhase2Context — incoming meeting data", () => {
-  const NEW_MEETING: Meeting = {
+  const NEW_MEETING: Meeting & { partner_name: string | null } = {
     id: "mtg-new",
     title: "Partner Kickoff Call",
     engagement_id: null,
@@ -776,6 +775,7 @@ describe("buildPhase2Context — incoming meeting data", () => {
     sequence: 0,
     is_recurring: true,
     source: "ics_parsed",
+    meeting_type: null,
     notes: null,
     airtable_record_id: null,
     created_at: "2026-03-01T00:00:00Z",

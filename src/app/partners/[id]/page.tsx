@@ -28,39 +28,24 @@ export default async function PartnerDetailPage({
 
   const db = getSupabaseClient();
 
-  // Fetch by partner_id FK, falling back to partner_name text match for unbackfilled rows
-  const [{ data: engByFk }, { data: engByName }, { data: mtgByFk }, { data: mtgByName }] =
-    await Promise.all([
-      db
-        .from("engagements")
-        .select("*")
-        .eq("partner_id", id)
-        .order("status", { ascending: true })
-        .order("updated_at", { ascending: false }),
-      db
-        .from("engagements")
-        .select("*")
-        .eq("partner_name", partner.name)
-        .is("partner_id", null)
-        .order("status", { ascending: true })
-        .order("updated_at", { ascending: false }),
-      db
-        .from("meetings")
-        .select("*")
-        .eq("partner_id", id)
-        .order("meeting_date", { ascending: false, nullsFirst: false }),
-      db
-        .from("meetings")
-        .select("*")
-        .eq("partner_name", partner.name)
-        .is("partner_id", null)
-        .order("meeting_date", { ascending: false, nullsFirst: false }),
-    ]);
-  const engagements = [...(engByFk ?? []), ...(engByName ?? [])];
-  const meetings = [...(mtgByFk ?? []), ...(mtgByName ?? [])];
+  // Fetch by partner_id FK
+  const [{ data: engagements }, { data: meetings }] = await Promise.all([
+    db
+      .from("engagements")
+      .select("*")
+      .eq("partner_id", id)
+      .order("status", { ascending: true })
+      .order("updated_at", { ascending: false }),
+    db
+      .from("meetings")
+      .select("*")
+      .eq("partner_id", id)
+      .order("meeting_date", { ascending: false, nullsFirst: false }),
+  ]);
 
   const linkedEngagements = (engagements ?? []) as Engagement[];
   const linkedMeetings = (meetings ?? []) as Meeting[];
+
   const linkedRelationships = await getAwsRelationshipsByPartner(id);
 
   // Build engagement name map for MeetingTimeline

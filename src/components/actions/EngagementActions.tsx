@@ -9,8 +9,10 @@ const PILLAR_OPTIONS: Pillar[] = ["Co-Sell", "Co-Market", "Co-Build"];
 
 export default function EngagementActions({
   engagement,
+  partnerName: initialPartnerName,
 }: {
   engagement: Engagement;
+  partnerName?: string | null;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -21,7 +23,7 @@ export default function EngagementActions({
 
   // Edit form state
   const [name, setName] = useState(engagement.name);
-  const [partnerName, setPartnerName] = useState(engagement.partner_name ?? "");
+  const [partnerName, setPartnerName] = useState(initialPartnerName ?? "");
   const [status, setStatus] = useState<Engagement["status"]>(engagement.status);
   const [pillar, setPillar] = useState<Pillar | null>(engagement.pillar);
   const [currentState, setCurrentState] = useState(
@@ -30,7 +32,7 @@ export default function EngagementActions({
 
   function startEdit() {
     setName(engagement.name);
-    setPartnerName(engagement.partner_name ?? "");
+    setPartnerName(initialPartnerName ?? "");
     setStatus(engagement.status);
     setPillar(engagement.pillar);
     setCurrentState(engagement.current_state ?? "");

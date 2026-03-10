@@ -208,7 +208,7 @@ export function buildPhase2Context(
   newMessages: Message[],
   phase1Result: Phase1Result,
   history: {
-    engagement: Engagement;
+    engagement: Engagement & { partner_name?: string | null };
     messages: Message[];
     meetings: Meeting[];
     participants: (Participant & { role: string | null })[];
@@ -221,7 +221,7 @@ export function buildPhase2Context(
   matchedPartner: Partner | null,
   forwarderNote?: string | null,
   nameResolutionMap?: NameResolutionMap | null,
-  newMeetings?: Meeting[] | null,
+  newMeetings?: (Meeting & { partner_name?: string | null })[] | null,
   existingLinks?: {
     entityLinks: { type: string; name: string; relationship: string }[];
     awsRelationships: { name: string; relationship: string }[];
@@ -324,7 +324,7 @@ function buildPhase1PassThrough(phase1Result: Phase1Result): string {
 }
 
 function buildEngagementContext(history: {
-  engagement: Engagement;
+  engagement: Engagement & { partner_name?: string | null };
   messages: Message[];
   meetings: Meeting[];
   participants: (Participant & { role: string | null })[];
@@ -464,7 +464,7 @@ function buildExistingEntityLinks(
   return lines.join("\n");
 }
 
-function buildNewMeetingData(meetings: Meeting[]): string {
+function buildNewMeetingData(meetings: (Meeting & { partner_name?: string | null })[]): string {
   const lines = ["### Incoming Meeting Data\n"];
 
   for (const m of meetings) {

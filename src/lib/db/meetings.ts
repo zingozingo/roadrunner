@@ -2,7 +2,7 @@ import { getSupabaseClient } from "./client";
 import { Meeting, MeetingAttendee, ParsedMeeting, Partner } from "../types";
 
 export async function getMeetingsWithEngagements(): Promise<
-  (Meeting & { engagement_name: string | null })[]
+  (Meeting & { engagement_name: string | null; partner_name: string | null })[]
 > {
   const db = getSupabaseClient();
   const { data: meetings, error } = await db
@@ -12,9 +12,11 @@ export async function getMeetingsWithEngagements(): Promise<
 
   if (error) throw new Error(`Failed to fetch meetings: ${error.message}`);
 
+  const typedMeetings = (meetings ?? []) as Meeting[];
+
   // Resolve engagement names
   const engagementIds = new Set<string>();
-  for (const m of (meetings ?? []) as Meeting[]) {
+  for (const m of typedMeetings) {
     if (m.engagement_id) engagementIds.add(m.engagement_id);
   }
 
@@ -31,9 +33,29 @@ export async function getMeetingsWithEngagements(): Promise<
     }
   }
 
-  return ((meetings ?? []) as Meeting[]).map((m) => ({
+  // Resolve partner names
+  const partnerIds = new Set<string>();
+  for (const m of typedMeetings) {
+    if (m.partner_id) partnerIds.add(m.partner_id);
+  }
+
+  const partnerNames = new Map<string, string>();
+  if (partnerIds.size > 0) {
+    const { data: partners } = await db
+      .from("partners")
+      .select("id, name")
+      .in("id", [...partnerIds]);
+
+    for (const p of partners ?? []) {
+      const row = p as { id: string; name: string };
+      partnerNames.set(row.id, row.name);
+    }
+  }
+
+  return typedMeetings.map((m) => ({
     ...m,
     engagement_name: m.engagement_id ? engagementNames.get(m.engagement_id) ?? null : null,
+    partner_name: m.partner_id ? partnerNames.get(m.partner_id) ?? null : null,
   }));
 }
 
@@ -62,7 +84,7 @@ export async function getMeetingsByEngagement(engagementId: string): Promise<Mee
 export async function createMeeting(data: {
   title: string;
   engagement_id?: string | null;
-  partner_name?: string | null;
+  partner_id?: string | null;
   status?: string;
   meeting_date?: string | null;
   start_time?: string | null;
@@ -70,31 +92,18 @@ export async function createMeeting(data: {
   location?: string | null;
   organizer_email?: string | null;
   attendees?: MeetingAttendee[];
+  meeting_type?: string | null;
   notes?: string | null;
   source?: Meeting["source"];
 }): Promise<Meeting> {
   const db = getSupabaseClient();
-
-  // Resolve partner_id from partner_name (inline to avoid cross-module dep)
-  let partnerId: string | null = null;
-  if (data.partner_name) {
-    const { data: partnerRows } = await db
-      .from("partners")
-      .select("id")
-      .ilike("name", data.partner_name)
-      .limit(1);
-    if (partnerRows && partnerRows.length > 0) {
-      partnerId = (partnerRows[0] as { id: string }).id;
-    }
-  }
 
   const { data: meeting, error } = await db
     .from("meetings")
     .insert({
       title: data.title,
       engagement_id: data.engagement_id ?? null,
-      partner_name: data.partner_name ?? null,
-      partner_id: partnerId,
+      partner_id: data.partner_id ?? null,
       status: data.status ?? "scheduled",
       meeting_date: data.meeting_date ?? null,
       start_time: data.start_time ?? null,
@@ -102,6 +111,7 @@ export async function createMeeting(data: {
       location: data.location ?? null,
       organizer_email: data.organizer_email ?? null,
       attendees: data.attendees ?? [],
+      meeting_type: data.meeting_type ?? null,
       notes: data.notes ?? null,
       source: data.source ?? "manual",
     })
@@ -128,7 +138,7 @@ export async function updateMeeting(
   updates: {
     title?: string;
     engagement_id?: string | null;
-    partner_name?: string | null;
+    partner_id?: string | null;
     status?: string;
     meeting_date?: string | null;
     start_time?: string | null;
@@ -136,6 +146,7 @@ export async function updateMeeting(
     location?: string | null;
     organizer_email?: string | null;
     attendees?: MeetingAttendee[];
+    meeting_type?: string | null;
     notes?: string | null;
   }
 ): Promise<Meeting> {
@@ -206,8 +217,8 @@ export async function linkEngagementAwsRelationship(
  */
 export async function matchPartnerFromAttendees(
   attendees: MeetingAttendee[]
-): Promise<{ partner_id: string | null; partner_name: string | null }> {
-  const none = { partner_id: null, partner_name: null };
+): Promise<{ partner_id: string | null }> {
+  const none = { partner_id: null };
   if (attendees.length === 0) return none;
 
   // Collect unique non-Amazon domains from attendees
@@ -231,7 +242,6 @@ export async function matchPartnerFromAttendees(
 
   const partners = partnerData as Partner[];
   const matchedPartnerIds = new Set<string>();
-  const matchedPartnerMap = new Map<string, string>(); // id → name
 
   for (const partner of partners) {
     const partnerDomains = new Set<string>();
@@ -256,7 +266,6 @@ export async function matchPartnerFromAttendees(
     for (const ad of attendeeDomains) {
       if (partnerDomains.has(ad)) {
         matchedPartnerIds.add(partner.id);
-        matchedPartnerMap.set(partner.id, partner.name);
         break;
       }
     }
@@ -264,7 +273,7 @@ export async function matchPartnerFromAttendees(
 
   if (matchedPartnerIds.size === 1) {
     const id = [...matchedPartnerIds][0];
-    return { partner_id: id, partner_name: matchedPartnerMap.get(id) ?? null };
+    return { partner_id: id };
   }
 
   return none; // zero or ambiguous
@@ -346,7 +355,6 @@ export async function createMeetingFromICS(
       };
       if (partner.partner_id) {
         updates.partner_id = partner.partner_id;
-        updates.partner_name = partner.partner_name;
       }
 
       const { error } = await db
@@ -392,7 +400,6 @@ export async function createMeetingFromICS(
         status: parsed.is_cancellation ? "cancelled" : "scheduled",
         message_id: messageId,
         partner_id: partner.partner_id,
-        partner_name: partner.partner_name,
       })
       .select("id")
       .single();
@@ -421,7 +428,7 @@ export async function createMeetingFromICS(
 
 /**
  * Link a meeting to an engagement after classification.
- * Finds the meeting by message_id and sets engagement_id + partner_name.
+ * Finds the meeting by message_id and sets engagement_id + partner_id.
  * The IS NULL guard prevents overwriting manually linked meetings.
  * Never throws — logs errors silently.
  */
@@ -432,19 +439,16 @@ export async function linkMeetingToEngagement(
   try {
     const db = getSupabaseClient();
 
-    // Look up partner_name and partner_id from the engagement
+    // Look up partner_id from the engagement
     const { data: engagement } = await db
       .from("engagements")
-      .select("partner_name, partner_id")
+      .select("partner_id")
       .eq("id", engagementId)
       .maybeSingle();
 
     const updates: Record<string, unknown> = {
       engagement_id: engagementId,
     };
-    if (engagement?.partner_name) {
-      updates.partner_name = engagement.partner_name;
-    }
     if (engagement?.partner_id) {
       updates.partner_id = engagement.partner_id;
     }

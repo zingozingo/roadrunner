@@ -48,7 +48,9 @@ export async function getAwsRelationship(id: string): Promise<AwsRelationship | 
   return data as AwsRelationship | null;
 }
 
-export async function getEngagementsByAwsRelationship(relationshipId: string): Promise<Engagement[]> {
+export async function getEngagementsByAwsRelationship(
+  relationshipId: string
+): Promise<(Engagement & { partner_name: string | null })[]> {
   const db = getSupabaseClient();
 
   const { data: junctionRows, error: junctionErr } = await db
@@ -69,7 +71,31 @@ export async function getEngagementsByAwsRelationship(relationshipId: string): P
     .order("updated_at", { ascending: false });
 
   if (error) throw new Error(`Failed to fetch linked engagements: ${error.message}`);
-  return (data ?? []) as Engagement[];
+
+  const engagements = (data ?? []) as Engagement[];
+
+  // Resolve partner names
+  const partnerIds = new Set<string>();
+  for (const e of engagements) {
+    if (e.partner_id) partnerIds.add(e.partner_id);
+  }
+
+  const partnerNames = new Map<string, string>();
+  if (partnerIds.size > 0) {
+    const { data: partners } = await db
+      .from("partners")
+      .select("id, name")
+      .in("id", [...partnerIds]);
+    for (const p of partners ?? []) {
+      const row = p as { id: string; name: string };
+      partnerNames.set(row.id, row.name);
+    }
+  }
+
+  return engagements.map((e) => ({
+    ...e,
+    partner_name: e.partner_id ? partnerNames.get(e.partner_id) ?? null : null,
+  }));
 }
 
 export async function updateAwsRelationship(

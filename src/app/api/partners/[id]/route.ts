@@ -18,39 +18,20 @@ export async function GET(
 
     const db = getSupabaseClient();
 
-    // Fetch engagements by partner_id FK, falling back to partner_name text match
-    const [{ data: engByFk }, { data: engByName }] = await Promise.all([
-      db
-        .from("engagements")
-        .select("*")
-        .eq("partner_id", id)
-        .order("status", { ascending: true })
-        .order("updated_at", { ascending: false }),
-      db
-        .from("engagements")
-        .select("*")
-        .eq("partner_name", partner.name)
-        .is("partner_id", null)
-        .order("status", { ascending: true })
-        .order("updated_at", { ascending: false }),
-    ]);
-    const engagements = [...(engByFk ?? []), ...(engByName ?? [])];
+    // Fetch engagements by partner_id FK
+    const { data: engagements } = await db
+      .from("engagements")
+      .select("*")
+      .eq("partner_id", id)
+      .order("status", { ascending: true })
+      .order("updated_at", { ascending: false });
 
-    // Fetch meetings by partner_id FK, falling back to partner_name text match
-    const [{ data: mtgByFk }, { data: mtgByName }] = await Promise.all([
-      db
-        .from("meetings")
-        .select("*")
-        .eq("partner_id", id)
-        .order("meeting_date", { ascending: false, nullsFirst: false }),
-      db
-        .from("meetings")
-        .select("*")
-        .eq("partner_name", partner.name)
-        .is("partner_id", null)
-        .order("meeting_date", { ascending: false, nullsFirst: false }),
-    ]);
-    const meetings = [...(mtgByFk ?? []), ...(mtgByName ?? [])];
+    // Fetch meetings by partner_id FK
+    const { data: meetings } = await db
+      .from("meetings")
+      .select("*")
+      .eq("partner_id", id)
+      .order("meeting_date", { ascending: false, nullsFirst: false });
 
     return NextResponse.json({
       partner,

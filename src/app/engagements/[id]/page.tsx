@@ -17,6 +17,7 @@ import {
   getEntityLinksForEntity,
   resolveEntityLinkNames,
   getAwsRelationshipsByEngagement,
+  getPartner,
 } from "@/lib/db";
 import { formatFooterDate } from "@/lib/format-utils";
 import type { TimelineItem } from "@/lib/types";
@@ -31,13 +32,16 @@ export default async function EngagementDetailPage({
   const engagement = await getEngagementById(id);
   if (!engagement) notFound();
 
-  const [messages, meetings, participants, entityLinks, awsRelationships] = await Promise.all([
+  const [messages, meetings, participants, entityLinks, awsRelationships, partner] = await Promise.all([
     getMessagesByEngagement(id),
     getMeetingsByEngagement(id),
     getParticipantsByEngagement(id),
     getEntityLinksForEntity("engagement", id),
     getAwsRelationshipsByEngagement(id),
+    engagement.partner_id ? getPartner(engagement.partner_id) : null,
   ]);
+
+  const partnerName = partner?.name ?? null;
 
   // Build unified timeline: messages + meetings sorted by date desc.
   // Suppress messages that have an associated meeting record — the meeting
@@ -94,20 +98,16 @@ export default async function EngagementDetailPage({
         fields={[
           {
             label: "Partner",
-            value: engagement.partner_name ? (
-              engagement.partner_id ? (
-                <Link href={`/partners/${engagement.partner_id}`} className="text-accent hover:underline">
-                  {engagement.partner_name}
-                </Link>
-              ) : (
-                engagement.partner_name
-              )
+            value: partnerName ? (
+              <Link href={`/partners/${engagement.partner_id}`} className="text-accent hover:underline">
+                {partnerName}
+              </Link>
             ) : "—",
           },
           { label: "Pillar", value: engagement.pillar ?? "—" },
           { label: "Updated", value: formatFooterDate(engagement.updated_at) },
         ]}
-        actions={<EngagementActions engagement={engagement} />}
+        actions={<EngagementActions engagement={engagement} partnerName={partnerName} />}
       />
 
       {/* Full-width sections — ordered by decision-making priority */}
@@ -122,7 +122,7 @@ export default async function EngagementDetailPage({
         <CollapsibleParticipants
           participants={participants}
           engagementId={id}
-          partnerName={engagement.partner_name}
+          partnerName={partnerName}
         />
 
         {/* Timeline — source emails + meetings interleaved by date */}

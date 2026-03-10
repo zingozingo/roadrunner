@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
               name: engagement.name,
               confidence: 1.0, // user-assigned = full confidence
               is_new: false,
-              partner_name: engagement.partner_name,
+              partner_name: null, // resolved via partner_id
               partner_id: engagement.partner_id,
             },
           };

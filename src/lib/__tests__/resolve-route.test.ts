@@ -17,7 +17,6 @@ const {
   const mockCreateEngagement = vi.fn().mockResolvedValue({
     id: "eng-new",
     name: "NewCo - Security Review",
-    partner_name: "NewCo",
     partner_id: null,
     pillar: null,
     status: "active",
@@ -110,7 +109,6 @@ const APPROVAL_BASE = {
 const EXISTING_ENGAGEMENT = {
   id: "eng-123",
   name: "Acme - Cloud Migration",
-  partner_name: "Acme",
   partner_id: "partner-1",
   pillar: null,
   status: "active",
@@ -209,7 +207,6 @@ describe("resolve route — meeting linking", () => {
     const targetEngagement = {
       id: "eng-456",
       name: "NewCo - Security Review",
-      partner_name: "NewCo",
       partner_id: "partner-2",
       pillar: null,
       status: "active",

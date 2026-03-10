@@ -86,7 +86,21 @@ export async function PUT(
     const updates: Record<string, unknown> = {};
     if (title !== undefined) updates.title = title.trim();
     if (engagement_id !== undefined) updates.engagement_id = engagement_id || null;
-    if (partner_name !== undefined) updates.partner_name = partner_name?.trim() || null;
+    if (partner_name !== undefined) {
+      // Resolve partner_name to partner_id
+      if (partner_name?.trim()) {
+        const { getSupabaseClient } = await import("@/lib/db");
+        const db = getSupabaseClient();
+        const { data: partnerRows } = await db
+          .from("partners")
+          .select("id")
+          .ilike("name", partner_name.trim())
+          .limit(1);
+        updates.partner_id = partnerRows?.[0]?.id ?? null;
+      } else {
+        updates.partner_id = null;
+      }
+    }
     if (status !== undefined) updates.status = status;
     if (meeting_date !== undefined) updates.meeting_date = meeting_date || null;
     if (start_time !== undefined) updates.start_time = start_time?.trim() || null;

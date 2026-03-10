@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { Message, Engagement, Partner } from "../types";
+import type { Message, Meeting, Engagement, Partner } from "../types";
 
 // ============================================================
 // Hoisted mocks — vi.hoisted runs before vi.mock factories
@@ -80,14 +80,15 @@ function makeMessage(overrides: Partial<Message> = {}): Message {
   };
 }
 
-const ENGAGEMENT_A: Engagement = {
+type EngagementWithPartner = Engagement & { partner_name: string | null };
+
+const ENGAGEMENT_A: EngagementWithPartner = {
   id: "eng-001",
   name: "CyberShield - Security Review",
   status: "active",
   current_state: "Pursuing Security Competency.",
   topic: "Security Competency Pursuit",
   goal: null,
-  engagement_type: null,
   partner_name: "CyberShield",
   partner_id: "partner-001",
   pillar: "Co-Build",
@@ -98,14 +99,13 @@ const ENGAGEMENT_A: Engagement = {
   closed_at: null,
 };
 
-const ENGAGEMENT_B: Engagement = {
+const ENGAGEMENT_B: EngagementWithPartner = {
   id: "eng-002",
   name: "NinjaOne - NFL Partnership",
   status: "active",
   current_state: null,
   topic: "NFL Sponsorship Campaign",
   goal: null,
-  engagement_type: null,
   partner_name: "NinjaOne",
   partner_id: "partner-002",
   pillar: "Co-Market",
@@ -116,14 +116,13 @@ const ENGAGEMENT_B: Engagement = {
   closed_at: null,
 };
 
-const ENGAGEMENT_C: Engagement = {
+const ENGAGEMENT_C: EngagementWithPartner = {
   id: "eng-003",
   name: "CyberShield - Marketplace Listing",
   status: "active",
   current_state: null,
   topic: "Marketplace Listing",
   goal: null,
-  engagement_type: null,
   partner_name: "CyberShield",
   partner_id: "partner-001",
   pillar: "Co-Sell",
@@ -591,14 +590,14 @@ describe("parsePhase1Response", () => {
 // ============================================================
 
 describe("buildMeetingHint", () => {
-  const MEETING = {
+  const MEETING: Meeting & { partner_name: string | null } = {
     id: "mtg-001",
     title: "Security Review Sync",
     engagement_id: null,
     partner_name: "CyberShield",
     partner_id: "partner-001",
     message_id: "msg-001",
-    status: "scheduled" as const,
+    status: "scheduled",
     meeting_date: "2026-03-15",
     start_time: "10:00",
     end_time: "11:00",
@@ -612,7 +611,8 @@ describe("buildMeetingHint", () => {
     ics_uid: "uid-123",
     sequence: 0,
     is_recurring: false,
-    source: "ics_parsed" as const,
+    source: "ics_parsed",
+    meeting_type: null,
     notes: null,
     airtable_record_id: null,
     created_at: "2026-03-01T00:00:00Z",
@@ -688,14 +688,13 @@ describe("prompt design — new engagement detection", () => {
     // A Solution Spotlight email arrives — completely different initiative.
     // The engagement index must include enough semantic context for the AI
     // to recognize the mismatch and classify as is_new: true.
-    const spaceliftEngagement: Engagement = {
+    const spaceliftEngagement: EngagementWithPartner = {
       id: "eng-spacelift-001",
       name: "Spacelift - DevOps and OpenTofu Collaboration",
       status: "active",
       current_state: "Technical collaboration with AWS IaC team on OpenTofu support. Spacelift integrating with AWS CloudFormation and Terraform workflows. Joint blog post in review.",
       topic: "DevOps and OpenTofu Collaboration",
       goal: "Establish technical and commercial collaboration around DevOps tooling.",
-      engagement_type: null,
       partner_name: "Spacelift",
       partner_id: "partner-spacelift",
       pillar: "Co-Build",

@@ -41,7 +41,6 @@ export async function PUT(
       raw_notes: body.raw_notes,
       ai_summary: body.ai_summary,
       ai_tasks: body.ai_tasks,
-      ai_flags: body.ai_flags,
       context_snapshot: body.context_snapshot,
       status: body.status,
       engagement_id: body.engagement_id,

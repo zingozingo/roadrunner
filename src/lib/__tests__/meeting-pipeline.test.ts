@@ -174,7 +174,6 @@ describe("matchPartnerFromAttendees", () => {
 
     const result = await matchPartnerFromAttendees(attendees);
     expect(result.partner_id).toBe("p-1");
-    expect(result.partner_name).toBe("Acme Corp");
   });
 
   it("skips amazon.com attendees", async () => {
@@ -277,7 +276,6 @@ describe("createMeetingFromICS", () => {
 
     expect(result).toBe("new-meeting-id");
     expect(captured.insertData!.partner_id).toBe("p-1");
-    expect(captured.insertData!.partner_name).toBe("PartnerCo");
   });
 
   it("sets status to 'cancelled' for new cancellation meeting", async () => {

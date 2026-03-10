@@ -91,7 +91,7 @@ export default async function MeetingDetailPage({
 
   const attendeeGroups = groupAttendees(
     meeting.attendees,
-    partner?.name ?? meeting.partner_name
+    partner?.name ?? null
   );
   const totalAttendees = attendeeGroups.reduce((sum, g) => sum + g.attendees.length, 0);
 
@@ -133,7 +133,7 @@ export default async function MeetingDetailPage({
               <Link href={`/partners/${partner.id}`} className="text-accent hover:underline">
                 {partner.name}
               </Link>
-            ) : meeting.partner_name ?? "—",
+            ) : "—",
           },
           {
             label: "Engagement",
@@ -144,7 +144,7 @@ export default async function MeetingDetailPage({
             ) : "—",
           },
         ]}
-        actions={<MeetingActions meeting={meeting} />}
+        actions={<MeetingActions meeting={meeting} partnerName={partner?.name ?? null} />}
       />
 
       {/* Full-width sections — no sidebar */}

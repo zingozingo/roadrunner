@@ -78,6 +78,8 @@ export const VALID_LIFECYCLE_TYPES = new Set([
 export const STATUS_TO_AIRTABLE: Record<string, string> = {
   planned: "Planned",
   active: "Active",
+  blocked: "Blocked",
+  completed: "Completed",
   archived: "Archived",
 };
 

@@ -14,9 +14,11 @@ const MEETING_STATUSES: MeetingStatus[] = [
 
 export default function MeetingActions({
   meeting,
+  partnerName: initialPartnerName,
   engagements: initialEngagements,
 }: {
   meeting: Meeting;
+  partnerName?: string | null;
   engagements?: Engagement[];
 }) {
   const router = useRouter();
@@ -32,7 +34,7 @@ export default function MeetingActions({
   const [meetingDate, setMeetingDate] = useState(meeting.meeting_date ?? "");
   const [status, setStatus] = useState<string>(meeting.status);
   const [engagementId, setEngagementId] = useState(meeting.engagement_id ?? "");
-  const [partnerName, setPartnerName] = useState(meeting.partner_name ?? "");
+  const [partnerName, setPartnerName] = useState(initialPartnerName ?? "");
   const [startTime, setStartTime] = useState(meeting.start_time ?? "");
   const [endTime, setEndTime] = useState(meeting.end_time ?? "");
   const [location, setLocation] = useState(meeting.location ?? "");
@@ -56,7 +58,7 @@ export default function MeetingActions({
     setMeetingDate(meeting.meeting_date ?? "");
     setStatus(meeting.status);
     setEngagementId(meeting.engagement_id ?? "");
-    setPartnerName(meeting.partner_name ?? "");
+    setPartnerName(initialPartnerName ?? "");
     setStartTime(meeting.start_time ?? "");
     setEndTime(meeting.end_time ?? "");
     setLocation(meeting.location ?? "");
@@ -71,12 +73,7 @@ export default function MeetingActions({
   // Auto-populate partner_name when engagement changes
   function handleEngagementChange(engId: string) {
     setEngagementId(engId);
-    if (engId) {
-      const eng = engagements.find((e) => e.id === engId);
-      if (eng?.partner_name && !partnerName) {
-        setPartnerName(eng.partner_name);
-      }
-    }
+    // Partner name auto-population removed — engagements no longer carry partner_name
   }
 
   function cancelEdit() {
@@ -268,7 +265,7 @@ export default function MeetingActions({
                   .filter((e) => e.status === "active")
                   .map((e) => (
                     <option key={e.id} value={e.id}>
-                      {e.name}{e.partner_name ? ` (${e.partner_name})` : ""}
+                      {e.name}
                     </option>
                   ))}
               </select>

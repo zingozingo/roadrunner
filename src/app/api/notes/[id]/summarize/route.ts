@@ -38,7 +38,6 @@ export async function POST(
     await updateMeetingNote(id, {
       ai_summary: result.summary,
       ai_tasks: result.tasks,
-      ai_flags: result.flags,
       context_snapshot: context,
       status: "complete",
     });

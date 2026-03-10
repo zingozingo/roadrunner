@@ -194,7 +194,7 @@ function buildCompactForwarder(forwarderNote?: string | null): string {
 }
 
 export function buildEngagementIndex(
-  engagements: Engagement[],
+  engagements: (Engagement & { partner_name?: string | null })[],
   lastSubjects: Map<string, string>,
   participantMap: Map<string, string[]> = new Map(),
   entityLinksMap: Map<string, { type: string; name: string }[]> = new Map()
@@ -208,7 +208,7 @@ export function buildEngagementIndex(
   }
 
   // Group engagements by partner_name
-  const groups = new Map<string, Engagement[]>();
+  const groups = new Map<string, (Engagement & { partner_name?: string | null })[]>();
   for (const eng of engagements) {
     const key = eng.partner_name || "Unassigned";
     const group = groups.get(key) ?? [];
@@ -445,7 +445,9 @@ async function getLastSubjects(engagements: Engagement[]): Promise<Map<string, s
  * Query meetings linked to the given messages (by message_id).
  * Used to provide structured attendee data for meeting invites.
  */
-async function getMeetingsForMessages(messages: Message[]): Promise<Meeting[]> {
+async function getMeetingsForMessages(
+  messages: Message[]
+): Promise<(Meeting & { partner_name: string | null })[]> {
   const messageIds = messages.map((m) => m.id);
   if (messageIds.length === 0) return [];
 
@@ -456,14 +458,38 @@ async function getMeetingsForMessages(messages: Message[]): Promise<Meeting[]> {
     .in("message_id", messageIds);
 
   if (error || !data) return [];
-  return data as Meeting[];
+
+  const meetings = data as Meeting[];
+
+  // Resolve partner names
+  const partnerIds = new Set<string>();
+  for (const m of meetings) {
+    if (m.partner_id) partnerIds.add(m.partner_id);
+  }
+
+  const partnerNames = new Map<string, string>();
+  if (partnerIds.size > 0) {
+    const { data: partners } = await db
+      .from("partners")
+      .select("id, name")
+      .in("id", [...partnerIds]);
+    for (const p of partners ?? []) {
+      const row = p as { id: string; name: string };
+      partnerNames.set(row.id, row.name);
+    }
+  }
+
+  return meetings.map((m) => ({
+    ...m,
+    partner_name: m.partner_id ? partnerNames.get(m.partner_id) ?? null : null,
+  }));
 }
 
 /**
  * Build a compact meeting data section for Phase 1 context.
  * Includes attendee list and partner hint from ICS attendee domain matching.
  */
-export function buildMeetingHint(meetings: Meeting[]): string {
+export function buildMeetingHint(meetings: (Meeting & { partner_name?: string | null })[]): string {
   if (meetings.length === 0) return "";
 
   const lines: string[] = ["## Meeting Data (from calendar invite)\n"];

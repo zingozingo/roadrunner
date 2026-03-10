@@ -27,7 +27,7 @@ export default async function EngagementsPage() {
       acc[status].push(eng);
       return acc;
     },
-    {} as Record<Engagement["status"], (Engagement & { message_count: number })[]>
+    {} as Record<Engagement["status"], (Engagement & { message_count: number; partner_name: string | null })[]>
   );
 
   const statusGroups = Object.entries(grouped).sort(
