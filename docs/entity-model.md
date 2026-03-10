@@ -1,6 +1,6 @@
 # Roadrunner Entity Model
 
-> **Last updated**: 2026-03-09 (Session: Sync alignment + ERD)
+> **Last updated**: 2026-03-10 (Replaces former DATA-MODEL.md and FIELD-MAPPING.md)
 > **Maintained by**: Update this doc in the same chunk as any migration, sync change, or schema modification.
 
 ---
@@ -260,6 +260,8 @@ erDiagram
 
 ### PARTNERS (Synced — AT-owned catalog, pulled into RR)
 
+**Airtable Table:** `tbl9zC6nxfLEp8xUx` · **Sync constant:** `PTRF`
+
 | Field | SB Type | AT Type | Owner | Sync | AT Field ID | UI |
 |-------|---------|---------|-------|------|-------------|-----|
 | id | uuid PK | — | RR | — | — | all partner pages |
@@ -309,6 +311,8 @@ erDiagram
 
 ### ENGAGEMENTS (Synced — RR-owned activity, pushed to AT)
 
+**Airtable Table:** `tblTC491AUVcrKvq2` · **Sync constant:** `ENF`
+
 | Field | SB Type | AT Type | Owner | Sync | AT Field ID | UI |
 |-------|---------|---------|-------|------|-------------|-----|
 | id | uuid PK | — | RR | → AT (as Roadrunner ID) | fldJJ8ZlwhePawiEl | engagement detail |
@@ -339,6 +343,8 @@ erDiagram
 ---
 
 ### MEETINGS (Synced — RR-owned activity, pushed to AT)
+
+**Airtable Table:** `tbl6LsEqSvEZgqBdW` · **Sync constant:** `MF`
 
 | Field | SB Type | AT Type | Owner | Sync | AT Field ID | UI |
 |-------|---------|---------|-------|------|-------------|-----|
@@ -377,9 +383,27 @@ erDiagram
 | AWS Relationships (from Engagement) | lookup | fldBFEFAWK2SXghpo | AT lookup through Engagement link |
 | Partner (from Engagement) | lookup | fldnhuK2el6fsBjVd | AT lookup through Engagement link |
 
+### Attendee Bucketing Logic (used for AT stakeholder fields)
+
+Both Engagements and Meetings push three computed text fields (AWS Stakeholders, Partner Stakeholders, Third Parties) to Airtable. The bucketing logic in `push.ts`:
+
+**Excluded addresses** (filtered before bucketing):
+- `*@relay.stevenromero.dev` — Roadrunner forwarding address
+- `*salesforce*` — Salesforce system emails
+- Any email matching `isUserEmail()` from `user-config.ts` (corpmail, PRVS, personal aliases)
+
+**Bucket rules** (applied to remaining attendees):
+- `@amazon.com` or org contains "AWS"/"Amazon" → **AWS Stakeholders**
+- Org matches the engagement/meeting partner name → **Partner Stakeholders**
+- Everyone else → **Third Parties**
+
+Output format: one `Name <email> (Title)` per line (universal contact format).
+
 ---
 
 ### PROGRAMS (Synced — AT-owned catalog, pulled into RR)
+
+**Airtable Table:** `tblpnW8ibVmkWi5Dt` · **Sync constant:** `PF`
 
 | Field | SB Type | AT Type | Owner | Sync | AT Field ID | UI |
 |-------|---------|---------|-------|------|-------------|-----|
@@ -405,6 +429,8 @@ erDiagram
 ---
 
 ### EVENTS (Synced — AT-owned catalog, pulled into RR)
+
+**Airtable Table:** `tblPDGUSqSvn8mflJ` · **Sync constant:** `EF`
 
 | Field | SB Type | AT Type | Owner | Sync | AT Field ID | UI |
 |-------|---------|---------|-------|------|-------------|-----|
@@ -436,6 +462,8 @@ erDiagram
 ---
 
 ### AWS_RELATIONSHIPS (Synced — AT-owned catalog, pulled into RR)
+
+**Airtable Table:** `tblqVBssFsUeAt9bj` · **Sync constant:** `RF`
 
 | Field | SB Type | AT Type | Owner | Sync | AT Field ID | UI |
 |-------|---------|---------|-------|------|-------------|-----|
@@ -612,6 +640,8 @@ Partial index: idx_approval_queue_unresolved WHERE resolved = false
 
 ### PARTNER_PROGRAMS (Airtable-only — future: slot registry)
 
+**Airtable Table:** `tbl1CPtbVzQvRN8LA`
+
 | AT Field | AT Type | AT Field ID | Future RR Role |
 |----------|---------|-------------|----------------|
 | Program ID | multilineText | fldmaD6ZTY7XvXkjw | identifier |
@@ -627,6 +657,8 @@ Partial index: idx_approval_queue_unresolved WHERE resolved = false
 
 ### PARTNER_EVENTS (Airtable-only — future: event tracking)
 
+**Airtable Table:** `tblYljQDnXwjTDy2T`
+
 | AT Field | AT Type | AT Field ID | Future RR Role |
 |----------|---------|-------------|----------------|
 | Invitation Record | formula (Event - Partner) | fldvhMnIPETioD6FN | display name |
@@ -641,6 +673,8 @@ Partial index: idx_approval_queue_unresolved WHERE resolved = false
 ---
 
 ### PARTNER_PLANS_2026 (Airtable-only — future: strategic context)
+
+**Airtable Table:** `tbligbfCTvpCkG7tS`
 
 | AT Field | AT Type | AT Field ID | Future RR Role |
 |----------|---------|-------------|----------------|
@@ -666,6 +700,8 @@ Partial index: idx_approval_queue_unresolved WHERE resolved = false
 
 ### MPOPP_FUNDING_2026 (Airtable-only — future: financial context)
 
+**Airtable Table:** `tbl2ilHOaXYsgxqFY`
+
 | AT Field | AT Type | AT Field ID | Future RR Role |
 |----------|---------|-------------|----------------|
 | Funding Name | formula (Partner + Track) | fldiNSPR6lOc2qn3M | display name |
@@ -681,6 +717,8 @@ Partial index: idx_approval_queue_unresolved WHERE resolved = false
 ---
 
 ### MDF_FUNDING_2026 (Airtable-only — future: financial context)
+
+**Airtable Table:** `tblRSsochM23QGQpS`
 
 | AT Field | AT Type | AT Field ID | Future RR Role |
 |----------|---------|-------------|----------------|

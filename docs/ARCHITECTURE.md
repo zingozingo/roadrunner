@@ -21,10 +21,10 @@ roadrunner/
 │   ├── PROJECT.md                 #   Business context & principles
 │   ├── ARCHITECTURE.md            #   This file — tech stack & structure
 │   ├── CLASSIFICATION.md          #   Two-phase AI pipeline & prompt architecture
-│   ├── DATA-MODEL.md              #   Entity schemas & relationships
-│   ├── FIELD-MAPPING.md           #   Airtable ↔ Supabase field IDs
+│   ├── entity-model.md            #   Canonical schema — ERD + field-level registry + AT field IDs
 │   ├── DEVELOPMENT.md             #   Setup, testing, workflows
-│   └── goal-state.md              #   Living orientation doc — current state & next steps
+│   ├── goal-state.md              #   Living orientation doc — current state & next steps
+│   └── decisions.md               #   Append-only architectural decision log
 ├── src/
 │   ├── app/                       # Next.js App Router
 │   │   ├── api/                   #   API routes (grouped by entity)
@@ -40,6 +40,7 @@ roadrunner/
 │   │   │   ├── partners/          #     CRUD
 │   │   │   ├── programs/          #     CRUD
 │   │   │   ├── relationships/     #     CRUD
+│   │   │   ├── notes/             #     Notes CRUD + summarize + tasks + context
 │   │   │   ├── reviews/           #     Resolve approval
 │   │   │   └── sync/              #     Trigger Airtable sync
 │   │   ├── engagements/           #   Engagement list + detail pages
@@ -49,6 +50,7 @@ roadrunner/
 │   │   ├── partners/              #   Partner list + detail pages
 │   │   ├── programs/              #   Program list + detail pages
 │   │   ├── relationships/         #   AWS Relationship list + detail pages
+│   │   ├── notes/                 #   Notes list + [id] detail + /new workspace
 │   │   ├── layout.tsx             #   Root layout + sidebar
 │   │   └── page.tsx               #   Dashboard home
 │   ├── components/                # React components (organized by function)
@@ -56,6 +58,7 @@ roadrunner/
 │   │   ├── engagement/            #   Engagement-specific cards/forms (4 files)
 │   │   ├── inbox/                 #   Review queue UI (4 files)
 │   │   ├── layout/                #   App structure — sidebar, headers (4 files)
+│   │   ├── notes/                 #   Notes workspace, context sidebar, task editor
 │   │   └── shared/                #   Reusable primitives — CompactRow, DetailHeader, badges (10 files)
 │   └── lib/                       # Core business logic
 │       ├── airtable.ts            #   Airtable REST API client
@@ -69,9 +72,13 @@ roadrunner/
 │       ├── name-resolver.ts       #   Contact name resolution from JSONB columns
 │       ├── contact-parser.ts      #   Universal "Name <email> (Title)" parser
 │       ├── format-utils.ts        #   Display name formatting utilities
+│       ├── notes-summarizer.ts    #   AI meeting note summarizer (Claude API)
+│       ├── notes-context.ts       #   Partner context builder for notes
+│       ├── meeting-status-map.ts  #   Meeting status display mapping
+│       ├── dedup.ts               #   Message fingerprint deduplication
 │       ├── types.ts               #   Shared TypeScript interfaces
 │       ├── user-config.ts         #   Canonical user identity config
-│       ├── db/                    #   Database layer (11 modules)
+│       ├── db/                    #   Database layer (12 modules)
 │       │   ├── client.ts          #     Supabase singleton client
 │       │   ├── engagements.ts     #     Engagement CRUD + history
 │       │   ├── messages.ts        #     Message storage + fingerprint dedup
@@ -82,6 +89,7 @@ roadrunner/
 │       │   ├── participants.ts    #     Participant upsert + linking
 │       │   ├── entity-links.ts    #     Entity link CRUD
 │       │   ├── inbox.ts           #     Approval queue operations
+│       │   ├── notes.ts           #     Meeting notes + note tasks CRUD
 │       │   └── index.ts           #     Barrel re-exports
 │       ├── sync/                  #   Airtable sync engine (4 modules)
 │       │   ├── pull.ts            #     AT → RR catalog sync
@@ -90,7 +98,7 @@ roadrunner/
 │       │   └── utils.ts           #     Coercion helpers + validation
 │       └── __tests__/             #   427 tests across 14 test files
 ├── supabase/
-│   └── migrations/                # 49 migration files (001-049)
+│   └── migrations/                # 55 migration files (001-055)
 ├── scripts/
 │   └── seed-data.ts               # CLI script to seed events/programs
 ├── data/

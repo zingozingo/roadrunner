@@ -63,7 +63,7 @@ npx vitest run --reporter=verbose            # Detailed output
 
 ## Database Migrations
 
-Migrations live in `supabase/migrations/` and are numbered sequentially (001-049).
+Migrations live in `supabase/migrations/` and are numbered sequentially (001-055).
 
 ```bash
 # Apply migrations to local Supabase
@@ -71,7 +71,7 @@ supabase db push
 
 # Create a new migration
 # Name it: NNN_descriptive_name.sql
-# Example: 049_add_some_column.sql
+# Example: 056_add_some_column.sql
 ```
 
 **Migration naming:** Always use the next sequential number. Include a descriptive name. Write idempotent SQL where possible.
@@ -89,7 +89,7 @@ The sync engine lives in `src/lib/sync/` (pull.ts, push.ts, field-maps.ts, utils
 5. **Migration:** Add the column to the Supabase table (if it doesn't exist).
 6. **db/ module:** Update any query functions that need the new field.
 7. **UI:** Add display in the relevant detail/list page.
-8. **FIELD-MAPPING.md:** Document the new field.
+8. **entity-model.md:** Document the new field in the field-level registry.
 
 ### Sync Constants
 
@@ -130,11 +130,11 @@ Each Claude Code session should start with a diagnostic command that:
 3. Scopes the task with clear requirements before making changes.
 
 **Task-to-doc mapping:**
-- Schema/data work → DATA-MODEL.md + FIELD-MAPPING.md
+- Schema/data work → entity-model.md
 - Prompt/AI work → CLASSIFICATION.md
-- New feature → ARCHITECTURE.md + DATA-MODEL.md
+- New feature → ARCHITECTURE.md + entity-model.md
 - Bug fix → ARCHITECTURE.md (for data flow understanding)
-- Airtable changes → FIELD-MAPPING.md + DEVELOPMENT.md (sync section)
+- Airtable changes → entity-model.md + DEVELOPMENT.md (sync section)
 
 ## Dev-Only Routes
 
