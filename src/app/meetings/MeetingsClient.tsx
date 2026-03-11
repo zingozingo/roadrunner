@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
-import { MeetingStatusBadge } from "@/components/shared/TypeBadge";
 import { Meeting } from "@/lib/types";
 import { cleanMeetingTitle } from "@/lib/format-utils";
 
@@ -29,6 +29,7 @@ interface MeetingsClientProps {
 export default function MeetingsClient({ meetings }: MeetingsClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
+
   const filteredMeetings = useMemo(() => {
     return meetings.filter((m) => {
       if (searchQuery) {
@@ -45,7 +46,6 @@ export default function MeetingsClient({ meetings }: MeetingsClientProps) {
     });
   }, [meetings, searchQuery, activeFilter]);
 
-  // Group into upcoming vs past
   const sections = useMemo(() => {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
@@ -64,9 +64,7 @@ export default function MeetingsClient({ meetings }: MeetingsClientProps) {
       }
     }
 
-    // Upcoming: nearest first
     upcoming.sort((a, b) => a.meeting_date!.localeCompare(b.meeting_date!));
-    // Past: most recent first
     past.sort((a, b) => b.meeting_date!.localeCompare(a.meeting_date!));
     tbd.sort((a, b) => a.title.localeCompare(b.title));
 
@@ -79,19 +77,17 @@ export default function MeetingsClient({ meetings }: MeetingsClientProps) {
 
   return (
     <div className="p-6 lg:p-8">
-      <div className="mb-6">
-        <PageHeader
-          title="Meetings"
-          subtitle={`${meetings.length} meeting${meetings.length !== 1 ? "s" : ""} tracked`}
-        />
-      </div>
+      <PageHeader
+        title="Meetings"
+        subtitle={`${meetings.length} meeting${meetings.length !== 1 ? "s" : ""} tracked`}
+      />
 
       {meetings.length === 0 ? (
         <EmptyState
           title="No meetings yet"
           description="Meetings will appear here as calendar invites are processed"
         />
-      ) : meetings.length > 0 && (
+      ) : (
         <>
           <FilterBar
             searchPlaceholder="Search meetings..."
@@ -113,45 +109,38 @@ export default function MeetingsClient({ meetings }: MeetingsClientProps) {
             <div className="space-y-8">
               {sections.map((section) => (
                 <div key={section.label}>
-                  <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-                    {section.label} ({section.meetings.length})
+                  <h2 className="mb-4 text-lg font-semibold text-foreground">
+                    {section.label}
+                    <span className="ml-2 text-sm font-normal text-muted">
+                      ({section.meetings.length})
+                    </span>
                   </h2>
-                  <div>
-                    {section.meetings.map((m) => {
-                      const shortDate = m.meeting_date
-                        ? new Date(m.meeting_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                        : "TBD";
-                      const timeStr = m.start_time
-                        ? m.end_time ? `${m.start_time} – ${m.end_time}` : m.start_time
-                        : "";
 
-                      return (
-                        <a
-                          key={m.id}
-                          href={`/meetings/${m.id}`}
-                          className="flex items-center px-4 py-2.5 border-b border-border/50 transition-colors duration-150 hover:bg-surface gap-3"
-                        >
-                          <span className="shrink-0 w-16 text-sm font-medium text-foreground">
-                            {shortDate}
+                  {section.meetings.map((m) => {
+                    const shortDate = m.meeting_date
+                      ? new Date(m.meeting_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                      : "TBD";
+
+                    return (
+                      <Link
+                        key={m.id}
+                        href={`/meetings/${m.id}`}
+                        className="flex items-baseline gap-4 rounded-lg px-3 py-2.5 transition-colors hover:bg-surface-hover"
+                      >
+                        <span className="w-24 shrink-0 text-xs text-muted">
+                          {shortDate}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                          {cleanMeetingTitle(m.title)}
+                        </span>
+                        {m.partner_name && (
+                          <span className="shrink-0 text-xs text-muted">
+                            {m.partner_name}
                           </span>
-                          <span className="shrink-0 w-24 text-xs text-muted hidden sm:block">
-                            {timeStr}
-                          </span>
-                          <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-                            {cleanMeetingTitle(m.title)}
-                          </span>
-                          {m.partner_name && (
-                            <span className="shrink-0 text-xs text-muted hidden md:block">
-                              {m.partner_name}
-                            </span>
-                          )}
-                          <span className="shrink-0 ml-auto">
-                            <MeetingStatusBadge status={m.status} />
-                          </span>
-                        </a>
-                      );
-                    })}
-                  </div>
+                        )}
+                      </Link>
+                    );
+                  })}
                 </div>
               ))}
             </div>
