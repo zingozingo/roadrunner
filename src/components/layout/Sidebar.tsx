@@ -4,7 +4,24 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
-const navItems = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  showBadge?: boolean;
+}
+
+// — Primary: what needs attention NOW
+const primaryItems: NavItem[] = [
+  {
+    href: "/",
+    label: "Pulse",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M11 2L4 12h5l-1 6 7-10h-5l1-6z" />
+      </svg>
+    ),
+  },
   {
     href: "/inbox",
     label: "Inbox",
@@ -16,16 +33,10 @@ const navItems = [
     ),
     showBadge: true,
   },
-  {
-    href: "/engagements",
-    label: "Engagements",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M4 5h12M4 10h12M4 15h8" />
-      </svg>
-    ),
-    showBadge: false,
-  },
+];
+
+// — Portfolio: core working views
+const portfolioItems: NavItem[] = [
   {
     href: "/partners",
     label: "Partners",
@@ -34,8 +45,20 @@ const navItems = [
         <path d="M3 3h6v6H3zM11 3h6v6h-6zM3 11h6v6H3zM11 11h6v6h-6z" />
       </svg>
     ),
-    showBadge: false,
   },
+  {
+    href: "/engagements",
+    label: "Engagements",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M4 5h12M4 10h12M4 15h8" />
+      </svg>
+    ),
+  },
+];
+
+// — Activity: meetings & notes (will move into Partners/Pulse later)
+const activityItems: NavItem[] = [
   {
     href: "/meetings",
     label: "Meetings",
@@ -46,7 +69,6 @@ const navItems = [
         <circle cx="10" cy="12.5" r="1" fill="currentColor" />
       </svg>
     ),
-    showBadge: false,
   },
   {
     href: "/notes",
@@ -57,8 +79,11 @@ const navItems = [
         <path d="M7 7h6M7 10h6M7 13h3" />
       </svg>
     ),
-    showBadge: false,
   },
+];
+
+// — Reference: catalog browsing
+const referenceItems: NavItem[] = [
   {
     href: "/events",
     label: "Events",
@@ -68,7 +93,6 @@ const navItems = [
         <path d="M3 8h14M7 2v4M13 2v4" />
       </svg>
     ),
-    showBadge: false,
   },
   {
     href: "/programs",
@@ -79,7 +103,6 @@ const navItems = [
         <path d="M7 7h6M7 10h6M7 13h4" />
       </svg>
     ),
-    showBadge: false,
   },
   {
     href: "/relationships",
@@ -91,9 +114,16 @@ const navItems = [
         <path d="M2 16c0-2.5 2-4 5-4M13 12c3 0 5 1.5 5 4" />
       </svg>
     ),
-    showBadge: false,
   },
 ];
+
+// Idle text style per tier
+const tierStyles = {
+  primary: "text-foreground font-medium",
+  portfolio: "text-zinc-400",
+  activity: "text-muted",
+  reference: "text-muted/70",
+} as const;
 
 export default function Sidebar({
   initialBadgeCount,
@@ -128,43 +158,63 @@ export default function Sidebar({
   }, [initialBadgeCount]);
 
   const isActive = (href: string) => {
+    if (href === "/") return pathname === "/";
     if (href === "/inbox") return pathname === "/inbox";
     return pathname.startsWith(href);
   };
 
-  const nav = (
-    <nav className="flex h-full flex-col gap-1 px-3 py-4">
+  function renderItem(item: NavItem, idleStyle: string) {
+    const active = isActive(item.href);
+    return (
       <Link
-        href="/"
-        className="mb-4 flex items-center gap-2 px-3 py-2"
+        key={item.href}
+        href={item.href}
         onClick={() => setMobileOpen(false)}
+        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+          active
+            ? "bg-accent/10 text-accent font-medium"
+            : `${idleStyle} hover:bg-surface-hover hover:text-foreground`
+        }`}
       >
-        <span className="text-lg font-bold text-accent">Relay</span>
+        {item.icon}
+        <span>{item.label}</span>
+        {item.showBadge && badgeCount > 0 && (
+          <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-bold text-white">
+            {badgeCount}
+          </span>
+        )}
       </Link>
+    );
+  }
 
-      {navItems.map((item) => {
-        const active = isActive(item.href);
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-              active
-                ? "bg-accent/10 text-accent"
-                : "text-muted hover:bg-surface-hover hover:text-foreground"
-            }`}
-          >
-            {item.icon}
-            <span>{item.label}</span>
-            {item.showBadge && badgeCount > 0 && (
-              <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-bold text-white">
-                {badgeCount}
-              </span>
-            )}
-          </Link>
-        );
-      })}
+  const nav = (
+    <nav className="flex h-full flex-col px-3 py-4">
+      <div className="mb-4 px-3 py-2">
+        <span className="text-lg font-bold text-accent">Relay</span>
+      </div>
+
+      {/* Primary — Pulse + Inbox */}
+      <div className="flex flex-col gap-1">
+        {primaryItems.map((item) => renderItem(item, tierStyles.primary))}
+      </div>
+
+      {/* Divider */}
+      <div className="my-2 mx-3 border-t border-border/30" />
+
+      {/* Portfolio — Partners + Engagements */}
+      <div className="mt-1 flex flex-col gap-1">
+        {portfolioItems.map((item) => renderItem(item, tierStyles.portfolio))}
+      </div>
+
+      {/* Activity — Meetings + Notes */}
+      <div className="mt-3 flex flex-col gap-1">
+        {activityItems.map((item) => renderItem(item, tierStyles.activity))}
+      </div>
+
+      {/* Reference — Events + Programs + Relationships */}
+      <div className="mt-3 flex flex-col gap-1">
+        {referenceItems.map((item) => renderItem(item, tierStyles.reference))}
+      </div>
     </nav>
   );
 
