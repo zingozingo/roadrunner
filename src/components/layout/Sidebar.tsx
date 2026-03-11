@@ -11,17 +11,8 @@ interface NavItem {
   showBadge?: boolean;
 }
 
-// — Primary: what needs attention NOW
-const primaryItems: NavItem[] = [
-  {
-    href: "/",
-    label: "Pulse",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M11 2L4 12h5l-1 6 7-10h-5l1-6z" />
-      </svg>
-    ),
-  },
+// — Review: what needs attention
+const reviewItems: NavItem[] = [
   {
     href: "/inbox",
     label: "Inbox",
@@ -35,8 +26,8 @@ const primaryItems: NavItem[] = [
   },
 ];
 
-// — Portfolio: core working views
-const portfolioItems: NavItem[] = [
+// — Work: core portfolio views
+const workItems: NavItem[] = [
   {
     href: "/partners",
     label: "Partners",
@@ -57,7 +48,7 @@ const portfolioItems: NavItem[] = [
   },
 ];
 
-// — Activity: meetings & notes (will move into Partners/Pulse later)
+// — Activity: meetings & tasks
 const activityItems: NavItem[] = [
   {
     href: "/meetings",
@@ -71,29 +62,19 @@ const activityItems: NavItem[] = [
     ),
   },
   {
-    href: "/notes",
-    label: "Notes",
+    href: "/tasks",
+    label: "Tasks",
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M5 3h10a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z" />
-        <path d="M7 7h6M7 10h6M7 13h3" />
+        <rect x="3" y="3" width="14" height="14" rx="2" />
+        <path d="M7 10l2 2 4-4" />
       </svg>
     ),
   },
 ];
 
-// — Reference: catalog browsing
-const referenceItems: NavItem[] = [
-  {
-    href: "/events",
-    label: "Events",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <rect x="3" y="4" width="14" height="13" rx="2" />
-        <path d="M3 8h14M7 2v4M13 2v4" />
-      </svg>
-    ),
-  },
+// — Catalog: reference browsing (collapsible)
+const catalogItems: NavItem[] = [
   {
     href: "/programs",
     label: "Programs",
@@ -101,6 +82,16 @@ const referenceItems: NavItem[] = [
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
         <rect x="3" y="3" width="14" height="14" rx="2" />
         <path d="M7 7h6M7 10h6M7 13h4" />
+      </svg>
+    ),
+  },
+  {
+    href: "/events",
+    label: "Events",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <rect x="3" y="4" width="14" height="13" rx="2" />
+        <path d="M3 8h14M7 2v4M13 2v4" />
       </svg>
     ),
   },
@@ -117,13 +108,8 @@ const referenceItems: NavItem[] = [
   },
 ];
 
-// Idle text style per tier
-const tierStyles = {
-  primary: "text-foreground font-medium",
-  portfolio: "text-zinc-400",
-  activity: "text-muted",
-  reference: "text-muted/70",
-} as const;
+const IDLE_STYLE = "text-zinc-400 hover:bg-surface-hover hover:text-foreground";
+const ACTIVE_STYLE = "bg-accent/10 text-accent font-medium";
 
 export default function Sidebar({
   initialBadgeCount,
@@ -133,6 +119,7 @@ export default function Sidebar({
   const pathname = usePathname();
   const [badgeCount, setBadgeCount] = useState(initialBadgeCount);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [catalogOpen, setCatalogOpen] = useState(false);
 
   // Poll for inbox count every 30s
   useEffect(() => {
@@ -163,7 +150,9 @@ export default function Sidebar({
     return pathname.startsWith(href);
   };
 
-  function renderItem(item: NavItem, idleStyle: string) {
+  const catalogChildActive = catalogItems.some((item) => isActive(item.href));
+
+  function renderItem(item: NavItem, extraClass?: string) {
     const active = isActive(item.href);
     return (
       <Link
@@ -171,10 +160,8 @@ export default function Sidebar({
         href={item.href}
         onClick={() => setMobileOpen(false)}
         className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-          active
-            ? "bg-accent/10 text-accent font-medium"
-            : `${idleStyle} hover:bg-surface-hover hover:text-foreground`
-        }`}
+          active ? ACTIVE_STYLE : IDLE_STYLE
+        } ${extraClass ?? ""}`}
       >
         {item.icon}
         <span>{item.label}</span>
@@ -189,31 +176,62 @@ export default function Sidebar({
 
   const nav = (
     <nav className="flex h-full flex-col px-3 py-4">
+      {/* Brand */}
       <div className="mb-4 px-3 py-2">
         <span className="text-lg font-bold text-accent">Relay</span>
       </div>
 
-      {/* Primary — Pulse + Inbox */}
+      {/* Zone 1 — Review */}
       <div className="flex flex-col gap-1">
-        {primaryItems.map((item) => renderItem(item, tierStyles.primary))}
+        {reviewItems.map((item) => renderItem(item))}
       </div>
 
-      {/* Divider */}
-      <div className="my-2 mx-3 border-t border-border/30" />
+      <div className="my-2 mx-3 border-t border-border/40" />
 
-      {/* Portfolio — Partners + Engagements */}
-      <div className="mt-1 flex flex-col gap-1">
-        {portfolioItems.map((item) => renderItem(item, tierStyles.portfolio))}
+      {/* Zone 2 — Work */}
+      <div className="flex flex-col gap-1">
+        {workItems.map((item) => renderItem(item))}
       </div>
 
-      {/* Activity — Meetings + Notes */}
-      <div className="mt-3 flex flex-col gap-1">
-        {activityItems.map((item) => renderItem(item, tierStyles.activity))}
+      <div className="my-2 mx-3 border-t border-border/40" />
+
+      {/* Zone 3 — Activity */}
+      <div className="flex flex-col gap-1">
+        {activityItems.map((item) => renderItem(item))}
       </div>
 
-      {/* Reference — Events + Programs + Relationships */}
-      <div className="mt-3 flex flex-col gap-1">
-        {referenceItems.map((item) => renderItem(item, tierStyles.reference))}
+      <div className="my-2 mx-3 border-t border-border/40" />
+
+      {/* Zone 4 — Catalog (collapsible) */}
+      <div className="flex flex-col gap-1">
+        <button
+          onClick={() => setCatalogOpen(!catalogOpen)}
+          className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+            catalogChildActive && !catalogOpen ? ACTIVE_STYLE : IDLE_STYLE
+          }`}
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M3 4h14M3 8h14M3 12h10M3 16h6" />
+          </svg>
+          <span>Catalog</span>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            className={`ml-auto transition-transform ${catalogOpen ? "rotate-90" : ""}`}
+          >
+            <path d="M6 4l4 4-4 4" />
+          </svg>
+        </button>
+
+        {catalogOpen && (
+          <div className="flex flex-col gap-1">
+            {catalogItems.map((item) => renderItem(item, "pl-9"))}
+          </div>
+        )}
       </div>
     </nav>
   );
