@@ -11,10 +11,15 @@ import { cleanMeetingTitle } from "@/lib/format-utils";
 type MeetingWithNames = Meeting & { engagement_name: string | null; partner_name: string | null };
 
 const MEETING_TYPE_OPTIONS = [
-  { label: "Executive", value: "Executive Meeting" },
-  { label: "GTM", value: "GTM Meeting" },
-  { label: "Product Team", value: "Product Team Relationship" },
-  { label: "Specialized", value: "Specialized Meeting" },
+  { label: "Partner Cadence Call", value: "Partner Cadence Call" },
+  { label: "Co-Build Cadence", value: "Co-Build Cadence" },
+  { label: "Co-Market Cadence", value: "Co-Market Cadence" },
+  { label: "Co-Sell Cadence", value: "Co-Sell Cadence" },
+  { label: "Co-Sell Strategy", value: "Co-Sell Strategy" },
+  { label: "SCA Review", value: "SCA Review" },
+  { label: "QBR", value: "QBR" },
+  { label: "Product Team Sync", value: "Product Team Sync" },
+  { label: "Executive Meeting", value: "Executive Meeting" },
 ];
 
 interface MeetingsClientProps {
@@ -35,7 +40,7 @@ export default function MeetingsClient({ meetings }: MeetingsClientProps) {
         const matchesPartner = m.partner_name?.toLowerCase().includes(q);
         if (!matchesTitle && !matchesLocation && !matchesNotes && !matchesEngagement && !matchesPartner) return false;
       }
-      if (activeFilter && m.status !== activeFilter) return false;
+      if (activeFilter && m.meeting_type !== activeFilter) return false;
       return true;
     });
   }, [meetings, searchQuery, activeFilter]);
