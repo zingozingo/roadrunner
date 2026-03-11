@@ -28,6 +28,7 @@ export {
 // Meetings
 export {
   getMeetingsWithEngagements,
+  getUpcomingMeetings,
   getMeeting,
   getMeetingsByEngagement,
   createMeeting,

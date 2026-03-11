@@ -59,6 +59,75 @@ export async function getMeetingsWithEngagements(): Promise<
   }));
 }
 
+export async function getUpcomingMeetings(
+  days: number = 7
+): Promise<(Meeting & { engagement_name: string | null; partner_name: string | null })[]> {
+  const db = getSupabaseClient();
+
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10);
+
+  const end = new Date(today);
+  end.setDate(end.getDate() + days);
+  const endStr = end.toISOString().slice(0, 10);
+
+  const { data: meetings, error } = await db
+    .from("meetings")
+    .select("*")
+    .gte("meeting_date", todayStr)
+    .lte("meeting_date", endStr)
+    .order("meeting_date", { ascending: true })
+    .order("start_time", { ascending: true, nullsFirst: false });
+
+  if (error) throw new Error(`Failed to fetch upcoming meetings: ${error.message}`);
+
+  const typedMeetings = (meetings ?? []) as Meeting[];
+
+  // Resolve engagement names
+  const engagementIds = new Set<string>();
+  for (const m of typedMeetings) {
+    if (m.engagement_id) engagementIds.add(m.engagement_id);
+  }
+
+  const engagementNames = new Map<string, string>();
+  if (engagementIds.size > 0) {
+    const { data: engagements } = await db
+      .from("engagements")
+      .select("id, name")
+      .in("id", [...engagementIds]);
+
+    for (const e of engagements ?? []) {
+      const row = e as { id: string; name: string };
+      engagementNames.set(row.id, row.name);
+    }
+  }
+
+  // Resolve partner names
+  const partnerIds = new Set<string>();
+  for (const m of typedMeetings) {
+    if (m.partner_id) partnerIds.add(m.partner_id);
+  }
+
+  const partnerNames = new Map<string, string>();
+  if (partnerIds.size > 0) {
+    const { data: partners } = await db
+      .from("partners")
+      .select("id, name")
+      .in("id", [...partnerIds]);
+
+    for (const p of partners ?? []) {
+      const row = p as { id: string; name: string };
+      partnerNames.set(row.id, row.name);
+    }
+  }
+
+  return typedMeetings.map((m) => ({
+    ...m,
+    engagement_name: m.engagement_id ? engagementNames.get(m.engagement_id) ?? null : null,
+    partner_name: m.partner_id ? partnerNames.get(m.partner_id) ?? null : null,
+  }));
+}
+
 export async function getMeeting(id: string): Promise<Meeting | null> {
   const { data, error } = await getSupabaseClient()
     .from("meetings")
