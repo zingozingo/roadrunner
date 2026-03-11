@@ -137,6 +137,8 @@ Universal hero block for detail pages.
 
 ### Sidebar (`src/components/layout/Sidebar.tsx`)
 
+> **⚠️ STALE:** Sidebar was restructured into 4 tiers (Primary: Pulse+Inbox, Portfolio: Partners+Engagements, Activity: Meetings+Notes, Reference: Events+Programs+Relationships) in decision 131. The description below reflects the old flat layout. Needs full rewrite in a future session.
+
 Navigation with priority-ordered items:
 
 1. Inbox (action items, with badge count polling)

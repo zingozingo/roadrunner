@@ -682,3 +682,213 @@
 **Rationale:** The participant system already captures third-party contacts with role attribution. Adding a denormalized text column would duplicate data and diverge from the engagement-hub principle. The sync layer computes the AT display text from participant_links at push time.
 
 **Impact:** No schema change. entity-model.md documents the AT computed fields and their participant system source.
+
+---
+
+### Decision 131: Three-Tier Navigation — Pulse → Portfolio → Reference
+
+**Date:** 2026-03-11
+**Status:** Implemented (sidebar), design ongoing (full vision)
+
+**Decision:** UI organized by workflow tiers, not data types. Tier 1 (Pulse + Inbox) = what needs attention. Tier 2 (Partners + Engagements) = core portfolio. Tier 3 (Events + Programs + Relationships) = reference catalogs. Meetings and Notes accessed through Partners/Pulse, not as standalone top-level pages (temporarily kept in sidebar during transition).
+
+**Context:** Flat 8-item sidebar gave equal weight to all pages. PDMs think in terms of "what do I need to do" not "which data type do I want to browse."
+
+**Rationale:** Mirrors how the data actually works — Partners and Engagements are the primary working views, everything else is context.
+
+**Impact:** Sidebar restructured into 4 tiers with visual weight hierarchy. Home page becomes Pulse. Meetings/Notes will eventually move out of top-level nav into partner context.
+
+---
+
+### Decision 132: Data Rings Model — Catalog → Activity → Strategy
+
+**Date:** 2026-03-11
+**Status:** Design principle
+
+**Decision:** System data organized into three concentric rings. Ring 1 (Catalog): Partners, Programs, Events, AWS Relationships — AT-owned, pulled into RR, slow-changing. Ring 2 (Activity): Engagements, Meetings, Messages, Notes, Tasks, Participants — RR-owned, pushed to AT, fast-changing. Ring 3 (Strategy): Partner Programs, Partner Events, Partner Plans, Funding — AT-only today, future sync. Engagement is the connective tissue between all rings.
+
+**Context:** Needed a mental model for how all 26 tables relate, which system owns what, and how data flows.
+
+**Rationale:** Clear ownership prevents sync conflicts. Ring model makes it obvious where new features slot in.
+
+**Impact:** Governs all future schema decisions, sync direction choices, and UI information architecture.
+
+---
+
+### Decision 133: Roadrunner Is Standalone Authority; Airtable Is Secondary
+
+**Date:** 2026-03-11
+**Status:** Design principle
+
+**Decision:** Roadrunner must function independently. All UI reads from Supabase, never live Airtable calls. Over time, sync direction flips table-by-table (AT-owned becomes RR-owned, AT becomes read-only mirror). UI designed as if Roadrunner is the only system.
+
+**Context:** Building for potential internal AWS adoption where Airtable wouldn't exist. Airtable is Steven's workshop/seed tool, not a runtime dependency.
+
+**Rationale:** If any feature requires Airtable at runtime, it can't scale beyond one user. Supabase-only runtime is the only portable path.
+
+**Impact:** No UI components make live AT calls. Catalog data must be fully synced to Supabase before features can use it. AT-only tables (Ring 3) need pull sync before Roadrunner can display them.
+
+---
+
+### Decision 134: Notes Require Meetings
+
+**Date:** 2026-03-11
+**Status:** Design decided, implementation deferred
+
+**Decision:** Every meeting note must be attached to a meeting record. No standalone notes allowed. This means meeting creation must be frictionless, including support for recurring cadences.
+
+**Context:** Debated whether notes could exist independently. Concluded that untethered notes become a dumping ground and lose temporal context.
+
+**Rationale:** Tying notes to meetings creates a natural chronological record, ensures the activity timeline works, and enforces a structured capture workflow. The constraint is actually liberating — it forces us to solve meeting creation friction.
+
+**Impact:** Note creation flow changes from "pick a partner" to "pick a meeting." Need manual meeting creation for calls without ICS. Seed notes need rethinking (they were standalone by design).
+
+---
+
+### Decision 135: Meeting Type and Recurrence Are Independent Dimensions
+
+**Date:** 2026-03-11
+**Status:** Implemented (schema)
+
+**Decision:** Meeting type = purpose (Partner Cadence Call, QBR, SCA Review, Executive Meeting, etc. — 9 types in DB CHECK). Recurring = boolean flag indicating the meeting is part of a repeating pattern. These combine but don't depend on each other.
+
+**Context:** Confusion about whether QBRs and Partner Cadences were different "recurring paths." Clarified they're different types that both happen to recur.
+
+**Rationale:** Separating purpose from pattern means the type taxonomy can grow independently of recurrence infrastructure.
+
+**Impact:** meeting_type is manual selection from 9 options. is_recurring is a boolean. No series linking yet.
+
+---
+
+### Decision 136: Recurring Meeting Series Deferred; Boolean + Type Is the Bones
+
+**Date:** 2026-03-11
+**Status:** Design decided, implementation deferred
+
+**Decision:** Full series engine (meeting_series table, RRULE parsing, auto-occurrence generation) deferred to future session. Current state: each meeting is standalone, is_recurring boolean flag exists, meeting_type set manually.
+
+**Context:** Recurring ICS invites send ONE invite with RRULE — Roadrunner gets one email, creates one meeting. System has no concept of "next week's occurrence." Full series support is significant build.
+
+**Rationale:** Pulse page, partner convergence, and activity timeline all work with single-meeting model. Series adds automation but isn't prerequisite.
+
+**Impact:** Schema ready for series_id FK when built. Recurring cadences work manually for now (each occurrence forwarded or created separately).
+
+---
+
+### Decision 137: Three Meeting Origin Paths
+
+**Date:** 2026-03-11
+**Status:** Design decided
+
+**Decision:** Meetings enter Roadrunner via three paths: (1) ICS forwarding — primary, existing. (2) Cadence registration — future, "register a recurring pattern" that auto-generates occurrences. (3) Manual quick-capture — for calls without ICS (hallway chats, spontaneous calls).
+
+**Context:** Old "Create Meeting" button was removed as too clunky. But notes-require-meetings means we need a way to create meetings for unplanned conversations.
+
+**Rationale:** Different meeting origins have different UX needs. ICS is automated. Cadence is a one-time setup. Manual is a lightweight "I just had a call" capture.
+
+**Impact:** Manual meeting creation needs to return to UI (lightweight, not the old full form). Cadence registration is a future feature.
+
+---
+
+### Decision 138: Contacts as Resolved Catalog Entity
+
+**Date:** 2026-03-11
+**Status:** Design decided, implementation deferred
+
+**Decision:** Participants table becomes the single contact registry for all humans in the system. partner_contacts JSONB, aws_team JSONB, and meeting attendees JSONB should all resolve against participants by email. One person = one record. UI never renders from snapshot copies when a live reference exists. Manual edits in Roadrunner win over sync.
+
+**Context:** Contact data currently scattered across 4 storage patterns (partner_contacts JSONB, aws_team JSONB, participants table, attendees JSONB). Changing a contact's title in one place doesn't cascade to others.
+
+**Rationale:** Single source per entity is the only way to prevent data drift. Email is natural unique key for people.
+
+**Impact:** Major future refactor — contacts become Ring 1 catalog data. Airtable partner contacts upsert into participants during sync. Meeting attendees resolve against participants at render time. Need "manual override wins" conflict resolution.
+
+---
+
+### Decision 139: Resolve, Don't Duplicate — Cascading Source Updates
+
+**Date:** 2026-03-11
+**Status:** Design principle
+
+**Decision:** Every piece of data has exactly one authoritative home. Everything else points to it via reference (FK, email lookup). When the source changes, all surfaces reflect the update without manual propagation.
+
+**Context:** Core principle that emerged from discussing contact resolution, meeting attendees, and partner data. Currently many snapshot copies exist that drift.
+
+**Rationale:** Duplication is the root cause of data inconsistency. In a system tracking 22 partners with dozens of contacts each, manual consistency maintenance doesn't scale.
+
+**Impact:** Governs all future data architecture decisions. Any new feature must identify the source of each field and reference it, not copy it.
+
+---
+
+### Decision 140: Partner Detail Page as Convergence Point
+
+**Date:** 2026-03-11
+**Status:** Design decided, implementation deferred
+
+**Decision:** Partner detail page becomes the hub showing all three data rings. Profile + contacts (Ring 1), activity timeline with meetings + notes interleaved chronologically (Ring 2), tasks, engagements. Eventually strategic context from Ring 3 (programs enrolled, events attending, plan progress, financials).
+
+**Context:** Current partner detail shows meetings and engagements in separate sections, no notes, no tasks. User has to visit 3+ pages to understand a partner's full picture.
+
+**Rationale:** PDMs think partner-first. "How's Qualys going?" should be answerable from one page.
+
+**Impact:** Biggest UI payoff. Requires notes query by partner, tasks query by partner (exists), merged activity timeline component. Next session priority.
+
+---
+
+### Decision 141: Meetings + Notes Merge in UI as Activity Timeline, Separate in DB
+
+**Date:** 2026-03-11
+**Status:** Design decided, implementation deferred
+
+**Decision:** Meetings and notes remain structurally different in the database (meetings have attendees/ICS/time; notes have raw text/AI summary/tasks). In the UI, they appear together as a chronological activity timeline per partner. Meeting without notes = scheduled event card. Meeting with notes = expandable card showing note content.
+
+**Context:** Debated merging vs keeping separate. Separate DB entities are correct (different fields, different creation paths). But the user experience should be unified.
+
+**Rationale:** The user doesn't think "I want to see meetings" and "I want to see notes" separately. They think "what's been happening with this partner?"
+
+**Impact:** Need a new unified timeline component that interleaves meetings and notes by date. Replaces current MeetingTimeline on partner detail.
+
+---
+
+### Decision 142: Tasks Have Optional Due Dates
+
+**Date:** 2026-03-11
+**Status:** Implemented (schema + AI extraction)
+
+**Decision:** due_date column already exists on note_tasks. Not forced, but populated when AI extracts deadlines from notes. Tasks with due dates sort to top on Pulse.
+
+**Context:** Confirmed that the existing column should be actively used.
+
+**Rationale:** Low cost (column exists), high value (enables prioritized task display and future deadline alerts).
+
+**Impact:** AI summarizer already has deadline extraction rule. Pulse page displays due dates. No schema change needed.
+
+---
+
+### Decision 143: UI Must Guide Workflow, Not Dump Data
+
+**Date:** 2026-03-11
+**Status:** Design principle
+
+**Decision:** Pulse page and partner detail should make the user feel like they know what to do next. Guard rails guide workflow through what users see. Not a vertical dump of lists — structured, focused, with clear CTAs. Information density must be intentional.
+
+**Context:** First Pulse implementation was a vertical list dump that didn't guide action.
+
+**Rationale:** The tool should be opinionated about workflow. A PDM opening the app at 8am should immediately know: these are my meetings, these need my attention, this is what's next.
+
+**Impact:** Pulse page needs redesign with guided workflow approach. Partner detail needs similar intentionality. Primary design challenge for next session.
+
+---
+
+### Decision 144: Sidebar Visual Hierarchy Needs Real Grouping, Not Gradient Fade
+
+**Date:** 2026-03-11
+**Status:** Acknowledged, redesign deferred
+
+**Decision:** Current sidebar tier implementation (gradient text dimming) is insufficient. Doesn't communicate structure — just makes things dimmer. Next iteration needs obvious visual separation that communicates meaning.
+
+**Context:** The gradient approach was called out as gimmicky. The navigation tier model is correct but the visual execution failed.
+
+**Rationale:** Visual hierarchy should be self-explanatory. If you have to squint to notice the grouping, the grouping doesn't exist.
+
+**Impact:** Sidebar needs visual redesign next session. Possibly section labels, meaningful dividers, or a fundamentally different approach.
