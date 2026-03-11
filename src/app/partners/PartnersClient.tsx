@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import PageHeader from "@/components/layout/PageHeader";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
-import TableList from "@/components/shared/TableList";
 import { Partner } from "@/lib/types";
 
 const SEGMENT_FILTER_OPTIONS = [
@@ -16,20 +16,33 @@ const SEGMENT_FILTER_OPTIONS = [
   { label: "OT/IoT", value: "ot/iot" },
 ];
 
-const TABLE_HEADERS = [
-  { label: "Partner" },
-  { label: "Focus", width: "200px" },
-  { label: "Alliance Lead", width: "160px" },
-  { label: "PSA", width: "140px" },
-];
-
 interface PartnersClientProps {
   partners: Partner[];
 }
 
 export default function PartnersClient({ partners }: PartnersClientProps) {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+
+  async function handleSync() {
+    setSyncing(true);
+    setSyncError(null);
+    try {
+      const res = await fetch("/api/sync", { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || `Sync failed (${res.status})`);
+      }
+      router.refresh();
+    } catch (err) {
+      setSyncError(err instanceof Error ? err.message : "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   const filteredPartners = useMemo(() => {
     return partners.filter((p) => {
@@ -49,7 +62,6 @@ export default function PartnersClient({ partners }: PartnersClientProps) {
     });
   }, [partners, searchQuery, activeFilter]);
 
-  // Group by segment
   const grouped = useMemo(() => {
     const segmentOrder = ["security", "secops", "devops", "cloudops", "observability", "ot/iot"];
     const segmentLabels: Record<string, string> = {
@@ -72,7 +84,6 @@ export default function PartnersClient({ partners }: PartnersClientProps) {
       }
     }
 
-    // Unsegmented
     const unsegmented = filteredPartners
       .filter((p) => !p.segment || !segmentOrder.includes(p.segment))
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -85,10 +96,22 @@ export default function PartnersClient({ partners }: PartnersClientProps) {
 
   return (
     <div className="p-6 lg:p-8">
-      <PageHeader
-        title="Partners"
-        subtitle={`${partners.length} partner${partners.length !== 1 ? "s" : ""} tracked`}
-      />
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Partners</h1>
+          <p className="mt-1 text-sm text-muted">
+            {partners.length} partner{partners.length !== 1 ? "s" : ""} tracked
+          </p>
+          {syncError && <p className="mt-1 text-xs text-red-400">{syncError}</p>}
+        </div>
+        <button
+          onClick={handleSync}
+          disabled={syncing}
+          className="rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+        >
+          {syncing ? "Syncing..." : "Sync Catalogs"}
+        </button>
+      </div>
 
       {partners.length === 0 ? (
         <EmptyState
@@ -114,51 +137,39 @@ export default function PartnersClient({ partners }: PartnersClientProps) {
               description="Try adjusting your search or filters"
             />
           ) : (
-            <>
-              {/* Column headers — shown once at the top */}
-              <div className="flex items-center px-4 py-2 mb-2">
-                {TABLE_HEADERS.map((header, i) => (
-                  <span
-                    key={header.label}
-                    className="text-xs font-semibold uppercase tracking-wider text-muted"
-                    style={
-                      header.width
-                        ? { width: header.width, flexShrink: 0 }
-                        : { flex: i === 0 ? 1 : undefined }
-                    }
-                  >
-                    {header.label}
-                  </span>
-                ))}
-              </div>
-
-              <div className="space-y-8">
-                {grouped.map((group) => (
-                  <section key={group.segment}>
-                    <div className="mb-3 flex items-center gap-2">
-                      <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">
-                        {group.label}
-                      </h2>
-                      <span className="rounded-full bg-border px-2 py-0.5 text-xs text-muted">
-                        {group.partners.length}
+            <div className="space-y-8">
+              {grouped.map((group) => (
+                <section key={group.segment}>
+                  <h2 className="mb-4 text-lg font-semibold text-foreground">
+                    {group.label}
+                    <span className="ml-2 text-sm font-normal text-muted">
+                      ({group.partners.length})
+                    </span>
+                  </h2>
+                  {group.partners.map((partner) => (
+                    <Link
+                      key={partner.id}
+                      href={`/partners/${partner.id}`}
+                      className="flex items-baseline gap-4 rounded-lg px-3 py-2.5 transition-colors hover:bg-surface-hover"
+                    >
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                        {partner.name}
                       </span>
-                    </div>
-                    <TableList
-                      items={group.partners.map((partner) => ({
-                        id: partner.id,
-                        href: `/partners/${partner.id}`,
-                        columns: [
-                          { value: partner.name },
-                          { value: partner.focus_area[0] ?? "", width: "200px" },
-                          { value: partner.partner_contacts?.find(c => c.role === 'Alliance Lead')?.name ?? "", width: "160px" },
-                          { value: partner.aws_team?.find(c => c.role === 'PSA')?.name ?? "", width: "140px" },
-                        ],
-                      }))}
-                    />
-                  </section>
-                ))}
-              </div>
-            </>
+                      {partner.focus_area[0] && (
+                        <span className="shrink-0 text-xs text-muted">
+                          {partner.focus_area[0]}
+                        </span>
+                      )}
+                      {partner.segment && (
+                        <span className="shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-xs text-accent">
+                          {partner.segment}
+                        </span>
+                      )}
+                    </Link>
+                  ))}
+                </section>
+              ))}
+            </div>
           )}
         </>
       )}
