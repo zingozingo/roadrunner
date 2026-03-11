@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
-import PillGrid from "@/components/shared/PillGrid";
 import { Program, ProgramType } from "@/lib/types";
 
 type ProgramWithCount = Program & { linked_count: number };
@@ -142,17 +142,22 @@ export default function ProgramsClient({ programs }: ProgramsClientProps) {
                       {group.programs.length}
                     </span>
                   </div>
-                  <PillGrid
-                    columns={3}
-                    items={group.programs.map((program) => ({
-                      id: program.id,
-                      name: isGroupedView
-                        ? stripTypeSuffix(program.name, group.type)
-                        : program.name,
-                      href: `/programs/${program.id}`,
-                      count: program.linked_count > 0 ? program.linked_count : undefined,
-                    }))}
-                  />
+                  {group.programs.map((program) => (
+                    <Link
+                      key={program.id}
+                      href={`/programs/${program.id}`}
+                      className="flex items-baseline gap-4 rounded-lg px-3 py-2.5 transition-colors hover:bg-surface-hover"
+                    >
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                        {isGroupedView ? stripTypeSuffix(program.name, group.type) : program.name}
+                      </span>
+                      {program.linked_count > 0 && (
+                        <span className="shrink-0 text-xs text-muted">
+                          {program.linked_count} engagement{program.linked_count !== 1 ? "s" : ""}
+                        </span>
+                      )}
+                    </Link>
+                  ))}
                 </section>
               ))}
             </div>
