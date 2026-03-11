@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
-import TableList from "@/components/shared/TableList";
 import { AwsRelationship, RelationshipType } from "@/lib/types";
 
 type RelationshipWithCount = AwsRelationship & { linked_count: number };
@@ -21,13 +21,6 @@ const TYPE_FILTER_OPTIONS = TYPE_ORDER.map((t) => ({
   value: t,
 }));
 
-const TABLE_HEADERS = [
-  { label: "Relationship" },
-  { label: "AWS Org", width: "180px" },
-  { label: "Service", width: "160px" },
-  { label: "Contact", width: "140px" },
-];
-
 interface RelationshipsClientProps {
   relationships: RelationshipWithCount[];
 }
@@ -38,7 +31,6 @@ export default function RelationshipsClient({ relationships }: RelationshipsClie
 
   const filteredRelationships = useMemo(() => {
     return relationships.filter((rel) => {
-      // Search filter
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const matchesName = rel.name.toLowerCase().includes(q);
@@ -47,7 +39,6 @@ export default function RelationshipsClient({ relationships }: RelationshipsClie
         const matchesContact = rel.contacts?.[0]?.name?.toLowerCase().includes(q);
         if (!matchesName && !matchesOrg && !matchesService && !matchesContact) return false;
       }
-      // Type filter
       if (activeFilter && rel.relationship_type !== activeFilter) {
         return false;
       }
@@ -55,7 +46,6 @@ export default function RelationshipsClient({ relationships }: RelationshipsClie
     });
   }, [relationships, searchQuery, activeFilter]);
 
-  // Group by relationship_type
   const grouped = useMemo(() => {
     const groups: { type: RelationshipType; relationships: RelationshipWithCount[] }[] = [];
 
@@ -68,7 +58,6 @@ export default function RelationshipsClient({ relationships }: RelationshipsClie
       }
     }
 
-    // Uncategorized (null type)
     const uncategorized = filteredRelationships
       .filter((r) => !r.relationship_type)
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -110,51 +99,39 @@ export default function RelationshipsClient({ relationships }: RelationshipsClie
               description="Try adjusting your search or filters"
             />
           ) : (
-            <>
-              {/* Column headers — shown once at the top */}
-              <div className="flex items-center px-4 py-2 mb-2">
-                {TABLE_HEADERS.map((header, i) => (
-                  <span
-                    key={header.label}
-                    className="text-xs font-semibold uppercase tracking-wider text-muted"
-                    style={
-                      header.width
-                        ? { width: header.width, flexShrink: 0 }
-                        : { flex: i === 0 ? 1 : undefined }
-                    }
-                  >
-                    {header.label}
-                  </span>
-                ))}
-              </div>
-
-              <div className="space-y-8">
-                {grouped.map((group) => (
-                  <section key={group.type}>
-                    <div className="mb-3 flex items-center gap-2">
-                      <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">
-                        {group.type}s
-                      </h2>
-                      <span className="rounded-full bg-border px-2 py-0.5 text-xs text-muted">
-                        {group.relationships.length}
+            <div className="space-y-8">
+              {grouped.map((group) => (
+                <section key={group.type}>
+                  <h2 className="mb-4 text-lg font-semibold text-foreground">
+                    {group.type}s
+                    <span className="ml-2 text-sm font-normal text-muted">
+                      ({group.relationships.length})
+                    </span>
+                  </h2>
+                  {group.relationships.map((rel) => (
+                    <Link
+                      key={rel.id}
+                      href={`/relationships/${rel.id}`}
+                      className="flex items-baseline gap-4 rounded-lg px-3 py-2.5 transition-colors hover:bg-surface-hover"
+                    >
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                        {rel.name}
                       </span>
-                    </div>
-                    <TableList
-                      items={group.relationships.map((rel) => ({
-                        id: rel.id,
-                        href: `/relationships/${rel.id}`,
-                        columns: [
-                          { value: rel.name },
-                          { value: rel.aws_org ?? "", width: "180px" },
-                          { value: rel.aws_service ?? "", width: "160px" },
-                          { value: rel.contacts?.[0]?.name ?? "", width: "140px" },
-                        ],
-                      }))}
-                    />
-                  </section>
-                ))}
-              </div>
-            </>
+                      {rel.aws_org && (
+                        <span className="shrink-0 text-xs text-muted">
+                          {rel.aws_org}
+                        </span>
+                      )}
+                      {rel.contacts?.[0]?.name && (
+                        <span className="shrink-0 text-xs text-muted">
+                          {rel.contacts[0].name}
+                        </span>
+                      )}
+                    </Link>
+                  ))}
+                </section>
+              ))}
+            </div>
           )}
         </>
       )}
