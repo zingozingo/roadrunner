@@ -6,7 +6,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 55 migrations, 15 DB tables, 29 API routes, 17 UI pages, 427 tests across 14 suites
+- 55 migrations, 15 DB tables, 29 API routes, 18 UI pages, 427 tests across 14 suites
 - Two-phase classification pipeline: curated-input Phase 1 (enriched engagement index with participants, pillar, topic, goal, current_state, entity links) + deep-analysis Phase 2 (full thread history, entity matching, state evolution)
 - Phase 1 decision framework: 6-step content-evaluation-required (no single-engagement shortcuts)
 - Meeting pipeline: ICS parse → create record → classify → link to engagement (unconditional) → inherit partner → Airtable push
@@ -19,8 +19,8 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 - 5 active engagements processing real email data (Nozomi Networks, Spacelift x3, Qualys)
 - Meeting notes: 3-phase workspace (setup → editing → stacked review), unified AI summarizer (flat prose, no flags), 2-state status model (draft/complete), PDM-grounded task extraction with done-state gate, deadline rule, and 4-step contact matching, task materialization on summarize with origin tracking (ai/manual), manual task form with contact quick-pick (decisions 110-119)
 - Partner profile enrichment: architecture, listing_types, pricing_model, ISVa/deployed status, PRM/CRM status synced from Airtable into AI context and partner detail UI (decision 109)
-- Three-tier navigation: Pulse → Portfolio → Reference. Sidebar restructured into 4 visual tiers. Home page replaced with Pulse command center (today's meetings, open tasks, inbox count, recent engagements, upcoming events). Meeting type filter aligned with DB CHECK constraint (decisions 131-144)
-- Architectural planning: data rings model (Catalog → Activity → Strategy), notes-require-meetings, contacts-as-resolved-entity, partner-as-convergence-point, resolve-don't-duplicate principle (decisions 131-144)
+- UI standardization complete: all list pages use standard row template (PageHeader + FilterBar + grouped single-column rows). Sidebar restructured into 5 items + collapsible Catalog. Pulse killed, `/` redirects to `/partners`. Tasks page added at `/tasks`. Sync Catalogs button on Partners page. (decisions 145-155)
+- Architectural planning: data rings model (Catalog → Activity → Strategy), notes-require-meetings, contacts-as-resolved-entity, partner-as-convergence-point, resolve-don't-duplicate principle, meetings+notes 1:1, partner scratchpad vision (decisions 131-155)
 
 ## MVP Target
 
@@ -32,17 +32,20 @@ A system where a PDM forwards an email and Roadrunner:
 
 ## What's Next
 
-- Partner detail as convergence point: activity timeline (meetings + notes interleaved), tasks, all three data rings (decision 140)
-- Sidebar visual redesign: current gradient fade insufficient, needs real grouping (decision 144)
-- Pulse page redesign: guided workflow, not data dump (decision 143)
-- Notes-require-meetings: rework note creation flow to attach to meetings (decision 134)
+- Meetings + Notes merge: inline notes on meeting detail page, 1:1 relationship, `/notes` redirects to `/meetings` (decisions 148-149)
+- Partner detail as convergence point: activity timeline (meetings + notes interleaved), tasks, scratchpad, all three data rings (decisions 140, 150-151)
+- Partner scratchpad design: free-form context area that feeds AI summarizer, bridge to slot registry (decision 151)
+- Contact registry migration: unify participants table as single registry after UI stabilization (decisions 138, 155)
 - Manual quick-capture meeting creation for calls without ICS (decision 137)
 - Real email testing with rewritten Phase 1 prompt (validate multi-engagement disambiguation)
 - Clean up 2 orphaned meetings (1 has message_id but pre-dates fix, 1 has no message_id)
 - Phase 2 prompt review through same curated-input lens
 - Inbox UX redesign (sender names, assign buttons, simpler with engagement-hub model)
 - ~~Meeting notes feature (replace OneNote)~~ — **Implemented** (decisions 101-108)
-- Meeting notes follow-ups: apply migrations 051-055 to production, seed historical OneNote data, task dashboard view
+- ~~Sidebar visual redesign~~ — **Implemented** (decision 146)
+- ~~Pulse page redesign~~ — **Killed** (decision 145)
+- ~~Task dashboard view~~ — **Implemented** as `/tasks` (decision 153)
+- Meeting notes follow-ups: apply migrations 051-055 to production, seed historical OneNote data
 
 ## Architecture Principles
 

@@ -892,3 +892,168 @@
 **Rationale:** Visual hierarchy should be self-explanatory. If you have to squint to notice the grouping, the grouping doesn't exist.
 
 **Impact:** Sidebar needs visual redesign next session. Possibly section labels, meaningful dividers, or a fundamentally different approach.
+
+### Decision 145: Kill Pulse — Partners Is Home Page
+
+**Date:** 2026-03-11
+**Status:** Implemented
+
+**Decision:** Remove Pulse page entirely. `/` redirects to `/partners`. Partners list IS the morning briefing.
+
+**Context:** Pulse was an aggregator that duplicated data from other pages without adding unique value.
+
+**Rationale:** Partners is the convergence point (Decision #140). Starting there gives the PDM immediate access to their portfolio. A dedicated briefing page may return later once partner detail convergence reveals what cross-cutting view is actually needed.
+
+**Impact:** Pulse page deleted (279 lines). Route `/` redirects to `/partners`.
+
+---
+
+### Decision 146: Sidebar Restructure — 5 Items + Collapsible Catalog
+
+**Date:** 2026-03-11
+**Status:** Implemented
+
+**Decision:** Sidebar shows Inbox | Partners, Engagements | Meetings, Tasks | Catalog (expandable → Programs, Events, Relationships). Notes removed from nav entirely. Uniform text styling, no gradient tiers.
+
+**Context:** Old 9-item flat list with gradient text didn't reflect data hierarchy. Notes as standalone nav item contradicted Decision #134 (notes require meetings).
+
+**Rationale:** Sidebar should reflect workflow: Review (Inbox) → Work (Partners, Engagements) → Activity (Meetings, Tasks) → Reference (Catalog). Dividers create zones without labels.
+
+**Impact:** Sidebar.tsx rewritten. Notes nav removed. Tasks nav added. Catalog collapses 3 items into expandable group.
+
+---
+
+### Decision 147: Standard List Page Template
+
+**Date:** 2026-03-11
+**Status:** Implemented
+
+**Decision:** All list pages follow one pattern: PageHeader + SearchBar + single-axis FilterBar pills + grouped single-column rows. No multi-column grids, no multi-axis filters, no per-page custom layouts.
+
+**Context:** Every page had its own rendering pattern (PillGrid, CalendarCard, TableList, inline custom). Inconsistent filters (Events had type + year axes, Notes had type + status).
+
+**Rationale:** One pattern = one mental model for the user, one component vocabulary for development, one skill doc for Claude Code. Rows are scannable. Single-axis filters prevent confusion.
+
+**Impact:** EventsClient, ProgramsClient, MeetingsClient, RelationshipsClient, PartnersClient, EngagementsClient all rewritten to template. PillGrid, CalendarCard, TableList no longer used by list pages.
+
+---
+
+### Decision 148: Meeting + Notes Are 1:1
+
+**Date:** 2026-03-11
+**Status:** Design principle
+
+**Decision:** One meeting has exactly one set of notes. Notes are not independent entities — they're the documentation record of a specific meeting.
+
+**Context:** Previous design allowed creating notes independently and potentially multiple notes per meeting. This created confusion about what a "note" is.
+
+**Rationale:** In real life, meeting minutes belong to a specific meeting. The notes area should feel like opening a meeting and writing in it, not creating a separate document. AI summary, tasks, and raw notes are all part of the single meeting documentation.
+
+**Impact:** Meeting detail page will gain inline notes area. No "create multiple notes for this meeting" UI.
+
+---
+
+### Decision 149: Notes Accessed Through Meetings, Not Standalone
+
+**Date:** 2026-03-11
+**Status:** Design principle
+
+**Decision:** `/notes` route redirects to `/meetings`. Notes are created and viewed from within meeting context. `/notes/[id]` stays alive for direct links (tasks link there).
+
+**Context:** Notes as a standalone nav item and list page implied they're independent entities. Decision #134 + #148 establish they're part of meetings.
+
+**Rationale:** If notes require meetings (134) and are 1:1 with meetings (148), a separate notes list is redundant. You find notes by finding the meeting.
+
+**Impact:** Notes removed from sidebar (done). `/notes` list page to become redirect. Note creation flow starts from meeting detail.
+
+---
+
+### Decision 150: Seeds Are Partner-Level Context, Not Fake Meetings
+
+**Date:** 2026-03-11
+**Status:** Design principle
+
+**Decision:** Historical context seeds live on the partner detail page, not crammed into meeting_notes with note_type="seed". Seeds are partner intelligence, not meeting documentation.
+
+**Context:** Current seed notes pretend to be meetings but aren't — no date, no attendees, no meeting record. They're dumps of historical knowledge about a partner.
+
+**Rationale:** Making seeds be meetings is architecturally dishonest. Partner context belongs at the partner level. This aligns with the partner-as-convergence-point vision (Decision #140).
+
+**Impact:** Future seed workflow on partner detail page. Existing seed notes grandfathered. New architecture separates meeting documentation from partner context.
+
+---
+
+### Decision 151: Partner Scratchpad as Living Brain
+
+**Date:** 2026-03-11
+**Status:** Design principle
+
+**Decision:** Each partner gets a free-form scratchpad (context area) that accumulates intelligence over time. The scratchpad feeds the AI summarizer as context when processing meeting notes. It starts unstructured and gradually accumulates structured facts.
+
+**Context:** PDMs have extensive historical knowledge in OneNote and elsewhere. Seeds were the initial solution but they're static dumps. The scratchpad is a living document that grows with every interaction.
+
+**Rationale:** The scratchpad bridges "dump everything I know" (today) to "structured partner profile" (slot registry, future). Meeting summaries can reference scratchpad context. AI can eventually append facts to the scratchpad when it recognizes key information in meeting notes (e.g., "partner now has CRM integration" → scratchpad updated → eventually maps to a slot).
+
+**Impact:** Major future feature. Per-partner storage for accumulated intelligence. Feeds into AI summarization pipeline. Bridge to slot registry architecture.
+
+---
+
+### Decision 152: Tasks Come From Meetings Only (For Now)
+
+**Date:** 2026-03-11
+**Status:** Design principle
+
+**Decision:** Tasks are children of meeting notes (note_tasks.meeting_note_id FK). No floating partner-level tasks without a meeting source. Future enhancement if validated by real usage.
+
+**Context:** Question arose about wanting to jot down a random task for a partner. Workaround: capture it in next meeting's notes.
+
+**Rationale:** Adding nullable FK or separate task mechanism adds complexity for an unvalidated use case. Constraint forces good workflow discipline — every task has context.
+
+**Impact:** Task creation limited to note workspace. Tasks page shows tasks grouped by partner but all sourced from meetings.
+
+---
+
+### Decision 153: Tasks Page as Top-Level Nav Item
+
+**Date:** 2026-03-11
+**Status:** Implemented
+
+**Decision:** `/tasks` is a new page showing all open tasks across partners. Rows grouped by partner, filtered by owner (Me/Partner/AWS Internal). Linked in sidebar.
+
+**Context:** Tasks were buried inside individual notes with no cross-partner view. A PDM needs "what do I owe?" visibility.
+
+**Rationale:** Tasks are the actionable output of the entire system. They deserve a dedicated view alongside Meetings in the Activity tier.
+
+**Impact:** TasksClient.tsx + page.tsx created. Sidebar links to /tasks. Uses standard list page template.
+
+---
+
+### Decision 154: Sync Catalogs Button on Partners (Home) Page
+
+**Date:** 2026-03-11
+**Status:** Implemented
+
+**Decision:** "Sync Catalogs" button on Partners page triggers POST /api/sync to pull all catalog data from Airtable (Partners, Programs, Events, Relationships).
+
+**Context:** SyncStatus component was orphaned when Pulse was killed. Sync is a pull from Airtable, not per-page — it refreshes all catalogs at once.
+
+**Rationale:** Partners is home. You land there, sync once, all catalogs refresh. Label "Sync Catalogs" is honest about scope.
+
+**Impact:** PartnersClient.tsx includes sync button. SyncStatus.tsx remains in codebase but unused.
+
+---
+
+### Decision 155: Contact Registry Migration Sequenced After UI Stabilization
+
+**Date:** 2026-03-11
+**Status:** Deferred
+
+**Decision:** The participants-table-as-single-registry migration (Decision #138) is deferred to the next architectural phase, after UI standardization and meetings+notes merge are complete.
+
+**Context:** Contact data is scattered across 4+ locations. Fix requires touching sync layer, ICS parser, meeting pipeline, task system, and partner detail page.
+
+**Rationale:** Doing data architecture migration on top of shifting UI would compound risk. Stabilize the surface first, then rewire the data underneath.
+
+**Impact:** Contact consolidation is next major architectural work after UI phase completes.
+
+---

@@ -5,6 +5,8 @@ description: UI design system and component patterns for Roadrunner (Relay), an 
 
 # Roadrunner UI Design System
 
+> **⚠️ STALE — PENDING REWRITE:** This skill was written before the UI standardization pass (decisions 145-155). All list pages now use a single row template. PillGrid, CalendarCard, and TableList are no longer used by list pages. Sidebar was restructured. Pulse was killed. Rewrite pending after meetings+notes merge settles.
+
 Roadrunner (also called Relay) is an AI-powered email classification and partner engagement management system for AWS PDMs. This skill defines the UI component architecture, design patterns, and conventions that ensure visual consistency across all pages.
 
 ## Architecture Overview
