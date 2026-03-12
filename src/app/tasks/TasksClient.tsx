@@ -116,12 +116,12 @@ export default function TasksClient({ tasks }: TasksClientProps) {
                       <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
                         {task.description}
                       </span>
-                      {task.due_date && (
-                        <span className="shrink-0 text-xs text-muted">
-                          {new Date(task.due_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                        </span>
-                      )}
-                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                      <span className="w-16 shrink-0 text-right text-xs text-muted">
+                        {task.due_date
+                          ? new Date(task.due_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                          : ""}
+                      </span>
+                      <span className={`w-16 shrink-0 text-center rounded-full px-2 py-0.5 text-xs font-medium ${
                         task.owner === "me" ? "bg-accent/10 text-accent" :
                         task.owner === "partner" ? "bg-emerald-500/10 text-emerald-400" :
                         "bg-amber-500/10 text-amber-400"
