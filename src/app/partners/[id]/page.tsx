@@ -7,7 +7,8 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import MeetingTimeline from "@/components/shared/MeetingTimeline";
 import ExpandableList from "@/components/shared/ExpandableList";
 import PartnerTasksSection from "@/components/partners/PartnerTasksSection";
-import { getPartner, getSupabaseClient, getAwsRelationshipsByPartner, getMeetingNotesByPartner, getTasksByPartner } from "@/lib/db";
+import PartnerScratchpad from "@/components/partners/PartnerScratchpad";
+import { getPartner, getSupabaseClient, getAwsRelationshipsByPartner, getMeetingNotesByPartner, getTasksByPartner, getPartnerContext } from "@/lib/db";
 import type { Engagement, Meeting, MeetingNoteWithTasks, NoteTask } from "@/lib/types";
 
 export default async function PartnerDetailPage({
@@ -47,10 +48,11 @@ export default async function PartnerDetailPage({
   const linkedEngagements = (engagements ?? []) as Engagement[];
   const linkedMeetings = (meetings ?? []) as Meeting[];
 
-  const [linkedRelationships, partnerNotes, openTasks] = await Promise.all([
+  const [linkedRelationships, partnerNotes, openTasks, partnerContextEntries] = await Promise.all([
     getAwsRelationshipsByPartner(id),
     getMeetingNotesByPartner(id),
     getTasksByPartner(id, { status: "open" }),
+    getPartnerContext(id),
   ]);
 
   // Build engagement name map for MeetingTimeline
@@ -310,15 +312,8 @@ export default async function PartnerDetailPage({
           </div>
         )}
 
-        {/* Living Context — placeholder for future AI synthesis */}
-        <div className="rounded-xl border border-border bg-surface p-5">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted">
-            Living Context
-          </h2>
-          <p className="text-sm italic text-muted">
-            Partner context and AI synthesis coming soon. This section will show the accumulated intelligence about this partner.
-          </p>
-        </div>
+        {/* Living Context — scratchpad + AI synthesis entries */}
+        <PartnerScratchpad partnerId={id} initialEntries={partnerContextEntries} />
 
         {/* Engagements — status right-aligned */}
         {linkedEngagements.length > 0 && (

@@ -455,6 +455,19 @@ export interface ApprovalQueueItem {
 }
 
 // ============================================================
+// Partner Context Entry (scratchpad / AI synthesis / seed dump)
+// ============================================================
+
+export interface PartnerContextEntry {
+  id: string;
+  partner_id: string;
+  content: string;
+  source: "scratchpad" | "ai_synthesis" | "seed_dump";
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================================
 // Partner Context types (for meeting notes)
 // ============================================================
 
