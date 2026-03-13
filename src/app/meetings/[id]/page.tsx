@@ -9,9 +9,12 @@ import {
   getMeeting,
   getEngagementById,
   getPartner,
+  getMeetingNoteByMeetingId,
 } from "@/lib/db";
+import { buildPartnerContext, formatContextForDisplay } from "@/lib/notes-context";
 import { cleanMeetingTitle, formatFooterDate } from "@/lib/format-utils";
-import type { MeetingAttendee } from "@/lib/types";
+import MeetingNotesSection from "@/components/notes/MeetingNotesSection";
+import type { MeetingAttendee, MeetingNoteWithTasks, DisplayContext } from "@/lib/types";
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "Date TBD";
@@ -84,10 +87,22 @@ export default async function MeetingDetailPage({
   const meeting = await getMeeting(id);
   if (!meeting) notFound();
 
-  const [engagement, partner] = await Promise.all([
+  const [engagement, partner, existingNote] = await Promise.all([
     meeting.engagement_id ? getEngagementById(meeting.engagement_id) : null,
     meeting.partner_id ? getPartner(meeting.partner_id) : null,
+    getMeetingNoteByMeetingId(id),
   ]);
+
+  // Build partner context for notes workspace (only if partner exists)
+  let partnerContext: DisplayContext | null = null;
+  if (partner) {
+    try {
+      const rawContext = await buildPartnerContext(partner.id);
+      partnerContext = formatContextForDisplay(rawContext);
+    } catch (err) {
+      console.error(`Failed to build partner context for meeting ${id}:`, err);
+    }
+  }
 
   const attendeeGroups = groupAttendees(
     meeting.attendees,
@@ -175,16 +190,30 @@ export default async function MeetingDetailPage({
           </div>
         )}
 
-        {/* Notes */}
+        {/* Calendar Notes (from ICS invite) */}
         {meeting.notes && (
           <div className="rounded-xl border border-border bg-surface p-4">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted">
-              Notes
+              Calendar Notes
             </h2>
             <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
               {meeting.notes}
             </p>
           </div>
+        )}
+
+        {/* Meeting Notes Workspace */}
+        {partner && partnerContext && (
+          <MeetingNotesSection
+            meetingId={id}
+            partnerId={partner.id}
+            partnerName={partner.name}
+            engagementId={meeting.engagement_id}
+            meetingDate={meeting.meeting_date}
+            meetingTitle={cleanMeetingTitle(meeting.title)}
+            existingNote={existingNote}
+            context={partnerContext}
+          />
         )}
 
         {/* Attendees — grouped by organization */}
