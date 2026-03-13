@@ -6,8 +6,9 @@ import DetailHeader from "@/components/shared/DetailHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import MeetingTimeline from "@/components/shared/MeetingTimeline";
 import ExpandableList from "@/components/shared/ExpandableList";
-import { getPartner, getSupabaseClient, getAwsRelationshipsByPartner } from "@/lib/db";
-import type { Engagement, Meeting } from "@/lib/types";
+import PartnerTasksSection from "@/components/partners/PartnerTasksSection";
+import { getPartner, getSupabaseClient, getAwsRelationshipsByPartner, getMeetingNotesByPartner, getTasksByPartner } from "@/lib/db";
+import type { Engagement, Meeting, MeetingNoteWithTasks, NoteTask } from "@/lib/types";
 
 export default async function PartnerDetailPage({
   params,
@@ -46,13 +47,40 @@ export default async function PartnerDetailPage({
   const linkedEngagements = (engagements ?? []) as Engagement[];
   const linkedMeetings = (meetings ?? []) as Meeting[];
 
-  const linkedRelationships = await getAwsRelationshipsByPartner(id);
+  const [linkedRelationships, partnerNotes, openTasks] = await Promise.all([
+    getAwsRelationshipsByPartner(id),
+    getMeetingNotesByPartner(id),
+    getTasksByPartner(id, { status: "open" }),
+  ]);
 
   // Build engagement name map for MeetingTimeline
   const engagementNames = new Map<string, string>();
   for (const eng of linkedEngagements) {
     engagementNames.set(eng.id, eng.name);
   }
+
+  // Build note status map for MeetingTimeline
+  const noteStatusByMeetingId = new Map<string, { noteId: string; status: "draft" | "complete"; taskCount: number }>();
+  for (const note of partnerNotes) {
+    if (note.meeting_id) {
+      noteStatusByMeetingId.set(note.meeting_id, {
+        noteId: note.id,
+        status: note.status === "complete" ? "complete" : "draft",
+        taskCount: note.tasks.length,
+      });
+    }
+  }
+
+  // Build note title map for tasks
+  const noteTitleMap = new Map<string, string>();
+  for (const note of partnerNotes) {
+    noteTitleMap.set(note.id, note.title ?? "Untitled");
+  }
+
+  const tasksWithTitles = openTasks.map((t) => ({
+    ...t,
+    note_title: noteTitleMap.get(t.meeting_note_id) ?? "Untitled",
+  }));
 
   return (
     <div className="p-6 lg:p-8">
@@ -282,18 +310,15 @@ export default async function PartnerDetailPage({
           </div>
         )}
 
-        {/* Meetings Timeline — temporal entities get timeline treatment */}
-        {linkedMeetings.length > 0 && (
-          <div className="rounded-xl border border-border bg-surface p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-              Meetings
-            </h2>
-            <MeetingTimeline
-              meetings={linkedMeetings}
-              engagementNames={engagementNames}
-            />
-          </div>
-        )}
+        {/* Living Context — placeholder for future AI synthesis */}
+        <div className="rounded-xl border border-border bg-surface p-5">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted">
+            Living Context
+          </h2>
+          <p className="text-sm italic text-muted">
+            Partner context and AI synthesis coming soon. This section will show the accumulated intelligence about this partner.
+          </p>
+        </div>
 
         {/* Engagements — status right-aligned */}
         {linkedEngagements.length > 0 && (
@@ -317,6 +342,27 @@ export default async function PartnerDetailPage({
                 </Link>
               ))}
             </ExpandableList>
+          </div>
+        )}
+
+        {/* Meetings Timeline — enhanced with note status indicators */}
+        {linkedMeetings.length > 0 && (
+          <div className="rounded-xl border border-border bg-surface p-4">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
+              Meetings
+            </h2>
+            <MeetingTimeline
+              meetings={linkedMeetings}
+              engagementNames={engagementNames}
+              noteStatusByMeetingId={noteStatusByMeetingId}
+            />
+          </div>
+        )}
+
+        {/* Tasks — open tasks grouped by owner */}
+        {tasksWithTitles.length > 0 && (
+          <div className="rounded-xl border border-border bg-surface p-4">
+            <PartnerTasksSection tasks={tasksWithTitles} />
           </div>
         )}
 

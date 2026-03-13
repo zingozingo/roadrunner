@@ -13,15 +13,24 @@ import { MeetingStatusBadge } from "@/components/shared/TypeBadge";
 import type { Meeting } from "@/lib/types";
 import { cleanMeetingTitle } from "@/lib/format-utils";
 
+interface NoteStatus {
+  noteId: string;
+  status: "draft" | "complete";
+  taskCount: number;
+}
+
 interface MeetingTimelineProps {
   meetings: Meeting[];
   /** Map of engagement_id → engagement name for inline display */
   engagementNames?: Map<string, string>;
+  /** Map of meeting_id → note status for inline indicators */
+  noteStatusByMeetingId?: Map<string, NoteStatus>;
 }
 
 export default function MeetingTimeline({
   meetings,
   engagementNames,
+  noteStatusByMeetingId,
 }: MeetingTimelineProps) {
   const now = new Date();
   const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
@@ -138,6 +147,21 @@ export default function MeetingTimeline({
                   {engName}
                 </p>
               )}
+
+              {/* Note status indicator */}
+              {noteStatusByMeetingId?.get(mtg.id) && (() => {
+                const ns = noteStatusByMeetingId.get(mtg.id)!;
+                return (
+                  <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted">
+                    <span className={`inline-block h-1.5 w-1.5 rounded-full ${
+                      ns.status === "complete" ? "bg-emerald-400" : "bg-amber-400"
+                    }`} />
+                    {ns.status === "complete"
+                      ? `${ns.taskCount} task${ns.taskCount !== 1 ? "s" : ""}`
+                      : "notes in progress"}
+                  </div>
+                );
+              })()}
             </div>
           </Link>
         );
