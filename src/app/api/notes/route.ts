@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listMeetingNotes, createMeetingNote } from "@/lib/db";
+import { listMeetingNotes, createMeetingNote, getMeeting } from "@/lib/db";
 
 export async function GET(request: NextRequest) {
   try {
@@ -32,10 +32,23 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    // Resolve engagement_id: explicit wins, otherwise inherit from meeting
+    let resolvedEngagementId: string | null = body.engagement_id ?? null;
+    if (body.meeting_id && !body.engagement_id) {
+      const meeting = await getMeeting(body.meeting_id);
+      if (!meeting) {
+        return NextResponse.json(
+          { error: "Meeting not found" },
+          { status: 400 }
+        );
+      }
+      resolvedEngagementId = meeting.engagement_id;
+    }
+
     const note = await createMeetingNote({
       partner_id: body.partner_id,
       meeting_id: body.meeting_id ?? null,
-      engagement_id: body.engagement_id ?? null,
+      engagement_id: resolvedEngagementId,
       note_type: body.note_type ?? "meeting",
       title: body.title ?? null,
       meeting_date: body.meeting_date ?? null,

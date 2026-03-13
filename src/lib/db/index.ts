@@ -97,6 +97,7 @@ export {
 export {
   createMeetingNote,
   getMeetingNote,
+  getMeetingNoteByMeetingId,
   getMeetingNotesByPartner,
   updateMeetingNote,
   deleteMeetingNote,

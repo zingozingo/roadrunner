@@ -76,6 +76,46 @@ export async function getMeetingNote(
   };
 }
 
+export async function getMeetingNoteByMeetingId(
+  meetingId: string
+): Promise<MeetingNoteWithTasks | null> {
+  const db = getSupabaseClient();
+
+  const { data: note, error } = await db
+    .from("meeting_notes")
+    .select("*")
+    .eq("meeting_id", meetingId)
+    .maybeSingle();
+
+  if (error) throw new Error(`Failed to fetch meeting note by meeting_id: ${error.message}`);
+  if (!note) return null;
+
+  const typedNote = note as MeetingNote;
+
+  // Fetch partner name
+  const { data: partner } = await db
+    .from("partners")
+    .select("name")
+    .eq("id", typedNote.partner_id)
+    .maybeSingle();
+
+  // Fetch tasks
+  const { data: tasks, error: tasksError } = await db
+    .from("note_tasks")
+    .select("*")
+    .eq("meeting_note_id", typedNote.id)
+    .order("created_at", { ascending: true });
+
+  if (tasksError)
+    throw new Error(`Failed to fetch note tasks: ${tasksError.message}`);
+
+  return {
+    ...typedNote,
+    tasks: (tasks ?? []) as NoteTask[],
+    partner_name: (partner as { name: string } | null)?.name,
+  };
+}
+
 export async function getMeetingNotesByPartner(
   partnerId: string,
   options?: { limit?: number; noteType?: "meeting" | "seed" }
