@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import type { DisplayContext } from "@/lib/types";
-import NoteWorkspace from "./NoteWorkspace";
+import NoteWorkspace from "@/components/notes/NoteWorkspace";
 
 interface PartnerOption {
   id: string;

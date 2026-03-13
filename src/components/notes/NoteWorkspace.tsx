@@ -14,6 +14,11 @@ interface NoteWorkspaceProps {
   meetingDate: string | null;
   title: string | null;
   context: DisplayContext;
+  initialRawNotes?: string;
+  initialSummary?: string;
+  initialTasks?: NoteTask[];
+  initialPhase?: Phase;
+  meetingId?: string;
 }
 
 export default function NoteWorkspace({
@@ -23,23 +28,28 @@ export default function NoteWorkspace({
   meetingDate,
   title,
   context,
+  initialRawNotes,
+  initialSummary,
+  initialTasks,
+  initialPhase,
+  meetingId,
 }: NoteWorkspaceProps) {
   const router = useRouter();
-  const [phase, setPhase] = useState<Phase>("editing");
-  const [rawNotes, setRawNotes] = useState("");
+  const [phase, setPhase] = useState<Phase>(initialPhase ?? "editing");
+  const [rawNotes, setRawNotes] = useState(initialRawNotes ?? "");
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [summarizing, setSummarizing] = useState(false);
   const [summarizeError, setSummarizeError] = useState<string | null>(null);
 
   // Review state
-  const [summary, setSummary] = useState("");
+  const [summary, setSummary] = useState(initialSummary ?? "");
   const [showRawNotes, setShowRawNotes] = useState(false);
   const [editingSummary, setEditingSummary] = useState(false);
   const [summaryDraft, setSummaryDraft] = useState("");
-  const [tasks, setTasks] = useState<NoteTask[]>([]);
+  const [tasks, setTasks] = useState<NoteTask[]>(initialTasks ?? []);
 
 
-  const lastSavedRef = useRef(rawNotes);
+  const lastSavedRef = useRef(initialRawNotes ?? "");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-resize textarea
@@ -87,10 +97,17 @@ export default function NoteWorkspace({
     return () => document.removeEventListener("visibilitychange", handler);
   }, [rawNotes, phase, saveDraft]);
 
-  // Focus textarea on mount
+  // Focus textarea on mount (only in editing phase)
   useEffect(() => {
-    textareaRef.current?.focus();
-  }, []);
+    if (phase === "editing") {
+      textareaRef.current?.focus();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-resize on mount if pre-populated
+  useEffect(() => {
+    if (initialRawNotes) autoResize();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSummarize() {
     if (rawNotes.trim().length < 50) return;
@@ -150,7 +167,7 @@ export default function NoteWorkspace({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "complete" }),
     });
-    router.push(`/notes/${noteId}`);
+    router.push(meetingId ? `/meetings/${meetingId}` : `/notes/${noteId}`);
   }
 
   const dateDisplay = meetingDate
