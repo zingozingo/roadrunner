@@ -1,5 +1,6 @@
 import { getSupabaseClient } from "./db/client";
 import { getRecentNoteSummaries, getTasksByPartner } from "./db/meeting-notes";
+import { getPartnerContext } from "./db/partner-context";
 import { renderContact } from "./contact-parser";
 import type {
   Partner,
@@ -20,13 +21,14 @@ export async function buildPartnerContext(
 ): Promise<PartnerContext> {
   const db = getSupabaseClient();
 
-  // Parallel fetch: partner, engagements, meetings, notes, tasks
+  // Parallel fetch: partner, engagements, meetings, notes, tasks, scratchpad
   const [
     { data: partnerData, error: partnerErr },
     { data: engData, error: engErr },
     { data: mtgData, error: mtgErr },
     noteSummaries,
     openTasks,
+    scratchpadContext,
   ] = await Promise.all([
     db.from("partners").select("*").eq("id", partnerId).single(),
     db
@@ -43,6 +45,7 @@ export async function buildPartnerContext(
       .limit(5),
     getRecentNoteSummaries(partnerId, 5),
     getTasksByPartner(partnerId, { status: "open" }),
+    getPartnerContext(partnerId),
   ]);
 
   if (partnerErr) throw new Error(`Failed to fetch partner: ${partnerErr.message}`);
@@ -119,6 +122,11 @@ export async function buildPartnerContext(
       status: t.status,
       due_date: t.due_date,
     })),
+    scratchpadEntries: scratchpadContext.map((e) => ({
+      content: e.content,
+      source: e.source,
+      created_at: e.created_at,
+    })),
   };
 }
 
@@ -154,6 +162,15 @@ export function formatContextForPrompt(context: PartnerContext): string {
   if (c.psa) contactLines.push(`PSA: ${c.psa}`);
   if (c.other_contacts.length > 0) contactLines.push(`Other: ${c.other_contacts.join("; ")}`);
   if (contactLines.length > 0) sections.push("KEY CONTACTS\n" + contactLines.join("\n"));
+
+  // Partner context (PDM scratchpad notes — most important context for AI)
+  const contextEntries = context.scratchpadEntries.filter(
+    (e) => e.source === "scratchpad" || e.source === "seed_dump"
+  );
+  if (contextEntries.length > 0) {
+    const ctxLines = contextEntries.map((e) => `- ${e.content}`);
+    sections.push("PARTNER CONTEXT (PDM NOTES)\n" + ctxLines.join("\n"));
+  }
 
   // Active engagements
   if (context.engagements.length > 0) {
@@ -252,6 +269,7 @@ export function formatContextForDisplay(context: PartnerContext): DisplayContext
       note_type: n.note_type,
     })),
     hasSeedNote: context.previousNotes.some((n) => n.note_type === "seed"),
+    scratchpadEntries: context.scratchpadEntries,
   };
 }
 

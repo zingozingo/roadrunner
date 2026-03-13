@@ -521,6 +521,11 @@ export interface PartnerContext {
     status: string;
     due_date: string | null;
   }>;
+  scratchpadEntries: Array<{
+    content: string;
+    source: string;
+    created_at: string;
+  }>;
 }
 
 export interface DisplayContext {
@@ -570,6 +575,11 @@ export interface DisplayContext {
     note_type: string;
   }>;
   hasSeedNote: boolean;
+  scratchpadEntries: Array<{
+    content: string;
+    source: string;
+    created_at: string;
+  }>;
 }
 
 // ============================================================

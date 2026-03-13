@@ -6,8 +6,21 @@ const PILLAR_COLORS: Record<string, string> = {
   "Co-Build": "bg-emerald-500/15 text-emerald-400",
 };
 
+function relativeTime(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  return `${Math.floor(days / 30)}mo ago`;
+}
+
 export default function ContextSidebar({ context }: { context: DisplayContext }) {
-  const { profile, contacts, activeEngagements, openTasks, openTaskCount, hasSeedNote } = context;
+  const { profile, contacts, activeEngagements, openTasks, openTaskCount, hasSeedNote, scratchpadEntries } = context;
 
   return (
     <div className="space-y-4">
@@ -65,6 +78,26 @@ export default function ContextSidebar({ context }: { context: DisplayContext })
                 <span className="text-muted">PSA:</span>{" "}
                 <span className="text-foreground/80">{contacts.psa}</span>
               </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Partner Context (scratchpad entries) */}
+      {scratchpadEntries.length > 0 && (
+        <div className="rounded-xl border border-border bg-surface p-4">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Partner Context</h3>
+          <div className="space-y-1.5">
+            {scratchpadEntries.slice(0, 5).map((e, i) => (
+              <div key={i}>
+                <p className="text-xs text-foreground/70">
+                  {e.content.length > 100 ? e.content.slice(0, 100) + "..." : e.content}
+                </p>
+                <span className="text-[10px] text-muted">{relativeTime(e.created_at)}</span>
+              </div>
+            ))}
+            {scratchpadEntries.length > 5 && (
+              <p className="text-[10px] text-muted">(+{scratchpadEntries.length - 5} more)</p>
             )}
           </div>
         </div>
