@@ -145,11 +145,11 @@ Steven's workflow is two-layer:
 
 ## Key Conventions
 
-- **Migrations:** Sequential numbering in `supabase/migrations/` (currently 001-055). New migrations get the next number (056, 057, ...).
+- **Migrations:** Sequential numbering in `supabase/migrations/` (currently 001-056). New migrations get the next number (057, 058, ...).
 - **Types:** All TypeScript types in `src/lib/types.ts` — keep them there, don't scatter.
 - **API routes:** `src/app/api/{resource}/route.ts` pattern. All CRUD follows same pattern.
 - **UI pages:** `src/app/{resource}/page.tsx` for list, `src/app/{resource}/[id]/page.tsx` for detail.
-- **Components:** `src/components/` organized by concern — `layout/`, `shared/`, `inbox/`, `engagement/`, `actions/`.
+- **Components:** `src/components/` organized by concern — `layout/`, `shared/`, `inbox/`, `engagement/`, `actions/`, `notes/`, `partners/`.
 - **Error handling:** Try/catch on all async operations, especially Airtable pushes. Log errors, don't swallow them.
 - **Formatting:** Use `format-utils.ts` for display formatting, `contact-parser.ts` for contact rendering.
 - **No RLS:** Single-user app, service key auth. No row-level security policies.
@@ -175,7 +175,7 @@ Steven's workflow is two-layer:
 `sync/index.ts` → `sync/push.ts` / `sync/pull.ts` → `sync/field-maps.ts` → `sync/utils.ts`
 
 **Data layer:**
-`db/index.ts` → `db/engagements.ts` → `db/messages.ts` → `db/meetings.ts` → `db/participants.ts` → `db/catalog.ts` → `db/entity-links.ts` → `db/relationships.ts` → `db/partners.ts` → `db/inbox.ts`
+`db/index.ts` → `db/engagements.ts` → `db/messages.ts` → `db/meetings.ts` → `db/participants.ts` → `db/catalog.ts` → `db/entity-links.ts` → `db/relationships.ts` → `db/partners.ts` → `db/inbox.ts` → `db/meeting-notes.ts` → `db/partner-context.ts`
 
 **Email processing:**
 `email-parser.ts` (two-pass split + cleaning) → `ics-parser.ts` (calendar parsing) → `name-resolver.ts` (display names)
@@ -192,7 +192,7 @@ Steven's workflow is two-layer:
 ## Current State
 
 See `docs/goal-state.md` for the living version:
-- 55 migrations, 15 tables, 29 API routes, 17 UI pages, 427 tests across 14 suites
+- 56 migrations, 16 tables, 30 API routes, 18 UI pages, 427 tests across 14 suites
 - 5 active engagements (Nozomi Networks, Spacelift x3, Qualys)
 - Phase 1 prompt: curated-input philosophy, 6-step decision framework, enriched engagement index
 - Engagement-hub architecture: meetings and entity links flow through engagements

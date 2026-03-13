@@ -1,11 +1,11 @@
 ---
 name: roadrunner-ui
-description: UI design system and component patterns for Roadrunner (Relay), an AWS partner engagement management app. Use when building, modifying, or extending any Roadrunner UI — list pages, detail pages, filters, sidebar, or shared components. Also use when adding new entity types, fixing layout issues, or ensuring visual consistency across pages. Trigger on any mention of Roadrunner UI, Relay UI, list pages, detail pages, DetailHeader, FilterBar, PillGrid, TableList, CalendarCard, or entity-specific page work.
+description: UI design system and component patterns for Roadrunner (Relay), an AWS partner engagement management app. Use when building, modifying, or extending any Roadrunner UI — list pages, detail pages, filters, sidebar, or shared components. Also use when adding new entity types, fixing layout issues, or ensuring visual consistency across pages. Trigger on any mention of Roadrunner UI, Relay UI, list pages, detail pages, DetailHeader, FilterBar, MeetingTimeline, NoteWorkspace, or entity-specific page work.
 ---
 
 # Roadrunner UI Design System
 
-> **⚠️ STALE — PENDING REWRITE:** This skill was written before the UI standardization pass (decisions 145-155). All list pages now use a single row template. PillGrid, CalendarCard, and TableList are no longer used by list pages. Sidebar was restructured. Pulse was killed. Rewrite pending after meetings+notes merge settles.
+> **Last updated:** 2026-03-13. Reflects decisions through #167. Meetings+notes merge complete, partner convergence done, scratchpad wired into AI pipeline.
 
 Roadrunner (also called Relay) is an AI-powered email classification and partner engagement management system for AWS PDMs. This skill defines the UI component architecture, design patterns, and conventions that ensure visual consistency across all pages.
 
@@ -26,49 +26,26 @@ Roadrunner has two page types, each with a standardized pattern:
 | Entity | List Groups By | Filter Dimension | Primary Field | Visual Treatment |
 |---|---|---|---|---|
 | Engagements | status | status | name | Inline table rows |
-| Partners | segment | segment | name | TableList |
-| Programs | type | type (8 categories) | name | PillGrid |
-| Events | time (Upcoming/Past/TBD) → year | type + year | name | CalendarCard |
+| Partners | segment | segment | name | Inline table rows |
+| Programs | type | type (8 categories) | name | Inline table rows |
+| Events | time (Upcoming/Past/TBD) → year | type + year | name | Inline table rows |
 | Meetings | time (Upcoming/Past/TBD) | meeting_type | title | Inline table rows |
-| Relationships | relationship_type | relationship_type | name | TableList |
+| Relationships | relationship_type | relationship_type | name | Inline table rows |
+| Tasks | partner | owner (Me/Partner/AWS) | description | Inline table rows |
 
-Plus **Inbox** (classification queue) and **Dashboard** (stats overview) — these don't follow the list/detail pattern.
+Plus **Inbox** (classification queue) — doesn't follow the list/detail pattern.
 
-## Visual Treatments by Entity Type
+### Key Navigation
 
-Different entity types have different scan patterns. The visual treatment should match.
+- `/notes` redirects to `/meetings` (notes accessed through meeting detail)
+- `/notes/[id]` smart-redirects to `/meetings/{meetingId}` or `/partners/{partnerId}`
+- `/` redirects to `/partners` (partners is home)
 
-### PillGrid (`src/components/shared/PillGrid.tsx`)
+## Visual Treatments
 
-Compact grid of same-height pill elements. Names only, no metadata noise.
+All list pages use the same standard row template (Decision #147). No PillGrid, CalendarCard, or TableList — those are legacy components no longer used by list pages.
 
-**When to use:** Catalog entities with 10+ same-type items where identity (name) is the primary scan dimension. Programs are the canonical use case.
-
-**API:** `items` (id, name, href, count?), `columns` (2|3|4, default 3)
-
-**Visual:** Responsive grid of fixed-height pills. Name on left, optional count on right. No badges, descriptions, or status indicators inside pills. Tight gap-1.5 spacing for density.
-
-### TableList (`src/components/shared/TableList.tsx`)
-
-Aligned rows with consistent columns. Clean data table without heavy table chrome.
-
-**When to use:** Portfolio entities where comparable metadata across rows matters. Partners and Relationships are the canonical use cases.
-
-**API:** `items` (id, href, columns[]), `headers?` (label, width?)
-
-**Visual:** Rows separated by subtle bottom borders (no card wrappers). Column values align across all rows. First column is always the entity name (font-medium), subsequent columns are muted metadata. Optional header row with uppercase labels.
-
-### CalendarCard (`src/components/shared/CalendarCard.tsx`)
-
-Date-anchored cards with a compact date text line.
-
-**When to use:** Temporal/event entities where date is the primary scan dimension. Events are the canonical use case.
-
-**API:** `items` (id, href, name, startDate, endDate?, location?, typeColor?), `columns` (1|2, default 2)
-
-**Visual:** Each card shows a compact date text line (e.g. "Mar 9–12") above the event name and location. Uses `formatCompactDateRange()` from format-utils.ts. Optional type color as a left border accent on the card.
-
-### Inline Table Rows (default pattern)
+### Inline Table Rows (standard pattern)
 
 Clean flat rows with border-bottom separators. No card wrappers, no rounded borders per row.
 
@@ -99,12 +76,13 @@ Vertical dot timeline for meetings shown as linked items on other entity detail 
 
 **When to use:** Any detail page that shows related meetings. Use instead of flat list — temporal entities deserve timeline treatment.
 
-**API:** `meetings` (Meeting[]), `engagementNames?` (Map<string, string>)
+**API:** `meetings` (Meeting[]), `engagementNames?` (Map<string, string>), `noteStatusByMeetingId?` (Map<string, { noteId, status, taskCount }>)
 
 **Behavior:**
 - Filters to upcoming + past 90 days
 - Upcoming: accent dot/date, full-brightness title. Past: muted.
 - Shows date, title (cleaned via `cleanMeetingTitle()`), status badge, linked engagement name
+- Optional note status indicators: emerald dot + task count (complete), amber dot + "notes in progress" (draft)
 
 ## Shared Components
 
@@ -139,19 +117,16 @@ Universal hero block for detail pages.
 
 ### Sidebar (`src/components/layout/Sidebar.tsx`)
 
-> **⚠️ STALE:** Sidebar was restructured into 4 tiers (Primary: Pulse+Inbox, Portfolio: Partners+Engagements, Activity: Meetings+Notes, Reference: Events+Programs+Relationships) in decision 131. The description below reflects the old flat layout. Needs full rewrite in a future session.
+5 items + collapsible Catalog group (Decision #146):
 
-Navigation with priority-ordered items:
+1. **Inbox** — with unresolved count badge
+2. **Partners** — home page (`/` redirects here)
+3. **Engagements** — active work
+4. **Meetings** — activity (notes accessed through meeting detail)
+5. **Tasks** — cross-partner task view
+6. **Catalog** (expandable) → Programs, Events, Relationships
 
-1. Inbox (action items, with badge count polling)
-2. Engagements (active work)
-3. Partners (portfolio)
-4. Meetings (time-bound)
-5. Events (calendar reference)
-6. Programs (catalog reference)
-7. Relationships (lookup reference)
-
-**Rule:** Order follows a priority gradient: action items → active work → portfolio → time-bound → reference catalogs. New nav items should be inserted based on this principle.
+Notes removed from nav entirely (Decision #146). Dividers separate zones.
 
 ## List Page Pattern
 
@@ -196,11 +171,12 @@ Every list page follows this structure:
                   {group.items.length}
                 </span>
               </div>
-              {/* Visual treatment — varies by entity type */}
-              <PillGrid items={...} />       {/* Programs */}
-              <TableList items={...} />      {/* Partners, Relationships */}
-              <CalendarCard items={...} />   {/* Events */}
-              {/* Engagements + Meetings use inline table rows */}
+              {/* All entities use inline table rows */}
+              {group.items.map((item) => (
+                <Link key={item.id} href={`/entity/${item.id}`} className="flex items-center px-2 py-2 border-b border-border/50 ...">
+                  ...
+                </Link>
+              ))}
             </section>
           ))}
         </div>
@@ -267,6 +243,62 @@ Use for metadata that doesn't merit a card (Created date, Source, Verified statu
 </p>
 ```
 
+## Meeting Detail Page Pattern
+
+Server component with embedded notes workspace via client bridge (Decisions #156-160).
+
+```
+Meeting Detail (server component)
+├── DetailHeader (title, status, date, partner link, engagement link)
+├── Location (URL-aware — detects Zoom links)
+├── Calendar Notes (ICS invite body — distinct from meeting notes)
+├── MeetingNotesSection (client component bridge)
+│   ├── No note → "Start Notes" button (POST /api/notes)
+│   ├── Creating → blank NoteWorkspace
+│   └── Existing note → pre-populated NoteWorkspace (initialRawNotes, initialSummary, etc.)
+│       ├── Editing phase: textarea + auto-save + "Summarize with AI"
+│       └── Review phase: raw notes (collapsible) + summary + TaskEditor + "Save"
+└── Attendees (grouped by org: AWS / Partner / Other)
+```
+
+**Key:** MeetingNotesSection receives server-fetched data (existingNote, partnerContext) and manages all client state.
+
+## Partner Detail Page Pattern
+
+Server component with four-layer model (Decisions #161-164).
+
+```
+Partner Detail (server component)
+├── DetailHeader (name, segment, contacts, SPMS ID, focus areas)
+├── Profile Layer
+│   ├── What They Do + AWS Context (two-column card)
+│   ├── Partner Profile (architecture, listings, pricing, statuses)
+│   └── Partner Contacts (non-Alliance-Lead contacts)
+├── Living Context Layer
+│   └── PartnerScratchpad (client component — Enter to submit, optimistic updates)
+├── Engagements (ExpandableList with status badges)
+├── Activity Layer
+│   └── MeetingTimeline (with noteStatusByMeetingId indicators)
+├── Tasks Layer
+│   └── PartnerTasksSection (client component — grouped by owner, toggle status)
+└── AWS Relationships
+```
+
+**Data fetching:** Two Promise.all calls — first for partner+engagements+meetings, second for relationships+notes+tasks+scratchpad.
+
+## Component Locations
+
+### Notes components (`src/components/notes/`)
+- **NoteWorkspace** — Full notes workspace (editing + review phases, auto-save, AI summarize)
+- **MeetingNotesSection** — Client bridge for meeting detail page (3-state: no note, creating, existing)
+- **ContextSidebar** — Right sidebar showing partner context during note-taking
+- **PreviousNotes** — Collapsible previous note summaries for continuity
+- **TaskEditor** — Task management (grouped by owner, add/toggle/delete, contact quick-pick)
+
+### Partner components (`src/components/partners/`)
+- **PartnerScratchpad** — Living context scratchpad (Enter to submit, optimistic, hover-delete)
+- **PartnerTasksSection** — Open tasks grouped by owner with toggle capability
+
 ## Badge Components
 
 Badges are used in DetailHeader badge slots and right-aligned in inline table rows.
@@ -332,7 +364,7 @@ Strips email-forwarding and calendar-response prefixes from meeting titles.
 3. **Earned placement** — Every file, component, and CSS variable must serve a clear purpose. No dead code.
 4. **Constrained intelligence** — Match to existing entities, don't fabricate. This applies to both AI classification and UI data display.
 5. **Measure twice, cut once** — Read existing code before modifying. Generate diagnostics before fixing.
-6. **Match visual treatment to entity type** — Catalogs get PillGrid. Portfolios get TableList. Temporal items get CalendarCard. All other list items use inline table rows. Meetings on detail pages get MeetingTimeline.
+6. **Match visual treatment to entity type** — All list pages use standard inline table rows. Meetings on detail pages get MeetingTimeline. Partner detail uses four-layer model. Meeting detail embeds NoteWorkspace via MeetingNotesSection.
 7. **No duplicate content** — A field should render in exactly one place. If it's in the header fields, don't repeat it in a sidebar. If it's in a body card, don't also put it in the subtitle slot.
 8. **Viewport budget** — Identity + context sections on detail pages should not exceed ~1/3 of viewport height. Merge related context into multi-column cards rather than stacking separate full-width sections. Activity content (meetings, engagements, relationships) should be visible without scrolling on a standard laptop screen.
 
@@ -340,8 +372,8 @@ Strips email-forwarding and calendar-response prefixes from meeting titles.
 
 For detailed information, read the appropriate reference file:
 
-- **`references/component-api.md`** — Full TypeScript interfaces for all shared components (DetailHeader, FilterBar, PillGrid, TableList, CalendarCard) and the inline table row CSS pattern
-- **`references/entity-catalog.md`** — Entity-to-component mappings and slot configurations for all 6 entity types
+- **`references/component-api.md`** — Full TypeScript interfaces for shared components (DetailHeader, FilterBar, MeetingTimeline) and the inline table row CSS pattern
+- **`references/entity-catalog.md`** — Entity-to-component mappings and slot configurations for entity types
 - **`references/design-tokens.md`** — CSS custom properties, color palette, spacing conventions, typography
 
 Read these when you need exact prop types, entity-specific field mappings, or color values. Don't guess — look them up.

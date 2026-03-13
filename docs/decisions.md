@@ -1057,3 +1057,185 @@
 **Impact:** Contact consolidation is next major architectural work after UI phase completes.
 
 ---
+
+## 2026-03-13 — Meetings + Notes Merge & Partner Convergence
+
+### Decision 156: getMeetingNoteByMeetingId for 1:1 Meeting→Note Lookup
+
+**Date:** 2026-03-13
+**Status:** Implemented
+
+**Decision:** Added `getMeetingNoteByMeetingId(meetingId)` query to meeting-notes.ts. Returns full `MeetingNoteWithTasks` for a given meeting, enabling the meeting detail page to check for and display existing notes.
+
+**Context:** Meeting detail page needed to know if a note already exists for this meeting to decide whether to show "Start Notes" button or render the existing workspace.
+
+**Rationale:** 1:1 meeting→note relationship (Decision #148) means lookup by meeting_id is the primary access pattern from meeting context.
+
+**Impact:** Exported from db/index.ts. Used by meeting detail page server component in Promise.all alongside engagement and partner fetches.
+
+---
+
+### Decision 157: POST /api/notes Auto-Inherits engagement_id from Meeting
+
+**Date:** 2026-03-13
+**Status:** Implemented
+
+**Decision:** When creating a note via POST /api/notes with a meeting_id but no engagement_id, the API auto-resolves engagement_id from the meeting's linked engagement.
+
+**Context:** The MeetingNotesSection client component shouldn't need to know the engagement context — the API can resolve it from the meeting.
+
+**Rationale:** Reduces coupling between UI and data model. Partner-level meetings (engagement_id NULL) correctly produce notes with engagement_id NULL.
+
+**Impact:** POST /api/notes route enhanced. No UI changes needed — API handles the resolution transparently.
+
+---
+
+### Decision 158: Note Components Moved to Shared Location
+
+**Date:** 2026-03-13
+**Status:** Implemented
+
+**Decision:** NoteWorkspace, ContextSidebar, PreviousNotes, and TaskEditor moved from `src/app/notes/new/` to `src/components/notes/` for cross-page reuse.
+
+**Context:** These components were local to the notes/new page but needed by meeting detail page. Moving them to shared location enables reuse without duplication.
+
+**Rationale:** Components used by multiple pages belong in `src/components/`, not co-located with a single page.
+
+**Impact:** 4 files moved. `src/app/notes/new/page.tsx` updated to import from `@/components/notes/`.
+
+---
+
+### Decision 159: NoteWorkspace Enhanced with Optional Props for Existing Notes
+
+**Date:** 2026-03-13
+**Status:** Implemented
+
+**Decision:** NoteWorkspace gained optional props: initialRawNotes, initialSummary, initialTasks, initialPhase, meetingId. Defaults preserve original new-note behavior.
+
+**Context:** NoteWorkspace was designed for new notes only. Meeting detail page needs to render it with existing note data (pre-populated text, summary, tasks, and correct phase).
+
+**Rationale:** Optional props with sensible defaults (empty string, empty array, "editing") mean the same component works for both new and existing notes without conditional logic at the call site.
+
+**Impact:** NoteWorkspace.tsx enhanced. handleFinalize navigates to meeting or note based on meetingId prop.
+
+---
+
+### Decision 160: MeetingNotesSection Client Bridge
+
+**Date:** 2026-03-13
+**Status:** Implemented
+
+**Decision:** Created MeetingNotesSection client component (`src/components/notes/MeetingNotesSection.tsx`) to bridge server-rendered meeting detail with client NoteWorkspace. Three render states: no note → "Start Notes" button, just created → blank workspace, existing note → pre-populated workspace.
+
+**Context:** Meeting detail page is a server component. NoteWorkspace requires client interactivity (useState, fetch, event handlers). Need a boundary component.
+
+**Rationale:** Clean server/client boundary. Server fetches all data (note, context), passes to client component as props. Client handles all interactivity.
+
+**Impact:** Meeting detail page stays server component. All notes interactivity isolated in MeetingNotesSection.
+
+---
+
+### Decision 161: Partner Detail Four-Layer Model
+
+**Date:** 2026-03-13
+**Status:** Implemented
+
+**Decision:** Partner detail page restructured to four-layer model: Profile (What They Do + AWS Context + Partner Profile + Partner Contacts) → Living Context (scratchpad) → Engagements → Activity (meetings with note indicators) → Tasks → AWS Relationships.
+
+**Context:** Previous partner detail showed profile, meetings, engagements, relationships — but no notes visibility, no tasks, no living context section.
+
+**Rationale:** A PDM clicking on a partner should see everything about that partner. The four-layer model organizes information by workflow: understand → strategize → track → act.
+
+**Impact:** Section order reordered. Three new sections added (Living Context, Tasks, note indicators on meetings). Engagements moved above Meetings.
+
+---
+
+### Decision 162: MeetingTimeline Note Status Indicators
+
+**Date:** 2026-03-13
+**Status:** Implemented
+
+**Decision:** MeetingTimeline gains optional `noteStatusByMeetingId` prop showing note status indicators per meeting. Emerald dot + task count for complete notes, amber dot + "notes in progress" for drafts. Fully backward-compatible.
+
+**Context:** On partner detail page, PDM needs to see at a glance which meetings have been processed (notes taken, tasks extracted).
+
+**Rationale:** Subtle indicators (small dots + muted text) communicate status without cluttering the timeline. Optional prop means MeetingTimeline works identically on other pages.
+
+**Impact:** MeetingTimeline.tsx enhanced. Partner detail page builds noteStatusByMeetingId Map from partner notes data.
+
+---
+
+### Decision 163: partner_context Table (Migration 056)
+
+**Date:** 2026-03-13
+**Status:** Implemented
+
+**Decision:** Created `partner_context` table: id UUID, partner_id FK CASCADE, content TEXT, source CHECK (scratchpad/ai_synthesis/seed_dump), timestamps. Indexes on partner_id and (partner_id, source).
+
+**Context:** Partner scratchpad (Decision #151) needs storage that supports multiple timestamped entries, different sources, and future AI synthesis writes.
+
+**Rationale:** Table (not text field on partners) supports: multiple entries with timestamps, source field for provenance, individual entry management (add/delete), and future brain synthesis (source='ai_synthesis').
+
+**Impact:** Migration 056 applied. DB module `partner-context.ts` with getPartnerContext, addPartnerContext, deletePartnerContext. API route at `/api/partners/[id]/context`.
+
+---
+
+### Decision 164: Scratchpad UX — Type and Enter
+
+**Date:** 2026-03-13
+**Status:** Implemented
+
+**Decision:** PartnerScratchpad component: single-line input, Enter to submit, optimistic updates. Entries displayed most-recent-first with relative timestamps and hover-delete. Source badges only for non-scratchpad entries (SEED for seed_dump, AI for ai_synthesis).
+
+**Context:** The scratchpad needs to be zero-friction — a PDM should be able to type "Jackie mentioned new SA hire" and hit Enter without any extra clicks.
+
+**Rationale:** Speed of capture is everything. No submit button, no form, no modal. The input itself is the interface.
+
+**Impact:** PartnerScratchpad.tsx replaces Living Context placeholder on partner detail page. Server-fetches initial entries, client manages state.
+
+---
+
+### Decision 165: Scratchpad Entries Wired into AI Context Pipeline
+
+**Date:** 2026-03-13
+**Status:** Implemented
+
+**Decision:** buildPartnerContext fetches scratchpad entries in parallel (6th fetch). formatContextForPrompt includes them as "PARTNER CONTEXT (PDM NOTES)" section after KEY CONTACTS, before ACTIVE ENGAGEMENTS. Filters to scratchpad/seed_dump only — excludes ai_synthesis to prevent feedback loops. ContextSidebar shows up to 5 recent entries.
+
+**Context:** Scratchpad entries are the PDM's accumulated intelligence about a partner. The AI summarizer must know this context to produce grounded meeting summaries.
+
+**Rationale:** If the PDM typed "Jackie mentioned they're hiring a new SA for East Coast" and meeting notes reference "Jackie brought up the SA search" — the AI should connect the dots.
+
+**Impact:** notes-context.ts enhanced (import, fetch, format). ContextSidebar shows partner context section. PartnerContext and DisplayContext types extended with scratchpadEntries.
+
+---
+
+### Decision 166: /notes Routes Converted to Redirects
+
+**Date:** 2026-03-13
+**Status:** Implemented
+
+**Decision:** /notes → redirect to /meetings. /notes/new → redirect to /meetings. /notes/[id] → smart redirect: if note has meeting_id → /meetings/{meetingId}, if no meeting_id → /partners/{partnerId}, if not found → 404. NotesClient.tsx deleted. API routes preserved.
+
+**Context:** Decisions #148 and #149 established that notes are accessed through meetings, not standalone. The standalone notes pages (list, create, detail) were redundant.
+
+**Rationale:** Routes stay alive for bookmarks and shared URLs but redirect to the correct context. API routes still needed by MeetingNotesSection and NoteWorkspace.
+
+**Impact:** ~970 lines deleted across 3 page files + NotesClient.tsx. Smart redirect preserves deep link functionality.
+
+---
+
+### Decision 167: Calendar Notes vs Meeting Notes Distinction
+
+**Date:** 2026-03-13
+**Status:** Implemented
+
+**Decision:** Meeting detail page "Notes" section renamed to "Calendar Notes" to distinguish ICS invite notes (from the calendar invitation body) from the meeting notes workspace (where the PDM captures notes, AI summarizes, and tasks are extracted).
+
+**Context:** Both the ICS invite body and the PDM's meeting documentation were labeled "Notes" — confusing.
+
+**Rationale:** "Calendar Notes" clearly indicates this is content from the calendar invitation. The NoteWorkspace section is the primary notes area.
+
+**Impact:** Single label change in meeting detail page JSX.
+
+---
