@@ -3931,3 +3931,18 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** To be dropped in future cleanup migration.
 
 ---
+
+### Decision 180: participant_links Fully Replaced and Dropped
+
+**Date:** 2026-03-14
+**Status:** Implemented
+
+**Decision:** Completed the migration from polymorphic participant_links to dedicated engagement_participants table. Rewired 10 functions across 8 files (classifier pipeline, Airtable push, Phase 1 prompt, engagement CRUD, UI). Dropped participant_links table in migration 062.
+
+**Context:** Decision #169 created 4 dedicated join tables but only partner_participants and relationship_participants were wired. The classifier pipeline (persistClassificationResult, Phase 1 context, Airtable push) still wrote to/read from participant_links for engagement↔participant associations. DB reset created a clean slate with zero rows.
+
+**Rationale:** engagement_participants has real FK CASCADE on both engagement_id and participant_id — the database enforces referential integrity. participant_links had no FK on entity_id (polymorphic UUID). Manual cascade cleanup code in deleteEngagement() and deleteEvent() was replaced by automatic database CASCADE.
+
+**Impact:** 10 functions rewired, 1 API route renamed (participant-links → engagement-participants), 1 type replaced (ParticipantLink → EngagementParticipant), 1 table dropped. event↔participant cleanup removed (was dead code — zero event participants ever written). 427 tests passing.
+
+---

@@ -1,7 +1,7 @@
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → Claude classifies → structured engagements → Airtable sync.
-> 61 migrations · 19 tables · 30 API routes · 18 UI pages · 427 tests
+> 62 migrations · 18 tables · 30 API routes · 18 UI pages · 427 tests
 
 ---
 
@@ -127,7 +127,7 @@ roadrunner/
 │       │   └── utils.ts           #     Coercion helpers + validation
 │       └── __tests__/             #   427 tests across 14 test files
 ├── supabase/
-│   ├── migrations/                # 61 migration files (001-061)
+│   ├── migrations/                # 62 migration files (001-062)
 │   └── schema_live.sql            # Full schema snapshot (derived from migrations)
 ├── scripts/
 │   ├── seed-data.ts               # CLI script to seed events/programs

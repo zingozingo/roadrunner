@@ -1,7 +1,7 @@
 # Roadrunner Entity Model
 
 > **Last updated**: 2026-03-14 (Post-contact-registry, post-task-promotion, post-relationship-rename)
-> 19 active tables · 61 migrations · 5 Airtable-only tables (future)
+> 18 active tables · 62 migrations · 5 Airtable-only tables (future)
 
 ---
 
@@ -13,7 +13,7 @@
 | **RR** | Roadrunner-owned — source of truth lives in Supabase, pushed to Airtable |
 | **RR-only** | Roadrunner-only — no Airtable representation |
 | **AT-only** | Airtable-only — not yet in Supabase (planned for future sync) |
-| **LEGACY** | Being replaced, still has code references |
+| **LEGACY** | Replaced and dropped — historical reference only |
 
 ---
 
@@ -358,9 +358,9 @@ erDiagram
 
 | AT Field | AT Type | AT Field ID | Source |
 |----------|---------|-------------|--------|
-| AWS Stakeholders | multilineText | fldLVPbg7iyz0Nli9 | computed from participant_links (role=aws) |
-| Partner Stakeholders | multilineText | fldj6vaWwDKJy6aci | computed from participant_links (role=partner) |
-| Third Parties | multilineText | flduajBotnT6x5ZXD | computed from participant_links (role=third_party) |
+| AWS Stakeholders | multilineText | fldLVPbg7iyz0Nli9 | computed from engagement_participants (role=aws) |
+| Partner Stakeholders | multilineText | fldj6vaWwDKJy6aci | computed from engagement_participants (role=partner) |
+| Third Parties | multilineText | flduajBotnT6x5ZXD | computed from engagement_participants (role=third_party) |
 | AWS Relationships | linkedRecord → Relationships | fldhVQTAP2wucnzNC | pushed from engagement_relationships junction |
 | Event | linkedRecord → Events | fldscmkRoT65oa6Oy | pushed from entity_links (engagement→event) |
 | Meetings | linkedRecord → Meetings | fldqM0QO5VWjhmvw3 | computed (reverse link from Meetings.Engagement) |
@@ -858,9 +858,9 @@ erDiagram
 
 ## Legacy (Pending Removal)
 
-### PARTICIPANT_LINKS (LEGACY — polymorphic junction)
+### PARTICIPANT_LINKS (LEGACY — DROPPED)
 
-Polymorphic junction table: `participant_id`, `entity_type` (engagement, event), `entity_id`, `role`. Replaced by 4 dedicated join tables (Decision #169) but still referenced in 8 source files. Will be removed after contact registry UI rewire. 0 new rows being created.
+**DROPPED** in migration 062. All code rewired to use engagement_participants (Chunks A+B, 2026-03-14). Table no longer exists. Was a polymorphic junction table (`participant_id`, `entity_type`, `entity_id`, `role`) replaced by 4 dedicated join tables (Decisions #169, #180).
 
 | Field | SB Type | Owner | Notes |
 |-------|---------|-------|-------|
@@ -914,8 +914,8 @@ UNIQUE index on `(participant_id, entity_type, entity_id)`
 
 | Connection | Status | Priority |
 |---|---|---|
-| Contact registry UI rewire (JSONB → join tables) | Open — 8 files to rewire | Next |
-| participant_links drop | Blocked by UI rewire | Next |
+| Contact registry UI rewire (JSONB → join tables) | Open — engagement pipeline complete, JSONB reads remain (17 locations across 10 files) | Next |
+| participant_links drop | **Done** — migration 062 | ✅ |
 | JSONB column drops (aws_team, partner_contacts, contacts) | Blocked by UI rewire | Next |
 | Manual meeting quick-capture | Open | Next |
 | Brain synthesis (AI Call 3) | partner_context table ready | Soon |

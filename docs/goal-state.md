@@ -6,13 +6,12 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 61 migrations, 19 active tables, 30 API routes, 18 UI pages, 427 tests across 14 suites
+- 62 migrations, 18 active tables, 30 API routes, 18 UI pages, 427 tests across 14 suites
 - Two-phase classification pipeline: curated-input Phase 1 (enriched engagement index) + deep-analysis Phase 2 (full thread history, entity matching, state evolution)
 - Entity model fully rewritten with ring architecture (Catalog → Activity → People → Posture) in docs/entity-model.md
 - Documentation consolidated: 5 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline, goal-state.md status, decisions.md through #179)
 - Dead weight cleaned: notes table dropped (migration 061), orphaned components removed (PillGrid, CalendarCard, TableList, SyncStatus), decisions.md merged from two files into one
-- Contact registry: 76 participants, 85 partner links, 4 dedicated join tables, sync layer auto-maintains registry — but UI still reads from JSONB (8 files need rewire)
-- participant_links still referenced in 8 files (legacy, blocked by contact registry UI rewire)
+- Contact registry: 76 participants, 85 partner links, 4 dedicated join tables, sync layer auto-maintains registry — engagement pipeline fully rewired, UI still reads JSONB contacts (17 locations across 10 files)
 - Tasks promoted to partner-level entities with owner_participant_id FK (decisions 170-175)
 - Relationships universally renamed from aws_relationships (decision 173)
 - Meeting notes: 3-phase workspace, AI summarizer, task extraction, scratchpad wired into AI context (decisions 101-119, 156-167)
@@ -32,11 +31,10 @@ A system where a PDM forwards an email and Roadrunner:
 
 ### This Session (in progress)
 - UI audit — systematically verify every page reflects the real data model
-- Contact registry UI rewire — 8 files still read from participant_links/JSONB
+- Contact registry UI rewire — JSONB contact reads remain (17 locations across 10 files)
 - Manual meeting quick-capture form
 
 ### Next Session
-- participant_links rewire completion + table drop
 - JSONB column drops (aws_team, partner_contacts, contacts)
 - Brain synthesis (AI Call 3)
 - Seed notes → scratchpad migration
@@ -69,6 +67,7 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~Orphaned component cleanup~~ ✅ (PillGrid, CalendarCard, TableList, SyncStatus)
 - ~~Entity model rewrite~~ ✅ (ring architecture, cascade summary, field registries)
 - ~~Doc consolidation~~ ✅ (PROJECT.md, ARCHITECTURE.md, DEVELOPMENT.md absorbed into CLAUDE.md)
+- ~~participant_links rewire + drop~~ ✅ (migration 062, decision 180)
 
 ## Architecture Principles
 
