@@ -655,3 +655,240 @@ export async function syncMeetingAttendeesToRegistry(
     console.error("syncMeetingAttendeesToRegistry error:", err instanceof Error ? err.message : err);
   }
 }
+
+// ============================================================
+// Contact Registry Read Functions
+// ============================================================
+
+interface RegistryContact {
+  id: string;
+  email: string;
+  name: string | null;
+  organization: string | null;
+  title: string | null;
+  org_type: string | null;
+  role: string | null;
+}
+
+/**
+ * Get all contacts linked to a partner via partner_participants join table.
+ * Returns participants with their role from the join table.
+ */
+export async function getContactsByPartner(partnerId: string): Promise<RegistryContact[]> {
+  try {
+    const { data, error } = await getSupabaseClient()
+      .from("partner_participants")
+      .select("role, participant:participants(id, email, name, organization, title, org_type)")
+      .eq("partner_id", partnerId);
+
+    if (error) {
+      console.error(`Failed to fetch contacts for partner ${partnerId}: ${error.message}`);
+      return [];
+    }
+
+    return (data ?? []).map((row) => {
+      const p = (row as unknown as { role: string | null; participant: { id: string; email: string; name: string | null; organization: string | null; title: string | null; org_type: string | null } }).participant;
+      return {
+        id: p.id,
+        email: p.email,
+        name: p.name,
+        organization: p.organization,
+        title: p.title,
+        org_type: p.org_type,
+        role: (row as unknown as { role: string | null }).role,
+      };
+    });
+  } catch (err) {
+    console.error("getContactsByPartner error:", err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
+/**
+ * Get all contacts linked to a relationship via relationship_participants join table.
+ */
+export async function getContactsByRelationship(relationshipId: string): Promise<RegistryContact[]> {
+  try {
+    const { data, error } = await getSupabaseClient()
+      .from("relationship_participants")
+      .select("role, participant:participants(id, email, name, organization, title, org_type)")
+      .eq("relationship_id", relationshipId);
+
+    if (error) {
+      console.error(`Failed to fetch contacts for relationship ${relationshipId}: ${error.message}`);
+      return [];
+    }
+
+    return (data ?? []).map((row) => {
+      const p = (row as unknown as { role: string | null; participant: { id: string; email: string; name: string | null; organization: string | null; title: string | null; org_type: string | null } }).participant;
+      return {
+        id: p.id,
+        email: p.email,
+        name: p.name,
+        organization: p.organization,
+        title: p.title,
+        org_type: p.org_type,
+        role: (row as unknown as { role: string | null }).role,
+      };
+    });
+  } catch (err) {
+    console.error("getContactsByRelationship error:", err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
+/**
+ * Get all contacts linked to a meeting via meeting_participants join table.
+ */
+export async function getContactsByMeeting(meetingId: string): Promise<RegistryContact[]> {
+  try {
+    const { data, error } = await getSupabaseClient()
+      .from("meeting_participants")
+      .select("role, participant:participants(id, email, name, organization, title, org_type)")
+      .eq("meeting_id", meetingId);
+
+    if (error) {
+      console.error(`Failed to fetch contacts for meeting ${meetingId}: ${error.message}`);
+      return [];
+    }
+
+    return (data ?? []).map((row) => {
+      const p = (row as unknown as { role: string | null; participant: { id: string; email: string; name: string | null; organization: string | null; title: string | null; org_type: string | null } }).participant;
+      return {
+        id: p.id,
+        email: p.email,
+        name: p.name,
+        organization: p.organization,
+        title: p.title,
+        org_type: p.org_type,
+        role: (row as unknown as { role: string | null }).role,
+      };
+    });
+  } catch (err) {
+    console.error("getContactsByMeeting error:", err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
+/**
+ * Build a domain → partner map from the contact registry.
+ * Uses partner_participants with org_type='partner' contacts to extract email domains.
+ * Used by Phase 1 partner catalog and matchPartnerFromAttendees.
+ */
+export async function getPartnerContactDomains(): Promise<Map<string, { partnerId: string; partnerName: string }>> {
+  const result = new Map<string, { partnerId: string; partnerName: string }>();
+
+  try {
+    const db = getSupabaseClient();
+
+    // Fetch partner-org_type contacts with their partner link
+    const { data: links, error: linksErr } = await db
+      .from("partner_participants")
+      .select("partner_id, participant:participants(email, org_type)");
+
+    if (linksErr || !links) {
+      console.error(`Failed to fetch partner contact domains: ${linksErr?.message}`);
+      return result;
+    }
+
+    // Collect unique partner IDs that have partner-org contacts
+    const partnerIds = new Set<string>();
+    const partnerContactEmails: { partnerId: string; email: string }[] = [];
+
+    for (const row of links as unknown as { partner_id: string; participant: { email: string | null; org_type: string | null } }[]) {
+      const p = row.participant;
+      if (!p.email || p.org_type !== "partner") continue;
+      partnerIds.add(row.partner_id);
+      partnerContactEmails.push({ partnerId: row.partner_id, email: p.email });
+    }
+
+    if (partnerIds.size === 0) return result;
+
+    // Fetch partner names
+    const { data: partners, error: partnersErr } = await db
+      .from("partners")
+      .select("id, name")
+      .in("id", [...partnerIds]);
+
+    if (partnersErr || !partners) {
+      console.error(`Failed to fetch partner names: ${partnersErr?.message}`);
+      return result;
+    }
+
+    const partnerNameMap = new Map<string, string>();
+    for (const p of partners as { id: string; name: string }[]) {
+      partnerNameMap.set(p.id, p.name);
+    }
+
+    // Build domain map
+    for (const { partnerId, email } of partnerContactEmails) {
+      const domain = email.toLowerCase().split("@")[1];
+      if (!domain) continue;
+      // First partner wins per domain
+      if (!result.has(domain)) {
+        const partnerName = partnerNameMap.get(partnerId);
+        if (partnerName) {
+          result.set(domain, { partnerId, partnerName });
+        }
+      }
+    }
+  } catch (err) {
+    console.error("getPartnerContactDomains error:", err instanceof Error ? err.message : err);
+  }
+
+  return result;
+}
+
+/** Domains that should never map to an organization */
+const PERSONAL_DOMAINS = new Set([
+  "gmail.com", "googlemail.com", "outlook.com", "hotmail.com", "live.com",
+  "yahoo.com", "yahoo.co.uk", "aol.com", "icloud.com", "me.com", "mac.com",
+  "protonmail.com", "proton.me", "mail.com", "zoho.com", "yandex.com",
+  "gmx.com", "gmx.net",
+]);
+
+/**
+ * Build name resolution maps from the canonical participants registry.
+ * Replaces the 3-source JSONB assembly in name-resolver.ts with a single query.
+ * The registry already has the best data (sync layers applied priority during upsert).
+ */
+export async function buildNameResolutionMapFromRegistry(): Promise<{
+  nameMap: Map<string, string>;
+  domainOrgMap: Map<string, string>;
+}> {
+  const nameMap = new Map<string, string>();
+  const domainOrgMap = new Map<string, string>();
+
+  try {
+    const { data, error } = await getSupabaseClient()
+      .from("participants")
+      .select("email, name, organization")
+      .not("email", "is", null);
+
+    if (error) {
+      console.error(`Failed to build name resolution map: ${error.message}`);
+      return { nameMap, domainOrgMap };
+    }
+
+    for (const row of (data ?? []) as { email: string; name: string | null; organization: string | null }[]) {
+      const email = row.email.toLowerCase().trim();
+
+      // email → name
+      if (row.name) {
+        nameMap.set(email, row.name);
+      }
+
+      // domain → organization (first wins, skip personal domains)
+      if (row.organization) {
+        const domain = email.split("@")[1];
+        if (domain && !PERSONAL_DOMAINS.has(domain) && !domainOrgMap.has(domain)) {
+          domainOrgMap.set(domain, row.organization);
+        }
+      }
+    }
+  } catch (err) {
+    console.error("buildNameResolutionMapFromRegistry error:", err instanceof Error ? err.message : err);
+  }
+
+  return { nameMap, domainOrgMap };
+}

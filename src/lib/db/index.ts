@@ -90,6 +90,11 @@ export {
   syncRelationshipContactsToRegistry,
   syncMeetingAttendeesToRegistry,
   replaceMeetingParticipants,
+  getContactsByPartner,
+  getContactsByRelationship,
+  getContactsByMeeting,
+  getPartnerContactDomains,
+  buildNameResolutionMapFromRegistry,
 } from "./participants";
 
 // Inbox (Approval Queue)
