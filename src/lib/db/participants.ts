@@ -1,5 +1,5 @@
 import { getSupabaseClient } from "./client";
-import { Participant, ClassificationResult, RoleContact } from "../types";
+import { Participant, ClassificationResult, RoleContact, MeetingAttendee } from "../types";
 import { isUserEmail, USER_CONFIG } from "../user-config";
 
 export async function getParticipantById(id: string): Promise<Participant | null> {
@@ -552,5 +552,106 @@ export async function syncRelationshipContactsToRegistry(
     if (participantId) {
       await linkRelationshipParticipant(relationshipId, participantId, contact.role);
     }
+  }
+}
+
+// ============================================================
+// Meeting Participant Registry
+// ============================================================
+
+/**
+ * Link a participant to a meeting. Idempotent — skips on UNIQUE violation.
+ */
+async function linkMeetingParticipant(
+  meetingId: string,
+  participantId: string,
+  role: string | null
+): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .from("meeting_participants")
+    .insert({ meeting_id: meetingId, participant_id: participantId, role });
+
+  if (error && error.code !== "23505") {
+    console.error(`Failed to link meeting_participant: ${error.message}`);
+  }
+}
+
+/**
+ * Delete all meeting_participants rows for a meeting.
+ * Used before re-syncing on ICS updates or manual attendee edits.
+ */
+export async function replaceMeetingParticipants(meetingId: string): Promise<void> {
+  try {
+    const { error } = await getSupabaseClient()
+      .from("meeting_participants")
+      .delete()
+      .eq("meeting_id", meetingId);
+
+    if (error) {
+      console.error(`Failed to clear meeting_participants for ${meetingId}: ${error.message}`);
+    }
+  } catch (err) {
+    console.error("replaceMeetingParticipants error:", err instanceof Error ? err.message : err);
+  }
+}
+
+/**
+ * Sync meeting attendees into the contact registry and link to meeting_participants.
+ * Handles organizer detection: if organizerEmail matches an attendee, that attendee
+ * gets role "organizer" instead of "attendee". If organizer is not in the attendee
+ * list, they are upserted separately.
+ *
+ * Follows Decision #177: registry errors caught and logged, never fail the parent operation.
+ */
+export async function syncMeetingAttendeesToRegistry(
+  meetingId: string,
+  attendees: MeetingAttendee[],
+  organizerEmail: string | null,
+  organizerName: string | null
+): Promise<void> {
+  try {
+    const normalizedOrganizerEmail = organizerEmail?.toLowerCase().trim() || null;
+    const processedEmails = new Set<string>();
+
+    for (const attendee of attendees) {
+      if (!isValidEmail(attendee.email)) continue;
+
+      const email = attendee.email.toLowerCase().trim();
+      const orgType = isAmazonEmail(email) ? "internal" as const : "third_party" as const;
+      const role = email === normalizedOrganizerEmail ? "organizer" : "attendee";
+
+      const participantId = await upsertContactToRegistry(
+        email,
+        attendee.name,
+        null,
+        null,
+        orgType,
+        "ics_parsed"
+      );
+
+      if (participantId) {
+        await linkMeetingParticipant(meetingId, participantId, role);
+      }
+
+      processedEmails.add(email);
+    }
+
+    // Handle organizer not in attendee list
+    if (normalizedOrganizerEmail && !processedEmails.has(normalizedOrganizerEmail) && isValidEmail(normalizedOrganizerEmail)) {
+      const orgType = isAmazonEmail(normalizedOrganizerEmail) ? "internal" as const : "third_party" as const;
+      const participantId = await upsertContactToRegistry(
+        normalizedOrganizerEmail,
+        organizerName,
+        null,
+        null,
+        orgType,
+        "ics_parsed"
+      );
+      if (participantId) {
+        await linkMeetingParticipant(meetingId, participantId, "organizer");
+      }
+    }
+  } catch (err) {
+    console.error("syncMeetingAttendeesToRegistry error:", err instanceof Error ? err.message : err);
   }
 }

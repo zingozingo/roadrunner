@@ -1,5 +1,6 @@
 import { getSupabaseClient } from "./client";
 import { Meeting, MeetingAttendee, ParsedMeeting, Partner } from "../types";
+import { syncMeetingAttendeesToRegistry, replaceMeetingParticipants } from "./participants";
 
 export async function getMeetingsWithEngagements(): Promise<
   (Meeting & { engagement_name: string | null; partner_name: string | null })[]
@@ -197,6 +198,11 @@ export async function createMeeting(data: {
     await pushMeetingToAirtable(mtgResult.id);
   } catch (err) {
     console.error(`Airtable push failed for meeting ${mtgResult.id}:`, err);
+  }
+
+  // Sync attendees to contact registry + meeting_participants join table
+  if (data.attendees && data.attendees.length > 0) {
+    await syncMeetingAttendeesToRegistry(mtgResult.id, data.attendees, null, null);
   }
 
   return mtgResult;
@@ -445,6 +451,10 @@ export async function createMeetingFromICS(
         console.error(`Airtable push failed for meeting ${existing.id}:`, err);
       }
 
+      // Re-sync attendees to contact registry (clear + re-insert for ICS updates)
+      await replaceMeetingParticipants(existing.id);
+      await syncMeetingAttendeesToRegistry(existing.id, parsed.attendees, parsed.organizer_email, parsed.organizer_name);
+
       return existing.id;
     }
 
@@ -487,6 +497,9 @@ export async function createMeetingFromICS(
     } catch (err) {
       console.error(`Airtable push failed for meeting ${data.id}:`, err);
     }
+
+    // Sync attendees to contact registry + meeting_participants join table
+    await syncMeetingAttendeesToRegistry(data.id, parsed.attendees, parsed.organizer_email, parsed.organizer_name);
 
     return data.id;
   } catch (err) {

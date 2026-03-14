@@ -88,6 +88,8 @@ export {
   linkRelationshipParticipant,
   syncPartnerContactsToRegistry,
   syncRelationshipContactsToRegistry,
+  syncMeetingAttendeesToRegistry,
+  replaceMeetingParticipants,
 } from "./participants";
 
 // Inbox (Approval Queue)

@@ -111,6 +111,13 @@ export async function PUT(
 
     const updated = await updateMeeting(id, updates);
 
+    // Re-sync meeting_participants when attendees change
+    if (attendees) {
+      const { replaceMeetingParticipants, syncMeetingAttendeesToRegistry } = await import("@/lib/db/participants");
+      await replaceMeetingParticipants(id);
+      await syncMeetingAttendeesToRegistry(id, attendees, updated.organizer_email, updated.organizer_name);
+    }
+
     return NextResponse.json({ meeting: updated });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
