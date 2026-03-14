@@ -73,7 +73,7 @@ erDiagram
         uuid airtable_record_id UK
     }
 
-    AWS_RELATIONSHIPS ["AT → RR"] {
+    RELATIONSHIPS ["AT → RR"] {
         uuid id PK
         text name
         text relationship_type
@@ -208,8 +208,8 @@ erDiagram
     ENGAGEMENTS ||--o{ ENTITY_LINKS : "source/target"
     PROGRAMS ||--o{ ENTITY_LINKS : "source/target"
     EVENTS ||--o{ ENTITY_LINKS : "source/target"
-    ENGAGEMENTS ||--o{ ENGAGEMENT_AWS_REL : "junction"
-    AWS_RELATIONSHIPS ||--o{ ENGAGEMENT_AWS_REL : "junction"
+    ENGAGEMENTS ||--o{ ENGAGEMENT_REL : "junction"
+    RELATIONSHIPS ||--o{ ENGAGEMENT_REL : "junction"
 
     %% Participant system
     PARTICIPANTS ||--o{ PARTICIPANT_LINKS : "linked to entities"
@@ -336,7 +336,7 @@ erDiagram
 | AWS Stakeholders | multilineText | fldLVPbg7iyz0Nli9 | computed from participant_links (role=aws) |
 | Partner Stakeholders | multilineText | fldj6vaWwDKJy6aci | computed from participant_links (role=partner) |
 | Third Parties | multilineText | flduajBotnT6x5ZXD | computed from participant_links (role=third_party) |
-| AWS Relationships | linkedRecord → AWS Relationships | fldhVQTAP2wucnzNC | pushed from engagement_aws_relationships junction |
+| AWS Relationships | linkedRecord → AWS Relationships | fldhVQTAP2wucnzNC | pushed from engagement_relationships junction |
 | Event | linkedRecord → Events | fldscmkRoT65oa6Oy | pushed from entity_links (engagement→event) |
 | Meetings | linkedRecord → Meetings | fldqM0QO5VWjhmvw3 | computed (reverse link from Meetings.Engagement) |
 
@@ -461,7 +461,7 @@ Output format: one `Name <email> (Title)` per line (universal contact format).
 
 ---
 
-### AWS_RELATIONSHIPS (Synced — AT-owned catalog, pulled into RR)
+### RELATIONSHIPS (Synced — AT-owned catalog, pulled into RR)
 
 **Airtable Table:** `tblqVBssFsUeAt9bj` · **Sync constant:** `RF`
 
@@ -469,8 +469,8 @@ Output format: one `Name <email> (Title)` per line (universal contact format).
 |-------|---------|---------|-------|------|-------------|-----|
 | id | uuid PK | — | RR | — | — | relationship detail |
 | name | text NOT NULL | singleLineText | AT | ← AT | fldeiFljVC5L61c3v | relationship list, detail |
-| aws_org | text | singleLineText | AT | ← AT | fldKSmvO7Lhr5v9Fy | relationship detail |
-| aws_service | text | singleLineText | AT | ← AT | fldiieBBkkAFYDOJC | relationship detail |
+| org | text | singleLineText | AT | ← AT | fldKSmvO7Lhr5v9Fy | relationship detail |
+| service | text | singleLineText | AT | ← AT | fldiieBBkkAFYDOJC | relationship detail |
 | relationship_type | text CHECK (4 options) | singleSelect (4 options) | AT | ← AT | fld2cjVCECNIPGw2d | relationship detail |
 | contacts | jsonb (RoleContact[]) | singleLineText + multilineText (Lead Contact, Team Contacts) | AT | ← AT | fldKELDdEYb8MsJCP, fld472yolP2ujyJ5w | relationship detail |
 | notes | text | multilineText | AT | ← AT | fldOcbNUrtfxjqiW5 | — |
@@ -558,12 +558,12 @@ UNIQUE index on (participant_id, entity_type, entity_id)
 
 ---
 
-### ENGAGEMENT_AWS_RELATIONSHIPS (Roadrunner-only — junction)
+### ENGAGEMENT_RELATIONSHIPS (Roadrunner-only — junction)
 
 | Field | SB Type | Owner | Notes |
 |-------|---------|-------|-------|
 | engagement_id | uuid PK FK → engagements (CASCADE) | RR | composite PK |
-| aws_relationship_id | uuid PK FK → aws_relationships (CASCADE) | RR | composite PK |
+| relationship_id | uuid PK FK → relationships (CASCADE) | RR | composite PK |
 
 ---
 
@@ -611,7 +611,7 @@ Partial index: idx_approval_queue_unresolved WHERE resolved = false
 | date_range_end | date | RR | notes detail (seed type) |
 | raw_notes | text NOT NULL | RR | notes detail (collapsible) |
 | ai_summary | text | RR | notes detail |
-| ai_tasks | jsonb | RR | — (superseded by note_tasks table) |
+| ai_tasks | jsonb | RR | — (superseded by tasks table) |
 | context_snapshot | jsonb | RR | — (audit trail) |
 | status | text NOT NULL CHECK (draft, complete) | RR | notes list, detail |
 | created_at | timestamptz | RR | — |
@@ -619,20 +619,20 @@ Partial index: idx_approval_queue_unresolved WHERE resolved = false
 
 ---
 
-### NOTE_TASKS (Roadrunner-only)
+### TASKS (Roadrunner-only)
 
 | Field | SB Type | Owner | UI |
 |-------|---------|-------|-----|
-| id | uuid PK | RR | notes detail, (planned: partner detail, /tasks) |
-| meeting_note_id | uuid NOT NULL FK → meeting_notes (CASCADE) | RR | notes detail |
-| partner_id | uuid NOT NULL FK → partners | RR | (planned: partner detail, /tasks) |
+| id | uuid PK | RR | notes detail, partner detail, /tasks |
+| meeting_note_id | uuid FK → meeting_notes (SET NULL) | RR | notes detail |
+| partner_id | uuid NOT NULL FK → partners (CASCADE) | RR | partner detail, /tasks |
 | description | text NOT NULL | RR | notes detail |
-| owner | text NOT NULL CHECK (me, partner, aws_internal) | RR | notes detail |
+| owner | text NOT NULL CHECK (me, internal, partner, third_party) | RR | notes detail |
 | owner_name | text | RR | notes detail |
+| owner_participant_id | uuid FK → participants | RR | — |
 | status | text NOT NULL CHECK (open, done, cancelled) | RR | notes detail |
 | due_date | date | RR | notes detail |
-| source | text NOT NULL CHECK (meeting, seed) | RR | — |
-| origin | text NOT NULL CHECK (ai, manual) | RR | notes detail |
+| origin | text NOT NULL CHECK (ai_extracted, manual) | RR | notes detail |
 | created_at | timestamptz | RR | — |
 | updated_at | timestamptz | RR | — |
 
@@ -737,14 +737,15 @@ Partial index: idx_approval_queue_unresolved WHERE resolved = false
 
 | Connection | From | To | Mechanism | Priority |
 |-----------|------|-----|-----------|----------|
-| Tasks on partner detail | note_tasks | partners detail page | Query by partner_id | Immediate |
-| Open tasks in writing sidebar | note_tasks | notes/new workspace | Query by partner_id, status=open | Immediate |
+| ~~Tasks on partner detail~~ | tasks | partners detail page | Query by partner_id | **Done** |
+| ~~Open tasks in writing sidebar~~ | tasks | notes/new workspace | Query by partner_id, status=open | **Done** |
+| ~~Cross-partner task dashboard~~ | tasks | /tasks page | New page, query all tasks | **Done** |
 | Note → Engagement linking | meeting_notes | engagements | engagement_id FK (exists, not populated) | Soon |
-| Task → Engagement linking | note_tasks | engagements | Add engagement_id FK to note_tasks | Soon |
+| Task → Engagement linking | tasks | engagements | Add engagement_id FK to tasks | Soon |
+| Contact registry UI rewire | participants + join tables | all pages | Replace JSONB reads with join table reads | Soon |
 | Partner Programs sync | AT Partner Programs | New RR table | Pull sync (slot registry foundation) | Later |
 | Partner Events sync | AT Partner Events | New RR table | Pull sync | Later |
 | Partner Plans sync | AT Partner Plans 2026 | New RR table | Pull sync (strategic context for AI) | Later |
 | Financial fields sync | AT Partners financials | RR partners table | Pull sync (add ~15 columns) | Later |
 | Funding tables sync | AT MPOPP + MDF | New RR tables | Pull sync | Later |
-| Cross-partner task dashboard | note_tasks | /tasks page | New page, query all tasks | Later |
 | Meeting → Note auto-linking | meetings | meeting_notes | meeting_id FK (exists, not populated by default) | Later |

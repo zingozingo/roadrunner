@@ -13,7 +13,7 @@ Roadrunner (codename **Relay**) is an AI-powered email classification and engage
 - Phase 2: Deep analysis — topic, goal, current_state, participants, entity matches, pillar
 
 **Bidirectional Airtable sync:**
-- Pull: Airtable owns catalog data (Partners, Programs, Events, AWS Relationships)
+- Pull: Airtable owns catalog data (Partners, Programs, Events, Relationships)
 - Push: Roadrunner owns activity data (Engagements, Meetings)
 
 **Directory structure:**
@@ -24,7 +24,7 @@ src/lib/           → Business logic (classification, parsing, sync, formatting
 src/lib/db/        → Database layer (10 modules)
 src/lib/sync/      → Airtable sync (field-maps, push, pull, utils)
 src/lib/__tests__/ → Test suites (14 suites, 427 tests)
-supabase/          → Migrations (001-054) + schema_live.sql
+supabase/          → Migrations (001-060) + schema_live.sql
 docs/              → 9 documentation files (entity-model.md is canonical schema reference)
 ```
 
@@ -34,11 +34,11 @@ These are **NON-NEGOTIABLE**. Every code change must respect these:
 
 1. **Curated input** — PDMs forward what matters. The classifier routes, it does not filter. Every forwarded email is relevant; the question is "which engagement?" not "is this important?"
 
-2. **Engagement hub** — Everything connects through engagements. Meetings, entity links, participants, and AWS relationships all flow through the engagement. Meetings are timeline events within engagements — they inherit connections from their parent engagement. No standalone meetings. No orphan entities.
+2. **Engagement hub** — Everything connects through engagements. Meetings, entity links, participants, and relationships all flow through the engagement. Meetings are timeline events within engagements — they inherit connections from their parent engagement. No standalone meetings. No orphan entities.
 
-3. **Constrained intelligence** — The classifier matches to existing entities by ID, never fabricates new ones. Events, programs, and AWS relationships must exist in the catalog before they can be matched. Empty arrays are better than hallucinated matches.
+3. **Constrained intelligence** — The classifier matches to existing entities by ID, never fabricates new ones. Events, programs, and relationships must exist in the catalog before they can be matched. Empty arrays are better than hallucinated matches.
 
-4. **Data ownership boundary** — Airtable is authoritative for catalog data (Partners, Programs, Events, AWS Relationships). Roadrunner is authoritative for activity data (Engagements, Messages, Meetings, Participants). Never push catalog data TO Airtable. Never treat Roadrunner activity data as secondary.
+4. **Data ownership boundary** — Airtable is authoritative for catalog data (Partners, Programs, Events, Relationships). Roadrunner is authoritative for activity data (Engagements, Messages, Meetings, Participants, Tasks). Never push catalog data TO Airtable. Never treat Roadrunner activity data as secondary.
 
 5. **Await all async operations** — Every Airtable push, every DB write must be awaited. No fire-and-forget. Vercel serverless kills processes after the HTTP response completes — an unawaited promise WILL be silently murdered (this happened in production with the Qualys engagement).
 
@@ -49,30 +49,40 @@ These are **NON-NEGOTIABLE**. Every code change must respect these:
 ## Data Model (Quick Reference)
 
 **Catalog tables** (Airtable → Roadrunner, pull only):
-- `partners` — name, segment, focus_area[], aws_team(JSONB), partner_contacts(JSONB)
+- `partners` — name, segment, focus_area[], aws_team(JSONB†), partner_contacts(JSONB†)
 - `programs` — name, type, lifecycle_type, requirements, what_it_unlocks
 - `events` — name, type, dates, host, geo, sponsor_option, partner_day
-- `aws_relationships` — name, aws_org, aws_service, relationship_type, contacts(JSONB)
+- `relationships` — name, org, service, relationship_type, contacts(JSONB†)
 
 **Activity tables** (Roadrunner → Airtable, push only):
 - `engagements` — name, status, partner_id(FK), pillar, topic, goal, program_id(FK), current_state
 - `messages` — engagement_id(FK), sender_*, subject, body_text, content_type, classification_result(JSONB)
 - `meetings` — engagement_id(FK), partner_id(FK), title, meeting_date, status, attendees(JSONB), ics_uid
-- `participants` — email(UNIQUE), name, organization, title
+- `participants` — email(UNIQUE), name, organization, title, org_type, source (canonical person registry)
+- `tasks` — partner_id(FK CASCADE), meeting_note_id(FK SET NULL), description, owner, origin
 - `approval_queue` — low-confidence items pending manual review
 
-**Join/link tables:**
+**Contact registry join tables:**
+- `partner_participants` — partner↔participant with role (UNIQUE: partner_id, participant_id, role)
+- `relationship_participants` — relationship↔participant with role
+- `meeting_participants` — meeting↔participant with role
+- `engagement_participants` — engagement↔participant with role
+
+**Other join/link tables:**
 - `entity_links` — polymorphic: engagement↔event, engagement↔program (source_type, target_type)
-- `engagement_aws_relationships` — engagement↔aws_relationship junction
-- `participant_links` — participant↔engagement/event with role
-- `notes` — engagement notes (CASCADE delete)
+- `engagement_relationships` — engagement↔relationship junction
+- `participant_links` — (legacy, to be dropped) participant↔engagement/event with role
+- `notes` — (legacy, to be dropped) engagement notes
+
+† JSONB contact columns are transitional artifacts — registry join tables are authoritative, JSONB to be dropped after UI rewire.
 
 **Key relationships:**
 - engagements belong to partners (`partner_id` FK)
 - messages belong to engagements (`engagement_id` FK)
 - meetings belong to engagements (`engagement_id` FK, engagement gate for AT push)
+- tasks belong to partners (`partner_id` FK CASCADE), optionally linked to meeting_notes (SET NULL)
 - entity_links connect engagements to programs/events
-- engagement_aws_relationships connect engagements to AWS relationships
+- engagement_relationships connect engagements to relationships
 
 ## Classification Pipeline
 
@@ -95,15 +105,15 @@ These are **NON-NEGOTIABLE**. Every code change must respect these:
 - Updates messages with classification + engagement link
 - Updates engagement fields (current_state evolved, topic, goal, name, pillar)
 - Creates entity links (engagement↔event, engagement↔program) by ID
-- Links AWS relationships via junction table
+- Links relationships via junction table
 - Upserts participants + backfills sender names
 - Pushes to Airtable (awaited)
 - Idempotent — safe to call multiple times
 
 ## Airtable Sync
 
-- **Pull:** `syncAllCatalogs()` in `src/lib/sync/pull.ts` pulls Partners, Programs, Events, AWS Relationships. Idempotent with change detection. Name-based initial match → ID-based ongoing match.
-- **Push:** `pushEngagementToAirtable()` and `pushMeetingToAirtable()` in `src/lib/sync/push.ts`. Engagement push resolves partner, program, event (via entity_links), and AWS relationship linked records. Meeting push only carries meeting-specific data + engagement link (partner/program/event shown via AT lookup fields).
+- **Pull:** `syncAllCatalogs()` in `src/lib/sync/pull.ts` pulls Partners, Programs, Events, Relationships. Idempotent with change detection. Name-based initial match → ID-based ongoing match. Also upserts contacts into the participant registry (participants + join tables) alongside JSONB writes.
+- **Push:** `pushEngagementToAirtable()` and `pushMeetingToAirtable()` in `src/lib/sync/push.ts`. Engagement push resolves partner, program, event (via entity_links), and relationship linked records. Meeting push only carries meeting-specific data + engagement link (partner/program/event shown via AT lookup fields).
 - **Field IDs:** ALL Airtable field IDs live in `src/lib/sync/field-maps.ts` — NEVER hardcode field IDs elsewhere. Constants: `PF` (programs), `EF` (events), `RF` (relationships), `PTRF` (partners), `ENF` (engagements), `MF` (meetings).
 - **Notes merging:** Roadrunner section delimited by `NOTES_MARKER`/`NOTES_FOOTER` markers. Manual Airtable content outside markers is preserved.
 - **Engagement gate:** Meetings without an `engagement_id` don't push to Airtable (prevents ICS temporal gap from creating orphan records).
@@ -114,8 +124,8 @@ These are **NON-NEGOTIABLE**. Every code change must respect these:
 Universal format: `Name <email> (Title)`
 - Self-documenting placeholders: `<—>` for missing email, `(—)` for missing title
 - Parser: `src/lib/contact-parser.ts` — parseContact, renderContact, parseContactList, renderContactList
-- Storage: JSONB arrays on `partners` (aws_team, partner_contacts), `aws_relationships` (contacts)
-- Name resolution: `src/lib/name-resolver.ts` — priority chain: aws_relationships.contacts > partners.aws_team > partners.partner_contacts > participants table
+- Storage: JSONB arrays on `partners` (aws_team, partner_contacts), `relationships` (contacts) — transitional, registry join tables are authoritative
+- Name resolution: `src/lib/name-resolver.ts` — priority chain: relationships.contacts > partners.aws_team > partners.partner_contacts > participants table
 - PDM identity: `src/lib/user-config.ts` — canonical email, aliases, PRVS stripping, corpmail detection
 
 ## Testing
@@ -145,7 +155,7 @@ Steven's workflow is two-layer:
 
 ## Key Conventions
 
-- **Migrations:** Sequential numbering in `supabase/migrations/` (currently 001-056). New migrations get the next number (057, 058, ...).
+- **Migrations:** Sequential numbering in `supabase/migrations/` (currently 001-060). New migrations get the next number (061, 062, ...).
 - **Types:** All TypeScript types in `src/lib/types.ts` — keep them there, don't scatter.
 - **API routes:** `src/app/api/{resource}/route.ts` pattern. All CRUD follows same pattern.
 - **UI pages:** `src/app/{resource}/page.tsx` for list, `src/app/{resource}/[id]/page.tsx` for detail.
@@ -192,7 +202,7 @@ Steven's workflow is two-layer:
 ## Current State
 
 See `docs/goal-state.md` for the living version:
-- 56 migrations, 16 tables, 30 API routes, 18 UI pages, 427 tests across 14 suites
+- 60 migrations, 20 tables, 30 API routes, 18 UI pages, 427 tests across 14 suites
 - 5 active engagements (Nozomi Networks, Spacelift x3, Qualys)
 - Phase 1 prompt: curated-input philosophy, 6-step decision framework, enriched engagement index
 - Engagement-hub architecture: meetings and entity links flow through engagements

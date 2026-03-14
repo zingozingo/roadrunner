@@ -1239,3 +1239,183 @@
 **Impact:** Single label change in meeting detail page JSX.
 
 ---
+
+### Decision 168: Three org_type Values (internal/partner/third_party)
+
+**Date:** 2026-03-14
+**Status:** Implemented
+
+**Decision:** The universal person classification uses three values: internal, partner, third_party. No separate 'user' type for the PDM.
+
+**Context:** Designing the contact registry's org_type enum. Considered adding 'user' as fourth type for the PDM.
+
+**Rationale:** "Me" is a task ownership concept resolved via user-config.ts, not a data model category. Any PDM using Roadrunner would be 'internal' at their org. Three values cover every person cleanly — tested against all 76 contacts in the system.
+
+**Impact:** participants.org_type CHECK constraint. Simpler, more universal.
+
+---
+
+### Decision 169: Dedicated Join Tables Over Polymorphic Junctions
+
+**Date:** 2026-03-14
+**Status:** Implemented
+
+**Decision:** Four dedicated join tables (partner_participants, meeting_participants, engagement_participants, relationship_participants) replace the polymorphic participant_links pattern.
+
+**Context:** participant_links used polymorphic entity_type/entity_id pattern with no FK constraints. Vision doc (Hole 2) identified orphan risk.
+
+**Rationale:** Real FK CASCADE enforces referential integrity at the database level. The database does the work, not application code. Common queries ("who's on this partner's team") are single-table joins. The rare query ("everything about this person") is a UNION across four small tables.
+
+**Impact:** Created 4 tables in migration 057. participant_links to be dropped in future cleanup.
+
+---
+
+### Decision 170: Tasks Are Partner-Level Entities (note_tasks → tasks)
+
+**Date:** 2026-03-14
+**Status:** Implemented
+
+**Decision:** Tasks promoted from meeting-note children to partner-level entities. Table renamed from note_tasks to tasks.
+
+**Context:** Tasks were tightly coupled to meeting_notes — CASCADE delete meant losing tasks when editing notes. Also prevented manual task creation since every task required a note.
+
+**Rationale:** Tasks represent real work. They belong to a partner (gravity), not to a note (provenance). A PDM should be able to create a task by remembering something — "I need Jackie to send me that material" — without a meeting note existing.
+
+**Impact:** Table renamed, meeting_note_id made nullable with SET NULL, partner_id made CASCADE. Two creation paths: ai_extracted (from meeting notes) and manual (typed directly).
+
+---
+
+### Decision 171: meeting_note_id SET NULL on Delete, Not CASCADE
+
+**Date:** 2026-03-14
+**Status:** Implemented
+
+**Decision:** Deleting a meeting note sets task.meeting_note_id to NULL instead of cascading the delete to tasks.
+
+**Context:** Previous behavior: delete a note → all tasks vanish. Wrong — tasks are independent work items.
+
+**Rationale:** Tasks have independent value once created. Deleting a note is editorial. Deleting a task is a workflow decision. Different actions by different intent. Tasks lose provenance (meeting_note_id becomes NULL) but keep their value.
+
+**Impact:** Migration 059 changed FK from CASCADE to SET NULL.
+
+---
+
+### Decision 172: Complete CASCADE Chain Corrected
+
+**Date:** 2026-03-14
+**Status:** Implemented
+
+**Decision:** Fixed 4 FK constraints that had wrong cascade behaviors on meeting_notes and meetings tables.
+
+**Context:** Multiple FK constraints had NO ACTION (PostgreSQL default), meaning deletes would fail instead of cascading properly.
+
+**Rationale:** Delete a partner → meetings cascade → notes cascade → tasks survive (SET NULL). Delete a meeting → notes cascade → tasks survive. Delete a note → tasks survive. Participants always survive — they're real people, not derived data.
+
+**Impact:** Migration 060 fixed 4 FK constraints: meeting_notes.meeting_id (NO ACTION→CASCADE), meeting_notes.partner_id (NO ACTION→CASCADE), meeting_notes.engagement_id (NO ACTION→SET NULL), meetings.partner_id (SET NULL→CASCADE).
+
+---
+
+### Decision 173: Relationships Universal Naming (aws_relationships → relationships)
+
+**Date:** 2026-03-14
+**Status:** Implemented
+
+**Decision:** Renamed aws_relationships table to relationships. Columns aws_org → org, aws_service → service.
+
+**Context:** Table was AWS-specific but the model should support any organization — Symbio, Tackle, BrightTalk are third-party teams that participate in partner work.
+
+**Rationale:** A relationship is a team within an organization. The org_type field (internal/third_party) distinguishes them. No vendor-specific naming in the schema.
+
+**Impact:** Migration 058 renamed table + columns. 12 code files updated. engagement_aws_relationships junction table also renamed to engagement_relationships.
+
+---
+
+### Decision 174: Owner CHECK Expanded to Four Values
+
+**Date:** 2026-03-14
+**Status:** Implemented
+
+**Decision:** Task ownership expanded from (me/partner/aws_internal) to (me/internal/partner/third_party). Added owner_participant_id FK.
+
+**Context:** Needed third_party for tracking work by Symbio, Tackle, etc. Also 'aws_internal' was vendor-specific.
+
+**Rationale:** Four ownership planes: me (the PDM using Roadrunner), internal (colleagues at same org), partner (ISV contacts), third_party (external entities). Plus owner_participant_id FK to specific person.
+
+**Impact:** Migration 059 expanded CHECK. owner_participant_id added for person-level assignment.
+
+---
+
+### Decision 175: Task Origin Values Cleaned (ai_extracted/manual, source dropped)
+
+**Date:** 2026-03-14
+**Status:** Implemented
+
+**Decision:** Tasks have one creation-mode field: origin (ai_extracted | manual). Dropped the redundant source column.
+
+**Context:** note_tasks had both 'source' (meeting/seed) and 'origin' (ai/manual) — overlapping concepts. With tasks decoupled from notes, 'source' lost meaning.
+
+**Rationale:** One field captures how the task was created: AI extracted it from meeting notes, or human typed it manually. Clean and sufficient.
+
+**Impact:** Migration 059 dropped source column, updated origin CHECK values.
+
+---
+
+### Decision 176: Contact Registry as Single Source of Truth
+
+**Date:** 2026-03-14
+**Status:** Implemented
+
+**Decision:** One participants row per person (keyed by email), four join tables for associations. Replaces scattered JSONB contact storage.
+
+**Context:** Same person (e.g., CJ Sturgess) existed in up to 7 locations — partner JSONB, relationship JSONB, meeting attendees, task owner_name, participants table, participant_links, Airtable. No cross-references.
+
+**Rationale:** Seven storage locations → two (participants table + join tables). Every read resolves from the same source.
+
+**Impact:** 76 participants hydrated, 85 partner associations, 6 relationship associations. CJ Sturgess: 1 row, 12 partner links.
+
+---
+
+### Decision 177: Sync Layer Maintains Registry Automatically
+
+**Date:** 2026-03-14
+**Status:** Implemented
+
+**Decision:** pull.ts upserts into participants + join tables alongside JSONB writes on every catalog sync.
+
+**Context:** Hydration script populated the registry once, but next Sync Catalogs would only update JSONB, leaving registry stale.
+
+**Rationale:** Registry stays current automatically. JSONB remains as transitional fallback. Registry errors are caught and logged but never fail the sync.
+
+**Impact:** Modified pull.ts + added helper functions in participants.ts. Both partners and relationships sync contacts to registry.
+
+---
+
+### Decision 178: JSONB Columns Are Transitional Artifacts
+
+**Date:** 2026-03-14
+**Status:** Planned
+
+**Decision:** aws_team, partner_contacts, contacts JSONB columns will be dropped once UI reads are fully rewired to join tables.
+
+**Context:** JSONB columns still exist and are still written to. UI still reads from them.
+
+**Rationale:** Migration is additive-then-subtractive. Build new alongside old (nothing breaks), shift reads, shift writes, then drop old.
+
+**Impact:** Future session work — UI rewire then JSONB drop.
+
+---
+
+### Decision 179: Legacy Notes Table Confirmed Dead
+
+**Date:** 2026-03-14
+**Status:** Planned
+
+**Decision:** The old engagement-level notes table (id, engagement_id, content) should be dropped. Zero code references remain.
+
+**Context:** All note functionality flows through meeting_notes. Legacy table is dead weight.
+
+**Rationale:** No code references. No data value. Clean up.
+
+**Impact:** To be dropped in future cleanup migration.
+
+---
