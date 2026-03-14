@@ -214,15 +214,6 @@ export interface Participant {
   created_at: string;
 }
 
-export interface ParticipantLink {
-  id: string;
-  participant_id: string;
-  entity_type: "engagement" | "event";
-  entity_id: string;
-  role: string | null;
-  created_at: string;
-}
-
 export interface EngagementParticipant {
   id: string;
   engagement_id: string;

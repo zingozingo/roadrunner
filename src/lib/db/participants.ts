@@ -48,8 +48,6 @@ export async function deleteEngagementParticipant(linkId: string): Promise<void>
   if (error) throw new Error(`Failed to delete engagement participant: ${error.message}`);
 }
 
-/** @deprecated Use deleteEngagementParticipant instead. Kept for UI layer until Chunk B. */
-export const deleteParticipantLink = deleteEngagementParticipant;
 
 /**
  * Find or create a participant, then link to an engagement.

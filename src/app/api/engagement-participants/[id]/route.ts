@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deleteParticipantLink } from "@/lib/db";
+import { deleteEngagementParticipant } from "@/lib/db";
 
 export async function DELETE(
   _request: NextRequest,
@@ -7,11 +7,11 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    await deleteParticipantLink(id);
+    await deleteEngagementParticipant(id);
     return NextResponse.json({ status: "deleted" });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("DELETE /api/participant-links/[id] error:", message);
+    console.error("DELETE /api/engagement-participants/[id] error:", message);
     return NextResponse.json(
       { error: `Failed to remove participant: ${message}` },
       { status: 500 }

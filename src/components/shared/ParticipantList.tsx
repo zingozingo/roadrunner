@@ -92,7 +92,7 @@ function ParticipantRow({
     setShowRemoveConfirm(false);
     setRemoving(true);
     try {
-      const res = await fetch(`/api/participant-links/${participant.linkId}`, {
+      const res = await fetch(`/api/engagement-participants/${participant.linkId}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Remove failed");
