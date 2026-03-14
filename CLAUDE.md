@@ -1,213 +1,366 @@
-# CLAUDE.md — Roadrunner Project Context
+# Roadrunner (Relay)
 
-## What This Project Is
+> AI-powered partner engagement management for AWS PDMs. Forward emails → Claude classifies → structured engagements → Airtable sync.
+> 61 migrations · 19 tables · 30 API routes · 18 UI pages · 427 tests
 
-Roadrunner (codename **Relay**) is an AI-powered email classification and engagement tracking system for AWS Partner Development Managers. A PDM forwards a partner email to a Mailgun webhook, Claude AI classifies it into a structured engagement with participants, entity links, and a living summary, then syncs everything bidirectionally with Airtable. Deployed on Vercel at roadrunner-fawn.vercel.app.
+---
 
-## Architecture Overview
+## What This Is
 
-**Stack:** Next.js 16 (App Router, React 19) + TypeScript 5 + Tailwind 4 + Supabase (PostgreSQL) + Anthropic Claude Sonnet 4 + Airtable REST API + Mailgun webhooks + Vercel
+Roadrunner turns scattered partner email threads into structured, trackable engagement records. A PDM forwards a partner email to `relay.stevenromero.dev` → Mailgun webhook receives it → Claude AI classifies it, extracts participants, links it to known programs/events/relationships → everything surfaces on a dashboard where you manage partner engagements. Forwarding an email is the only input required. Built for Steven Romero, PDM at AWS, managing ~20 ISV partner relationships. Deployed on Vercel at roadrunner-fawn.vercel.app.
 
-**Two-phase classification pipeline:**
-- Phase 1: Lightweight routing — "which engagement does this belong to?"
-- Phase 2: Deep analysis — topic, goal, current_state, participants, entity matches, pillar
+---
 
-**Bidirectional Airtable sync:**
-- Pull: Airtable owns catalog data (Partners, Programs, Events, Relationships)
-- Push: Roadrunner owns activity data (Engagements, Meetings)
+## Key Terminology
 
-**Directory structure:**
+| Term | Definition |
+|------|-----------|
+| **Engagement** | A trackable workstream with a partner. Has a living summary (current_state) that evolves as new emails arrive. |
+| **Meeting** | A calendar event extracted from ICS attachments. Linked to a partner and optionally to an engagement. |
+| **Partner** | An ISV in the portfolio. Catalog data owned by Airtable. |
+| **Program** | An AWS partner program (ISV Accelerate, Security Competency, etc.). Catalog data owned by Airtable. |
+| **Event** | A shared calendar anchor like re:Invent or a summit. NOT a partner-specific call. Catalog data owned by Airtable. |
+| **Relationship** | A named relationship with an AWS person or team. Catalog data owned by Airtable. |
+| **Task** | An action item extracted from meeting notes or created manually. Belongs to a partner, optionally linked to a meeting note. |
+| **Participant** | A person in the system. The canonical person registry — every contact resolves here. |
+| **Partner Context** | PDM scratchpad notes about a partner. Wired into AI context pipeline for meeting note summarization. |
+| **Approval Queue** | Low-confidence classifications land here for human review via the Inbox UI. |
+
+---
+
+## Architecture
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Next.js 16 (App Router), React 19, Tailwind CSS 4 |
+| Backend | Next.js API Routes (serverless on Vercel) |
+| Database | Supabase PostgreSQL |
+| AI | Anthropic Claude Sonnet 4 |
+| Email Ingestion | Mailgun (inbound webhook) |
+| Partner Data | Airtable (REST API, bidirectional sync) |
+| Deployment | Vercel |
+| Domain | relay.stevenromero.dev |
+
+---
+
+## Directory Structure
+
 ```
-src/app/           → Next.js pages + API routes (30 routes, 18 pages)
-src/components/    → React components (21, organized: layout/, shared/, inbox/, engagement/, actions/)
-src/lib/           → Business logic (classification, parsing, sync, formatting)
-src/lib/db/        → Database layer (10 modules)
-src/lib/sync/      → Airtable sync (field-maps, push, pull, utils)
-src/lib/__tests__/ → Test suites (14 suites, 427 tests)
-supabase/          → Migrations (001-061) + schema_live.sql
-docs/              → 8 documentation files (entity-model.md is canonical schema reference)
+roadrunner/
+├── docs/                          # Project documentation (3 files)
+│   ├── CLASSIFICATION.md          #   Two-phase AI pipeline & prompt architecture
+│   ├── entity-model.md            #   Canonical schema — ERD + field-level registry + AT field IDs
+│   └── goal-state.md              #   Living orientation doc — current state & next steps
+├── decisions.md                   # Append-only architectural decision log (179 entries)
+├── src/
+│   ├── app/                       # Next.js App Router
+│   │   ├── api/                   #   API routes (30 routes, grouped by entity)
+│   │   │   ├── classify/          #     Classification endpoints + test routes
+│   │   │   ├── engagements/       #     CRUD + participants
+│   │   │   ├── events/            #     CRUD
+│   │   │   ├── health/            #     Health check
+│   │   │   ├── inbound/           #     Mailgun webhook
+│   │   │   ├── inbox/             #     Approval queue count (sidebar badge)
+│   │   │   ├── meetings/          #     CRUD
+│   │   │   ├── notes/             #     Notes CRUD + summarize + tasks + context
+│   │   │   ├── participant-links/ #     Delete link
+│   │   │   ├── participants/      #     Update participant
+│   │   │   ├── partners/          #     CRUD + partner context
+│   │   │   ├── programs/          #     CRUD
+│   │   │   ├── relationships/     #     CRUD
+│   │   │   ├── reviews/           #     Resolve approval
+│   │   │   └── sync/              #     Trigger Airtable sync
+│   │   ├── engagements/           #   Engagement list + detail pages
+│   │   ├── events/                #   Event list + detail pages
+│   │   ├── inbox/                 #   Approval review queue
+│   │   ├── meetings/              #   Meeting list + detail pages (inline NoteWorkspace)
+│   │   ├── partners/              #   Partner list + detail pages
+│   │   ├── programs/              #   Program list + detail pages
+│   │   ├── relationships/         #   Relationship list + detail pages
+│   │   ├── tasks/                 #   Cross-partner task dashboard
+│   │   ├── layout.tsx             #   Root layout + sidebar
+│   │   └── page.tsx               #   Redirects to /partners
+│   ├── components/                # React components (21, organized by function)
+│   │   ├── actions/               #   Entity action buttons (5 files)
+│   │   ├── engagement/            #   Engagement-specific cards/forms (4 files)
+│   │   ├── inbox/                 #   Review queue UI (4 files)
+│   │   ├── layout/                #   App structure — sidebar, headers (4 files)
+│   │   ├── notes/                 #   NoteWorkspace, ContextSidebar, PreviousNotes, TaskEditor, MeetingNotesSection
+│   │   ├── partners/              #   PartnerTasksSection, PartnerScratchpad
+│   │   └── shared/                #   Reusable primitives — CompactRow, DetailHeader, badges (12 files)
+│   └── lib/                       # Core business logic
+│       ├── classifier.ts          #   Two-phase classification orchestrator
+│       ├── claude.ts              #   Anthropic API client (Phase 1 + Phase 2)
+│       ├── phase1-prompt.ts       #   Phase 1 system prompt + context builders
+│       ├── phase2-prompt.ts       #   Phase 2 system prompt + context builders
+│       ├── prompt-builder.ts      #   Shared section builders (events, programs, etc.)
+│       ├── email-parser.ts        #   Forwarded email chain parser (two-pass)
+│       ├── ics-parser.ts          #   ICS calendar event parser (RFC 5545)
+│       ├── name-resolver.ts       #   Contact name resolution from JSONB columns
+│       ├── contact-parser.ts      #   Universal "Name <email> (Title)" parser
+│       ├── format-utils.ts        #   Display name formatting utilities
+│       ├── notes-summarizer.ts    #   AI meeting note summarizer (Claude API)
+│       ├── notes-context.ts       #   Partner context builder for notes
+│       ├── meeting-status-map.ts  #   Meeting status display mapping
+│       ├── dedup.ts               #   Message fingerprint deduplication
+│       ├── types.ts               #   All shared TypeScript interfaces
+│       ├── user-config.ts         #   Canonical user identity config
+│       ├── airtable.ts            #   Airtable REST API client
+│       ├── db/                    #   Database layer (13 modules)
+│       │   ├── client.ts          #     Supabase singleton client
+│       │   ├── engagements.ts     #     Engagement CRUD + history
+│       │   ├── messages.ts        #     Message storage + fingerprint dedup
+│       │   ├── meetings.ts        #     Meeting CRUD + ICS creation
+│       │   ├── meeting-notes.ts   #     Meeting notes + tasks CRUD
+│       │   ├── partners.ts        #     Partner queries (read-only)
+│       │   ├── partner-context.ts #     Scratchpad CRUD
+│       │   ├── catalog.ts         #     Events + Programs CRUD
+│       │   ├── relationships.ts   #     Relationships + junction queries
+│       │   ├── participants.ts    #     Participant upsert + registry joins
+│       │   ├── entity-links.ts    #     Entity link CRUD
+│       │   ├── inbox.ts           #     Approval queue operations
+│       │   └── index.ts           #     Barrel re-exports
+│       ├── sync/                  #   Airtable sync engine
+│       │   ├── pull.ts            #     AT → RR catalog sync
+│       │   ├── push.ts            #     RR → AT activity sync
+│       │   ├── field-maps.ts      #     Airtable field ID constants
+│       │   └── utils.ts           #     Coercion helpers + validation
+│       └── __tests__/             #   427 tests across 14 test files
+├── supabase/
+│   ├── migrations/                # 61 migration files (001-061)
+│   └── schema_live.sql            # Full schema snapshot (derived from migrations)
+├── scripts/
+│   ├── seed-data.ts               # CLI script to seed events/programs
+│   └── hydrate-contact-registry.ts # Backfill contact registry join tables
+└── data/
+    ├── seed-events.json           # Event catalog seed data
+    └── seed-programs-v2.json      # Program catalog seed data
 ```
 
-## Core Architectural Principles
+---
+
+## Data Flow — Email to Dashboard
+
+```
+1. USER FORWARDS EMAIL
+   ↓
+2. MAILGUN WEBHOOK → POST /api/inbound
+   Receives raw email (body-plain, headers, calendar attachments)
+   ↓
+3. EMAIL PARSER (email-parser.ts)
+   Extracts: sender, recipients, subject, body, forwarded content
+   Strips: quoted replies, signatures, forwarding headers
+   ↓
+4. ICS PARSER (ics-parser.ts) — if calendar data present
+   Extracts: meeting title, date, time, location, attendees, UID
+   Source: Mailgun body-calendar field (NOT file attachments)
+   ↓
+5. MESSAGE STORED (db/messages.ts)
+   Raw email saved to messages table with parsed metadata
+   Per-message fingerprint dedup (sender_email + body prefix)
+   ↓
+6. TWO-PHASE CLASSIFIER (classifier.ts)
+   Phase 1 (phase1-prompt.ts): Compact engagement index → routing decision
+   Phase 2 (phase2-prompt.ts): Full engagement history → deep analysis
+   Returns: engagement match, current_state, participants, entity links, pillar
+   ↓
+7. CONFIDENCE CHECK
+   ≥ 0.85 → auto-persist (step 8)
+   < 0.85 → create approval_queue item → appears in Inbox UI
+   ↓
+8. PERSIST (classifier.ts → persistClassificationResult)
+   Single function handles both auto-assign and approval-resolve paths:
+   - Create or update engagement (current_state, topic, goal, pillar)
+   - Upsert participants + link to engagement
+   - Create entity_links (programs, events, relationships)
+   - Create meetings (if ICS data present)
+   - Link message to engagement
+   ↓
+9. SYNC TO AIRTABLE (sync/push.ts — awaited)
+   Push: engagements → Partner Engagements table
+   Push: meetings → Meetings table
+   Pull: partners, programs, events, relationships ← catalog tables
+   ↓
+10. DASHBOARD (Next.js pages)
+    Server components query Supabase directly
+    Client components use API routes for mutations
+```
+
+---
+
+## Data Ownership
+
+Airtable owns **catalog** (Ring 1: Partners, Programs, Events, Relationships). Roadrunner owns **activity** (Ring 2: Engagements, Meetings, Notes, Tasks, Messages, Participants, Partner Context). Airtable-only tables (Ring 3: Partner Programs, Partner Events, Plans, Funding) will be pulled in later. See `docs/entity-model.md` for the complete schema with all 19 tables, FK cascade behaviors, and Airtable field IDs.
+
+---
+
+## Core Principles
 
 These are **NON-NEGOTIABLE**. Every code change must respect these:
 
-1. **Curated input** — PDMs forward what matters. The classifier routes, it does not filter. Every forwarded email is relevant; the question is "which engagement?" not "is this important?"
+1. **Email-in, insight-out** — The user never leaves Outlook to feed the system. Forwarding is the only input.
+2. **AI proposes, user disposes** — Auto-classify when confident (≥0.85); ask when not. Every AI decision is editable.
+3. **Summaries are the product** — Raw emails are stored but never the primary view. `current_state` is the living output.
+4. **Connect, don't create** — The AI is biased toward linking to existing entities, never fabricating new ones. Empty arrays over hallucinated matches.
+5. **AI creates engagements only** — Programs, events, partners, and relationships are human-curated catalog data.
+6. **Data ownership boundary** — Airtable owns catalogs (pull only). Roadrunner owns activity (push only). Never cross the boundary.
+7. **Single source of truth per concern** — `contact-parser.ts` for contact format, `user-config.ts` for PDM identity, `field-maps.ts` for Airtable field IDs, `types.ts` for TypeScript types. Don't scatter.
+8. **Await all async operations** — No fire-and-forget. Vercel serverless kills processes after HTTP response. An unawaited promise WILL be silently murdered (this happened in production — decisions.md #89).
+9. **One persistence path** — Auto-assign and approval-resolve share the same `persistClassificationResult()` function. No divergent code paths.
+10. **Structured over freeform** — Categorization uses pillar, program links, and relationship links — not free-form labels.
+11. **Resolve, don't duplicate** — Every piece of data has one authoritative home. Everything else references it.
+12. **Partner is gravity** — Everything orbits the partner. Delete a partner, cascade everything.
+13. **Design before code** — For UI work, solve the design problem before writing JSX.
 
-2. **Engagement hub** — Everything connects through engagements. Meetings, entity links, participants, and relationships all flow through the engagement. Meetings are timeline events within engagements — they inherit connections from their parent engagement. No standalone meetings. No orphan entities.
+---
 
-3. **Constrained intelligence** — The classifier matches to existing entities by ID, never fabricates new ones. Events, programs, and relationships must exist in the catalog before they can be matched. Empty arrays are better than hallucinated matches.
+## API Route Patterns
 
-4. **Data ownership boundary** — Airtable is authoritative for catalog data (Partners, Programs, Events, Relationships). Roadrunner is authoritative for activity data (Engagements, Messages, Meetings, Participants, Tasks). Never push catalog data TO Airtable. Never treat Roadrunner activity data as secondary.
+**Server Components (reads):** List and detail pages query Supabase directly via server-side functions in `db/`. No API route involved — the component IS the server.
 
-5. **Await all async operations** — Every Airtable push, every DB write must be awaited. No fire-and-forget. Vercel serverless kills processes after the HTTP response completes — an unawaited promise WILL be silently murdered (this happened in production with the Qualys engagement).
+**Client Components (writes):** Action buttons, forms, and mutations call API routes. The routes validate input and call `db/` functions.
 
-6. **Single source of truth per concern** — `contact-parser.ts` for contact format, `user-config.ts` for PDM identity, `field-maps.ts` for Airtable field IDs, `types.ts` for TypeScript types. Don't scatter these.
+**External Webhooks:** `/api/inbound` (Mailgun) and `/api/health` (monitoring) are called by external services, not the frontend.
 
-7. **Measure twice, cut once** — Always diagnose before building. Read the relevant code before modifying it. Run tests before and after changes. Plan before implementing.
+**Dev-only Routes:** `/api/classify/test`, `/api/classify/live-test`, `/api/classify/test-cleanup` are available for classification pipeline testing via direct API calls.
 
-## Data Model (Quick Reference)
+---
 
-**Catalog tables** (Airtable → Roadrunner, pull only):
-- `partners` — name, segment, focus_area[], aws_team(JSONB†), partner_contacts(JSONB†)
-- `programs` — name, type, lifecycle_type, requirements, what_it_unlocks
-- `events` — name, type, dates, host, geo, sponsor_option, partner_day
-- `relationships` — name, org, service, relationship_type, contacts(JSONB†)
+## Development
 
-**Activity tables** (Roadrunner → Airtable, push only):
-- `engagements` — name, status, partner_id(FK), pillar, topic, goal, program_id(FK), current_state
-- `messages` — engagement_id(FK), sender_*, subject, body_text, content_type, classification_result(JSONB)
-- `meetings` — engagement_id(FK), partner_id(FK), title, meeting_date, status, attendees(JSONB), ics_uid
-- `participants` — email(UNIQUE), name, organization, title, org_type, source (canonical person registry)
-- `tasks` — partner_id(FK CASCADE), meeting_note_id(FK SET NULL), description, owner, origin
-- `approval_queue` — low-confidence items pending manual review
+### Environment Variables
 
-**Contact registry join tables:**
-- `partner_participants` — partner↔participant with role (UNIQUE: partner_id, participant_id, role)
-- `relationship_participants` — relationship↔participant with role
-- `meeting_participants` — meeting↔participant with role
-- `engagement_participants` — engagement↔participant with role
+```env
+SUPABASE_URL=
+SUPABASE_SERVICE_KEY=
+ANTHROPIC_API_KEY=
+MAILGUN_API_KEY=
+MAILGUN_WEBHOOK_SIGNING_KEY=
+AIRTABLE_API_KEY=
+AIRTABLE_BASE_ID=appy9TT1LRJTAuQ4W
+```
 
-**Other join/link tables:**
-- `entity_links` — polymorphic: engagement↔event, engagement↔program (source_type, target_type)
-- `engagement_relationships` — engagement↔relationship junction
-- `participant_links` — (legacy, to be dropped) participant↔engagement/event with role
+### Local Commands
 
-† JSONB contact columns are transitional artifacts — registry join tables are authoritative, JSONB to be dropped after UI rewire.
+```bash
+npm install                        # Install dependencies
+npm run dev                        # Start Next.js dev server on :3000
+npx vitest run --reporter=verbose  # Run all 427 tests
+npx tsc --noEmit                   # TypeScript check (must pass with zero errors)
+```
 
-**Key relationships:**
-- engagements belong to partners (`partner_id` FK)
-- messages belong to engagements (`engagement_id` FK)
-- meetings belong to engagements (`engagement_id` FK, engagement gate for AT push)
-- tasks belong to partners (`partner_id` FK CASCADE), optionally linked to meeting_notes (SET NULL)
-- entity_links connect engagements to programs/events
-- engagement_relationships connect engagements to relationships
+### Testing
 
-## Classification Pipeline
+**Framework:** Vitest · **Location:** `src/lib/__tests__/`
 
-**Phase 1** (`phase1-prompt.ts`): Lightweight routing with curated-input philosophy.
-- Input: Enriched engagement index (grouped by partner, with participant emails, pillar, entity links) + compact partner catalog + email content + meeting hint
-- 7-step decision framework: forwarder note → participant match → partner match → disambiguation (5 sub-signals) → internal/third-party senders → new engagement → flag for review
-- Output: `Phase1Result` — content_type + engagement_match (ID, confidence, is_new)
-- Early exit on noise (skip Phase 2)
+| Test File | Tests | Covers |
+|-----------|-------|--------|
+| email-parser.test.ts | 123 | Email chain parsing, forwarded content extraction |
+| phase2-prompt.test.ts | 54 | Phase 2 prompt building, context sections |
+| phase1-prompt.test.ts | 45 | Phase 1 prompt building, engagement index enrichment |
+| format-utils.test.ts | 39 | Display name formatting utilities |
+| ics-parser.test.ts | 31 | ICS calendar parsing (RFC 5545) |
+| name-resolver.test.ts | 28 | Contact name resolution from JSONB columns |
+| contact-parser.test.ts | 26 | Universal contact format parsing/rendering |
+| user-config.test.ts | 18 | User identity matching |
+| meeting-pipeline.test.ts | 13 | Meeting creation, ICS parsing, linking |
+| classifier.test.ts | 11 | Classification orchestration, confidence routing |
+| prompt-builder.test.ts | 11 | Shared context section builders |
+| dedup.test.ts | 6 | Message deduplication |
+| meeting-status-map.test.ts | 5 | Meeting status mapping |
+| resolve-route.test.ts | 4 | Inbox resolve route logic |
 
-**Phase 2** (`phase2-prompt.ts`): Deep analysis with full engagement history.
-- Input: Engagement history (all prior messages) + catalogs (events, programs, relationships) + matched partner details + new email marked with `>>> NEW EMAIL — CLASSIFY THIS <<<`
-- Extracts: topic (3-8 words, stable), goal (one sentence), engagement_name ("{Partner} - {topic}"), current_state (3-8 sentence point-in-time snapshot), participants (6 roles), matched entities (strict evidence rules), pillar
-- Output: `CombinedClassificationResult` — Phase1 fields echoed + all Phase 2 extractions
+**DB mocking:** Supabase client is mocked via `vi.mock` with `vi.hoisted()` for mock variables — see existing tests for the pattern.
 
-**Confidence routing:**
-- ≥0.85 → auto-assign (existing) or auto-create (new engagement)
-- <0.85 → approval_queue item, resolved via Inbox UI
+**Rule:** ALWAYS run tests after changes. NEVER commit with failing tests.
 
-**Persistence** (`persistClassificationResult` in `classifier.ts`):
-- Updates messages with classification + engagement link
-- Updates engagement fields (current_state evolved, topic, goal, name, pillar)
-- Creates entity links (engagement↔event, engagement↔program) by ID
-- Links relationships via junction table
-- Upserts participants + backfills sender names
-- Pushes to Airtable (awaited)
-- Idempotent — safe to call multiple times
+### Migrations
+
+Sequential numbering in `supabase/migrations/` (currently 001-061). New migrations get the next number (062, 063, ...). Write idempotent SQL where possible.
+
+### Key Conventions
+
+- **Types:** All TypeScript types in `src/lib/types.ts` — keep them there, don't scatter.
+- **API routes:** `src/app/api/{resource}/route.ts` pattern.
+- **UI pages:** `src/app/{resource}/page.tsx` for list, `src/app/{resource}/[id]/page.tsx` for detail.
+- **Components:** `src/components/` organized by concern — `layout/`, `shared/`, `inbox/`, `engagement/`, `actions/`, `notes/`, `partners/`.
+- **No RLS:** Single-user app, service key auth. No row-level security policies.
+- **Conventional commits:** `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`
+- **Compiler-driven refactoring:** Strip from `types.ts` first, then use `tsc --noEmit` errors as the fix list. Order: Types → Lib → UI → API/Tests → Migration.
+
+---
 
 ## Airtable Sync
 
-- **Pull:** `syncAllCatalogs()` in `src/lib/sync/pull.ts` pulls Partners, Programs, Events, Relationships. Idempotent with change detection. Name-based initial match → ID-based ongoing match. Also upserts contacts into the participant registry (participants + join tables) alongside JSONB writes.
-- **Push:** `pushEngagementToAirtable()` and `pushMeetingToAirtable()` in `src/lib/sync/push.ts`. Engagement push resolves partner, program, event (via entity_links), and relationship linked records. Meeting push only carries meeting-specific data + engagement link (partner/program/event shown via AT lookup fields).
-- **Field IDs:** ALL Airtable field IDs live in `src/lib/sync/field-maps.ts` — NEVER hardcode field IDs elsewhere. Constants: `PF` (programs), `EF` (events), `RF` (relationships), `PTRF` (partners), `ENF` (engagements), `MF` (meetings).
-- **Notes merging:** Roadrunner section delimited by `NOTES_MARKER`/`NOTES_FOOTER` markers. Manual Airtable content outside markers is preserved.
-- **Engagement gate:** Meetings without an `engagement_id` don't push to Airtable (prevents ICS temporal gap from creating orphan records).
-- **All push calls are awaited** — see principle #5.
+### Adding a New Synced Field (End-to-End)
 
-## Contact Format
+1. **Airtable:** Create or identify the field. Note the field ID (visible in API docs or URL).
+2. **field-maps.ts:** Add the field ID to the appropriate constant (PTRF, PF, EF, RF, ENF, MF).
+3. **pull.ts/push.ts:** Add the field mapping in the relevant build/map function.
+4. **types.ts:** Add the field to the TypeScript interface.
+5. **Migration:** Add the column to the Supabase table (if it doesn't exist).
+6. **db/ module:** Update any query functions that need the new field.
+7. **UI:** Add display in the relevant detail/list page.
+8. **entity-model.md:** Document the new field in the field-level registry.
 
-Universal format: `Name <email> (Title)`
-- Self-documenting placeholders: `<—>` for missing email, `(—)` for missing title
-- Parser: `src/lib/contact-parser.ts` — parseContact, renderContact, parseContactList, renderContactList
-- Storage: JSONB arrays on `partners` (aws_team, partner_contacts), `relationships` (contacts) — transitional, registry join tables are authoritative
-- Name resolution: `src/lib/name-resolver.ts` — priority chain: relationships.contacts > partners.aws_team > partners.partner_contacts > participants table
-- PDM identity: `src/lib/user-config.ts` — canonical email, aliases, PRVS stripping, corpmail detection
+### Sync Constants
 
-## Testing
+| Constant | Entity | Direction | Table ID |
+|----------|--------|-----------|----------|
+| PTRF | Partners | AT → RR | tbl9zC6nxfLEp8xUx |
+| PF | Programs | AT → RR | tblpnW8ibVmkWi5Dt |
+| EF | Events | AT → RR | tblPDGUSqSvn8mflJ |
+| RF | Relationships | AT → RR | tblqVBssFsUeAt9bj |
+| ENF | Engagements | RR → AT | tblTC491AUVcrKvq2 |
+| MF | Meetings | RR → AT | tbl6LsEqSvEZgqBdW |
 
-- **Framework:** Vitest
-- **Run:** `npx vitest run --reporter=verbose`
-- **Current:** 427 tests across 14 suites, all passing
-- **Location:** `src/lib/__tests__/{module}.test.ts`
-- **Suites:** email-parser (123), phase2-prompt (54), phase1-prompt (45), format-utils (39), ics-parser (31), name-resolver (28), contact-parser (26), user-config (18), meeting-pipeline (13), classifier (11), prompt-builder (11), dedup (6), meeting-status-map (5), resolve-route (4)
-- **DB mocking:** Supabase client is mocked via `vi.mock` with `vi.hoisted()` for mock variables — see existing tests for the pattern
-- **Type checking:** `npx tsc --noEmit` — must pass with zero errors
-- **Rule:** ALWAYS run tests after changes. NEVER commit with failing tests.
+### Safe vs. Dangerous Airtable Changes
 
-## Development Workflow
+**Safe (no code changes needed):** Rename fields, reorder fields, add new non-synced fields, change colors, add views.
 
-Steven's workflow is two-layer:
-1. **Claude web** (claude.ai) — Airtable MCP access, architectural planning, session management, diagnostic design
-2. **Claude Code CLI** — Code execution, file changes, test runs, git operations
+**Requires field-maps.ts update:** Change a field's type, change select option values, delete a synced field, add a new field you want Roadrunner to use.
 
-**Session protocol:**
-1. Read CLAUDE.md and `docs/goal-state.md` for orientation
-2. Run diagnostic if needed (test status, schema state, recent changes)
-3. Plan before implementing — discuss approach, identify affected files
-4. Implement with verification (tests + type check after every change)
-5. Update docs if state has changed (goal-state.md, decisions.md)
-6. Conventional commits: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`
+**Key principle:** Field IDs are permanent. Names are cosmetic. Types are contracts.
 
-## Key Conventions
-
-- **Migrations:** Sequential numbering in `supabase/migrations/` (currently 001-061). New migrations get the next number (062, 063, ...).
-- **Types:** All TypeScript types in `src/lib/types.ts` — keep them there, don't scatter.
-- **API routes:** `src/app/api/{resource}/route.ts` pattern. All CRUD follows same pattern.
-- **UI pages:** `src/app/{resource}/page.tsx` for list, `src/app/{resource}/[id]/page.tsx` for detail.
-- **Components:** `src/components/` organized by concern — `layout/`, `shared/`, `inbox/`, `engagement/`, `actions/`, `notes/`, `partners/`.
-- **Error handling:** Try/catch on all async operations, especially Airtable pushes. Log errors, don't swallow them.
-- **Formatting:** Use `format-utils.ts` for display formatting, `contact-parser.ts` for contact rendering.
-- **No RLS:** Single-user app, service key auth. No row-level security policies.
-- **Compiler-driven refactoring:** When removing fields from shared interfaces, strip from `types.ts` first, then use `tsc --noEmit` errors as the exhaustive fix list. Chunk order: Types → Lib → UI → API/Tests → Migration.
+---
 
 ## Common Gotchas
 
 - **Airtable field IDs are opaque** — they change if you recreate a field. Always verify against live Airtable (via MCP on claude.ai) before assuming `field-maps.ts` is correct.
 - **Supabase PostgREST** returns `{ data, error }` — always check `error` before using `data`.
-- **ICS temporal gap** — ICS parsing creates meetings BEFORE classification. Meetings get linked to engagements AFTER Phase 2, not during creation. The engagement gate in push.ts prevents orphan AT records. This is by design.
+- **ICS temporal gap** — ICS parsing creates meetings BEFORE classification. Meetings get linked to engagements AFTER Phase 2. The engagement gate in push.ts prevents orphan AT records. By design.
 - **Email parser complexity** — Two-pass parser handles Outlook and Gmail differently. 123 tests cover edge cases. Don't simplify without running the full suite.
-- **Mock hoisting** — `vi.mock()` factories hoist above variable declarations. Use `vi.hoisted()` for mock variables used in factories.
-- **Fire-and-forget is forbidden** — Vercel serverless kills processes after HTTP response. Every async operation must be awaited (see decisions.md entry 89 for the production incident).
-- **JSONB in Supabase** — `select("*")` returns parsed objects, but check existing code patterns for INSERT/UPDATE handling before assuming.
-- **Engagement status differs between systems** — Roadrunner uses `active/blocked/completed/archived`, Airtable mapping is in `sync/utils.ts` (`STATUS_TO_AIRTABLE`).
+- **Mock hoisting** — `vi.mock()` factories hoist above variable declarations. Use `vi.hoisted()` for mock variables.
+- **Fire-and-forget is forbidden** — Vercel serverless kills processes after HTTP response. Every async operation must be awaited.
+- **Engagement status differs** — Roadrunner uses `active/planned/blocked/completed/archived`, Airtable mapping is in `sync/utils.ts` (`STATUS_TO_AIRTABLE`).
+
+---
 
 ## File Quick Reference
 
-**Classification chain:**
-`classifier.ts` → `phase1-prompt.ts` → `phase2-prompt.ts` → `prompt-builder.ts` → `claude.ts`
+**Classification:** `classifier.ts` → `phase1-prompt.ts` → `phase2-prompt.ts` → `prompt-builder.ts` → `claude.ts`
 
-**Sync chain:**
-`sync/index.ts` → `sync/push.ts` / `sync/pull.ts` → `sync/field-maps.ts` → `sync/utils.ts`
+**Sync:** `sync/pull.ts` / `sync/push.ts` → `sync/field-maps.ts` → `sync/utils.ts`
 
-**Data layer:**
-`db/index.ts` → `db/engagements.ts` → `db/messages.ts` → `db/meetings.ts` → `db/participants.ts` → `db/catalog.ts` → `db/entity-links.ts` → `db/relationships.ts` → `db/partners.ts` → `db/inbox.ts` → `db/meeting-notes.ts` → `db/partner-context.ts`
+**Data layer:** `db/index.ts` → `db/engagements.ts` → `db/messages.ts` → `db/meetings.ts` → `db/meeting-notes.ts` → `db/participants.ts` → `db/partner-context.ts` → `db/catalog.ts` → `db/entity-links.ts` → `db/relationships.ts` → `db/partners.ts` → `db/inbox.ts`
 
-**Email processing:**
-`email-parser.ts` (two-pass split + cleaning) → `ics-parser.ts` (calendar parsing) → `name-resolver.ts` (display names)
+**Email:** `email-parser.ts` → `ics-parser.ts` → `name-resolver.ts` → `contact-parser.ts` → `format-utils.ts`
 
-**Entry points:**
-- Mailgun webhook: `src/app/api/inbound/route.ts`
-- Classification trigger: `src/app/api/classify/route.ts`
-- Approval resolution: `src/app/api/reviews/resolve/route.ts`
-- Catalog sync: `src/app/api/sync/route.ts`
+**Entry points:** `/api/inbound` (Mailgun webhook), `/api/classify` (classification trigger), `/api/reviews/resolve` (approval resolution), `/api/sync` (catalog sync)
 
-**Types & identity:**
-`types.ts` (all interfaces) → `user-config.ts` (PDM identity) → `contact-parser.ts` (format) → `format-utils.ts` (display)
+---
 
-## Current State
+## Documentation Map
 
-See `docs/goal-state.md` for the living version:
-- 61 migrations, 19 tables, 30 API routes, 18 UI pages, 427 tests across 14 suites
-- 5 active engagements (Nozomi Networks, Spacelift x3, Qualys)
-- Phase 1 prompt: curated-input philosophy, 6-step decision framework, enriched engagement index
-- Engagement-hub architecture: meetings and entity links flow through engagements
-- Meeting pipeline: ICS parse → create → classify → link to engagement (unconditional) → inherit partner → AT push
-- All Airtable pushes awaited (no fire-and-forget)
-- Docs: 8 files in `docs/` (DATA-MODEL.md and FIELD-MAPPING.md deprecated in favor of entity-model.md)
+| Doc | Purpose | When to Read |
+|-----|---------|--------------|
+| `CLAUDE.md` | This file — project overview, architecture, development | Start of every session |
+| `docs/entity-model.md` | Complete schema — 19 tables, all FKs, AT field IDs, ring model | Schema/data work |
+| `docs/CLASSIFICATION.md` | Two-phase AI classification pipeline | Prompt/AI work |
+| `docs/goal-state.md` | Living status — current state + what's next | Session planning |
+| `decisions.md` | Append-only architectural decision log (179 entries) | When you need "why" |
+
+---
 
 ## What NOT to Do
 
@@ -217,6 +370,6 @@ See `docs/goal-state.md` for the living version:
 - Do NOT modify the contact format without updating `contact-parser.ts` AND its 26 tests
 - Do NOT add new types outside of `types.ts`
 - Do NOT skip reading existing code before modifying — always read the file first
-- Do NOT push catalog data (partners, programs, events, relationships) TO Airtable — sync is pull-only for catalogs
-- Do NOT "band-aid" problems — find root cause, fix properly, verify with tests
+- Do NOT push catalog data TO Airtable — sync is pull-only for catalogs
 - Do NOT simplify the email parser without running its 123-test suite
+- Do NOT band-aid problems — find root cause, fix properly, verify with tests

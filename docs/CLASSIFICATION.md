@@ -1,6 +1,6 @@
 # Classification Pipeline
 
-> Last updated: 2026-03-02
+> Last updated: 2026-03-14
 
 ## Overview
 
@@ -102,7 +102,7 @@ Phase 2 receives everything Phase 1 sees, plus the matched engagement's full his
 | New email(s) | Clearly marked with `>>> NEW EMAIL — CLASSIFY THIS <<<` |
 | Incoming meeting data | Structured ICS data (if present) |
 | Matched partner | Segment, key contacts, what_they_do |
-| Reference catalogs | Events, programs, AWS relationships (with JSONB contacts) |
+| Reference catalogs | Events, programs, relationships (with JSONB contacts) |
 
 ### Output
 
@@ -182,3 +182,5 @@ When a user resolves an approval (assigns to existing or creates new engagement)
 | `src/lib/ics-parser.ts` | ICS calendar event parser (RFC 5545) |
 | `src/lib/name-resolver.ts` | Contact name resolution from JSONB columns |
 | `src/lib/contact-parser.ts` | Universal "Name \<email\> (Title)" format parser/renderer |
+| `src/lib/notes-summarizer.ts` | AI meeting note summarizer (Call 2 — Claude API) |
+| `src/lib/notes-context.ts` | Partner context builder for note summarization |

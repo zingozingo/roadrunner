@@ -1,7 +1,7 @@
 # Roadrunner Entity Model
 
-> **Last updated**: 2026-03-10 (Replaces former DATA-MODEL.md and FIELD-MAPPING.md)
-> **Maintained by**: Update this doc in the same chunk as any migration, sync change, or schema modification.
+> **Last updated**: 2026-03-14 (Post-contact-registry, post-task-promotion, post-relationship-rename)
+> 19 active tables · 61 migrations · 5 Airtable-only tables (future)
 
 ---
 
@@ -13,248 +13,97 @@
 | **RR** | Roadrunner-owned — source of truth lives in Supabase, pushed to Airtable |
 | **RR-only** | Roadrunner-only — no Airtable representation |
 | **AT-only** | Airtable-only — not yet in Supabase (planned for future sync) |
-| **↔** | Bidirectional — both systems read/write (sync resolves via Roadrunner ID) |
+| **LEGACY** | Being replaced, still has code references |
 
 ---
 
-## Layer 1: Entity Relationship Diagram
+## Ring Overview
+
+```mermaid
+graph TB
+    subgraph RING1["Ring 1: Catalog (AT → RR)"]
+        PARTNERS[Partners]
+        PROGRAMS[Programs]
+        EVENTS[Events]
+        RELATIONSHIPS[Relationships]
+    end
+
+    subgraph RING2["Ring 2: Activity (RR-owned)"]
+        ENGAGEMENTS[Engagements]
+        MEETINGS[Meetings]
+        MEETING_NOTES[Meeting Notes]
+        TASKS[Tasks]
+        MESSAGES[Messages]
+        APPROVAL_QUEUE[Approval Queue]
+        PARTNER_CONTEXT[Partner Context]
+    end
+
+    subgraph PEOPLE["People Registry (cross-cutting)"]
+        PARTICIPANTS[Participants]
+        PP[partner_participants]
+        MP[meeting_participants]
+        EP[engagement_participants]
+        RP[relationship_participants]
+    end
+
+    subgraph JUNCTIONS["Connections (cross-cutting)"]
+        EL[Entity Links]
+        ER[Engagement Relationships]
+    end
+
+    subgraph RING3["Ring 3: Posture (AT-only — future)"]
+        PARTNER_PROGRAMS[Partner Programs]
+        PARTNER_EVENTS[Partner Events]
+        PARTNER_PLANS[Partner Plans 2026]
+        MPOPP[MPOPP Funding]
+        MDF[MDF Funding]
+    end
+
+    PARTNERS --- RING2
+    PARTICIPANTS --- PP & MP & EP & RP
+    EL --- RING1
+    EL --- RING2
+    RING3 --- PARTNERS
+    RING3 --- RING1
+```
+
+---
+
+## Ring 1: Catalog (Airtable → Roadrunner)
+
+Reference data that changes slowly. AT-owned, pulled into Supabase via Sync Catalogs. The nouns everything else references.
 
 ```mermaid
 erDiagram
-    %% ============================================
-    %% SYNCED TABLES (exist in both systems)
-    %% ============================================
-
-    PARTNERS ["AT → RR"] {
+    PARTNERS {
         uuid id PK
         text name
         text segment
-        uuid airtable_record_id UK
+        text airtable_record_id UK
     }
-
-    ENGAGEMENTS ["RR → AT"] {
-        uuid id PK
-        text name
-        text status
-        uuid partner_id FK
-        text pillar
-        text topic
-        text goal
-        text current_state
-        uuid airtable_record_id UK
-    }
-
-    MEETINGS ["RR → AT"] {
-        uuid id PK
-        text title
-        uuid engagement_id FK
-        uuid partner_id FK
-        text status
-        text meeting_type
-        date meeting_date
-        text ics_uid UK
-        uuid airtable_record_id UK
-    }
-
-    PROGRAMS ["AT → RR"] {
+    PROGRAMS {
         uuid id PK
         text name
         text type
         text lifecycle_type
-        uuid airtable_record_id UK
+        text airtable_record_id UK
     }
-
-    EVENTS ["AT → RR"] {
+    EVENTS {
         uuid id PK
         text name
         text type
         date start_date
         text geo
-        uuid airtable_record_id UK
+        text airtable_record_id UK
     }
-
-    RELATIONSHIPS ["AT → RR"] {
+    RELATIONSHIPS {
         uuid id PK
         text name
         text relationship_type
-        jsonb contacts
-        uuid airtable_record_id UK
+        text org_type
+        text airtable_record_id UK
     }
-
-    %% ============================================
-    %% ROADRUNNER-ONLY TABLES
-    %% ============================================
-
-    MESSAGES ["RR-only"] {
-        uuid id PK
-        uuid engagement_id FK
-        text subject
-        text content_type
-        jsonb classification_result
-    }
-
-    PARTICIPANTS ["RR-only"] {
-        uuid id PK
-        text email UK
-        text name
-        text organization
-    }
-
-    ENTITY_LINKS ["RR-only"] {
-        uuid id PK
-        text source_type
-        uuid source_id
-        text target_type
-        uuid target_id
-        text created_by
-    }
-
-    PARTICIPANT_LINKS ["RR-only"] {
-        uuid id PK
-        uuid participant_id FK
-        text entity_type
-        uuid entity_id
-        text role
-    }
-
-    ENGAGEMENT_AWS_REL ["RR-only junction"] {
-        uuid engagement_id PK_FK
-        uuid aws_relationship_id PK_FK
-    }
-
-    APPROVAL_QUEUE ["RR-only"] {
-        uuid id PK
-        uuid message_id FK
-        uuid engagement_id FK
-        boolean resolved
-    }
-
-    NOTES ["RR-only"] {
-        uuid id PK
-        uuid engagement_id FK
-        text content
-    }
-
-    MEETING_NOTES ["RR-only"] {
-        uuid id PK
-        uuid partner_id FK
-        uuid meeting_id FK
-        uuid engagement_id FK
-        text note_type
-        text status
-    }
-
-    NOTE_TASKS ["RR-only"] {
-        uuid id PK
-        uuid meeting_note_id FK
-        uuid partner_id FK
-        text owner
-        text status
-        text origin
-    }
-
-    %% ============================================
-    %% AIRTABLE-ONLY TABLES (future Roadrunner)
-    %% ============================================
-
-    PARTNER_PROGRAMS ["AT-only junction"] {
-        text program_id
-        text partner
-        text status
-        date date_achieved
-    }
-
-    PARTNER_EVENTS ["AT-only junction"] {
-        text partner
-        text status
-        text contacts_attending
-    }
-
-    PARTNER_PLANS_2026 ["AT-only"] {
-        text plan_name
-        text plan_status
-        number tcv_goal
-        number larr_goal
-    }
-
-    MPOPP_FUNDING ["AT-only"] {
-        text partner FK
-        text track
-        currency allocated
-        currency spent
-    }
-
-    MDF_FUNDING ["AT-only"] {
-        text partners FK
-        number allocated
-        number utilized
-        text source
-    }
-
-    %% ============================================
-    %% RELATIONSHIPS
-    %% ============================================
-
-    %% Core hub-and-spoke (Engagement is the hub)
-    PARTNERS ||--o{ ENGAGEMENTS : "has many"
-    ENGAGEMENTS ||--o{ MEETINGS : "has many"
-    ENGAGEMENTS ||--o{ MESSAGES : "has many"
-    ENGAGEMENTS ||--o{ NOTES : "has many"
-
-    %% Meetings also link to partner directly (inherited from engagement)
-    PARTNERS ||--o{ MEETINGS : "has many (inherited)"
-
-    %% Entity linking (engagement ↔ program, event, aws_relationship)
-    ENGAGEMENTS ||--o{ ENTITY_LINKS : "source/target"
-    PROGRAMS ||--o{ ENTITY_LINKS : "source/target"
-    EVENTS ||--o{ ENTITY_LINKS : "source/target"
-    ENGAGEMENTS ||--o{ ENGAGEMENT_REL : "junction"
-    RELATIONSHIPS ||--o{ ENGAGEMENT_REL : "junction"
-
-    %% Participant system
-    PARTICIPANTS ||--o{ PARTICIPANT_LINKS : "linked to entities"
-    ENGAGEMENTS ||--o{ PARTICIPANT_LINKS : "has participants"
-
-    %% Approval workflow
-    MESSAGES ||--o| APPROVAL_QUEUE : "may queue"
-    ENGAGEMENTS ||--o| APPROVAL_QUEUE : "suggested target"
-
-    %% Meeting notes system
-    PARTNERS ||--o{ MEETING_NOTES : "has notes"
-    MEETINGS ||--o{ MEETING_NOTES : "documented by"
-    ENGAGEMENTS ||--o{ MEETING_NOTES : "context (optional)"
-    MEETING_NOTES ||--o{ NOTE_TASKS : "generates tasks"
-    PARTNERS ||--o{ NOTE_TASKS : "has tasks"
-
-    %% Messages link to meetings (ICS source)
-    MESSAGES ||--o| MEETINGS : "ICS source"
-
-    %% Airtable-only relationships
-    PARTNERS ||--o{ PARTNER_PROGRAMS : "enrolled in"
-    PROGRAMS ||--o{ PARTNER_PROGRAMS : "has enrollments"
-    PARTNERS ||--o{ PARTNER_EVENTS : "invited to"
-    EVENTS ||--o{ PARTNER_EVENTS : "has invitations"
-    PARTNERS ||--o| PARTNER_PLANS_2026 : "has plan"
-    PARTNER_PLANS_2026 ||--o{ PARTNER_PROGRAMS : "targets"
-    PARTNER_PLANS_2026 ||--o{ PARTNER_EVENTS : "targets"
-    PARTNERS ||--o{ MPOPP_FUNDING : "receives"
-    PARTNERS ||--o{ MDF_FUNDING : "receives"
 ```
-
----
-
-## Layer 2: Field-Level Registry
-
-### How to read these tables
-
-| Column | Meaning |
-|--------|---------|
-| **Field** | Column name in Supabase / field name in Airtable |
-| **SB Type** | PostgreSQL data type in Supabase |
-| **AT Type** | Airtable field type |
-| **Owner** | Which system is source of truth for this field |
-| **Sync** | `← AT` = pulled from Airtable, `→ AT` = pushed to Airtable, `—` = not synced, `planned` = will sync later |
-| **UI** | Which Roadrunner page displays this field |
 
 ---
 
@@ -285,6 +134,8 @@ erDiagram
 | created_at | timestamptz | — | RR | — | — | — |
 | updated_at | timestamptz | — | RR | — | — | — |
 
+> **TRANSITIONAL**: `aws_team` and `partner_contacts` JSONB columns are being replaced by `partner_participants` join table (Decision #178). Will be dropped after contact registry UI rewire.
+
 **AT fields NOT in Supabase (planned for future sync):**
 
 | AT Field | AT Type | AT Field ID | Plan |
@@ -306,98 +157,6 @@ erDiagram
 | MDF Remaining | formula | fldp57wu1hlHVZtJL | sync later (read-only) |
 | Partner Plans 2026 | linkedRecord → Partner Plans | fldeeaBJPf3V3aJK3 | sync later (with table) |
 | Partner Engagements | linkedRecord → Engagements | fldQYMSnTe8Y5HmxL | computed (reverse link) |
-
----
-
-### ENGAGEMENTS (Synced — RR-owned activity, pushed to AT)
-
-**Airtable Table:** `tblTC491AUVcrKvq2` · **Sync constant:** `ENF`
-
-| Field | SB Type | AT Type | Owner | Sync | AT Field ID | UI |
-|-------|---------|---------|-------|------|-------------|-----|
-| id | uuid PK | — | RR | → AT (as Roadrunner ID) | fldJJ8ZlwhePawiEl | engagement detail |
-| name | text NOT NULL | singleLineText | RR | → AT | fldxq7bsx8PuRvodp | engagement list, detail, inbox |
-| status | text NOT NULL CHECK (planned, active, blocked, completed, archived) | singleSelect (5 options) | RR | → AT | fldUAOu4GG1Wme5OJ | engagement list, detail |
-| partner_id | uuid FK → partners | linkedRecord → Partners | RR | → AT (resolved to AT record) | fldkYNE9C0UcdnGCL | engagement list, detail |
-| pillar | text CHECK (Co-Sell, Co-Market, Co-Build) | singleSelect (3 options) | RR | → AT | fldvxfxhOPDGr5jBA | engagement list, detail |
-| topic | text | singleLineText | RR | → AT | fldDRMrtkVHOdDYVy | engagement detail |
-| goal | text | multilineText | RR | → AT | fld1yU46baF052MHd | engagement detail |
-| current_state | text | multilineText (merged into Notes) | RR | → AT | flduVQ9wp3XXVUiwo | engagement detail |
-| program_id | uuid FK → programs | linkedRecord → Programs | RR | → AT (resolved to AT record) | fldZ4IqdSvuEXgp83 | engagement detail |
-| closed_at | timestamptz | — | RR | — | — | — |
-| airtable_record_id | text UNIQUE | — | RR | — | — | — |
-| created_at | timestamptz | — | RR | — | — | — |
-| updated_at | timestamptz | — | RR | — | — | — |
-
-**AT fields computed from RR data (not stored in Supabase):**
-
-| AT Field | AT Type | AT Field ID | Source |
-|----------|---------|-------------|--------|
-| AWS Stakeholders | multilineText | fldLVPbg7iyz0Nli9 | computed from participant_links (role=aws) |
-| Partner Stakeholders | multilineText | fldj6vaWwDKJy6aci | computed from participant_links (role=partner) |
-| Third Parties | multilineText | flduajBotnT6x5ZXD | computed from participant_links (role=third_party) |
-| AWS Relationships | linkedRecord → AWS Relationships | fldhVQTAP2wucnzNC | pushed from engagement_relationships junction |
-| Event | linkedRecord → Events | fldscmkRoT65oa6Oy | pushed from entity_links (engagement→event) |
-| Meetings | linkedRecord → Meetings | fldqM0QO5VWjhmvw3 | computed (reverse link from Meetings.Engagement) |
-
----
-
-### MEETINGS (Synced — RR-owned activity, pushed to AT)
-
-**Airtable Table:** `tbl6LsEqSvEZgqBdW` · **Sync constant:** `MF`
-
-| Field | SB Type | AT Type | Owner | Sync | AT Field ID | UI |
-|-------|---------|---------|-------|------|-------------|-----|
-| id | uuid PK | — | RR | → AT (as Roadrunner ID) | fldLveS95zGGVU4j1 | meeting detail |
-| title | text NOT NULL | singleLineText | RR | → AT | fldcbatIDunJ00dLp | meeting list, detail, timeline |
-| engagement_id | uuid FK → engagements | linkedRecord → Engagements | RR | → AT | fld2TczwxJXZLUwpW | meeting detail |
-| partner_id | uuid FK → partners | — (lookup through engagement) | RR | — | — | meeting list, detail |
-| message_id | uuid FK → messages | — | RR | — | — | — |
-| status | text NOT NULL CHECK (scheduled, completed, cancelled, did_not_occur) | singleSelect (4 options) | RR | → AT | fldpXlLugkUgQsjcr | meeting list, detail |
-| meeting_type | text CHECK (9 options) | singleSelect (9 options) | ↔ | → AT | fldGWa1MFoqoc89qC | meeting detail |
-| meeting_date | date | date | RR | → AT | fldx9ZrIMundEMUko | meeting list, detail, timeline |
-| start_time | text | singleLineText | RR | → AT | fldifWilEYICfifXz | meeting detail |
-| end_time | text | singleLineText | RR | → AT | fldV78rQbzDhVK9NO | meeting detail |
-| location | text | singleLineText | RR | → AT | fldTyiMYT48aCHttx | meeting detail |
-| organizer_email | text | — | RR | — (internal) | — | — |
-| organizer_name | text | — | RR | — (internal) | — | — |
-| attendees | jsonb | — | RR | — (computed to stakeholder fields) | — | meeting detail |
-| ics_uid | text UNIQUE | singleLineText | RR | → AT | fldNb83l5XLtz8J9k | — |
-| sequence | integer | — | RR | — (internal) | — | — |
-| is_recurring | boolean | — | RR | — (internal) | — | — |
-| source | text CHECK (manual, ics_parsed) | singleSelect (2 options) | RR | → AT | fld2RW78vS1T91bab | — |
-| notes | text | multilineText | RR | → AT | fldzGUipu36EA9rax | meeting detail |
-| airtable_record_id | text UNIQUE | — | RR | — | — | — |
-| created_at | timestamptz | — | RR | — | — | — |
-| updated_at | timestamptz | — | RR | — | — | — |
-
-**AT fields computed from RR data:**
-
-| AT Field | AT Type | AT Field ID | Source |
-|----------|---------|-------------|--------|
-| AWS Stakeholders | multilineText | fldOVCmwhiisY8bDo | computed from attendees JSONB |
-| Partner Stakeholders | multilineText | fldJira79g9xWNTte | computed from attendees JSONB |
-| Third Parties | multilineText | fldhU8nE7uGE1agML | computed from attendees JSONB |
-| Event (from Engagement) | lookup | fldAP7a1eRiunKFta | AT lookup through Engagement link |
-| Program (from Engagement) | lookup | fldVsQxvytcpw0XmB | AT lookup through Engagement link |
-| AWS Relationships (from Engagement) | lookup | fldBFEFAWK2SXghpo | AT lookup through Engagement link |
-| Partner (from Engagement) | lookup | fldnhuK2el6fsBjVd | AT lookup through Engagement link |
-
-### Attendee Bucketing Logic (used for AT stakeholder fields)
-
-Both Engagements and Meetings push three computed text fields (AWS Stakeholders, Partner Stakeholders, Third Parties) to Airtable. The bucketing logic in `push.ts`:
-
-**Excluded addresses** (filtered before bucketing):
-- `*@relay.stevenromero.dev` — Roadrunner forwarding address
-- `*salesforce*` — Salesforce system emails
-- Any email matching `isUserEmail()` from `user-config.ts` (corpmail, PRVS, personal aliases)
-
-**Bucket rules** (applied to remaining attendees):
-- `@amazon.com` or org contains "AWS"/"Amazon" → **AWS Stakeholders**
-- Org matches the engagement/meeting partner name → **Partner Stakeholders**
-- Everyone else → **Third Parties**
-
-Output format: one `Name <email> (Title)` per line (universal contact format).
 
 ---
 
@@ -465,6 +224,8 @@ Output format: one `Name <email> (Title)` per line (universal contact format).
 
 **Airtable Table:** `tblqVBssFsUeAt9bj` · **Sync constant:** `RF`
 
+*Table renamed from `aws_relationships` in migration 058. Columns `aws_org` → `org`, `aws_service` → `service` (Decision #173).*
+
 | Field | SB Type | AT Type | Owner | Sync | AT Field ID | UI |
 |-------|---------|---------|-------|------|-------------|-----|
 | id | uuid PK | — | RR | — | — | relationship detail |
@@ -472,11 +233,14 @@ Output format: one `Name <email> (Title)` per line (universal contact format).
 | org | text | singleLineText | AT | ← AT | fldKSmvO7Lhr5v9Fy | relationship detail |
 | service | text | singleLineText | AT | ← AT | fldiieBBkkAFYDOJC | relationship detail |
 | relationship_type | text CHECK (4 options) | singleSelect (4 options) | AT | ← AT | fld2cjVCECNIPGw2d | relationship detail |
+| org_type | text CHECK (internal, third_party) | — | RR | — | — | — |
 | contacts | jsonb (RoleContact[]) | singleLineText + multilineText (Lead Contact, Team Contacts) | AT | ← AT | fldKELDdEYb8MsJCP, fld472yolP2ujyJ5w | relationship detail |
 | notes | text | multilineText | AT | ← AT | fldOcbNUrtfxjqiW5 | — |
 | airtable_record_id | text UNIQUE | — | RR | — | — | — |
 | created_at | timestamptz | — | RR | — | — | — |
 | updated_at | timestamptz | — | RR | — | — | — |
+
+> **TRANSITIONAL**: `contacts` JSONB column is being replaced by `relationship_participants` join table (Decision #178). Will be dropped after contact registry UI rewire.
 
 **AT fields NOT in Supabase:**
 
@@ -484,6 +248,229 @@ Output format: one `Name <email> (Title)` per line (universal contact format).
 |----------|---------|-------------|------|
 | Partner Engagements | linkedRecord → Engagements | fldPU8tywD13QLWtV | computed (reverse link) — no action needed |
 | Roadrunner ID | singleLineText | fldfZksUDfLbvVQMT | exists but not currently pushed |
+
+---
+
+## Ring 2: Activity (Roadrunner-owned)
+
+The PDM's daily work. Fast-changing, RR-owned, pushed to Airtable. Engagement is the hub that organizes work streams; meetings are temporal events; notes and tasks are the outputs.
+
+```mermaid
+erDiagram
+    PARTNERS ||--o{ ENGAGEMENTS : "has many"
+    PARTNERS ||--o{ MEETINGS : "has many (CASCADE)"
+    PARTNERS ||--o{ MEETING_NOTES : "has many (CASCADE)"
+    PARTNERS ||--o{ TASKS : "has many (CASCADE)"
+    PARTNERS ||--o{ PARTNER_CONTEXT : "has many (CASCADE)"
+    ENGAGEMENTS ||--o{ MEETINGS : "has many"
+    ENGAGEMENTS ||--o{ MESSAGES : "has many"
+    ENGAGEMENTS ||--o{ MEETING_NOTES : "optional context (SET NULL)"
+    MEETINGS ||--o| MEETING_NOTES : "1-to-1 (CASCADE)"
+    MEETING_NOTES ||--o{ TASKS : "extracts (SET NULL)"
+    MESSAGES ||--o| APPROVAL_QUEUE : "may queue"
+    MESSAGES ||--o| MEETINGS : "ICS source"
+
+    PARTNERS {
+        uuid id PK
+        text name
+        text segment
+    }
+    ENGAGEMENTS {
+        uuid id PK
+        text name
+        text status
+        uuid partner_id FK
+        text pillar
+        text topic
+        text goal
+        text current_state
+    }
+    MEETINGS {
+        uuid id PK
+        text title
+        uuid engagement_id FK
+        uuid partner_id FK
+        text status
+        text meeting_type
+        date meeting_date
+    }
+    MEETING_NOTES {
+        uuid id PK
+        uuid partner_id FK
+        uuid meeting_id FK
+        uuid engagement_id FK
+        text note_type
+        text status
+    }
+    TASKS {
+        uuid id PK
+        uuid partner_id FK
+        uuid meeting_note_id FK
+        text description
+        text owner
+        uuid owner_participant_id FK
+        text origin
+        text status
+    }
+    MESSAGES {
+        uuid id PK
+        uuid engagement_id FK
+        text subject
+        text content_type
+    }
+    APPROVAL_QUEUE {
+        uuid id PK
+        uuid message_id FK
+        uuid engagement_id FK
+        boolean resolved
+    }
+    PARTNER_CONTEXT {
+        uuid id PK
+        uuid partner_id FK
+        text content
+        text source
+    }
+```
+
+---
+
+### ENGAGEMENTS (Synced — RR-owned activity, pushed to AT)
+
+**Airtable Table:** `tblTC491AUVcrKvq2` · **Sync constant:** `ENF`
+
+| Field | SB Type | AT Type | Owner | Sync | AT Field ID | UI |
+|-------|---------|---------|-------|------|-------------|-----|
+| id | uuid PK | — | RR | → AT (as Roadrunner ID) | fldJJ8ZlwhePawiEl | engagement detail |
+| name | text NOT NULL | singleLineText | RR | → AT | fldxq7bsx8PuRvodp | engagement list, detail, inbox |
+| status | text NOT NULL CHECK (planned, active, blocked, completed, archived) | singleSelect (5 options) | RR | → AT | fldUAOu4GG1Wme5OJ | engagement list, detail |
+| partner_id | uuid FK → partners | linkedRecord → Partners | RR | → AT (resolved to AT record) | fldkYNE9C0UcdnGCL | engagement list, detail |
+| pillar | text CHECK (Co-Sell, Co-Market, Co-Build) | singleSelect (3 options) | RR | → AT | fldvxfxhOPDGr5jBA | engagement list, detail |
+| topic | text | singleLineText | RR | → AT | fldDRMrtkVHOdDYVy | engagement detail |
+| goal | text | multilineText | RR | → AT | fld1yU46baF052MHd | engagement detail |
+| current_state | text | multilineText (merged into Notes) | RR | → AT | flduVQ9wp3XXVUiwo | engagement detail |
+| program_id | uuid FK → programs | linkedRecord → Programs | RR | → AT (resolved to AT record) | fldZ4IqdSvuEXgp83 | engagement detail |
+| closed_at | timestamptz | — | RR | — | — | — |
+| airtable_record_id | text UNIQUE | — | RR | — | — | — |
+| created_at | timestamptz | — | RR | — | — | — |
+| updated_at | timestamptz | — | RR | — | — | — |
+
+**AT fields computed from RR data (not stored in Supabase):**
+
+| AT Field | AT Type | AT Field ID | Source |
+|----------|---------|-------------|--------|
+| AWS Stakeholders | multilineText | fldLVPbg7iyz0Nli9 | computed from participant_links (role=aws) |
+| Partner Stakeholders | multilineText | fldj6vaWwDKJy6aci | computed from participant_links (role=partner) |
+| Third Parties | multilineText | flduajBotnT6x5ZXD | computed from participant_links (role=third_party) |
+| AWS Relationships | linkedRecord → Relationships | fldhVQTAP2wucnzNC | pushed from engagement_relationships junction |
+| Event | linkedRecord → Events | fldscmkRoT65oa6Oy | pushed from entity_links (engagement→event) |
+| Meetings | linkedRecord → Meetings | fldqM0QO5VWjhmvw3 | computed (reverse link from Meetings.Engagement) |
+
+---
+
+### MEETINGS (Synced — RR-owned activity, pushed to AT)
+
+**Airtable Table:** `tbl6LsEqSvEZgqBdW` · **Sync constant:** `MF`
+
+*`partner_id` FK behavior changed to CASCADE in migration 060.*
+
+| Field | SB Type | AT Type | Owner | Sync | AT Field ID | UI |
+|-------|---------|---------|-------|------|-------------|-----|
+| id | uuid PK | — | RR | → AT (as Roadrunner ID) | fldLveS95zGGVU4j1 | meeting detail |
+| title | text NOT NULL | singleLineText | RR | → AT | fldcbatIDunJ00dLp | meeting list, detail, timeline |
+| engagement_id | uuid FK → engagements (SET NULL) | linkedRecord → Engagements | RR | → AT | fld2TczwxJXZLUwpW | meeting detail |
+| partner_id | uuid FK → partners (CASCADE) | — (lookup through engagement) | RR | — | — | meeting list, detail |
+| message_id | uuid FK → messages (SET NULL) | — | RR | — | — | — |
+| status | text NOT NULL CHECK (scheduled, completed, cancelled, did_not_occur) | singleSelect (4 options) | RR | → AT | fldpXlLugkUgQsjcr | meeting list, detail |
+| meeting_type | text CHECK (9 options) | singleSelect (9 options) | ↔ | → AT | fldGWa1MFoqoc89qC | meeting detail |
+| meeting_date | date | date | RR | → AT | fldx9ZrIMundEMUko | meeting list, detail, timeline |
+| start_time | text | singleLineText | RR | → AT | fldifWilEYICfifXz | meeting detail |
+| end_time | text | singleLineText | RR | → AT | fldV78rQbzDhVK9NO | meeting detail |
+| location | text | singleLineText | RR | → AT | fldTyiMYT48aCHttx | meeting detail |
+| organizer_email | text | — | RR | — (internal) | — | — |
+| organizer_name | text | — | RR | — (internal) | — | — |
+| attendees | jsonb | — | RR | — (computed to stakeholder fields) | — | meeting detail |
+| ics_uid | text UNIQUE | singleLineText | RR | → AT | fldNb83l5XLtz8J9k | — |
+| sequence | integer | — | RR | — (internal) | — | — |
+| is_recurring | boolean | — | RR | — (internal) | — | — |
+| source | text CHECK (manual, ics_parsed) | singleSelect (2 options) | RR | → AT | fld2RW78vS1T91bab | — |
+| notes | text | multilineText | RR | → AT | fldzGUipu36EA9rax | meeting detail |
+| airtable_record_id | text UNIQUE | — | RR | — | — | — |
+| created_at | timestamptz | — | RR | — | — | — |
+| updated_at | timestamptz | — | RR | — | — | — |
+
+**AT fields computed from RR data:**
+
+| AT Field | AT Type | AT Field ID | Source |
+|----------|---------|-------------|--------|
+| AWS Stakeholders | multilineText | fldOVCmwhiisY8bDo | computed from attendees JSONB |
+| Partner Stakeholders | multilineText | fldJira79g9xWNTte | computed from attendees JSONB |
+| Third Parties | multilineText | fldhU8nE7uGE1agML | computed from attendees JSONB |
+| Event (from Engagement) | lookup | fldAP7a1eRiunKFta | AT lookup through Engagement link |
+| Program (from Engagement) | lookup | fldVsQxvytcpw0XmB | AT lookup through Engagement link |
+| AWS Relationships (from Engagement) | lookup | fldBFEFAWK2SXghpo | AT lookup through Engagement link |
+| Partner (from Engagement) | lookup | fldnhuK2el6fsBjVd | AT lookup through Engagement link |
+
+### Attendee Bucketing Logic (used for AT stakeholder fields)
+
+Both Engagements and Meetings push three computed text fields (AWS Stakeholders, Partner Stakeholders, Third Parties) to Airtable. The bucketing logic in `push.ts`:
+
+**Excluded addresses** (filtered before bucketing):
+- `*@relay.stevenromero.dev` — Roadrunner forwarding address
+- `*salesforce*` — Salesforce system emails
+- Any email matching `isUserEmail()` from `user-config.ts` (corpmail, PRVS, personal aliases)
+
+**Bucket rules** (applied to remaining attendees):
+- `@amazon.com` or org contains "AWS"/"Amazon" → **AWS Stakeholders**
+- Org matches the engagement/meeting partner name → **Partner Stakeholders**
+- Everyone else → **Third Parties**
+
+Output format: one `Name <email> (Title)` per line (universal contact format).
+
+---
+
+### MEETING_NOTES (Roadrunner-only)
+
+*FK cascade behaviors corrected in migration 060: `meeting_id` CASCADE, `partner_id` CASCADE, `engagement_id` SET NULL. `meeting_id` is now actively populated (Decision #148).*
+
+| Field | SB Type | Owner | UI |
+|-------|---------|-------|-----|
+| id | uuid PK | RR | meeting detail (inline NoteWorkspace) |
+| partner_id | uuid NOT NULL FK → partners (CASCADE) | RR | notes list, detail |
+| meeting_id | uuid FK → meetings (CASCADE) | RR | notes detail |
+| engagement_id | uuid FK → engagements (SET NULL) | RR | notes detail |
+| note_type | text NOT NULL CHECK (meeting, seed) | RR | notes list |
+| title | text | RR | notes list, detail |
+| meeting_date | date | RR | notes list, detail |
+| date_range_start | date | RR | notes detail (seed type) |
+| date_range_end | date | RR | notes detail (seed type) |
+| raw_notes | text NOT NULL | RR | notes detail (collapsible) |
+| ai_summary | text | RR | notes detail |
+| ai_tasks | jsonb | RR | — (superseded by tasks table) |
+| context_snapshot | jsonb | RR | — (audit trail) |
+| status | text NOT NULL CHECK (draft, complete) | RR | notes list, detail |
+| created_at | timestamptz | RR | — |
+| updated_at | timestamptz | RR | — |
+
+---
+
+### TASKS (Roadrunner-only)
+
+*Renamed from `note_tasks` in migration 059. Promoted to partner-level entity. `owner_participant_id` FK added in migration 059. (Decisions #170-172, #174-175)*
+
+| Field | SB Type | Owner | UI |
+|-------|---------|-------|-----|
+| id | uuid PK | RR | notes detail, partner detail, /tasks |
+| meeting_note_id | uuid FK → meeting_notes (SET NULL) | RR | notes detail |
+| partner_id | uuid NOT NULL FK → partners (CASCADE) | RR | partner detail, /tasks |
+| description | text NOT NULL | RR | notes detail |
+| owner | text NOT NULL CHECK (me, internal, partner, third_party) | RR | notes detail |
+| owner_name | text | RR | notes detail |
+| owner_participant_id | uuid FK → participants (SET NULL) | RR | — |
+| status | text NOT NULL CHECK (open, done, cancelled) | RR | notes detail |
+| due_date | date | RR | notes detail |
+| origin | text NOT NULL CHECK (ai_extracted, manual) | RR | notes detail |
+| created_at | timestamptz | RR | — |
+| updated_at | timestamptz | RR | — |
 
 ---
 
@@ -513,7 +500,113 @@ Output format: one `Name <email> (Title)` per line (universal contact format).
 
 ---
 
-### PARTICIPANTS (Roadrunner-only)
+### APPROVAL_QUEUE (Roadrunner-only)
+
+| Field | SB Type | Owner | UI |
+|-------|---------|-------|-----|
+| id | uuid PK | RR | inbox |
+| type | text NOT NULL CHECK (engagement_assignment) | RR | inbox |
+| message_id | uuid FK → messages (SET NULL) | RR | inbox |
+| engagement_id | uuid FK → engagements (SET NULL) | RR | inbox |
+| classification_result | jsonb | RR | inbox |
+| resolved | boolean NOT NULL DEFAULT false | RR | inbox |
+| resolved_at | timestamptz | RR | — |
+| resolution | text | RR | — |
+| created_at | timestamptz | RR | — |
+
+Partial index: `idx_approval_queue_unresolved WHERE resolved = false`
+
+---
+
+### PARTNER_CONTEXT (Roadrunner-only)
+
+*New table added in migration 056. Scratchpad entries are wired into AI context pipeline as "PARTNER CONTEXT (PDM NOTES)" section. (Decisions #163-165)*
+
+| Field | SB Type | Owner | UI |
+|-------|---------|-------|-----|
+| id | uuid PK | RR | partner detail (PartnerScratchpad) |
+| partner_id | uuid NOT NULL FK → partners (CASCADE) | RR | partner detail |
+| content | text NOT NULL | RR | partner detail |
+| source | text NOT NULL CHECK (scratchpad, ai_synthesis, seed_dump) | RR | — |
+| created_at | timestamptz | RR | — |
+| updated_at | timestamptz | RR | — |
+
+Indexes: `idx_partner_context_partner` (partner_id), `idx_partner_context_source` (partner_id, source)
+
+---
+
+## People & Connections (Cross-Cutting)
+
+The participant registry is the single source of truth for every person in the system. 4 dedicated join tables connect people to entities with FK CASCADE enforcement. Entity links and engagement relationships connect Activity to Catalog at the engagement level.
+
+```mermaid
+erDiagram
+    PARTICIPANTS ||--o{ PARTNER_PARTICIPANTS : "linked"
+    PARTICIPANTS ||--o{ MEETING_PARTICIPANTS : "attended"
+    PARTICIPANTS ||--o{ ENGAGEMENT_PARTICIPANTS : "involved"
+    PARTICIPANTS ||--o{ RELATIONSHIP_PARTICIPANTS : "member"
+    PARTNERS ||--o{ PARTNER_PARTICIPANTS : "team"
+    MEETINGS ||--o{ MEETING_PARTICIPANTS : "attendees"
+    ENGAGEMENTS ||--o{ ENGAGEMENT_PARTICIPANTS : "stakeholders"
+    RELATIONSHIPS ||--o{ RELATIONSHIP_PARTICIPANTS : "contacts"
+    ENGAGEMENTS ||--o{ ENTITY_LINKS : "source"
+    PROGRAMS ||--o{ ENTITY_LINKS : "target"
+    EVENTS ||--o{ ENTITY_LINKS : "target"
+    ENGAGEMENTS ||--o{ ENGAGEMENT_RELATIONSHIPS : "junction"
+    RELATIONSHIPS ||--o{ ENGAGEMENT_RELATIONSHIPS : "junction"
+
+    PARTICIPANTS {
+        uuid id PK
+        text email UK
+        text name
+        text organization
+        text title
+        text org_type
+        text source
+    }
+    PARTNER_PARTICIPANTS {
+        uuid id PK
+        uuid partner_id FK
+        uuid participant_id FK
+        text role
+    }
+    MEETING_PARTICIPANTS {
+        uuid id PK
+        uuid meeting_id FK
+        uuid participant_id FK
+        text role
+    }
+    ENGAGEMENT_PARTICIPANTS {
+        uuid id PK
+        uuid engagement_id FK
+        uuid participant_id FK
+        text role
+    }
+    RELATIONSHIP_PARTICIPANTS {
+        uuid id PK
+        uuid relationship_id FK
+        uuid participant_id FK
+        text role
+    }
+    ENTITY_LINKS {
+        uuid id PK
+        text source_type
+        uuid source_id
+        text target_type
+        uuid target_id
+        text created_by
+    }
+    ENGAGEMENT_RELATIONSHIPS {
+        uuid engagement_id PK
+        uuid relationship_id PK
+    }
+```
+
+---
+
+### PARTICIPANTS (Roadrunner-only — canonical person registry)
+
+*`org_type`, `source`, and `updated_at` added in migration 057 (Decision #176).*
 
 | Field | SB Type | Owner | UI |
 |-------|---------|-------|-----|
@@ -522,8 +615,75 @@ Output format: one `Name <email> (Title)` per line (universal contact format).
 | name | text | RR | — |
 | organization | text | RR | — |
 | title | text | RR | — |
+| org_type | text CHECK (internal, partner, third_party) | RR | — |
+| source | text CHECK (airtable_sync, ics_parsed, classifier, manual) | RR | — |
 | notes | text | RR | — |
 | created_at | timestamptz | RR | — |
+| updated_at | timestamptz | RR | — |
+
+---
+
+### PARTNER_PARTICIPANTS (Roadrunner-only — contact registry join)
+
+*New table added in migration 057 (Decision #176).*
+
+| Field | SB Type | Owner | Notes |
+|-------|---------|-------|-------|
+| id | uuid PK | RR | — |
+| partner_id | uuid NOT NULL FK → partners (CASCADE) | RR | — |
+| participant_id | uuid NOT NULL FK → participants (CASCADE) | RR | — |
+| role | text | RR | Alliance Lead, PSA, AM, PMM, Contact, etc. |
+| created_at | timestamptz | RR | — |
+
+UNIQUE constraint: `(partner_id, participant_id, role)`
+
+---
+
+### MEETING_PARTICIPANTS (Roadrunner-only — contact registry join)
+
+*New table added in migration 057 (Decision #176).*
+
+| Field | SB Type | Owner | Notes |
+|-------|---------|-------|-------|
+| id | uuid PK | RR | — |
+| meeting_id | uuid NOT NULL FK → meetings (CASCADE) | RR | — |
+| participant_id | uuid NOT NULL FK → participants (CASCADE) | RR | — |
+| role | text | RR | — |
+| created_at | timestamptz | RR | — |
+
+UNIQUE constraint: `(meeting_id, participant_id)`
+
+---
+
+### ENGAGEMENT_PARTICIPANTS (Roadrunner-only — contact registry join)
+
+*New table added in migration 057 (Decision #176).*
+
+| Field | SB Type | Owner | Notes |
+|-------|---------|-------|-------|
+| id | uuid PK | RR | — |
+| engagement_id | uuid NOT NULL FK → engagements (CASCADE) | RR | — |
+| participant_id | uuid NOT NULL FK → participants (CASCADE) | RR | — |
+| role | text | RR | — |
+| created_at | timestamptz | RR | — |
+
+UNIQUE constraint: `(engagement_id, participant_id)`
+
+---
+
+### RELATIONSHIP_PARTICIPANTS (Roadrunner-only — contact registry join)
+
+*New table added in migration 057 (Decision #176).*
+
+| Field | SB Type | Owner | Notes |
+|-------|---------|-------|-------|
+| id | uuid PK | RR | — |
+| relationship_id | uuid NOT NULL FK → relationships (CASCADE) | RR | — |
+| participant_id | uuid NOT NULL FK → participants (CASCADE) | RR | — |
+| role | text | RR | Lead Contact, Team Contact |
+| created_at | timestamptz | RR | — |
+
+UNIQUE constraint: `(relationship_id, participant_id)`
 
 ---
 
@@ -543,22 +703,9 @@ Output format: one `Name <email> (Title)` per line (universal contact format).
 
 ---
 
-### PARTICIPANT_LINKS (Roadrunner-only — participant ↔ entity junction)
-
-| Field | SB Type | Owner | Notes |
-|-------|---------|-------|-------|
-| id | uuid PK | RR | — |
-| participant_id | uuid NOT NULL FK → participants | RR | — |
-| entity_type | text NOT NULL CHECK (engagement, event) | RR | — |
-| entity_id | uuid NOT NULL | RR | no FK constraint (polymorphic) |
-| role | text | RR | e.g., "aws", "partner", "third_party" |
-| created_at | timestamptz | RR | — |
-
-UNIQUE index on (participant_id, entity_type, entity_id)
-
----
-
 ### ENGAGEMENT_RELATIONSHIPS (Roadrunner-only — junction)
+
+*Renamed from `engagement_aws_relationships` in migration 058. Column `aws_relationship_id` → `relationship_id` (Decision #173).*
 
 | Field | SB Type | Owner | Notes |
 |-------|---------|-------|-------|
@@ -567,74 +714,50 @@ UNIQUE index on (participant_id, entity_type, entity_id)
 
 ---
 
-### APPROVAL_QUEUE (Roadrunner-only)
+## Ring 3: Posture (Airtable-Only — Future Sync)
 
-| Field | SB Type | Owner | UI |
-|-------|---------|-------|-----|
-| id | uuid PK | RR | inbox |
-| type | text NOT NULL CHECK (engagement_assignment) | RR | inbox |
-| message_id | uuid FK → messages (SET NULL) | RR | inbox |
-| engagement_id | uuid FK → engagements (SET NULL) | RR | inbox |
-| classification_result | jsonb | RR | inbox |
-| resolved | boolean NOT NULL DEFAULT false | RR | inbox |
-| resolved_at | timestamptz | RR | — |
-| resolution | text | RR | — |
-| created_at | timestamptz | RR | — |
+Where each partner stands — program achievements, event participation, revenue goals, and funding. AT-only today. These connect partners to catalog entities (Programs, Events) with per-partner status, unlike entity_links which connect engagements to catalog entities. When pulled into Roadrunner, these become the foundation for the slot registry and strategic AI context.
 
-Partial index: idx_approval_queue_unresolved WHERE resolved = false
+```mermaid
+erDiagram
+    PARTNERS ||--o{ PARTNER_PROGRAMS : "enrolled in"
+    PROGRAMS ||--o{ PARTNER_PROGRAMS : "has enrollments"
+    PARTNERS ||--o{ PARTNER_EVENTS : "attending"
+    EVENTS ||--o{ PARTNER_EVENTS : "has registrations"
+    PARTNERS ||--o| PARTNER_PLANS : "has plan"
+    PARTNERS ||--o{ MPOPP_FUNDING : "receives"
+    PARTNERS ||--o{ MDF_FUNDING : "receives"
 
----
-
-### NOTES (Roadrunner-only — simple engagement notes)
-
-| Field | SB Type | Owner | UI |
-|-------|---------|-------|-----|
-| id | uuid PK | RR | engagement detail |
-| engagement_id | uuid NOT NULL FK → engagements (CASCADE) | RR | engagement detail |
-| content | text NOT NULL | RR | engagement detail |
-| created_at | timestamptz | RR | — |
-
----
-
-### MEETING_NOTES (Roadrunner-only)
-
-| Field | SB Type | Owner | UI |
-|-------|---------|-------|-----|
-| id | uuid PK | RR | notes list, detail |
-| partner_id | uuid NOT NULL FK → partners | RR | notes list, detail |
-| meeting_id | uuid FK → meetings | RR | notes detail |
-| engagement_id | uuid FK → engagements | RR | notes detail (planned linking) |
-| note_type | text NOT NULL CHECK (meeting, seed) | RR | notes list |
-| title | text | RR | notes list, detail |
-| meeting_date | date | RR | notes list, detail |
-| date_range_start | date | RR | notes detail (seed type) |
-| date_range_end | date | RR | notes detail (seed type) |
-| raw_notes | text NOT NULL | RR | notes detail (collapsible) |
-| ai_summary | text | RR | notes detail |
-| ai_tasks | jsonb | RR | — (superseded by tasks table) |
-| context_snapshot | jsonb | RR | — (audit trail) |
-| status | text NOT NULL CHECK (draft, complete) | RR | notes list, detail |
-| created_at | timestamptz | RR | — |
-| updated_at | timestamptz | RR | — |
-
----
-
-### TASKS (Roadrunner-only)
-
-| Field | SB Type | Owner | UI |
-|-------|---------|-------|-----|
-| id | uuid PK | RR | notes detail, partner detail, /tasks |
-| meeting_note_id | uuid FK → meeting_notes (SET NULL) | RR | notes detail |
-| partner_id | uuid NOT NULL FK → partners (CASCADE) | RR | partner detail, /tasks |
-| description | text NOT NULL | RR | notes detail |
-| owner | text NOT NULL CHECK (me, internal, partner, third_party) | RR | notes detail |
-| owner_name | text | RR | notes detail |
-| owner_participant_id | uuid FK → participants | RR | — |
-| status | text NOT NULL CHECK (open, done, cancelled) | RR | notes detail |
-| due_date | date | RR | notes detail |
-| origin | text NOT NULL CHECK (ai_extracted, manual) | RR | notes detail |
-| created_at | timestamptz | RR | — |
-| updated_at | timestamptz | RR | — |
+    PARTNER_PROGRAMS {
+        text program_id
+        text partner
+        text status
+        date date_achieved
+    }
+    PARTNER_EVENTS {
+        text partner
+        text status
+        text contacts_attending
+    }
+    PARTNER_PLANS {
+        text plan_name
+        text plan_status
+        number tcv_goal
+        number larr_goal
+    }
+    MPOPP_FUNDING {
+        text partner FK
+        text track
+        currency allocated
+        currency spent
+    }
+    MDF_FUNDING {
+        text partners FK
+        number allocated
+        number utilized
+        text source
+    }
+```
 
 ---
 
@@ -733,19 +856,75 @@ Partial index: idx_approval_queue_unresolved WHERE resolved = false
 
 ---
 
-## Planned Connections (Not Yet Built)
+## Legacy (Pending Removal)
 
-| Connection | From | To | Mechanism | Priority |
-|-----------|------|-----|-----------|----------|
-| ~~Tasks on partner detail~~ | tasks | partners detail page | Query by partner_id | **Done** |
-| ~~Open tasks in writing sidebar~~ | tasks | notes/new workspace | Query by partner_id, status=open | **Done** |
-| ~~Cross-partner task dashboard~~ | tasks | /tasks page | New page, query all tasks | **Done** |
-| Note → Engagement linking | meeting_notes | engagements | engagement_id FK (exists, not populated) | Soon |
-| Task → Engagement linking | tasks | engagements | Add engagement_id FK to tasks | Soon |
-| Contact registry UI rewire | participants + join tables | all pages | Replace JSONB reads with join table reads | Soon |
-| Partner Programs sync | AT Partner Programs | New RR table | Pull sync (slot registry foundation) | Later |
-| Partner Events sync | AT Partner Events | New RR table | Pull sync | Later |
-| Partner Plans sync | AT Partner Plans 2026 | New RR table | Pull sync (strategic context for AI) | Later |
-| Financial fields sync | AT Partners financials | RR partners table | Pull sync (add ~15 columns) | Later |
-| Funding tables sync | AT MPOPP + MDF | New RR tables | Pull sync | Later |
-| Meeting → Note auto-linking | meetings | meeting_notes | meeting_id FK (exists, not populated by default) | Later |
+### PARTICIPANT_LINKS (LEGACY — polymorphic junction)
+
+Polymorphic junction table: `participant_id`, `entity_type` (engagement, event), `entity_id`, `role`. Replaced by 4 dedicated join tables (Decision #169) but still referenced in 8 source files. Will be removed after contact registry UI rewire. 0 new rows being created.
+
+| Field | SB Type | Owner | Notes |
+|-------|---------|-------|-------|
+| id | uuid PK | RR | — |
+| participant_id | uuid NOT NULL FK → participants | RR | — |
+| entity_type | text NOT NULL CHECK (engagement, event) | RR | — |
+| entity_id | uuid NOT NULL | RR | no FK constraint (polymorphic) |
+| role | text | RR | e.g., "aws", "partner", "third_party" |
+| created_at | timestamptz | RR | — |
+
+UNIQUE index on `(participant_id, entity_type, entity_id)`
+
+> **Note:** The `notes` table was dropped in migration 061 (Decision #179). All note functionality flows through `meeting_notes`.
+
+---
+
+## CASCADE Behavior
+
+| Source Table | FK Column | Target Table | On Delete | Rationale |
+|---|---|---|---|---|
+| engagements | partner_id | partners | SET NULL | Engagement survives partner cleanup |
+| engagements | program_id | programs | SET NULL | Engagement survives program cleanup |
+| meetings | partner_id | partners | CASCADE | Partner is gravity |
+| meetings | engagement_id | engagements | SET NULL | Meeting survives engagement close |
+| meetings | message_id | messages | SET NULL | Meeting survives message cleanup |
+| meeting_notes | meeting_id | meetings | CASCADE | Notes die with meeting |
+| meeting_notes | partner_id | partners | CASCADE | Partner is gravity |
+| meeting_notes | engagement_id | engagements | SET NULL | Notes survive engagement close |
+| tasks | partner_id | partners | CASCADE | Partner is gravity |
+| tasks | meeting_note_id | meeting_notes | SET NULL | Tasks survive note deletion |
+| tasks | owner_participant_id | participants | SET NULL | Tasks survive contact cleanup |
+| messages | engagement_id | engagements | SET NULL | Messages survive engagement close |
+| partner_context | partner_id | partners | CASCADE | Context dies with partner |
+| approval_queue | message_id | messages | SET NULL | Queue survives message cleanup |
+| approval_queue | engagement_id | engagements | SET NULL | Queue survives engagement close |
+| partner_participants | partner_id | partners | CASCADE | Both sides cascade |
+| partner_participants | participant_id | participants | CASCADE | Both sides cascade |
+| meeting_participants | meeting_id | meetings | CASCADE | Both sides cascade |
+| meeting_participants | participant_id | participants | CASCADE | Both sides cascade |
+| engagement_participants | engagement_id | engagements | CASCADE | Both sides cascade |
+| engagement_participants | participant_id | participants | CASCADE | Both sides cascade |
+| relationship_participants | relationship_id | relationships | CASCADE | Both sides cascade |
+| relationship_participants | participant_id | participants | CASCADE | Both sides cascade |
+| engagement_relationships | engagement_id | engagements | CASCADE | Both sides cascade |
+| engagement_relationships | relationship_id | relationships | CASCADE | Both sides cascade |
+| entity_links | (polymorphic) | (no FK) | N/A | App-level cleanup required |
+
+---
+
+## What's Next
+
+| Connection | Status | Priority |
+|---|---|---|
+| Contact registry UI rewire (JSONB → join tables) | Open — 8 files to rewire | Next |
+| participant_links drop | Blocked by UI rewire | Next |
+| JSONB column drops (aws_team, partner_contacts, contacts) | Blocked by UI rewire | Next |
+| Manual meeting quick-capture | Open | Next |
+| Brain synthesis (AI Call 3) | partner_context table ready | Soon |
+| Seed notes → scratchpad migration | Open | Soon |
+| Classifier partner-level routing | Open | Soon |
+| Ring 3 pull sync (Partner Programs, Events, Plans, Funding) | Not started | Later |
+| Slot registry v1 | Not started | Later |
+| Financial fields on partners table | Not started | Later |
+| ~~Tasks on partner detail~~ | ~~Query by partner_id~~ | **Done** |
+| ~~Open tasks in writing sidebar~~ | ~~Query by partner_id, status=open~~ | **Done** |
+| ~~Cross-partner task dashboard~~ | ~~New /tasks page~~ | **Done** |
+| ~~Meeting → Note auto-linking~~ | ~~meeting_id FK populated (Decision #148)~~ | **Done** |
