@@ -71,11 +71,12 @@ export interface Program {
 
 export type RelationshipType = "Exec/Leader" | "Product Team" | "Program Team" | "Seller";
 
-export interface AwsRelationship {
+export interface Relationship {
   id: string;
   name: string;
-  aws_org: string | null;
-  aws_service: string | null;
+  org: string | null;
+  service: string | null;
+  org_type: "internal" | "third_party" | null;
   relationship_type: RelationshipType | null;
   contacts: RoleContact[];
   notes: string | null;

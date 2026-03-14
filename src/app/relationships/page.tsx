@@ -1,9 +1,9 @@
 export const dynamic = "force-dynamic";
 
-import { getAwsRelationshipsWithCounts } from "@/lib/db";
+import { getRelationshipsWithCounts } from "@/lib/db";
 import RelationshipsClient from "./RelationshipsClient";
 
 export default async function RelationshipsPage() {
-  const relationships = await getAwsRelationshipsWithCounts();
+  const relationships = await getRelationshipsWithCounts();
   return <RelationshipsClient relationships={relationships} />;
 }

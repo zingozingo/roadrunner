@@ -290,8 +290,8 @@ export async function pushEngagementToAirtable(
     fetchPartnerMaps(),
     fetchEngagementParticipants([engagementId]),
     supabase.from("programs").select("id, airtable_record_id").not("airtable_record_id", "is", null),
-    supabase.from("engagement_aws_relationships").select("engagement_id, aws_relationship_id").eq("engagement_id", engagementId),
-    supabase.from("aws_relationships").select("id, airtable_record_id").not("airtable_record_id", "is", null),
+    supabase.from("engagement_relationships").select("engagement_id, relationship_id").eq("engagement_id", engagementId),
+    supabase.from("relationships").select("id, airtable_record_id").not("airtable_record_id", "is", null),
     supabase.from("entity_links").select("source_type, source_id, target_type, target_id")
       .or(`and(source_type.eq.engagement,source_id.eq.${engagementId},target_type.eq.event),and(target_type.eq.engagement,target_id.eq.${engagementId},source_type.eq.event)`),
     supabase.from("events").select("id, airtable_record_id").not("airtable_record_id", "is", null),
@@ -308,8 +308,8 @@ export async function pushEngagementToAirtable(
   }
 
   const engagementRelAtIds = new Map<string, string[]>();
-  for (const j of (junctions ?? []) as { engagement_id: string; aws_relationship_id: string }[]) {
-    const atId = relDbToAtId.get(j.aws_relationship_id);
+  for (const j of (junctions ?? []) as { engagement_id: string; relationship_id: string }[]) {
+    const atId = relDbToAtId.get(j.relationship_id);
     if (atId) {
       const existing = engagementRelAtIds.get(j.engagement_id) ?? [];
       existing.push(atId);
@@ -436,8 +436,8 @@ export async function syncEngagementsToAirtable(): Promise<SyncResult> {
       fetchPartnerMaps(),
       fetchEngagementParticipants(),
       supabase.from("programs").select("id, airtable_record_id").not("airtable_record_id", "is", null),
-      supabase.from("engagement_aws_relationships").select("engagement_id, aws_relationship_id"),
-      supabase.from("aws_relationships").select("id, airtable_record_id").not("airtable_record_id", "is", null),
+      supabase.from("engagement_relationships").select("engagement_id, relationship_id"),
+      supabase.from("relationships").select("id, airtable_record_id").not("airtable_record_id", "is", null),
       supabase.from("entity_links").select("source_type, source_id, target_type, target_id")
         .or("source_type.eq.event,target_type.eq.event"),
       supabase.from("events").select("id, airtable_record_id").not("airtable_record_id", "is", null),
@@ -456,8 +456,8 @@ export async function syncEngagementsToAirtable(): Promise<SyncResult> {
   }
 
   const engagementRelAtIds = new Map<string, string[]>();
-  for (const j of (junctions ?? []) as { engagement_id: string; aws_relationship_id: string }[]) {
-    const atId = relDbToAtId.get(j.aws_relationship_id);
+  for (const j of (junctions ?? []) as { engagement_id: string; relationship_id: string }[]) {
+    const atId = relDbToAtId.get(j.relationship_id);
     if (atId) {
       const existing = engagementRelAtIds.get(j.engagement_id) ?? [];
       existing.push(atId);

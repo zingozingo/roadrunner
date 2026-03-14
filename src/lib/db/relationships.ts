@@ -1,62 +1,62 @@
 import { getSupabaseClient } from "./client";
-import { AwsRelationship, Contact, Engagement } from "../types";
+import { Relationship, Contact, Engagement } from "../types";
 
-export async function getAwsRelationships(): Promise<AwsRelationship[]> {
+export async function getRelationships(): Promise<Relationship[]> {
   const { data, error } = await getSupabaseClient()
-    .from("aws_relationships")
+    .from("relationships")
     .select("*")
     .order("name", { ascending: true });
 
   if (error) throw new Error(`Failed to fetch relationships: ${error.message}`);
-  return (data ?? []) as AwsRelationship[];
+  return (data ?? []) as Relationship[];
 }
 
-export async function getAwsRelationshipsWithCounts(): Promise<
-  (AwsRelationship & { linked_count: number })[]
+export async function getRelationshipsWithCounts(): Promise<
+  (Relationship & { linked_count: number })[]
 > {
   const { data: relationships, error } = await getSupabaseClient()
-    .from("aws_relationships")
+    .from("relationships")
     .select("*")
     .order("name", { ascending: true });
 
   if (error) throw new Error(`Failed to fetch relationships: ${error.message}`);
 
   const { data: junctions } = await getSupabaseClient()
-    .from("engagement_aws_relationships")
-    .select("aws_relationship_id");
+    .from("engagement_relationships")
+    .select("relationship_id");
 
   const linkCounts = new Map<string, number>();
   for (const j of junctions ?? []) {
-    const row = j as { aws_relationship_id: string };
-    linkCounts.set(row.aws_relationship_id, (linkCounts.get(row.aws_relationship_id) ?? 0) + 1);
+    const row = j as { relationship_id: string };
+    linkCounts.set(row.relationship_id, (linkCounts.get(row.relationship_id) ?? 0) + 1);
   }
 
-  return ((relationships ?? []) as AwsRelationship[]).map((r) => ({
+  return ((relationships ?? []) as Relationship[]).map((r) => ({
     ...r,
     linked_count: linkCounts.get(r.id) ?? 0,
   }));
 }
 
-export async function getAwsRelationship(id: string): Promise<AwsRelationship | null> {
+export async function getRelationship(id: string): Promise<Relationship | null> {
   const { data, error } = await getSupabaseClient()
-    .from("aws_relationships")
+    .from("relationships")
     .select("*")
     .eq("id", id)
     .maybeSingle();
 
   if (error) throw new Error(`Failed to fetch relationship: ${error.message}`);
-  return data as AwsRelationship | null;
+  return data as Relationship | null;
 }
 
-export async function getEngagementsByAwsRelationship(
+export async function getEngagementsByRelationship(
   relationshipId: string
 ): Promise<(Engagement & { partner_name: string | null })[]> {
   const db = getSupabaseClient();
 
   const { data: junctionRows, error: junctionErr } = await db
-    .from("engagement_aws_relationships")
+    .from("engagement_relationships")
     .select("engagement_id")
-    .eq("aws_relationship_id", relationshipId);
+    .eq("relationship_id", relationshipId);
 
   if (junctionErr) throw new Error(`Failed to fetch junction: ${junctionErr.message}`);
 
@@ -98,48 +98,48 @@ export async function getEngagementsByAwsRelationship(
   }));
 }
 
-export async function updateAwsRelationship(
+export async function updateRelationship(
   id: string,
   updates: {
     notes?: string | null;
     contacts?: Contact[] | null;
   }
-): Promise<AwsRelationship> {
+): Promise<Relationship> {
   const { data, error } = await getSupabaseClient()
-    .from("aws_relationships")
+    .from("relationships")
     .update(updates)
     .eq("id", id)
     .select()
     .single();
 
   if (error) throw new Error(`Failed to update relationship: ${error.message}`);
-  return data as AwsRelationship;
+  return data as Relationship;
 }
 
-export async function getAwsRelationshipsByEngagement(engagementId: string): Promise<AwsRelationship[]> {
+export async function getRelationshipsByEngagement(engagementId: string): Promise<Relationship[]> {
   const db = getSupabaseClient();
 
   const { data: junctionRows, error: junctionErr } = await db
-    .from("engagement_aws_relationships")
-    .select("aws_relationship_id")
+    .from("engagement_relationships")
+    .select("relationship_id")
     .eq("engagement_id", engagementId);
 
   if (junctionErr) throw new Error(`Failed to fetch engagement relationships: ${junctionErr.message}`);
 
-  const ids = (junctionRows ?? []).map((r: { aws_relationship_id: string }) => r.aws_relationship_id);
+  const ids = (junctionRows ?? []).map((r: { relationship_id: string }) => r.relationship_id);
   if (ids.length === 0) return [];
 
   const { data, error } = await db
-    .from("aws_relationships")
+    .from("relationships")
     .select("*")
     .in("id", ids)
     .order("name", { ascending: true });
 
   if (error) throw new Error(`Failed to fetch relationships: ${error.message}`);
-  return (data ?? []) as AwsRelationship[];
+  return (data ?? []) as Relationship[];
 }
 
-export async function getAwsRelationshipsByPartner(partnerId: string): Promise<AwsRelationship[]> {
+export async function getRelationshipsByPartner(partnerId: string): Promise<Relationship[]> {
   const db = getSupabaseClient();
 
   // Get all engagement IDs for this partner
@@ -155,21 +155,21 @@ export async function getAwsRelationshipsByPartner(partnerId: string): Promise<A
 
   // Get all relationship IDs from the junction table
   const { data: junctionRows, error: junctionErr } = await db
-    .from("engagement_aws_relationships")
-    .select("aws_relationship_id")
+    .from("engagement_relationships")
+    .select("relationship_id")
     .in("engagement_id", engIds);
 
   if (junctionErr) throw new Error(`Failed to fetch junction: ${junctionErr.message}`);
 
-  const relIds = [...new Set((junctionRows ?? []).map((r: { aws_relationship_id: string }) => r.aws_relationship_id))];
+  const relIds = [...new Set((junctionRows ?? []).map((r: { relationship_id: string }) => r.relationship_id))];
   if (relIds.length === 0) return [];
 
   const { data, error } = await db
-    .from("aws_relationships")
+    .from("relationships")
     .select("*")
     .in("id", relIds)
     .order("name", { ascending: true });
 
   if (error) throw new Error(`Failed to fetch relationships: ${error.message}`);
-  return (data ?? []) as AwsRelationship[];
+  return (data ?? []) as Relationship[];
 }

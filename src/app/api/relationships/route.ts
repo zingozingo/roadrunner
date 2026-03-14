@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { getAwsRelationshipsWithCounts } from "@/lib/db";
+import { getRelationshipsWithCounts } from "@/lib/db";
 
 export async function GET() {
   try {
-    const relationships = await getAwsRelationshipsWithCounts();
+    const relationships = await getRelationshipsWithCounts();
     return NextResponse.json({ relationships });
   } catch (error) {
     console.error("GET /api/relationships error:", error);

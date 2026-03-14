@@ -8,7 +8,7 @@ export {
   type SyncAllResult,
   syncPrograms,
   syncEvents,
-  syncAwsRelationships,
+  syncRelationships,
   syncPartners,
   syncAllCatalogs,
   syncEntity,

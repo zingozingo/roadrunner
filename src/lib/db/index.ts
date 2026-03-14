@@ -36,7 +36,7 @@ export {
   deleteMeeting,
   createMeetingFromICS,
   linkMeetingToEngagement,
-  linkEngagementAwsRelationship,
+  linkEngagementRelationship,
 } from "./meetings";
 
 // Partners
@@ -57,15 +57,15 @@ export {
   deleteProgram,
 } from "./catalog";
 
-// AWS Relationships
+// Relationships
 export {
-  getAwsRelationships,
-  getAwsRelationshipsWithCounts,
-  getAwsRelationship,
-  getEngagementsByAwsRelationship,
-  updateAwsRelationship,
-  getAwsRelationshipsByEngagement,
-  getAwsRelationshipsByPartner,
+  getRelationships,
+  getRelationshipsWithCounts,
+  getRelationship,
+  getEngagementsByRelationship,
+  updateRelationship,
+  getRelationshipsByEngagement,
+  getRelationshipsByPartner,
 } from "./relationships";
 
 // Entity Links

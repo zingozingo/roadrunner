@@ -7,7 +7,7 @@ import {
   getEngagementHistory,
   getActiveEvents,
   getActivePrograms,
-  getAwsRelationships,
+  getRelationships,
   getPartner,
 } from "@/lib/db";
 import type { Message } from "@/lib/types";
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
         partnerId ? getPartner(partnerId) : Promise.resolve(null),
         getActiveEvents(),
         getActivePrograms(),
-        getAwsRelationships(),
+        getRelationships(),
       ]);
 
     // ── Phase 2: Analyze ────────────────────────────────────────

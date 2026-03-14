@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  getAwsRelationship,
-  getEngagementsByAwsRelationship,
-  updateAwsRelationship,
+  getRelationship,
+  getEngagementsByRelationship,
+  updateRelationship,
 } from "@/lib/db";
 
 export async function GET(
@@ -11,7 +11,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const relationship = await getAwsRelationship(id);
+    const relationship = await getRelationship(id);
 
     if (!relationship) {
       return NextResponse.json(
@@ -20,7 +20,7 @@ export async function GET(
       );
     }
 
-    const linkedEngagements = await getEngagementsByAwsRelationship(id);
+    const linkedEngagements = await getEngagementsByRelationship(id);
 
     return NextResponse.json({ relationship, linkedEngagements });
   } catch (error) {
@@ -41,7 +41,7 @@ export async function PUT(
     const body = await request.json();
     const { notes, contacts } = body;
 
-    const existing = await getAwsRelationship(id);
+    const existing = await getRelationship(id);
     if (!existing) {
       return NextResponse.json(
         { error: "Relationship not found" },
@@ -60,7 +60,7 @@ export async function PUT(
     if (notes !== undefined) updates.notes = notes || null;
     if (contacts !== undefined) updates.contacts = contacts;
 
-    const updated = await updateAwsRelationship(id, updates);
+    const updated = await updateRelationship(id, updates);
 
     return NextResponse.json({ relationship: updated });
   } catch (error) {

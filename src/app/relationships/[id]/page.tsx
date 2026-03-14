@@ -9,8 +9,8 @@ import ExpandableList from "@/components/shared/ExpandableList";
 import RelationshipActions from "@/components/actions/RelationshipActions";
 import { formatFooterDate } from "@/lib/format-utils";
 import {
-  getAwsRelationship,
-  getEngagementsByAwsRelationship,
+  getRelationship,
+  getEngagementsByRelationship,
 } from "@/lib/db";
 
 export default async function RelationshipDetailPage({
@@ -20,10 +20,10 @@ export default async function RelationshipDetailPage({
 }) {
   const { id } = await params;
 
-  const relationship = await getAwsRelationship(id);
+  const relationship = await getRelationship(id);
   if (!relationship) notFound();
 
-  const linkedEngagements = await getEngagementsByAwsRelationship(id);
+  const linkedEngagements = await getEngagementsByRelationship(id);
 
   return (
     <div className="p-6 lg:p-8">
@@ -42,8 +42,8 @@ export default async function RelationshipDetailPage({
         badges={<RelationshipTypeBadge type={relationship.relationship_type} />}
         subtitle={relationship.notes ?? undefined}
         fields={[
-          { label: "AWS Org", value: relationship.aws_org ?? "—" },
-          { label: "AWS Service", value: relationship.aws_service ?? "—" },
+          { label: "AWS Org", value: relationship.org ?? "—" },
+          { label: "AWS Service", value: relationship.service ?? "—" },
           ...(relationship.contacts && relationship.contacts.length > 0
             ? relationship.contacts.map((c, i) => ({
                 label: i === 0 ? "Lead Contact" : `Contact ${i + 1}`,

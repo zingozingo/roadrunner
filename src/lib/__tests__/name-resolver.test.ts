@@ -40,7 +40,7 @@ function setupMockTables(
 ) {
   mockFrom.mockImplementation((table: string) => {
     if (table === "participants") return mockTableData(table, participants);
-    if (table === "aws_relationships") return mockTableData(table, relationships);
+    if (table === "relationships") return mockTableData(table, relationships);
     if (table === "partners") return mockTableData(table, partners);
     return mockTableData(table, []);
   });
@@ -73,7 +73,7 @@ describe("buildNameResolutionMap", () => {
     });
   });
 
-  it("builds map from aws_relationship contacts JSONB", async () => {
+  it("builds map from relationship contacts JSONB", async () => {
     setupMockTables(
       [],
       [
@@ -90,7 +90,7 @@ describe("buildNameResolutionMap", () => {
 
     expect(map.emailToName.get("dana@amazon.com")).toEqual({
       name: "Dana Wright",
-      source: "aws_relationship",
+      source: "relationship",
     });
     // team@amazon.com has no name, so NOT added
     expect(map.emailToName.has("team@amazon.com")).toBe(false);
@@ -115,7 +115,7 @@ describe("buildNameResolutionMap", () => {
     });
   });
 
-  it("respects priority: aws_relationship wins over participant and partner", async () => {
+  it("respects priority: relationship wins over participant and partner", async () => {
     setupMockTables(
       [{ email: "alice@partner.com", name: "Alice (Participant)" }],
       [
@@ -140,7 +140,7 @@ describe("buildNameResolutionMap", () => {
 
     expect(map.emailToName.get("alice@partner.com")).toEqual({
       name: "Alice (Relationship)",
-      source: "aws_relationship",
+      source: "relationship",
     });
   });
 
@@ -192,7 +192,7 @@ describe("buildNameResolutionMap", () => {
 
     expect(map.emailToName.get("bob@aws.com")).toEqual({
       name: "Bob (Relationship)",
-      source: "aws_relationship",
+      source: "relationship",
     });
   });
 
@@ -213,7 +213,7 @@ describe("buildNameResolutionMap", () => {
 
     expect(map.emailToName.get("crisresl@amazon.com")).toEqual({
       name: "Cristian Restrepo Lopez",
-      source: "aws_relationship",
+      source: "relationship",
     });
   });
 
@@ -429,7 +429,7 @@ describe("resolveNameByEmail", () => {
   const map: NameResolutionMap = {
     emailToName: new Map([
       ["alice@partner.com", { name: "Alice Chen", source: "participant" }],
-      ["bob@aws.com", { name: "Bob Lee", source: "aws_relationship" }],
+      ["bob@aws.com", { name: "Bob Lee", source: "relationship" }],
     ]),
     domainToOrg: new Map(),
   };

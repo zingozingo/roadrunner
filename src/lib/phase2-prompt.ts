@@ -5,7 +5,7 @@ import type {
   Participant,
   Event,
   Program,
-  AwsRelationship,
+  Relationship,
   Partner,
   Phase1Result,
   CombinedClassificationResult,
@@ -216,7 +216,7 @@ export function buildPhase2Context(
   catalogs: {
     events: Event[];
     programs: Program[];
-    relationships: AwsRelationship[];
+    relationships: Relationship[];
   },
   matchedPartner: Partner | null,
   forwarderNote?: string | null,

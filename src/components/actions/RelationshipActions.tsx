@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AwsRelationship } from "@/lib/types";
+import { Relationship } from "@/lib/types";
 import { parseContactList, renderContactList } from "@/lib/contact-parser";
 
 export default function RelationshipActions({
   relationship,
 }: {
-  relationship: AwsRelationship;
+  relationship: Relationship;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);

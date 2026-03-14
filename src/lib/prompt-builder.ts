@@ -1,7 +1,7 @@
 import type {
   Event,
   Program,
-  AwsRelationship,
+  Relationship,
   Message,
 } from "./types";
 import { USER_CONFIG } from "./user-config";
@@ -98,7 +98,7 @@ export function buildProgramsSection(programs: Program[]): string {
 }
 
 export function buildRelationshipsSection(
-  relationships: AwsRelationship[]
+  relationships: Relationship[]
 ): string {
   const lines: string[] = ["### AWS Relationships"];
 
@@ -110,8 +110,8 @@ export function buildRelationshipsSection(
   for (const r of relationships) {
     const parts = [`- **${r.name}** (id: ${r.id})`];
     if (r.relationship_type) parts.push(`Type: ${r.relationship_type}`);
-    if (r.aws_org) parts.push(`Org: ${r.aws_org}`);
-    if (r.aws_service) parts.push(`Service: ${r.aws_service}`);
+    if (r.org) parts.push(`Org: ${r.org}`);
+    if (r.service) parts.push(`Service: ${r.service}`);
     // Render contacts from JSONB: "Name <email> (Role)"
     const contacts = r.contacts ?? [];
     if (contacts.length > 0) {

@@ -21,12 +21,12 @@ const {
   mockGetPartner,
   mockGetActiveEvents,
   mockGetActivePrograms,
-  mockGetAwsRelationships,
+  mockGetRelationships,
   mockCreateApproval,
   mockCreateEngagement,
   mockCreateEntityLink,
   mockUpsertParticipants,
-  mockLinkEngagementAwsRelationship,
+  mockLinkEngagementRelationship,
   mockFrom,
 } = vi.hoisted(() => {
   const mockUpdate = vi.fn().mockReturnValue({
@@ -127,7 +127,7 @@ const {
     mockGetPartner: vi.fn().mockResolvedValue(null),
     mockGetActiveEvents: vi.fn().mockResolvedValue([]),
     mockGetActivePrograms: vi.fn().mockResolvedValue([]),
-    mockGetAwsRelationships: vi.fn().mockResolvedValue([]),
+    mockGetRelationships: vi.fn().mockResolvedValue([]),
     mockCreateApproval: vi.fn().mockResolvedValue({ id: "approval-001" }),
     mockCreateEngagement: vi.fn().mockResolvedValue({
       id: "init-auto", name: "Auto-Created", status: "active",
@@ -136,7 +136,7 @@ const {
     }),
     mockCreateEntityLink: vi.fn().mockResolvedValue(undefined),
     mockUpsertParticipants: vi.fn().mockResolvedValue(undefined),
-    mockLinkEngagementAwsRelationship: vi.fn().mockResolvedValue(undefined),
+    mockLinkEngagementRelationship: vi.fn().mockResolvedValue(undefined),
     mockFrom,
   };
 });
@@ -165,16 +165,16 @@ vi.mock("../db", () => ({
   getPartner: mockGetPartner,
   getActiveEvents: mockGetActiveEvents,
   getActivePrograms: mockGetActivePrograms,
-  getAwsRelationships: mockGetAwsRelationships,
+  getRelationships: mockGetRelationships,
   createApproval: mockCreateApproval,
   createEngagement: mockCreateEngagement,
   createEntityLink: mockCreateEntityLink,
   upsertParticipants: mockUpsertParticipants,
   backfillMessageSenderNames: vi.fn().mockResolvedValue(0),
   linkMeetingToEngagement: vi.fn().mockResolvedValue(undefined),
-  linkEngagementAwsRelationship: mockLinkEngagementAwsRelationship,
+  linkEngagementRelationship: mockLinkEngagementRelationship,
   getEntityLinksForEntity: vi.fn().mockResolvedValue([]),
-  getAwsRelationshipsByEngagement: vi.fn().mockResolvedValue([]),
+  getRelationshipsByEngagement: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("../user-config", () => ({

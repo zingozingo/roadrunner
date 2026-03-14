@@ -6,7 +6,7 @@ import type {
   Participant,
   Event,
   Program,
-  AwsRelationship,
+  Relationship,
   Partner,
   Phase1Result,
 } from "../types";
@@ -186,11 +186,12 @@ const PROGRAM: Program = {
   created_at: "2026-01-01T00:00:00Z",
 };
 
-const RELATIONSHIP: AwsRelationship = {
+const RELATIONSHIP: Relationship = {
   id: "rel-001",
   name: "Security Team - ISV",
-  aws_org: "AWS Security",
-  aws_service: null,
+  org: "AWS Security",
+  service: null,
+  org_type: "internal",
   relationship_type: "Product Team",
   contacts: [
     { name: "Jane Doe", email: "janedoe@amazon.com", title: null, role: "Lead Contact" },

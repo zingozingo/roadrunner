@@ -8,7 +8,7 @@ import MeetingTimeline from "@/components/shared/MeetingTimeline";
 import ExpandableList from "@/components/shared/ExpandableList";
 import PartnerTasksSection from "@/components/partners/PartnerTasksSection";
 import PartnerScratchpad from "@/components/partners/PartnerScratchpad";
-import { getPartner, getSupabaseClient, getAwsRelationshipsByPartner, getMeetingNotesByPartner, getTasksByPartner, getPartnerContext } from "@/lib/db";
+import { getPartner, getSupabaseClient, getRelationshipsByPartner, getMeetingNotesByPartner, getTasksByPartner, getPartnerContext } from "@/lib/db";
 import type { Engagement, Meeting, MeetingNoteWithTasks, NoteTask } from "@/lib/types";
 
 export default async function PartnerDetailPage({
@@ -49,7 +49,7 @@ export default async function PartnerDetailPage({
   const linkedMeetings = (meetings ?? []) as Meeting[];
 
   const [linkedRelationships, partnerNotes, openTasks, partnerContextEntries] = await Promise.all([
-    getAwsRelationshipsByPartner(id),
+    getRelationshipsByPartner(id),
     getMeetingNotesByPartner(id),
     getTasksByPartner(id, { status: "open" }),
     getPartnerContext(id),

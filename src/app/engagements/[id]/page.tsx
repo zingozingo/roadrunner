@@ -16,7 +16,7 @@ import {
   getParticipantsByEngagement,
   getEntityLinksForEntity,
   resolveEntityLinkNames,
-  getAwsRelationshipsByEngagement,
+  getRelationshipsByEngagement,
   getPartner,
 } from "@/lib/db";
 import { formatFooterDate } from "@/lib/format-utils";
@@ -32,12 +32,12 @@ export default async function EngagementDetailPage({
   const engagement = await getEngagementById(id);
   if (!engagement) notFound();
 
-  const [messages, meetings, participants, entityLinks, awsRelationships, partner] = await Promise.all([
+  const [messages, meetings, participants, entityLinks, relationships, partner] = await Promise.all([
     getMessagesByEngagement(id),
     getMeetingsByEngagement(id),
     getParticipantsByEngagement(id),
     getEntityLinksForEntity("engagement", id),
-    getAwsRelationshipsByEngagement(id),
+    getRelationshipsByEngagement(id),
     engagement.partner_id ? getPartner(engagement.partner_id) : null,
   ]);
 
@@ -77,8 +77,8 @@ export default async function EngagementDetailPage({
     return nameMap.has(otherId);
   });
 
-  const hasConnections = awsRelationships.length > 0 || validEntityLinks.length > 0;
-  const connectionCount = awsRelationships.length + validEntityLinks.length;
+  const hasConnections = relationships.length > 0 || validEntityLinks.length > 0;
+  const connectionCount = relationships.length + validEntityLinks.length;
 
   return (
     <div className="p-6 lg:p-8">
@@ -136,7 +136,7 @@ export default async function EngagementDetailPage({
             </h2>
             <div className="space-y-1">
               {/* AWS Relationships as simple text links */}
-              {awsRelationships.map((rel) => (
+              {relationships.map((rel) => (
                 <Link
                   key={rel.id}
                   href={`/relationships/${rel.id}`}
@@ -155,7 +155,7 @@ export default async function EngagementDetailPage({
 
               {/* Entity Links as chips */}
               {validEntityLinks.length > 0 && (
-                <div className={`flex flex-wrap gap-2 ${awsRelationships.length > 0 ? "pt-2" : ""}`}>
+                <div className={`flex flex-wrap gap-2 ${relationships.length > 0 ? "pt-2" : ""}`}>
                   {validEntityLinks.map((link) => {
                     const isSource = link.source_id === id;
                     const otherId = isSource ? link.target_id : link.source_id;

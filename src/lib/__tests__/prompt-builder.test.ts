@@ -6,7 +6,7 @@ import {
   buildRelationshipsSection,
   buildEmailSection,
 } from "../prompt-builder";
-import type { Event, Program, AwsRelationship, Message } from "../types";
+import type { Event, Program, Relationship, Message } from "../types";
 
 const EVENT: Event = {
   id: "evt-001",
@@ -41,11 +41,12 @@ const PROGRAM: Program = {
   created_at: "2025-01-01T00:00:00Z",
 };
 
-const RELATIONSHIP: AwsRelationship = {
+const RELATIONSHIP: Relationship = {
   id: "rel-001",
   name: "Security Team - ISV",
-  aws_org: "AWS Security",
-  aws_service: null,
+  org: "AWS Security",
+  service: null,
+  org_type: "internal",
   relationship_type: "Product Team",
   contacts: [
     { name: "Jane Doe", email: "janedoe@amazon.com", title: null, role: "Lead Contact" },

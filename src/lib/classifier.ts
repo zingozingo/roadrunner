@@ -5,7 +5,7 @@ import {
   getSupabaseClient,
   getActiveEvents,
   getActivePrograms,
-  getAwsRelationships,
+  getRelationships,
   getUnclassifiedMessages,
   getEngagementHistory,
   getPartner,
@@ -15,9 +15,9 @@ import {
   upsertParticipants,
   backfillMessageSenderNames,
   linkMeetingToEngagement,
-  linkEngagementAwsRelationship,
+  linkEngagementRelationship,
   getEntityLinksForEntity,
-  getAwsRelationshipsByEngagement,
+  getRelationshipsByEngagement,
 } from "./db";
 import {
   ClassificationResult,
@@ -67,7 +67,7 @@ async function classifyTwoPhase(
     .in("message_id", messageIds)
     .then(({ data }: { data: unknown }) => (data ?? []) as Meeting[]);
 
-  const [history, matchedPartner, events, programs, relationships, nameMap, newMeetings, engagementEntityLinks, engagementAwsRels] =
+  const [history, matchedPartner, events, programs, relationships, nameMap, newMeetings, engagementEntityLinks, engagementRels] =
     await Promise.all([
       engagementId && !isNew
         ? getEngagementHistory(engagementId)
@@ -75,7 +75,7 @@ async function classifyTwoPhase(
       partnerId ? getPartner(partnerId) : Promise.resolve(null),
       getActiveEvents(),
       getActivePrograms(),
-      getAwsRelationships(),
+      getRelationships(),
       nameResolutionMap
         ? Promise.resolve(nameResolutionMap)
         : buildNameResolutionMap(),
@@ -84,7 +84,7 @@ async function classifyTwoPhase(
         ? getEntityLinksForEntity("engagement", engagementId)
         : Promise.resolve([]),
       engagementId && !isNew
-        ? getAwsRelationshipsByEngagement(engagementId)
+        ? getRelationshipsByEngagement(engagementId)
         : Promise.resolve([]),
     ]);
 
@@ -101,13 +101,13 @@ async function classifyTwoPhase(
     return { type: link.target_type, name, relationship: link.context || "linked" };
   });
 
-  const existingAwsRelationships = engagementAwsRels.map(r => ({
+  const existingRelationships = engagementRels.map(r => ({
     name: r.name,
     relationship: "linked",
   }));
 
-  const existingLinks = (existingEntityLinks.length > 0 || existingAwsRelationships.length > 0)
-    ? { entityLinks: existingEntityLinks, awsRelationships: existingAwsRelationships }
+  const existingLinks = (existingEntityLinks.length > 0 || existingRelationships.length > 0)
+    ? { entityLinks: existingEntityLinks, awsRelationships: existingRelationships }
     : null;
 
   // ── Phase 2: Analyze ────────────────────────────────────────
@@ -245,7 +245,7 @@ export async function runPhase2ForResolve(
   const partnerId = phase1Result.engagement_match.partner_id;
   const isNew = phase1Result.engagement_match.is_new;
 
-  const [history, matchedPartner, events, programs, relationships, nameMap, engagementEntityLinks, engagementAwsRels] =
+  const [history, matchedPartner, events, programs, relationships, nameMap, engagementEntityLinks, engagementRels] =
     await Promise.all([
       engagementId && !isNew
         ? getEngagementHistory(engagementId)
@@ -253,13 +253,13 @@ export async function runPhase2ForResolve(
       partnerId ? getPartner(partnerId) : Promise.resolve(null),
       getActiveEvents(),
       getActivePrograms(),
-      getAwsRelationships(),
+      getRelationships(),
       buildNameResolutionMap(),
       engagementId && !isNew
         ? getEntityLinksForEntity("engagement", engagementId)
         : Promise.resolve([]),
       engagementId && !isNew
-        ? getAwsRelationshipsByEngagement(engagementId)
+        ? getRelationshipsByEngagement(engagementId)
         : Promise.resolve([]),
     ]);
 
@@ -276,13 +276,13 @@ export async function runPhase2ForResolve(
     return { type: link.target_type, name, relationship: link.context || "linked" };
   });
 
-  const existingAwsRelationships = engagementAwsRels.map(r => ({
+  const existingRelationships = engagementRels.map(r => ({
     name: r.name,
     relationship: "linked",
   }));
 
-  const existingLinks = (existingEntityLinks.length > 0 || existingAwsRelationships.length > 0)
-    ? { entityLinks: existingEntityLinks, awsRelationships: existingAwsRelationships }
+  const existingLinks = (existingEntityLinks.length > 0 || existingRelationships.length > 0)
+    ? { entityLinks: existingEntityLinks, awsRelationships: existingRelationships }
     : null;
 
   const phase2Context = buildPhase2Context(
@@ -426,7 +426,7 @@ export async function persistClassificationResult(
   // 4. Create engagement↔relationship links from matched_relationships
   for (const rel of result.matched_relationships ?? []) {
     try {
-      await linkEngagementAwsRelationship(engagementId, rel.id);
+      await linkEngagementRelationship(engagementId, rel.id);
     } catch (err) {
       console.error(`Failed to link engagement to relationship "${rel.name}":`, err);
     }

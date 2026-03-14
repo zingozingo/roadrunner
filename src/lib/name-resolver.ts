@@ -7,7 +7,7 @@ import type { Participant, RoleContact } from "./types";
 //
 // Priority chain (first write wins — earlier sources can't be overwritten):
 //
-//   1. aws_relationships.contacts JSONB — Human-curated in Airtable.
+//   1. relationships.contacts JSONB — Human-curated in Airtable.
 //      Lead contacts with verified name+email pairs. Highest trust.
 //   2. partners.aws_team JSONB — Human-curated AWS-side contacts (PSA, AM, PMM).
 //   3. partners.partner_contacts JSONB — Human-curated partner-side contacts
@@ -22,7 +22,7 @@ import type { Participant, RoleContact } from "./types";
 
 export interface ResolvedName {
   name: string;
-  source: "participant" | "aws_relationship" | "partner";
+  source: "participant" | "relationship" | "partner";
 }
 
 export interface NameResolutionMap {
@@ -55,7 +55,7 @@ const PERSONAL_DOMAINS = new Set([
 ]);
 
 /**
- * Build a resolution map by querying aws_relationships, partners, and
+ * Build a resolution map by querying relationships, partners, and
  * participants tables in parallel. Merge order determines priority —
  * first write wins, so catalog sources (human-curated) take precedence
  * over AI-extracted participant names.
@@ -65,7 +65,7 @@ export async function buildNameResolutionMap(): Promise<NameResolutionMap> {
 
   const [relationshipsResult, partnersResult, participantsResult] =
     await Promise.all([
-      db.from("aws_relationships").select("contacts"),
+      db.from("relationships").select("contacts"),
       db.from("partners").select("name, aws_team, partner_contacts"),
       db.from("participants").select("email, name"),
     ]);
@@ -73,14 +73,14 @@ export async function buildNameResolutionMap(): Promise<NameResolutionMap> {
   const emailToName = new Map<string, ResolvedName>();
   const domainToOrg = new Map<string, string>();
 
-  // --- Priority 1: AWS Relationships contacts JSONB ---
+  // --- Priority 1: Relationships contacts JSONB ---
   for (const row of (relationshipsResult.data ?? []) as { contacts: RoleContact[] }[]) {
     const contacts = row.contacts ?? [];
     for (const c of contacts) {
       if (c.email && c.name) {
         const key = c.email.toLowerCase().trim();
         if (!emailToName.has(key)) {
-          emailToName.set(key, { name: c.name, source: "aws_relationship" });
+          emailToName.set(key, { name: c.name, source: "relationship" });
         }
       }
     }

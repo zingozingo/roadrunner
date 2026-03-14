@@ -5,9 +5,9 @@ import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
-import { AwsRelationship, RelationshipType } from "@/lib/types";
+import { Relationship, RelationshipType } from "@/lib/types";
 
-type RelationshipWithCount = AwsRelationship & { linked_count: number };
+type RelationshipWithCount = Relationship & { linked_count: number };
 
 const TYPE_ORDER: RelationshipType[] = [
   "Exec/Leader",
@@ -34,8 +34,8 @@ export default function RelationshipsClient({ relationships }: RelationshipsClie
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const matchesName = rel.name.toLowerCase().includes(q);
-        const matchesOrg = rel.aws_org?.toLowerCase().includes(q);
-        const matchesService = rel.aws_service?.toLowerCase().includes(q);
+        const matchesOrg = rel.org?.toLowerCase().includes(q);
+        const matchesService = rel.service?.toLowerCase().includes(q);
         const matchesContact = rel.contacts?.[0]?.name?.toLowerCase().includes(q);
         if (!matchesName && !matchesOrg && !matchesService && !matchesContact) return false;
       }
@@ -117,9 +117,9 @@ export default function RelationshipsClient({ relationships }: RelationshipsClie
                       <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
                         {rel.name}
                       </span>
-                      {rel.aws_org && (
+                      {rel.org && (
                         <span className="shrink-0 text-xs text-muted">
-                          {rel.aws_org}
+                          {rel.org}
                         </span>
                       )}
                       {rel.contacts?.[0]?.name && (

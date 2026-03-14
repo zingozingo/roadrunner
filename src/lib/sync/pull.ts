@@ -107,8 +107,8 @@ function mapRelationship(
   return {
     name,
     relationship_type: relationshipType,
-    aws_org: str(rec.fields[RF.awsOrg]),
-    aws_service: str(rec.fields[RF.awsService]),
+    org: str(rec.fields[RF.awsOrg]),
+    service: str(rec.fields[RF.awsService]),
     contacts,
     notes: str(rec.fields[RF.notes]),
   };
@@ -330,16 +330,16 @@ export async function syncEvents(): Promise<SyncResult> {
   return result;
 }
 
-export async function syncAwsRelationships(): Promise<SyncResult> {
+export async function syncRelationships(): Promise<SyncResult> {
   const result: SyncResult = { inserted: 0, updated: 0, unchanged: 0, deleted: 0, errors: [] };
   const supabase = getSupabaseClient();
 
   const [atRecords, { data: dbRows, error: fetchErr }] = await Promise.all([
     fetchAllRecords(RELATIONSHIPS_TABLE),
-    supabase.from("aws_relationships").select("*"),
+    supabase.from("relationships").select("*"),
   ]);
 
-  if (fetchErr) throw new Error(`Failed to fetch aws_relationships: ${fetchErr.message}`);
+  if (fetchErr) throw new Error(`Failed to fetch relationships: ${fetchErr.message}`);
   const existing = dbRows ?? [];
 
   const byAtId = new Map(existing.filter((r) => r.airtable_record_id).map((r) => [r.airtable_record_id, r]));
@@ -364,7 +364,7 @@ export async function syncAwsRelationships(): Promise<SyncResult> {
         }
 
         const { error } = await supabase
-          .from("aws_relationships")
+          .from("relationships")
           .update(updateFields)
           .eq("id", match.id);
 
@@ -375,7 +375,7 @@ export async function syncAwsRelationships(): Promise<SyncResult> {
         }
       } else {
         const { error } = await supabase
-          .from("aws_relationships")
+          .from("relationships")
           .insert({ ...mapped, airtable_record_id: rec.id });
 
         if (error) {
@@ -395,7 +395,7 @@ export async function syncAwsRelationships(): Promise<SyncResult> {
   );
   for (const orphan of orphans) {
     try {
-      const { error } = await supabase.from("aws_relationships").delete().eq("id", orphan.id);
+      const { error } = await supabase.from("relationships").delete().eq("id", orphan.id);
       if (error) {
         result.errors.push(`Delete orphaned relationship "${orphan.name}": ${error.message}`);
       } else {
@@ -499,7 +499,7 @@ export async function syncAllCatalogs(): Promise<SyncAllResult> {
   const partners = await syncPartners();
   const programs = await syncPrograms();
   const events = await syncEvents();
-  const relationships = await syncAwsRelationships();
+  const relationships = await syncRelationships();
 
   return {
     partners,
@@ -519,7 +519,7 @@ export async function syncEntity(
   if (entity === "partners") result.partners = await syncPartners();
   else if (entity === "programs") result.programs = await syncPrograms();
   else if (entity === "events") result.events = await syncEvents();
-  else if (entity === "relationships") result.relationships = await syncAwsRelationships();
+  else if (entity === "relationships") result.relationships = await syncRelationships();
   else if (entity === "engagements") result.engagements = await syncEngagementsToAirtable();
   else if (entity === "meetings") result.meetings = await syncMeetingsToAirtable();
 

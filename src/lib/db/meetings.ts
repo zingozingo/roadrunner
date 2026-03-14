@@ -256,7 +256,7 @@ export async function deleteMeeting(id: string): Promise<void> {
   if (error) throw new Error(`Failed to delete meeting: ${error.message}`);
 }
 
-export async function linkEngagementAwsRelationship(
+export async function linkEngagementRelationship(
   engagementId: string,
   relationshipId: string
 ): Promise<void> {
@@ -264,17 +264,17 @@ export async function linkEngagementAwsRelationship(
 
   // Check for existing to avoid duplicates
   const { data: existing } = await db
-    .from("engagement_aws_relationships")
+    .from("engagement_relationships")
     .select("engagement_id")
     .eq("engagement_id", engagementId)
-    .eq("aws_relationship_id", relationshipId)
+    .eq("relationship_id", relationshipId)
     .limit(1);
 
   if (existing && existing.length > 0) return;
 
   const { error } = await db
-    .from("engagement_aws_relationships")
-    .insert({ engagement_id: engagementId, aws_relationship_id: relationshipId });
+    .from("engagement_relationships")
+    .insert({ engagement_id: engagementId, relationship_id: relationshipId });
 
   if (error) throw new Error(`Failed to link engagement to relationship: ${error.message}`);
 }
