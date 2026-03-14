@@ -1,5 +1,5 @@
 import { getSupabaseClient } from "./client";
-import { Participant, ClassificationResult } from "../types";
+import { Participant, ClassificationResult, RoleContact } from "../types";
 import { isUserEmail, USER_CONFIG } from "../user-config";
 
 export async function getParticipantById(id: string): Promise<Participant | null> {
@@ -367,4 +367,195 @@ export async function backfillMessageSenderNames(
   }
 
   return updated;
+}
+
+// ============================================================
+// Contact Registry Helpers
+// ============================================================
+
+const PLACEHOLDER_EMAILS = new Set(["—", "-", "–", "", "null", "n/a", "N/A"]);
+
+function isValidEmail(email: string | null | undefined): email is string {
+  if (!email) return false;
+  if (PLACEHOLDER_EMAILS.has(email)) return false;
+  return email.includes("@");
+}
+
+function isAmazonEmail(email: string): boolean {
+  const domain = email.split("@")[1]?.toLowerCase();
+  return domain === "amazon.com" || domain === "amazon.co.uk" || domain === "amazon.de";
+}
+
+/**
+ * Upsert a contact into the participants registry.
+ * ON CONFLICT (email) updates name, title, organization, org_type, source.
+ * Returns the participant id, or null if the email is invalid.
+ */
+export async function upsertContactToRegistry(
+  email: string,
+  name: string | null,
+  title: string | null,
+  organization: string | null,
+  orgType: "internal" | "partner" | "third_party",
+  source: string
+): Promise<string | null> {
+  if (!isValidEmail(email)) return null;
+
+  const normalizedEmail = email.toLowerCase().trim();
+  const db = getSupabaseClient();
+
+  // Check if already exists
+  const { data: existing } = await db
+    .from("participants")
+    .select("id, org_type, source, name, title, organization")
+    .eq("email", normalizedEmail)
+    .limit(1);
+
+  if (existing && existing.length > 0) {
+    const row = existing[0];
+    const updates: Record<string, string | null> = {};
+
+    // Update fields — sync always wins for these fields since Airtable is authoritative for catalog contacts
+    if (name && row.name !== name) updates.name = name;
+    if (title && row.title !== title) updates.title = title;
+    if (organization && row.organization !== organization) updates.organization = organization;
+    if (!row.org_type) updates.org_type = orgType;
+    if (!row.source) updates.source = source;
+
+    if (Object.keys(updates).length > 0) {
+      await db.from("participants").update(updates).eq("id", row.id);
+    }
+    return row.id;
+  }
+
+  // Insert new
+  const { data: inserted, error } = await db
+    .from("participants")
+    .insert({
+      email: normalizedEmail,
+      name,
+      title,
+      organization,
+      org_type: orgType,
+      source,
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    // Handle race condition on UNIQUE constraint
+    if (error.code === "23505") {
+      const { data: retry } = await db
+        .from("participants")
+        .select("id")
+        .eq("email", normalizedEmail)
+        .single();
+      if (retry) return retry.id;
+    }
+    console.error(`Failed to upsert participant ${normalizedEmail}: ${error.message}`);
+    return null;
+  }
+
+  return inserted.id;
+}
+
+/**
+ * Link a participant to a partner. Idempotent — skips on UNIQUE violation.
+ */
+export async function linkPartnerParticipant(
+  partnerId: string,
+  participantId: string,
+  role: string | null
+): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .from("partner_participants")
+    .insert({ partner_id: partnerId, participant_id: participantId, role });
+
+  if (error && error.code !== "23505") {
+    console.error(`Failed to link partner_participant: ${error.message}`);
+  }
+}
+
+/**
+ * Link a participant to a relationship. Idempotent — skips on UNIQUE violation.
+ */
+export async function linkRelationshipParticipant(
+  relationshipId: string,
+  participantId: string,
+  role: string | null
+): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .from("relationship_participants")
+    .insert({ relationship_id: relationshipId, participant_id: participantId, role });
+
+  if (error && error.code !== "23505") {
+    console.error(`Failed to link relationship_participant: ${error.message}`);
+  }
+}
+
+/**
+ * Sync a partner's JSONB contacts into the contact registry.
+ * Processes aws_team (internal) and partner_contacts (partner).
+ */
+export async function syncPartnerContactsToRegistry(
+  partnerId: string,
+  partnerName: string,
+  awsTeam: RoleContact[],
+  partnerContacts: RoleContact[]
+): Promise<void> {
+  // AWS team → internal
+  for (const contact of awsTeam) {
+    const participantId = await upsertContactToRegistry(
+      contact.email ?? "",
+      contact.name,
+      contact.title,
+      "Amazon Web Services",
+      "internal",
+      "airtable_sync"
+    );
+    if (participantId) {
+      await linkPartnerParticipant(partnerId, participantId, contact.role);
+    }
+  }
+
+  // Partner contacts → partner (unless Amazon email)
+  for (const contact of partnerContacts) {
+    if (!isValidEmail(contact.email)) continue;
+    const orgType = isAmazonEmail(contact.email!) ? "internal" as const : "partner" as const;
+    const participantId = await upsertContactToRegistry(
+      contact.email!,
+      contact.name,
+      contact.title,
+      partnerName,
+      orgType,
+      "airtable_sync"
+    );
+    if (participantId) {
+      await linkPartnerParticipant(partnerId, participantId, contact.role);
+    }
+  }
+}
+
+/**
+ * Sync a relationship's JSONB contacts into the contact registry.
+ */
+export async function syncRelationshipContactsToRegistry(
+  relationshipId: string,
+  contacts: RoleContact[]
+): Promise<void> {
+  for (const contact of contacts) {
+    if (!isValidEmail(contact.email)) continue;
+    const orgType = isAmazonEmail(contact.email!) ? "internal" as const : "third_party" as const;
+    const participantId = await upsertContactToRegistry(
+      contact.email!,
+      contact.name,
+      contact.title,
+      null,
+      orgType,
+      "airtable_sync"
+    );
+    if (participantId) {
+      await linkRelationshipParticipant(relationshipId, participantId, contact.role);
+    }
+  }
 }

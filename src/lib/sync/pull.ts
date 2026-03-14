@@ -10,6 +10,10 @@ import {
 } from "../airtable";
 import { getSupabaseClient } from "../db";
 import {
+  syncPartnerContactsToRegistry,
+  syncRelationshipContactsToRegistry,
+} from "../db/participants";
+import {
   PROGRAMS_TABLE, EVENTS_TABLE, RELATIONSHIPS_TABLE, PARTNERS_TABLE,
   PF, EF, RF, PTRF,
 } from "./field-maps";
@@ -355,33 +359,51 @@ export async function syncRelationships(): Promise<SyncResult> {
 
       const match = byAtId.get(rec.id) ?? byName.get((mapped.name as string).toLowerCase());
 
+      let relationshipId: string | null = null;
+
       if (match) {
         const updateFields: Record<string, unknown> = { ...mapped, airtable_record_id: rec.id };
 
         if (!hasChanges(updateFields, match)) {
+          relationshipId = match.id;
           result.unchanged++;
-          continue;
-        }
-
-        const { error } = await supabase
-          .from("relationships")
-          .update(updateFields)
-          .eq("id", match.id);
-
-        if (error) {
-          result.errors.push(`Update relationship "${mapped.name}": ${error.message}`);
         } else {
-          result.updated++;
+          const { error } = await supabase
+            .from("relationships")
+            .update(updateFields)
+            .eq("id", match.id);
+
+          if (error) {
+            result.errors.push(`Update relationship "${mapped.name}": ${error.message}`);
+          } else {
+            relationshipId = match.id;
+            result.updated++;
+          }
         }
       } else {
-        const { error } = await supabase
+        const { data: inserted, error } = await supabase
           .from("relationships")
-          .insert({ ...mapped, airtable_record_id: rec.id });
+          .insert({ ...mapped, airtable_record_id: rec.id })
+          .select("id")
+          .single();
 
         if (error) {
           result.errors.push(`Insert relationship "${mapped.name}": ${error.message}`);
         } else {
+          relationshipId = inserted.id;
           result.inserted++;
+        }
+      }
+
+      // Sync contacts to registry (additive, non-blocking)
+      if (relationshipId) {
+        try {
+          await syncRelationshipContactsToRegistry(
+            relationshipId,
+            (mapped.contacts as RoleContact[]) ?? []
+          );
+        } catch (regErr) {
+          console.error(`Registry sync failed for relationship "${mapped.name}":`, regErr);
         }
       }
     } catch (err) {
@@ -435,32 +457,53 @@ export async function syncPartners(): Promise<SyncResult> {
 
       const match = byAtId.get(rec.id) ?? byName.get((mapped.name as string).toLowerCase());
 
+      let partnerId: string | null = null;
+
       if (match) {
         const fieldsToCompare = { ...mapped, airtable_record_id: rec.id };
         if (!hasChanges(fieldsToCompare, match)) {
+          // Even if JSONB unchanged, sync contacts to registry (titles/names may differ)
+          partnerId = match.id;
           result.unchanged++;
-          continue;
-        }
-
-        const { error } = await supabase
-          .from("partners")
-          .update({ ...mapped, airtable_record_id: rec.id })
-          .eq("id", match.id);
-
-        if (error) {
-          result.errors.push(`Update partner "${mapped.name}": ${error.message}`);
         } else {
-          result.updated++;
+          const { error } = await supabase
+            .from("partners")
+            .update({ ...mapped, airtable_record_id: rec.id })
+            .eq("id", match.id);
+
+          if (error) {
+            result.errors.push(`Update partner "${mapped.name}": ${error.message}`);
+          } else {
+            partnerId = match.id;
+            result.updated++;
+          }
         }
       } else {
-        const { error } = await supabase
+        const { data: inserted, error } = await supabase
           .from("partners")
-          .insert({ ...mapped, airtable_record_id: rec.id });
+          .insert({ ...mapped, airtable_record_id: rec.id })
+          .select("id")
+          .single();
 
         if (error) {
           result.errors.push(`Insert partner "${mapped.name}": ${error.message}`);
         } else {
+          partnerId = inserted.id;
           result.inserted++;
+        }
+      }
+
+      // Sync contacts to registry (additive, non-blocking)
+      if (partnerId) {
+        try {
+          await syncPartnerContactsToRegistry(
+            partnerId,
+            mapped.name as string,
+            (mapped.aws_team as RoleContact[]) ?? [],
+            (mapped.partner_contacts as RoleContact[]) ?? []
+          );
+        } catch (regErr) {
+          console.error(`Registry sync failed for partner "${mapped.name}":`, regErr);
         }
       }
     } catch (err) {

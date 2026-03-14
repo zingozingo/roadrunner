@@ -83,6 +83,11 @@ export {
   createParticipantWithLink,
   upsertParticipants,
   backfillMessageSenderNames,
+  upsertContactToRegistry,
+  linkPartnerParticipant,
+  linkRelationshipParticipant,
+  syncPartnerContactsToRegistry,
+  syncRelationshipContactsToRegistry,
 } from "./participants";
 
 // Inbox (Approval Queue)
