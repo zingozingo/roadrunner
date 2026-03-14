@@ -5,14 +5,15 @@ import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
-import { NoteTask } from "@/lib/types";
+import { Task } from "@/lib/types";
 
-type TaskWithContext = NoteTask & { partner_name: string | null; note_title: string | null };
+type TaskWithContext = Task & { partner_name: string | null; note_title: string | null };
 
 const OWNER_FILTER_OPTIONS = [
   { label: "Me", value: "me" },
+  { label: "Internal", value: "internal" },
   { label: "Partner", value: "partner" },
-  { label: "AWS Internal", value: "aws_internal" },
+  { label: "Third Party", value: "third_party" },
 ];
 
 interface TasksClientProps {
@@ -121,12 +122,13 @@ export default function TasksClient({ tasks }: TasksClientProps) {
                           ? new Date(task.due_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
                           : ""}
                       </span>
-                      <span className={`w-16 shrink-0 text-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                      <span className={`w-20 shrink-0 text-center rounded-full px-2 py-0.5 text-xs font-medium ${
                         task.owner === "me" ? "bg-accent/10 text-accent" :
                         task.owner === "partner" ? "bg-emerald-500/10 text-emerald-400" :
+                        task.owner === "third_party" ? "bg-purple-500/10 text-purple-400" :
                         "bg-amber-500/10 text-amber-400"
                       }`}>
-                        {task.owner === "me" ? "Me" : task.owner === "partner" ? "Partner" : "AWS"}
+                        {task.owner === "me" ? "Me" : task.owner === "partner" ? "Partner" : task.owner === "third_party" ? "3rd Party" : "Internal"}
                       </span>
                     </Link>
                   ))}

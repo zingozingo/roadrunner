@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import type { DisplayContext, MeetingNoteWithTasks, NoteTask, NoteSummaryResult } from "@/lib/types";
+import type { DisplayContext, MeetingNoteWithTasks, Task, NoteSummaryResult } from "@/lib/types";
 import ContextSidebar from "./ContextSidebar";
 import PreviousNotes from "./PreviousNotes";
 import TaskEditor from "./TaskEditor";
@@ -16,7 +16,7 @@ interface NoteWorkspaceProps {
   context: DisplayContext;
   initialRawNotes?: string;
   initialSummary?: string;
-  initialTasks?: NoteTask[];
+  initialTasks?: Task[];
   initialPhase?: Phase;
   meetingId?: string;
 }
@@ -46,7 +46,7 @@ export default function NoteWorkspace({
   const [showRawNotes, setShowRawNotes] = useState(false);
   const [editingSummary, setEditingSummary] = useState(false);
   const [summaryDraft, setSummaryDraft] = useState("");
-  const [tasks, setTasks] = useState<NoteTask[]>(initialTasks ?? []);
+  const [tasks, setTasks] = useState<Task[]>(initialTasks ?? []);
 
 
   const lastSavedRef = useRef(initialRawNotes ?? "");

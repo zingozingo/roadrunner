@@ -1,10 +1,11 @@
 import { useState } from "react";
-import type { NoteTask } from "@/lib/types";
+import type { Task } from "@/lib/types";
 
 const OWNER_LABELS: Record<string, string> = {
   me: "My Tasks",
   partner: "Partner Tasks",
-  aws_internal: "AWS Internal",
+  internal: "Internal",
+  third_party: "Third Party",
 };
 
 interface ContactInfo {
@@ -15,7 +16,7 @@ interface ContactInfo {
 }
 
 interface TaskEditorProps {
-  tasks: NoteTask[];
+  tasks: Task[];
   noteId: string;
   contacts?: ContactInfo;
   onRefresh: () => void;
@@ -30,12 +31,12 @@ function extractName(contact: string | null): string | null {
 export default function TaskEditor({ tasks, noteId, contacts, onRefresh }: TaskEditorProps) {
   const [showForm, setShowForm] = useState(false);
   const [desc, setDesc] = useState("");
-  const [owner, setOwner] = useState<"me" | "partner" | "aws_internal">("me");
+  const [owner, setOwner] = useState<"me" | "internal" | "partner" | "third_party">("me");
   const [ownerName, setOwnerName] = useState("");
   const [dueDate, setDueDate] = useState("");
 
   // Group tasks by owner
-  const taskGroups = new Map<string, NoteTask[]>();
+  const taskGroups = new Map<string, Task[]>();
   for (const t of tasks) {
     const group = taskGroups.get(t.owner) ?? [];
     group.push(t);
@@ -58,7 +59,7 @@ export default function TaskEditor({ tasks, noteId, contacts, onRefresh }: TaskE
     onRefresh();
   }
 
-  async function handleToggle(task: NoteTask) {
+  async function handleToggle(task: Task) {
     await fetch(`/api/notes/tasks/${task.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -103,8 +104,9 @@ export default function TaskEditor({ tasks, noteId, contacts, onRefresh }: TaskE
                 className="rounded-lg border border-border bg-surface px-2 py-1 text-xs text-foreground focus:border-accent focus:outline-none"
               >
                 <option value="me">Me</option>
+                <option value="internal">Internal</option>
                 <option value="partner">Partner</option>
-                <option value="aws_internal">AWS Internal</option>
+                <option value="third_party">Third Party</option>
               </select>
               <input
                 type="date"
@@ -167,7 +169,7 @@ export default function TaskEditor({ tasks, noteId, contacts, onRefresh }: TaskE
           <p className="text-sm text-muted">No tasks yet</p>
         ) : (
           <div className="space-y-4">
-            {(["me", "partner", "aws_internal"] as const).map((ownerKey) => {
+            {(["me", "internal", "partner", "third_party"] as const).map((ownerKey) => {
               const group = taskGroups.get(ownerKey);
               if (!group || group.length === 0) return null;
               return (

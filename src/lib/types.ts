@@ -378,23 +378,23 @@ export interface MeetingNote {
   updated_at: string;
 }
 
-export interface NoteTask {
+export interface Task {
   id: string;
-  meeting_note_id: string;
+  meeting_note_id: string | null;
   partner_id: string;
   description: string;
-  owner: "me" | "partner" | "aws_internal";
+  owner: "me" | "internal" | "partner" | "third_party";
   owner_name: string | null;
+  owner_participant_id: string | null;
   status: "open" | "done" | "cancelled";
   due_date: string | null;
-  source: "meeting" | "seed";
-  origin: "ai" | "manual";
+  origin: "ai_extracted" | "manual";
   created_at: string;
   updated_at: string;
 }
 
 export interface MeetingNoteWithTasks extends MeetingNote {
-  tasks: NoteTask[];
+  tasks: Task[];
   partner_name?: string;
 }
 
@@ -420,21 +420,22 @@ export interface UpdateMeetingNoteInput {
   engagement_id?: string | null;
 }
 
-export interface CreateNoteTaskInput {
+export interface CreateTaskInput {
   meeting_note_id: string;
   partner_id: string;
   description: string;
-  owner: "me" | "partner" | "aws_internal";
+  owner: "me" | "internal" | "partner" | "third_party";
   owner_name?: string | null;
+  owner_participant_id?: string | null;
   due_date?: string | null;
-  source?: "meeting" | "seed";
-  origin?: "ai" | "manual";
+  origin?: "ai_extracted" | "manual";
 }
 
-export interface UpdateNoteTaskInput {
+export interface UpdateTaskInput {
   description?: string;
-  owner?: "me" | "partner" | "aws_internal";
+  owner?: "me" | "internal" | "partner" | "third_party";
   owner_name?: string | null;
+  owner_participant_id?: string | null;
   status?: "open" | "done" | "cancelled";
   due_date?: string | null;
 }
@@ -591,7 +592,7 @@ export interface NoteSummaryResult {
   summary: string;
   tasks: Array<{
     description: string;
-    owner: "me" | "partner" | "aws_internal";
+    owner: "me" | "internal" | "partner" | "third_party";
     owner_name: string | null;
     due_date: string | null;
   }>;

@@ -2,11 +2,11 @@ import { getSupabaseClient } from "./client";
 import type {
   MeetingNote,
   MeetingNoteWithTasks,
-  NoteTask,
+  Task,
   CreateMeetingNoteInput,
   UpdateMeetingNoteInput,
-  CreateNoteTaskInput,
-  UpdateNoteTaskInput,
+  CreateTaskInput,
+  UpdateTaskInput,
 } from "../types";
 
 // ============================================================
@@ -61,7 +61,7 @@ export async function getMeetingNote(
 
   // Fetch tasks
   const { data: tasks, error: tasksError } = await db
-    .from("note_tasks")
+    .from("tasks")
     .select("*")
     .eq("meeting_note_id", id)
     .order("created_at", { ascending: true });
@@ -71,7 +71,7 @@ export async function getMeetingNote(
 
   return {
     ...typedNote,
-    tasks: (tasks ?? []) as NoteTask[],
+    tasks: (tasks ?? []) as Task[],
     partner_name: (partner as { name: string } | null)?.name,
   };
 }
@@ -101,7 +101,7 @@ export async function getMeetingNoteByMeetingId(
 
   // Fetch tasks
   const { data: tasks, error: tasksError } = await db
-    .from("note_tasks")
+    .from("tasks")
     .select("*")
     .eq("meeting_note_id", typedNote.id)
     .order("created_at", { ascending: true });
@@ -111,7 +111,7 @@ export async function getMeetingNoteByMeetingId(
 
   return {
     ...typedNote,
-    tasks: (tasks ?? []) as NoteTask[],
+    tasks: (tasks ?? []) as Task[],
     partner_name: (partner as { name: string } | null)?.name,
   };
 }
@@ -149,22 +149,23 @@ export async function getMeetingNotesByPartner(
 
   // Fetch all tasks for these notes in one query
   const noteIds = ((notes ?? []) as MeetingNote[]).map((n) => n.id);
-  let allTasks: NoteTask[] = [];
+  let allTasks: Task[] = [];
   if (noteIds.length > 0) {
     const { data: tasks, error: tasksError } = await db
-      .from("note_tasks")
+      .from("tasks")
       .select("*")
       .in("meeting_note_id", noteIds)
       .order("created_at", { ascending: true });
 
     if (tasksError)
       throw new Error(`Failed to fetch note tasks: ${tasksError.message}`);
-    allTasks = (tasks ?? []) as NoteTask[];
+    allTasks = (tasks ?? []) as Task[];
   }
 
   // Group tasks by note
-  const tasksByNote = new Map<string, NoteTask[]>();
+  const tasksByNote = new Map<string, Task[]>();
   for (const task of allTasks) {
+    if (!task.meeting_note_id) continue;
     const list = tasksByNote.get(task.meeting_note_id) ?? [];
     list.push(task);
     tasksByNote.set(task.meeting_note_id, list);
@@ -271,21 +272,22 @@ export async function listMeetingNotes(
 
   // Fetch all tasks
   const noteIds = typedNotes.map((n) => n.id);
-  let allTasks: NoteTask[] = [];
+  let allTasks: Task[] = [];
   if (noteIds.length > 0) {
     const { data: tasks, error: tasksError } = await db
-      .from("note_tasks")
+      .from("tasks")
       .select("*")
       .in("meeting_note_id", noteIds)
       .order("created_at", { ascending: true });
 
     if (tasksError)
       throw new Error(`Failed to fetch note tasks: ${tasksError.message}`);
-    allTasks = (tasks ?? []) as NoteTask[];
+    allTasks = (tasks ?? []) as Task[];
   }
 
-  const tasksByNote = new Map<string, NoteTask[]>();
+  const tasksByNote = new Map<string, Task[]>();
   for (const task of allTasks) {
+    if (!task.meeting_note_id) continue;
     const list = tasksByNote.get(task.meeting_note_id) ?? [];
     list.push(task);
     tasksByNote.set(task.meeting_note_id, list);
@@ -305,68 +307,68 @@ export async function listMeetingNotes(
 // Note Tasks CRUD
 // ============================================================
 
-export async function createNoteTask(
-  input: CreateNoteTaskInput
-): Promise<NoteTask> {
+export async function createTask(
+  input: CreateTaskInput
+): Promise<Task> {
   const { data, error } = await getSupabaseClient()
-    .from("note_tasks")
+    .from("tasks")
     .insert({
       meeting_note_id: input.meeting_note_id,
       partner_id: input.partner_id,
       description: input.description,
       owner: input.owner,
       owner_name: input.owner_name ?? null,
+      owner_participant_id: input.owner_participant_id ?? null,
       due_date: input.due_date ?? null,
-      source: input.source ?? "meeting",
       origin: input.origin ?? "manual",
     })
     .select()
     .single();
 
-  if (error) throw new Error(`Failed to create note task: ${error.message}`);
-  return data as NoteTask;
+  if (error) throw new Error(`Failed to create task: ${error.message}`);
+  return data as Task;
 }
 
-export async function updateNoteTask(
+export async function updateTask(
   id: string,
-  input: UpdateNoteTaskInput
-): Promise<NoteTask> {
+  input: UpdateTaskInput
+): Promise<Task> {
   const { data, error } = await getSupabaseClient()
-    .from("note_tasks")
+    .from("tasks")
     .update(input)
     .eq("id", id)
     .select()
     .single();
 
-  if (error) throw new Error(`Failed to update note task: ${error.message}`);
-  return data as NoteTask;
+  if (error) throw new Error(`Failed to update task: ${error.message}`);
+  return data as Task;
 }
 
 export async function deleteAiTasksForNote(meetingNoteId: string): Promise<void> {
   const { error } = await getSupabaseClient()
-    .from("note_tasks")
+    .from("tasks")
     .delete()
     .eq("meeting_note_id", meetingNoteId)
-    .eq("origin", "ai");
+    .eq("origin", "ai_extracted");
 
   if (error) throw new Error(`Failed to delete AI tasks: ${error.message}`);
 }
 
-export async function deleteNoteTask(id: string): Promise<void> {
+export async function deleteTask(id: string): Promise<void> {
   const { error } = await getSupabaseClient()
-    .from("note_tasks")
+    .from("tasks")
     .delete()
     .eq("id", id);
 
-  if (error) throw new Error(`Failed to delete note task: ${error.message}`);
+  if (error) throw new Error(`Failed to delete task: ${error.message}`);
 }
 
 export async function getTasksByPartner(
   partnerId: string,
   options?: { status?: "open" | "done" | "cancelled" }
-): Promise<NoteTask[]> {
+): Promise<Task[]> {
   let query = getSupabaseClient()
-    .from("note_tasks")
+    .from("tasks")
     .select("*")
     .eq("partner_id", partnerId)
     .order("created_at", { ascending: false });
@@ -377,23 +379,23 @@ export async function getTasksByPartner(
 
   const { data, error } = await query;
   if (error) throw new Error(`Failed to fetch tasks: ${error.message}`);
-  return (data ?? []) as NoteTask[];
+  return (data ?? []) as Task[];
 }
 
 export async function getOpenTasks(): Promise<
-  (NoteTask & { partner_name: string; note_title: string })[]
+  (Task & { partner_name: string; note_title: string })[]
 > {
   const db = getSupabaseClient();
 
   const { data: tasks, error } = await db
-    .from("note_tasks")
+    .from("tasks")
     .select("*")
     .eq("status", "open")
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(`Failed to fetch open tasks: ${error.message}`);
 
-  const typedTasks = (tasks ?? []) as NoteTask[];
+  const typedTasks = (tasks ?? []) as Task[];
   if (typedTasks.length === 0) return [];
 
   // Resolve partner names
@@ -410,7 +412,7 @@ export async function getOpenTasks(): Promise<
   }
 
   // Resolve note titles
-  const noteIds = [...new Set(typedTasks.map((t) => t.meeting_note_id))];
+  const noteIds = [...new Set(typedTasks.map((t) => t.meeting_note_id).filter((id): id is string => id !== null))];
   const noteTitles = new Map<string, string>();
   if (noteIds.length > 0) {
     const { data: notes } = await db
@@ -425,7 +427,7 @@ export async function getOpenTasks(): Promise<
   return typedTasks.map((t) => ({
     ...t,
     partner_name: partnerNames.get(t.partner_id) ?? "Unknown",
-    note_title: noteTitles.get(t.meeting_note_id) ?? "Untitled",
+    note_title: (t.meeting_note_id ? noteTitles.get(t.meeting_note_id) : null) ?? "Untitled",
   }));
 }
 

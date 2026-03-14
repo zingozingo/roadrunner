@@ -3,11 +3,11 @@ import {
   getMeetingNote,
   updateMeetingNote,
   deleteAiTasksForNote,
-  createNoteTask,
+  createTask,
 } from "@/lib/db";
 import { buildPartnerContext, formatContextForPrompt } from "@/lib/notes-context";
 import { summarizeNotes } from "@/lib/notes-summarizer";
-import type { NoteTask } from "@/lib/types";
+import type { Task } from "@/lib/types";
 
 export async function POST(
   _request: NextRequest,
@@ -42,21 +42,20 @@ export async function POST(
       status: "complete",
     });
 
-    // Materialize AI tasks as first-class note_tasks rows.
+    // Materialize AI tasks as first-class task rows.
     // Delete previous AI tasks first (safe for re-summarization — manual tasks preserved).
     await deleteAiTasksForNote(id);
 
-    const createdTasks: NoteTask[] = [];
+    const createdTasks: Task[] = [];
     for (const task of result.tasks) {
-      const created = await createNoteTask({
+      const created = await createTask({
         meeting_note_id: id,
         partner_id: note.partner_id,
         description: task.description,
         owner: task.owner,
         owner_name: task.owner_name,
         due_date: task.due_date,
-        source: note.note_type,
-        origin: "ai",
+        origin: "ai_extracted",
       });
       createdTasks.push(created);
     }

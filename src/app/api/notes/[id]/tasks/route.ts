@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMeetingNote, createNoteTask } from "@/lib/db";
+import { getMeetingNote, createTask } from "@/lib/db";
 
 export async function POST(
   request: NextRequest,
@@ -23,22 +23,21 @@ export async function POST(
       );
     }
 
-    const validOwners = new Set(["me", "partner", "aws_internal"]);
+    const validOwners = new Set(["me", "internal", "partner", "third_party"]);
     if (!owner || !validOwners.has(owner)) {
       return NextResponse.json(
-        { error: "owner must be 'me', 'partner', or 'aws_internal'" },
+        { error: "owner must be 'me', 'internal', 'partner', or 'third_party'" },
         { status: 400 }
       );
     }
 
-    const task = await createNoteTask({
+    const task = await createTask({
       meeting_note_id: id,
       partner_id: note.partner_id,
       description: description.trim(),
       owner,
       owner_name: owner_name ?? null,
       due_date: due_date ?? null,
-      source: note.note_type,
     });
 
     return NextResponse.json({ task }, { status: 201 });

@@ -9,7 +9,7 @@ import ExpandableList from "@/components/shared/ExpandableList";
 import PartnerTasksSection from "@/components/partners/PartnerTasksSection";
 import PartnerScratchpad from "@/components/partners/PartnerScratchpad";
 import { getPartner, getSupabaseClient, getRelationshipsByPartner, getMeetingNotesByPartner, getTasksByPartner, getPartnerContext } from "@/lib/db";
-import type { Engagement, Meeting, MeetingNoteWithTasks, NoteTask } from "@/lib/types";
+import type { Engagement, Meeting, MeetingNoteWithTasks, Task } from "@/lib/types";
 
 export default async function PartnerDetailPage({
   params,
@@ -81,7 +81,7 @@ export default async function PartnerDetailPage({
 
   const tasksWithTitles = openTasks.map((t) => ({
     ...t,
-    note_title: noteTitleMap.get(t.meeting_note_id) ?? "Untitled",
+    note_title: (t.meeting_note_id ? noteTitleMap.get(t.meeting_note_id) : null) ?? "Untitled",
   }));
 
   return (

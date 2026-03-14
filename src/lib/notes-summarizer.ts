@@ -88,7 +88,7 @@ TASK EXTRACTION RULES:
 - For each task, identify the owner using this process:
   1. Check the KNOWN CONTACTS list in the partner context. If a name in the notes matches a known contact (e.g., "Jackie" matches "Jackie Funk" listed as Alliance Lead), set owner_name to their full name and owner to the appropriate category:
      - Partner-side contacts (Alliance Lead, partner team) → "partner"
-     - AWS-side contacts (PSA, Account Manager, SA) → "aws_internal"
+     - AWS-side contacts (PSA, Account Manager, SA) → "internal"
   2. If the PDM (Steven) is the owner ("I need to...", "my action is...", "I'll send..."), set owner to "me".
   3. If a name is mentioned but does NOT match any known contact, still capture the name in owner_name and classify owner as best you can from context.
   4. If no owner is identifiable, default owner to "me" with owner_name null.
@@ -97,7 +97,7 @@ TASK EXTRACTION RULES:
 OUTPUT: Respond with ONLY a JSON object. No markdown fences, no preamble, no explanation.
 {
   "summary": "plain text string — no markdown headers",
-  "tasks": [{"description": "...", "owner": "me|partner|aws_internal", "owner_name": "...|null", "due_date": "YYYY-MM-DD|null"}],
+  "tasks": [{"description": "...", "owner": "me|partner|internal", "owner_name": "...|null", "due_date": "YYYY-MM-DD|null"}],
   "flags": []
 }`;
 
@@ -163,8 +163,8 @@ function parseResponse(raw: string): NoteSummaryResult {
   }
 }
 
-function validateOwner(value: unknown): "me" | "partner" | "aws_internal" {
-  if (value === "me" || value === "partner" || value === "aws_internal") return value;
+function validateOwner(value: unknown): "me" | "internal" | "partner" | "third_party" {
+  if (value === "me" || value === "internal" || value === "partner" || value === "third_party") return value;
   return "me";
 }
 

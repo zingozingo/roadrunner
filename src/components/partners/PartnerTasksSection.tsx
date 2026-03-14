@@ -1,15 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import type { NoteTask } from "@/lib/types";
+import type { Task } from "@/lib/types";
 
 const OWNER_LABELS: Record<string, string> = {
   me: "My Tasks",
   partner: "Partner Tasks",
-  aws_internal: "AWS Internal",
+  internal: "Internal",
+  third_party: "Third Party",
 };
 
-interface PartnerTask extends NoteTask {
+interface PartnerTask extends Task {
   note_title: string;
 }
 
@@ -52,7 +53,7 @@ export default function PartnerTasksSection({ tasks: initialTasks }: PartnerTask
         <p className="text-sm text-muted">No open tasks</p>
       ) : (
         <div className="space-y-4">
-          {(["me", "partner", "aws_internal"] as const).map((ownerKey) => {
+          {(["me", "internal", "partner", "third_party"] as const).map((ownerKey) => {
             const group = taskGroups.get(ownerKey);
             if (!group || group.length === 0) return null;
             return (
