@@ -79,6 +79,7 @@ export {
 export {
   getParticipantById,
   updateParticipant,
+  deleteEngagementParticipant,
   deleteParticipantLink,
   createParticipantWithLink,
   upsertParticipants,

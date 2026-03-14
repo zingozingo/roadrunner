@@ -260,13 +260,7 @@ export async function deleteEngagement(id: string): Promise<void> {
     .eq("target_id", id);
   if (linkTgtErr) throw new Error(`Failed to delete entity links (target): ${linkTgtErr.message}`);
 
-  // 2. Delete participant links
-  const { error: plinkErr } = await db
-    .from("participant_links")
-    .delete()
-    .eq("entity_type", "engagement")
-    .eq("entity_id", id);
-  if (plinkErr) throw new Error(`Failed to delete participant links: ${plinkErr.message}`);
+  // 2. engagement_participants cascade-deleted via FK ON DELETE CASCADE
 
   // 3. Delete unresolved approvals referencing this engagement
   const { error: approvalErr } = await db
@@ -323,10 +317,9 @@ export async function getParticipantsByEngagement(
   engagementId: string
 ): Promise<(Participant & { role: string | null; linkId: string })[]> {
   const { data, error } = await getSupabaseClient()
-    .from("participant_links")
+    .from("engagement_participants")
     .select("id, role, participant:participants(*)")
-    .eq("entity_type", "engagement")
-    .eq("entity_id", engagementId);
+    .eq("engagement_id", engagementId);
 
   if (error) throw new Error(`Failed to fetch participants: ${error.message}`);
 

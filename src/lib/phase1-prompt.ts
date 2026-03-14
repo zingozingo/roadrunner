@@ -330,12 +330,11 @@ async function getEngagementParticipants(
 
   const db = getSupabaseClient();
 
-  // Fetch participant_links for these engagements
+  // Fetch engagement_participants for these engagements
   const { data: links, error: linksError } = await db
-    .from("participant_links")
-    .select("entity_id, participant_id")
-    .eq("entity_type", "engagement")
-    .in("entity_id", engagementIds);
+    .from("engagement_participants")
+    .select("engagement_id, participant_id")
+    .in("engagement_id", engagementIds);
 
   if (linksError || !links || links.length === 0) return result;
 
@@ -357,9 +356,9 @@ async function getEngagementParticipants(
   for (const link of links) {
     const email = emailMap.get(link.participant_id);
     if (!email) continue;
-    const existing = result.get(link.entity_id) ?? [];
+    const existing = result.get(link.engagement_id) ?? [];
     if (!existing.includes(email)) existing.push(email);
-    result.set(link.entity_id, existing);
+    result.set(link.engagement_id, existing);
   }
 
   return result;

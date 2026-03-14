@@ -90,14 +90,12 @@ const {
         insert: mockInsert,
       };
     }
-    if (table === "participant_links") {
+    if (table === "engagement_participants") {
       return {
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                limit: vi.fn().mockResolvedValue({ data: [], error: null }),
-              }),
+              limit: vi.fn().mockResolvedValue({ data: [], error: null }),
             }),
           }),
         }),

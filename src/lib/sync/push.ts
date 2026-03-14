@@ -116,19 +116,18 @@ async function fetchEngagementParticipants(
   const result = new Map<string, EngagementParticipant[]>();
 
   let linkQuery = supabase
-    .from("participant_links")
-    .select("participant_id, entity_id")
-    .eq("entity_type", "engagement");
+    .from("engagement_participants")
+    .select("participant_id, engagement_id");
 
   if (engagementIds && engagementIds.length > 0) {
-    linkQuery = linkQuery.in("entity_id", engagementIds);
+    linkQuery = linkQuery.in("engagement_id", engagementIds);
   }
 
   const { data: links, error: linkErr } = await linkQuery;
   if (linkErr || !links || links.length === 0) return result;
 
   const participantIds = [...new Set(
-    (links as { participant_id: string; entity_id: string }[]).map((l) => l.participant_id)
+    (links as { participant_id: string; engagement_id: string }[]).map((l) => l.participant_id)
   )];
 
   const { data: participants, error: pErr } = await supabase
@@ -143,12 +142,12 @@ async function fetchEngagementParticipants(
     pById.set(p.id, { name: p.name, email: p.email, organization: p.organization });
   }
 
-  for (const link of links as { participant_id: string; entity_id: string }[]) {
+  for (const link of links as { participant_id: string; engagement_id: string }[]) {
     const participant = pById.get(link.participant_id);
     if (!participant) continue;
-    const existing = result.get(link.entity_id) ?? [];
+    const existing = result.get(link.engagement_id) ?? [];
     existing.push(participant);
-    result.set(link.entity_id, existing);
+    result.set(link.engagement_id, existing);
   }
 
   return result;

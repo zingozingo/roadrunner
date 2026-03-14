@@ -195,15 +195,7 @@ export async function deleteEvent(id: string): Promise<void> {
     .eq("target_id", id);
   if (linkTgtErr) throw new Error(`Failed to delete entity links (target): ${linkTgtErr.message}`);
 
-  // 2. Delete participant links
-  const { error: plinkErr } = await db
-    .from("participant_links")
-    .delete()
-    .eq("entity_type", "event")
-    .eq("entity_id", id);
-  if (plinkErr) throw new Error(`Failed to delete participant links: ${plinkErr.message}`);
-
-  // 3. Delete the event
+  // 2. Delete the event
   const { error: evtErr } = await db
     .from("events")
     .delete()

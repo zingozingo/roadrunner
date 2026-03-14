@@ -39,14 +39,17 @@ export async function updateParticipant(
   return data as Participant;
 }
 
-export async function deleteParticipantLink(linkId: string): Promise<void> {
+export async function deleteEngagementParticipant(linkId: string): Promise<void> {
   const { error } = await getSupabaseClient()
-    .from("participant_links")
+    .from("engagement_participants")
     .delete()
     .eq("id", linkId);
 
-  if (error) throw new Error(`Failed to delete participant link: ${error.message}`);
+  if (error) throw new Error(`Failed to delete engagement participant: ${error.message}`);
 }
+
+/** @deprecated Use deleteEngagementParticipant instead. Kept for UI layer until Chunk B. */
+export const deleteParticipantLink = deleteEngagementParticipant;
 
 /**
  * Find or create a participant, then link to an engagement.
@@ -113,11 +116,10 @@ export async function createParticipantWithLink(
 
   // Create the link
   const { data: link, error: linkErr } = await db
-    .from("participant_links")
+    .from("engagement_participants")
     .insert({
       participant_id: participantId,
-      entity_type: "engagement",
-      entity_id: engagementId,
+      engagement_id: engagementId,
       role,
     })
     .select("id")
@@ -133,28 +135,25 @@ export async function createParticipantWithLink(
 }
 
 /**
- * Ensure a participant_links row exists (idempotent).
+ * Ensure an engagement_participants row exists (idempotent).
  */
-async function ensureParticipantLink(
+async function ensureEngagementParticipant(
   participantId: string,
-  entityType: string,
-  entityId: string,
+  engagementId: string,
   role: string | null
 ): Promise<void> {
   const db = getSupabaseClient();
   const { data: existing } = await db
-    .from("participant_links")
+    .from("engagement_participants")
     .select("id")
     .eq("participant_id", participantId)
-    .eq("entity_type", entityType)
-    .eq("entity_id", entityId)
+    .eq("engagement_id", engagementId)
     .limit(1);
 
   if (!existing || existing.length === 0) {
-    await db.from("participant_links").insert({
+    await db.from("engagement_participants").insert({
       participant_id: participantId,
-      entity_type: entityType,
-      entity_id: entityId,
+      engagement_id: engagementId,
       role,
     });
   }
@@ -223,7 +222,7 @@ export async function upsertParticipants(
             updates.organization = participant.organization;
           }
           // title column reserved for non-classifier sources (AT catalog sync, email signatures, manual entry)
-          // participant.role goes to participant_links.role only (via ensureParticipantLink)
+          // participant.role goes to engagement_participants.role only (via ensureEngagementParticipant)
           if (Object.keys(updates).length > 0) {
             await db
               .from("participants")
@@ -287,9 +286,8 @@ export async function upsertParticipants(
 
       // Link to engagement if we have one
       if (participantId && engagementId) {
-        await ensureParticipantLink(
+        await ensureEngagementParticipant(
           participantId,
-          "engagement",
           engagementId,
           participant.role
         );
@@ -316,10 +314,9 @@ export async function backfillMessageSenderNames(
 
   // Fetch participants linked to this engagement (fresh from upsert)
   const { data: links } = await db
-    .from("participant_links")
+    .from("engagement_participants")
     .select("participant:participants(email, name)")
-    .eq("entity_type", "engagement")
-    .eq("entity_id", engagementId);
+    .eq("engagement_id", engagementId);
 
   if (!links || links.length === 0) return 0;
 
