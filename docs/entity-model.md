@@ -914,7 +914,7 @@ UNIQUE index on `(participant_id, entity_type, entity_id)`
 
 | Connection | Status | Priority |
 |---|---|---|
-| Contact registry UI rewire (JSONB → join tables) | Open — engagement pipeline complete, JSONB reads remain (17 locations across 10 files) | Next |
+| Contact registry UI rewire (JSONB → join tables) | Open — all 4 write paths complete, 17 JSONB read locations across 10 files remain | Next |
 | participant_links drop | **Done** — migration 062 | ✅ |
 | JSONB column drops (aws_team, partner_contacts, contacts) | Blocked by UI rewire | Next |
 | Manual meeting quick-capture | Open | Next |

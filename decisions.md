@@ -3946,3 +3946,25 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** 10 functions rewired, 1 API route renamed (participant-links → engagement-participants), 1 type replaced (ParticipantLink → EngagementParticipant), 1 table dropped. event↔participant cleanup removed (was dead code — zero event participants ever written). 427 tests passing.
 
 ---
+
+### Decision 181: meeting_participants Write Path Wired
+
+**Date:** 2026-03-14
+**Status:** Implemented
+
+**Decision:** Wired the meeting_participants join table with dual-write alongside meetings.attendees JSONB. Three new functions in participants.ts, four call sites in the meeting pipeline.
+
+**Context:** meeting_participants table existed since migration 057 but had zero code — no reads, no writes. ICS attendees went exclusively to meetings.attendees JSONB. This was the last empty join table in the contact registry.
+
+**Rationale:** Completes the write side of the contact registry. All 4 dedicated join tables (partner_participants, relationship_participants, engagement_participants, meeting_participants) now have active write paths. JSONB columns remain as transitional dual-write targets until read paths are rewired.
+
+**Implementation:**
+- `linkMeetingParticipant()` — private helper, insert with UNIQUE violation swallow
+- `syncMeetingAttendeesToRegistry()` — upserts attendees to participants, links to meeting_participants with organizer role detection
+- `replaceMeetingParticipants()` — delete-and-reinsert for ICS updates
+- Call sites: createMeetingFromICS (new + update), createMeeting (manual), PUT /api/meetings/[id] (conditional)
+- Error handling: Decision #177 pattern — registry errors logged, never fail parent operation
+
+**Impact:** meeting_participants populated on every meeting creation/update. Organizer tracked with role='organizer'. Dual-write: JSONB stays until 7 read locations are rewired.
+
+---
