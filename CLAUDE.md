@@ -18,14 +18,14 @@ Roadrunner (codename **Relay**) is an AI-powered email classification and engage
 
 **Directory structure:**
 ```
-src/app/           → Next.js pages + API routes (29 routes, 17 pages)
-src/components/    → React components (25, organized: layout/, shared/, inbox/, engagement/, actions/)
+src/app/           → Next.js pages + API routes (30 routes, 18 pages)
+src/components/    → React components (21, organized: layout/, shared/, inbox/, engagement/, actions/)
 src/lib/           → Business logic (classification, parsing, sync, formatting)
 src/lib/db/        → Database layer (10 modules)
 src/lib/sync/      → Airtable sync (field-maps, push, pull, utils)
 src/lib/__tests__/ → Test suites (14 suites, 427 tests)
-supabase/          → Migrations (001-060) + schema_live.sql
-docs/              → 9 documentation files (entity-model.md is canonical schema reference)
+supabase/          → Migrations (001-061) + schema_live.sql
+docs/              → 8 documentation files (entity-model.md is canonical schema reference)
 ```
 
 ## Core Architectural Principles
@@ -72,7 +72,6 @@ These are **NON-NEGOTIABLE**. Every code change must respect these:
 - `entity_links` — polymorphic: engagement↔event, engagement↔program (source_type, target_type)
 - `engagement_relationships` — engagement↔relationship junction
 - `participant_links` — (legacy, to be dropped) participant↔engagement/event with role
-- `notes` — (legacy, to be dropped) engagement notes
 
 † JSONB contact columns are transitional artifacts — registry join tables are authoritative, JSONB to be dropped after UI rewire.
 
@@ -155,7 +154,7 @@ Steven's workflow is two-layer:
 
 ## Key Conventions
 
-- **Migrations:** Sequential numbering in `supabase/migrations/` (currently 001-060). New migrations get the next number (061, 062, ...).
+- **Migrations:** Sequential numbering in `supabase/migrations/` (currently 001-061). New migrations get the next number (062, 063, ...).
 - **Types:** All TypeScript types in `src/lib/types.ts` — keep them there, don't scatter.
 - **API routes:** `src/app/api/{resource}/route.ts` pattern. All CRUD follows same pattern.
 - **UI pages:** `src/app/{resource}/page.tsx` for list, `src/app/{resource}/[id]/page.tsx` for detail.
@@ -202,13 +201,13 @@ Steven's workflow is two-layer:
 ## Current State
 
 See `docs/goal-state.md` for the living version:
-- 60 migrations, 20 tables, 30 API routes, 18 UI pages, 427 tests across 14 suites
+- 61 migrations, 19 tables, 30 API routes, 18 UI pages, 427 tests across 14 suites
 - 5 active engagements (Nozomi Networks, Spacelift x3, Qualys)
 - Phase 1 prompt: curated-input philosophy, 6-step decision framework, enriched engagement index
 - Engagement-hub architecture: meetings and entity links flow through engagements
 - Meeting pipeline: ICS parse → create → classify → link to engagement (unconditional) → inherit partner → AT push
 - All Airtable pushes awaited (no fire-and-forget)
-- Docs: 9 files in `docs/` (DATA-MODEL.md and FIELD-MAPPING.md deprecated in favor of entity-model.md)
+- Docs: 8 files in `docs/` (DATA-MODEL.md and FIELD-MAPPING.md deprecated in favor of entity-model.md)
 
 ## What NOT to Do
 
