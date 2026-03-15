@@ -1,12 +1,11 @@
 import { getSupabaseClient } from "./db/client";
 import { getRecentNoteSummaries, getTasksByPartner } from "./db/meeting-notes";
 import { getPartnerContext } from "./db/partner-context";
-import { renderContact } from "./contact-parser";
+import { getContactsByPartner } from "./db/participants";
 import type {
   Partner,
   Engagement,
   Meeting,
-  RoleContact,
   PartnerContext,
   DisplayContext,
   Pillar,
@@ -56,8 +55,9 @@ export async function buildPartnerContext(
   const engagements = (engData ?? []) as Engagement[];
   const meetings = (mtgData ?? []) as { id: string; title: string; meeting_date: string | null; status: string }[];
 
-  // Parse contacts from JSONB
-  const contacts = parsePartnerContacts(partner);
+  // Build contacts from canonical participants registry
+  const registryContacts = await getContactsByPartner(partnerId);
+  const contacts = buildContactsFromRegistry(registryContacts);
 
   // Resolve program/event names for engagements via entity_links
   const engagementIds = engagements.map((e) => e.id);
@@ -277,31 +277,41 @@ export function formatContextForDisplay(context: PartnerContext): DisplayContext
 // Internal helpers
 // ============================================================
 
-function parsePartnerContacts(partner: Partner): PartnerContext["contacts"] {
+/** Format a registry contact as "Name <email> (Title)" string */
+function formatRegistryContact(c: { name: string | null; email: string; title: string | null }): string {
+  const parts: string[] = [];
+  if (c.name) parts.push(c.name);
+  parts.push(`<${c.email}>`);
+  if (c.title) parts.push(`(${c.title})`);
+  return parts.join(" ");
+}
+
+function buildContactsFromRegistry(
+  contacts: { name: string | null; email: string; title: string | null; org_type: string | null; role: string | null }[]
+): PartnerContext["contacts"] {
   let allianceLead: string | null = null;
   let accountManager: string | null = null;
   let psa: string | null = null;
   const others: string[] = [];
 
-  // Parse partner_contacts (partner-side people)
-  for (const c of partner.partner_contacts ?? []) {
-    const rendered = renderContact(c);
+  for (const c of contacts) {
+    const rendered = formatRegistryContact(c);
     const role = (c.role ?? "").toLowerCase();
-    if (role.includes("alliance") || role.includes("alliances")) {
-      allianceLead = rendered;
-    } else {
-      others.push(rendered);
-    }
-  }
 
-  // Parse aws_team (AWS-side people)
-  for (const c of partner.aws_team ?? []) {
-    const rendered = renderContact(c);
-    const role = (c.role ?? "").toLowerCase();
-    if (role.includes("psa") || role.includes("partner solutions architect")) {
-      psa = rendered;
-    } else if (role.includes("account manager") || role === "am") {
-      accountManager = rendered;
+    if (c.org_type === "partner") {
+      if (role.includes("alliance") || role.includes("alliances")) {
+        allianceLead = rendered;
+      } else {
+        others.push(rendered);
+      }
+    } else if (c.org_type === "internal") {
+      if (role.includes("psa") || role.includes("partner solutions architect")) {
+        psa = rendered;
+      } else if (role.includes("account manager") || role === "am") {
+        accountManager = rendered;
+      } else {
+        others.push(rendered);
+      }
     } else {
       others.push(rendered);
     }

@@ -225,7 +225,8 @@ export function buildPhase2Context(
   existingLinks?: {
     entityLinks: { type: string; name: string; relationship: string }[];
     awsRelationships: { name: string; relationship: string }[];
-  } | null
+  } | null,
+  partnerContacts?: { name: string | null; email: string; title: string | null; org_type: string | null; role: string | null }[] | null
 ): string {
   const parts: string[] = [];
 
@@ -257,7 +258,7 @@ export function buildPhase2Context(
   }
 
   // Section 6: Matched partner
-  parts.push(buildMatchedPartnerSection(matchedPartner));
+  parts.push(buildMatchedPartnerSection(matchedPartner, partnerContacts ?? null));
 
   // Section 7: Reference catalogs (events filtered to relevant time window)
   const now = new Date();
@@ -512,7 +513,10 @@ function buildNewEmailSection(
   return lines.join("\n");
 }
 
-function buildMatchedPartnerSection(partner: Partner | null): string {
+function buildMatchedPartnerSection(
+  partner: Partner | null,
+  registryContacts: { name: string | null; email: string; title: string | null; org_type: string | null; role: string | null }[] | null
+): string {
   const lines = ["## Matched Partner\n"];
 
   if (!partner) {
@@ -524,19 +528,30 @@ function buildMatchedPartnerSection(partner: Partner | null): string {
   lines.push(`**Name:** ${partner.name} (id: ${partner.id})`);
   if (partner.segment) lines.push(`**Segment:** ${partner.segment}`);
 
-  // Render key contacts from JSONB fields
-  const keyContacts = [
-    ...(partner.partner_contacts ?? []),
-    ...(partner.aws_team ?? []),
-  ].slice(0, 4); // Show up to 4 key contacts
-
-  if (keyContacts.length > 0) {
+  // Render key contacts — prefer registry, fall back to JSONB
+  if (registryContacts && registryContacts.length > 0) {
+    const keyContacts = registryContacts.slice(0, 4);
     const contactStrs = keyContacts.map((c) => {
       const namePart = c.name ?? "Unknown";
-      const emailPart = c.email ? ` <${c.email}>` : "";
+      const emailPart = ` <${c.email}>`;
       return `${namePart}${emailPart} (${c.role})`;
     });
     lines.push(`**Key Contacts:** ${contactStrs.join(", ")}`);
+  } else {
+    // Fallback to JSONB for backward compatibility
+    const keyContacts = [
+      ...(partner.partner_contacts ?? []),
+      ...(partner.aws_team ?? []),
+    ].slice(0, 4);
+
+    if (keyContacts.length > 0) {
+      const contactStrs = keyContacts.map((c) => {
+        const namePart = c.name ?? "Unknown";
+        const emailPart = c.email ? ` <${c.email}>` : "";
+        return `${namePart}${emailPart} (${c.role})`;
+      });
+      lines.push(`**Key Contacts:** ${contactStrs.join(", ")}`);
+    }
   }
 
   if (partner.what_they_do) lines.push(`**What they do:** ${partner.what_they_do}`);

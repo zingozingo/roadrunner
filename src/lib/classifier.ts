@@ -18,6 +18,7 @@ import {
   linkEngagementRelationship,
   getEntityLinksForEntity,
   getRelationshipsByEngagement,
+  getContactsByPartner,
 } from "./db";
 import {
   ClassificationResult,
@@ -67,7 +68,7 @@ async function classifyTwoPhase(
     .in("message_id", messageIds)
     .then(({ data }: { data: unknown }) => (data ?? []) as Meeting[]);
 
-  const [history, matchedPartner, events, programs, relationships, nameMap, newMeetings, engagementEntityLinks, engagementRels] =
+  const [history, matchedPartner, events, programs, relationships, nameMap, newMeetings, engagementEntityLinks, engagementRels, partnerContacts] =
     await Promise.all([
       engagementId && !isNew
         ? getEngagementHistory(engagementId)
@@ -85,6 +86,9 @@ async function classifyTwoPhase(
         : Promise.resolve([]),
       engagementId && !isNew
         ? getRelationshipsByEngagement(engagementId)
+        : Promise.resolve([]),
+      partnerId
+        ? getContactsByPartner(partnerId)
         : Promise.resolve([]),
     ]);
 
@@ -120,7 +124,8 @@ async function classifyTwoPhase(
     forwarderNote,
     nameMap,
     newMeetings.length > 0 ? newMeetings : null,
-    existingLinks
+    existingLinks,
+    partnerContacts
   );
 
   return await classifyPhase2(phase2Context);
@@ -245,7 +250,7 @@ export async function runPhase2ForResolve(
   const partnerId = phase1Result.engagement_match.partner_id;
   const isNew = phase1Result.engagement_match.is_new;
 
-  const [history, matchedPartner, events, programs, relationships, nameMap, engagementEntityLinks, engagementRels] =
+  const [history, matchedPartner, events, programs, relationships, nameMap, engagementEntityLinks, engagementRels, partnerContacts] =
     await Promise.all([
       engagementId && !isNew
         ? getEngagementHistory(engagementId)
@@ -260,6 +265,9 @@ export async function runPhase2ForResolve(
         : Promise.resolve([]),
       engagementId && !isNew
         ? getRelationshipsByEngagement(engagementId)
+        : Promise.resolve([]),
+      partnerId
+        ? getContactsByPartner(partnerId)
         : Promise.resolve([]),
     ]);
 
@@ -294,7 +302,8 @@ export async function runPhase2ForResolve(
     forwarderNote,
     nameMap,
     null, // newMeetings — not available in resolve path
-    existingLinks
+    existingLinks,
+    partnerContacts
   );
 
   return await classifyPhase2(phase2Context);

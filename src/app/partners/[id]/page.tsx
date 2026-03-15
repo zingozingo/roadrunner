@@ -8,7 +8,7 @@ import MeetingTimeline from "@/components/shared/MeetingTimeline";
 import ExpandableList from "@/components/shared/ExpandableList";
 import PartnerTasksSection from "@/components/partners/PartnerTasksSection";
 import PartnerScratchpad from "@/components/partners/PartnerScratchpad";
-import { getPartner, getSupabaseClient, getRelationshipsByPartner, getMeetingNotesByPartner, getTasksByPartner, getPartnerContext } from "@/lib/db";
+import { getPartner, getSupabaseClient, getRelationshipsByPartner, getMeetingNotesByPartner, getTasksByPartner, getPartnerContext, getContactsByPartner } from "@/lib/db";
 import type { Engagement, Meeting, MeetingNoteWithTasks, Task } from "@/lib/types";
 
 export default async function PartnerDetailPage({
@@ -21,12 +21,13 @@ export default async function PartnerDetailPage({
   const partner = await getPartner(id);
   if (!partner) notFound();
 
-  // Extract role contacts from JSONB arrays
-  const allianceLead = partner.partner_contacts?.find(c => c.role === 'Alliance Lead');
-  const psa = partner.aws_team?.find(c => c.role === 'PSA');
-  const accountManager = partner.aws_team?.find(c => c.role === 'Account Manager');
-  const pmm = partner.aws_team?.find(c => c.role === 'PMM');
-  const otherPartnerContacts = partner.partner_contacts?.filter(c => c.role !== 'Alliance Lead') ?? [];
+  // Extract role contacts from canonical participants registry
+  const contacts = await getContactsByPartner(id);
+  const allianceLead = contacts.find(c => c.role === 'Alliance Lead' && c.org_type === 'partner');
+  const psa = contacts.find(c => c.role === 'PSA' && c.org_type === 'internal');
+  const accountManager = contacts.find(c => c.role === 'Account Manager' && c.org_type === 'internal');
+  const pmm = contacts.find(c => c.role === 'PMM' && c.org_type === 'internal');
+  const otherPartnerContacts = contacts.filter(c => c.org_type === 'partner' && c.role !== 'Alliance Lead');
 
   const db = getSupabaseClient();
 
