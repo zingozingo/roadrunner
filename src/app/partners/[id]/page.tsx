@@ -172,7 +172,7 @@ export default async function PartnerDetailPage({
       {/* Full-width sections — no sidebar */}
       <div className="space-y-6">
 
-        {/* Partner Context — two-column card: What They Do + AWS Context */}
+        {/* Partner Context — two-column card: What They Do + AWS Stickiness */}
         {(partner.what_they_do || partner.aws_stickiness || partner.key_aws_services.length > 0) && (
           <div className="rounded-xl border border-border bg-surface p-5">
             <div className="grid gap-6 lg:grid-cols-2">
@@ -188,11 +188,11 @@ export default async function PartnerDetailPage({
                 </div>
               )}
 
-              {/* Right: AWS Context */}
+              {/* Right: AWS Stickiness */}
               {(partner.aws_stickiness || partner.key_aws_services.length > 0) && (
                 <div className="space-y-3">
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-accent">
-                    AWS Context
+                    AWS Stickiness
                   </h3>
                   {partner.aws_stickiness && (
                     <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
