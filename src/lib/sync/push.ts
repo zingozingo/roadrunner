@@ -735,12 +735,16 @@ export async function pushMeetingToAirtable(
     throw new Error(`Meeting ${meetingId} not found`);
   }
 
-  // Engagement gate — meetings without an engagement don't push to AT.
-  // ICS-parsed meetings are created before classification; they get linked
-  // to an engagement later via linkMeetingToEngagement, which re-triggers push.
-  if (!meeting.engagement_id) {
-    console.log(`Skipping AT push for meeting "${meeting.title}" — no engagement linked yet`);
+  // Engagement gate — ICS-parsed meetings without an engagement don't push yet.
+  // They get linked to an engagement later via classification, which re-triggers push.
+  // Manual meetings are intentionally partner-level and push without an engagement.
+  if (!meeting.engagement_id && meeting.source === "ics_parsed") {
+    console.log(`Skipping AT push for meeting "${meeting.title}" — ICS meeting, no engagement linked yet`);
     return { action: "skipped" as const, reason: "no_engagement" };
+  }
+
+  if (!meeting.engagement_id && meeting.source === "manual") {
+    console.log(`Pushing manual meeting "${meeting.title}" to Airtable (no engagement)`);
   }
 
   const lookups = await buildMeetingLookups();
