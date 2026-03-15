@@ -1,6 +1,6 @@
--- Roadrunner schema (derived from migrations 001-061)
--- Generated: 2026-03-14
--- Tables: 19 (18 active + 1 legacy)
+-- Roadrunner schema (derived from migrations 001-062)
+-- Generated: 2026-03-15
+-- Tables: 18
 --
 -- Canonical field-level reference: docs/entity-model.md
 
@@ -352,22 +352,11 @@ CREATE TABLE public.partner_context (
 );
 
 -- ============================================================
--- LEGACY TABLES (to be dropped — decision 169)
+-- LEGACY TABLES
 -- ============================================================
 
 -- notes table dropped in migration 061 (decision 179)
-
-CREATE TABLE public.participant_links (
-  id uuid DEFAULT gen_random_uuid() NOT NULL,
-  participant_id uuid NOT NULL,
-  entity_type text NOT NULL,
-  entity_id uuid NOT NULL,
-  role text,
-  created_at timestamp with time zone DEFAULT now() NOT NULL,
-  PRIMARY KEY (id),
-  FOREIGN KEY (participant_id) REFERENCES participants(id),
-  CONSTRAINT participant_links_entity_type_check CHECK ((entity_type = ANY (ARRAY['engagement'::text, 'event'::text])))
-);
+-- participant_links table dropped in migration 062 (decision 169/180)
 
 -- ============================================================
 -- INDEXES
@@ -439,17 +428,11 @@ CREATE INDEX idx_partner_context_partner ON public.partner_context USING btree (
 CREATE INDEX idx_partner_context_source ON public.partner_context USING btree (partner_id, source);
 
 -- partners
--- partners
 CREATE INDEX idx_partners_name ON public.partners USING btree (name);
 CREATE INDEX idx_partners_segment ON public.partners USING btree (segment);
 
 -- programs
 CREATE UNIQUE INDEX idx_programs_airtable_record_id ON public.programs USING btree (airtable_record_id) WHERE (airtable_record_id IS NOT NULL);
-
--- participant_links (legacy)
-CREATE INDEX idx_participant_links_entity ON public.participant_links USING btree (entity_type, entity_id);
-CREATE INDEX idx_participant_links_participant ON public.participant_links USING btree (participant_id);
-CREATE UNIQUE INDEX idx_participant_links_unique ON public.participant_links USING btree (participant_id, entity_type, entity_id);
 
 -- ============================================================
 -- TRIGGERS (updated_at auto-maintenance)
