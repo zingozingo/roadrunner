@@ -771,6 +771,88 @@ export async function getContactsByMeeting(meetingId: string): Promise<RegistryC
 }
 
 /**
+ * Bulk-fetch contacts for multiple partners in a single query.
+ * Returns a Map of partnerId → RegistryContact[].
+ */
+export async function getContactsByPartnerBulk(partnerIds: string[]): Promise<Map<string, RegistryContact[]>> {
+  const result = new Map<string, RegistryContact[]>();
+  if (partnerIds.length === 0) return result;
+
+  try {
+    const { data, error } = await getSupabaseClient()
+      .from("partner_participants")
+      .select("partner_id, role, participant:participants(id, email, name, organization, title, org_type)")
+      .in("partner_id", partnerIds);
+
+    if (error) {
+      console.error(`Failed to bulk-fetch partner contacts: ${error.message}`);
+      return result;
+    }
+
+    for (const row of data ?? []) {
+      const r = row as unknown as { partner_id: string; role: string | null; participant: { id: string; email: string; name: string | null; organization: string | null; title: string | null; org_type: string | null } };
+      const contact: RegistryContact = {
+        id: r.participant.id,
+        email: r.participant.email,
+        name: r.participant.name,
+        organization: r.participant.organization,
+        title: r.participant.title,
+        org_type: r.participant.org_type,
+        role: r.role,
+      };
+      const existing = result.get(r.partner_id) ?? [];
+      existing.push(contact);
+      result.set(r.partner_id, existing);
+    }
+  } catch (err) {
+    console.error("getContactsByPartnerBulk error:", err instanceof Error ? err.message : err);
+  }
+
+  return result;
+}
+
+/**
+ * Bulk-fetch contacts for multiple relationships in a single query.
+ * Returns a Map of relationshipId → RegistryContact[].
+ */
+export async function getContactsByRelationshipBulk(relationshipIds: string[]): Promise<Map<string, RegistryContact[]>> {
+  const result = new Map<string, RegistryContact[]>();
+  if (relationshipIds.length === 0) return result;
+
+  try {
+    const { data, error } = await getSupabaseClient()
+      .from("relationship_participants")
+      .select("relationship_id, role, participant:participants(id, email, name, organization, title, org_type)")
+      .in("relationship_id", relationshipIds);
+
+    if (error) {
+      console.error(`Failed to bulk-fetch relationship contacts: ${error.message}`);
+      return result;
+    }
+
+    for (const row of data ?? []) {
+      const r = row as unknown as { relationship_id: string; role: string | null; participant: { id: string; email: string; name: string | null; organization: string | null; title: string | null; org_type: string | null } };
+      const contact: RegistryContact = {
+        id: r.participant.id,
+        email: r.participant.email,
+        name: r.participant.name,
+        organization: r.participant.organization,
+        title: r.participant.title,
+        org_type: r.participant.org_type,
+        role: r.role,
+      };
+      const existing = result.get(r.relationship_id) ?? [];
+      existing.push(contact);
+      result.set(r.relationship_id, existing);
+    }
+  } catch (err) {
+    console.error("getContactsByRelationshipBulk error:", err instanceof Error ? err.message : err);
+  }
+
+  return result;
+}
+
+/**
  * Build a domain → partner map from the contact registry.
  * Uses partner_participants with org_type='partner' contacts to extract email domains.
  * Used by Phase 1 partner catalog and matchPartnerFromAttendees.

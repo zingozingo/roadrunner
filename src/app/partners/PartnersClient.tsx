@@ -16,11 +16,19 @@ const SEGMENT_FILTER_OPTIONS = [
   { label: "OT/IoT", value: "ot/iot" },
 ];
 
-interface PartnersClientProps {
-  partners: Partner[];
+interface PartnerContact {
+  name: string | null;
+  email: string;
+  role: string | null;
+  org_type: string | null;
 }
 
-export default function PartnersClient({ partners }: PartnersClientProps) {
+interface PartnersClientProps {
+  partners: Partner[];
+  contactsByPartner: Record<string, PartnerContact[]>;
+}
+
+export default function PartnersClient({ partners, contactsByPartner }: PartnersClientProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
@@ -51,8 +59,9 @@ export default function PartnersClient({ partners }: PartnersClientProps) {
         const matchesName = p.name.toLowerCase().includes(q);
         const matchesSegment = p.segment?.toLowerCase().includes(q);
         const matchesFocusArea = p.focus_area.some((a) => a.toLowerCase().includes(q));
-        const matchesLead = p.partner_contacts?.find(c => c.role === 'Alliance Lead')?.name?.toLowerCase().includes(q);
-        const matchesPsa = p.aws_team?.find(c => c.role === 'PSA')?.name?.toLowerCase().includes(q);
+        const pc = contactsByPartner[p.id];
+        const matchesLead = pc?.find(c => c.role === 'Alliance Lead' && c.org_type === 'partner')?.name?.toLowerCase().includes(q);
+        const matchesPsa = pc?.find(c => c.role === 'PSA' && c.org_type === 'internal')?.name?.toLowerCase().includes(q);
         if (!matchesName && !matchesSegment && !matchesFocusArea && !matchesLead && !matchesPsa) return false;
       }
       if (activeFilter && p.segment !== activeFilter) {

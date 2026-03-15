@@ -8,7 +8,7 @@ import MeetingTimeline from "@/components/shared/MeetingTimeline";
 import ExpandableList from "@/components/shared/ExpandableList";
 import PartnerTasksSection from "@/components/partners/PartnerTasksSection";
 import PartnerScratchpad from "@/components/partners/PartnerScratchpad";
-import { getPartner, getSupabaseClient, getRelationshipsByPartner, getMeetingNotesByPartner, getTasksByPartner, getPartnerContext, getContactsByPartner } from "@/lib/db";
+import { getPartner, getSupabaseClient, getRelationshipsByPartner, getMeetingNotesByPartner, getTasksByPartner, getPartnerContext, getContactsByPartner, getContactsByRelationshipBulk } from "@/lib/db";
 import type { Engagement, Meeting, MeetingNoteWithTasks, Task } from "@/lib/types";
 
 export default async function PartnerDetailPage({
@@ -55,6 +55,11 @@ export default async function PartnerDetailPage({
     getTasksByPartner(id, { status: "open" }),
     getPartnerContext(id),
   ]);
+
+  // Bulk-fetch relationship contacts for inline display
+  const relContactsMap = await getContactsByRelationshipBulk(
+    linkedRelationships.map((r) => r.id)
+  );
 
   // Build engagement name map for MeetingTimeline
   const engagementNames = new Map<string, string>();
@@ -378,10 +383,9 @@ export default async function PartnerDetailPage({
                   <span className="text-sm font-medium text-foreground">
                     {rel.name}
                   </span>
-                  {/* Transitional: reads JSONB until bulk relationship contacts enrichment */}
-                  {rel.contacts?.[0]?.name && (
+                  {(relContactsMap.get(rel.id)?.find(c => c.role === 'Lead Contact')?.name || relContactsMap.get(rel.id)?.[0]?.name) && (
                     <span className="text-xs text-muted">
-                      {rel.contacts[0].name}
+                      {relContactsMap.get(rel.id)?.find(c => c.role === 'Lead Contact')?.name || relContactsMap.get(rel.id)?.[0]?.name}
                     </span>
                   )}
                 </Link>
