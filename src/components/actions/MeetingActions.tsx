@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Meeting, Engagement, MeetingAttendee, MeetingStatus } from "@/lib/types";
+import { Meeting, Engagement, MeetingStatus } from "@/lib/types";
 import ConfirmDialog from "../shared/ConfirmDialog";
 
 const MEETING_STATUSES: MeetingStatus[] = [
@@ -12,14 +12,21 @@ const MEETING_STATUSES: MeetingStatus[] = [
   "did_not_occur",
 ];
 
+interface MeetingContact {
+  name: string | null;
+  email: string;
+}
+
 export default function MeetingActions({
   meeting,
   partnerName: initialPartnerName,
   engagements: initialEngagements,
+  meetingContacts,
 }: {
   meeting: Meeting;
   partnerName?: string | null;
   engagements?: Engagement[];
+  meetingContacts?: MeetingContact[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -39,9 +46,10 @@ export default function MeetingActions({
   const [endTime, setEndTime] = useState(meeting.end_time ?? "");
   const [location, setLocation] = useState(meeting.location ?? "");
   const [notes, setNotes] = useState(meeting.notes ?? "");
-  const [attendeesJson, setAttendeesJson] = useState(() =>
-    meeting.attendees.map((a) => `${a.name ?? ""}|${a.email}`).join("\n")
-  );
+  const [attendeesJson, setAttendeesJson] = useState(() => {
+    const contacts = meetingContacts ?? meeting.attendees;
+    return contacts.map((a) => `${a.name ?? ""}|${a.email}`).join("\n");
+  });
 
   // Fetch engagements for dropdown if not passed as props
   useEffect(() => {
@@ -63,8 +71,9 @@ export default function MeetingActions({
     setEndTime(meeting.end_time ?? "");
     setLocation(meeting.location ?? "");
     setNotes(meeting.notes ?? "");
+    const contacts = meetingContacts ?? meeting.attendees;
     setAttendeesJson(
-      meeting.attendees.map((a) => `${a.name ?? ""}|${a.email}`).join("\n")
+      contacts.map((a) => `${a.name ?? ""}|${a.email}`).join("\n")
     );
     setError(null);
     setEditing(true);
@@ -81,7 +90,7 @@ export default function MeetingActions({
     setError(null);
   }
 
-  function parseAttendees(text: string): MeetingAttendee[] {
+  function parseAttendees(text: string): { name: string | null; email: string }[] {
     return text
       .split("\n")
       .map((line) => line.trim())

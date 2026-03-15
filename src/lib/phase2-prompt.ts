@@ -227,7 +227,8 @@ export function buildPhase2Context(
     awsRelationships: { name: string; relationship: string }[];
   } | null,
   partnerContacts?: { name: string | null; email: string; title: string | null; org_type: string | null; role: string | null }[] | null,
-  relationshipContacts?: Map<string, { name: string | null; email: string; role: string | null }[]> | null
+  relationshipContacts?: Map<string, { name: string | null; email: string; role: string | null }[]> | null,
+  meetingContacts?: Map<string, { name: string | null; email: string }[]> | null
 ): string {
   const parts: string[] = [];
 
@@ -247,7 +248,7 @@ export function buildPhase2Context(
     parts.push(buildExistingParticipants(history.participants));
     parts.push(buildExistingEntityLinks(existingLinks));
     parts.push(buildEngagementHistory(history.messages, nameResolutionMap));
-    parts.push(buildLinkedMeetings(history.meetings));
+    parts.push(buildLinkedMeetings(history.meetings, meetingContacts ?? null));
   }
 
   // Section 5: New email(s)
@@ -255,7 +256,7 @@ export function buildPhase2Context(
 
   // Section 5b: Structured meeting data for the incoming message
   if (newMeetings && newMeetings.length > 0) {
-    parts.push(buildNewMeetingData(newMeetings));
+    parts.push(buildNewMeetingData(newMeetings, meetingContacts ?? null));
   }
 
   // Section 6: Matched partner
@@ -392,7 +393,10 @@ function buildEngagementHistory(
   return lines.join("\n");
 }
 
-function buildLinkedMeetings(meetings: Meeting[]): string {
+function buildLinkedMeetings(
+  meetings: Meeting[],
+  meetingContactsMap?: Map<string, { name: string | null; email: string }[]> | null
+): string {
   if (meetings.length === 0) return "";
 
   const lines = ["### Linked Meetings"];
@@ -409,7 +413,15 @@ function buildLinkedMeetings(meetings: Meeting[]): string {
     if (m.organizer_email) {
       lines.push(`  Organizer: ${m.organizer_email}`);
     }
-    if (m.attendees && m.attendees.length > 0) {
+
+    // Prefer registry contacts; fall back to JSONB attendees
+    const registryContacts = meetingContactsMap?.get(m.id);
+    if (registryContacts && registryContacts.length > 0) {
+      const formatted = registryContacts.map((c) =>
+        c.name ? `${c.name} <${c.email}>` : c.email
+      );
+      lines.push(`  Attendees: ${formatted.join(", ")}`);
+    } else if (m.attendees && m.attendees.length > 0) {
       const formatted = m.attendees.map((a) =>
         a.name ? `${a.name} <${a.email}>` : a.email
       );
@@ -466,7 +478,10 @@ function buildExistingEntityLinks(
   return lines.join("\n");
 }
 
-function buildNewMeetingData(meetings: (Meeting & { partner_name?: string | null })[]): string {
+function buildNewMeetingData(
+  meetings: (Meeting & { partner_name?: string | null })[],
+  meetingContactsMap?: Map<string, { name: string | null; email: string }[]> | null
+): string {
   const lines = ["### Incoming Meeting Data\n"];
 
   for (const m of meetings) {
@@ -479,7 +494,16 @@ function buildNewMeetingData(meetings: (Meeting & { partner_name?: string | null
       lines.push(`**Matched Partner:** ${m.partner_name}${idPart}`);
     }
     if (m.is_recurring) lines.push(`**Recurring:** Yes`);
-    if (m.attendees && m.attendees.length > 0) {
+
+    // Prefer registry contacts; fall back to JSONB attendees
+    const registryContacts = meetingContactsMap?.get(m.id);
+    if (registryContacts && registryContacts.length > 0) {
+      lines.push("**Attendees:**");
+      for (const c of registryContacts) {
+        const name = c.name ? `${c.name} ` : "";
+        lines.push(`- ${name}<${c.email}>`);
+      }
+    } else if (m.attendees && m.attendees.length > 0) {
       lines.push("**Attendees:**");
       for (const a of m.attendees) {
         const name = a.name ? `${a.name} ` : "";

@@ -487,7 +487,10 @@ async function getMeetingsForMessages(
  * Build a compact meeting data section for Phase 1 context.
  * Includes attendee list and partner hint from ICS attendee domain matching.
  */
-export function buildMeetingHint(meetings: (Meeting & { partner_name?: string | null })[]): string {
+export function buildMeetingHint(
+  meetings: (Meeting & { partner_name?: string | null })[],
+  meetingContactsMap?: Map<string, { name: string | null; email: string }[]> | null
+): string {
   if (meetings.length === 0) return "";
 
   const lines: string[] = ["## Meeting Data (from calendar invite)\n"];
@@ -500,13 +503,23 @@ export function buildMeetingHint(meetings: (Meeting & { partner_name?: string | 
     if (m.organizer_email) {
       lines.push(`**Organizer:** ${m.organizer_email}`);
     }
-    if (m.attendees && m.attendees.length > 0) {
+
+    // Prefer registry contacts; fall back to JSONB attendees
+    const registryContacts = meetingContactsMap?.get(m.id);
+    if (registryContacts && registryContacts.length > 0) {
+      lines.push("**Attendees:**");
+      for (const c of registryContacts) {
+        const name = c.name ? `${c.name} ` : "";
+        lines.push(`- ${name}<${c.email}>`);
+      }
+    } else if (m.attendees && m.attendees.length > 0) {
       lines.push("**Attendees:**");
       for (const a of m.attendees) {
         const name = a.name ? `${a.name} ` : "";
         lines.push(`- ${name}<${a.email}>`);
       }
     }
+
     if (m.is_recurring) {
       lines.push("**Recurring:** Yes");
     }

@@ -601,9 +601,16 @@ async function buildMeetingLookups(): Promise<MeetingLookups> {
   return { engagementDbToAtId, partnerDbToName };
 }
 
+interface MeetingRegistryContact {
+  name: string | null;
+  email: string;
+  org_type: string | null;
+}
+
 function buildMeetingFields(
   meeting: Record<string, unknown>,
-  lookups: MeetingLookups
+  lookups: MeetingLookups,
+  meetingContacts?: MeetingRegistryContact[] | null
 ): Record<string, unknown> {
   const rawStatus = (meeting.status as string) || "scheduled";
   const fields: Record<string, unknown> = {
@@ -630,48 +637,75 @@ function buildMeetingFields(
   }
 
   // Attendees → AWS / Partner / Third Party (three-bucket split, matches engagement pattern)
-  const attendees = (meeting.attendees ?? []) as Record<string, unknown>[];
   const awsRendered: string[] = [];
   const partnerRendered: string[] = [];
   const thirdPartyRendered: string[] = [];
-  const meetingPartnerId = meeting.partner_id as string | null;
-  const partnerNameLower = (meetingPartnerId ? lookups.partnerDbToName.get(meetingPartnerId) ?? "" : "").toLowerCase();
 
-  for (const a of attendees) {
-    const email = ((a.email as string) || "").toLowerCase();
-    const org = ((a.organization as string) || "").toLowerCase();
+  if (meetingContacts && meetingContacts.length > 0) {
+    // Registry path: use org_type for bucketing
+    for (const c of meetingContacts) {
+      const email = c.email.toLowerCase();
+      if (
+        !email ||
+        email.includes("relay.stevenromero.dev") ||
+        email.includes("salesforce") ||
+        isUserEmail(email)
+      ) {
+        continue;
+      }
 
-    if (
-      !email ||
-      email.includes("relay.stevenromero.dev") ||
-      email.includes("salesforce") ||
-      isUserEmail(email)
-    ) {
-      continue;
+      const rendered = renderContact({ name: c.name, email: c.email, title: null });
+
+      if (c.org_type === "internal") {
+        awsRendered.push(rendered);
+      } else if (c.org_type === "partner") {
+        partnerRendered.push(rendered);
+      } else {
+        thirdPartyRendered.push(rendered);
+      }
     }
+  } else {
+    // JSONB fallback: domain/org heuristics
+    const attendees = (meeting.attendees ?? []) as Record<string, unknown>[];
+    const meetingPartnerId = meeting.partner_id as string | null;
+    const partnerNameLower = (meetingPartnerId ? lookups.partnerDbToName.get(meetingPartnerId) ?? "" : "").toLowerCase();
 
-    const rendered = renderContact({
-      name: (a.name as string) || null,
-      email: (a.email as string) || null,
-      title: null,
-    });
+    for (const a of attendees) {
+      const email = ((a.email as string) || "").toLowerCase();
+      const org = ((a.organization as string) || "").toLowerCase();
 
-    const isAws =
-      email.includes("@amazon.com") ||
-      org.includes("aws") ||
-      org.includes("amazon");
+      if (
+        !email ||
+        email.includes("relay.stevenromero.dev") ||
+        email.includes("salesforce") ||
+        isUserEmail(email)
+      ) {
+        continue;
+      }
 
-    const isPartner =
-      !isAws &&
-      partnerNameLower &&
-      org.includes(partnerNameLower);
+      const rendered = renderContact({
+        name: (a.name as string) || null,
+        email: (a.email as string) || null,
+        title: null,
+      });
 
-    if (isAws) {
-      awsRendered.push(rendered);
-    } else if (isPartner) {
-      partnerRendered.push(rendered);
-    } else {
-      thirdPartyRendered.push(rendered);
+      const isAws =
+        email.includes("@amazon.com") ||
+        org.includes("aws") ||
+        org.includes("amazon");
+
+      const isPartner =
+        !isAws &&
+        partnerNameLower &&
+        org.includes(partnerNameLower);
+
+      if (isAws) {
+        awsRendered.push(rendered);
+      } else if (isPartner) {
+        partnerRendered.push(rendered);
+      } else {
+        thirdPartyRendered.push(rendered);
+      }
     }
   }
 

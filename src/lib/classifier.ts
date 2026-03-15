@@ -20,6 +20,7 @@ import {
   getRelationshipsByEngagement,
   getContactsByPartner,
   getContactsByRelationship,
+  getContactsByMeeting,
 } from "./db";
 import {
   ClassificationResult,
@@ -126,6 +127,21 @@ async function classifyTwoPhase(
     relationshipContactEntries.filter(([, contacts]) => contacts.length > 0)
   );
 
+  // Bulk-fetch meeting contacts for prompt rendering
+  const allMeetingIds = [
+    ...(history?.meetings ?? []).map((m) => m.id),
+    ...newMeetings.map((m) => m.id),
+  ];
+  const meetingContactEntries = await Promise.all(
+    allMeetingIds.map(async (mid) => {
+      const contacts = await getContactsByMeeting(mid);
+      return [mid, contacts.map((c) => ({ name: c.name, email: c.email }))] as const;
+    })
+  );
+  const meetingContactsMap = new Map(
+    meetingContactEntries.filter(([, contacts]) => contacts.length > 0)
+  );
+
   // ── Phase 2: Analyze ────────────────────────────────────────
   const phase2Context = buildPhase2Context(
     messages,
@@ -138,7 +154,8 @@ async function classifyTwoPhase(
     newMeetings.length > 0 ? newMeetings : null,
     existingLinks,
     partnerContacts,
-    relationshipContactsMap
+    relationshipContactsMap,
+    meetingContactsMap
   );
 
   return await classifyPhase2(phase2Context);
@@ -317,6 +334,18 @@ export async function runPhase2ForResolve(
     relationshipContactEntries.filter(([, contacts]) => contacts.length > 0)
   );
 
+  // Bulk-fetch meeting contacts for history meetings
+  const historyMeetingIds = (history?.meetings ?? []).map((m) => m.id);
+  const meetingContactEntries = await Promise.all(
+    historyMeetingIds.map(async (mid) => {
+      const contacts = await getContactsByMeeting(mid);
+      return [mid, contacts.map((c) => ({ name: c.name, email: c.email }))] as const;
+    })
+  );
+  const meetingContactsMap = new Map(
+    meetingContactEntries.filter(([, contacts]) => contacts.length > 0)
+  );
+
   const phase2Context = buildPhase2Context(
     messages,
     phase1Result,
@@ -328,7 +357,8 @@ export async function runPhase2ForResolve(
     null, // newMeetings — not available in resolve path
     existingLinks,
     partnerContacts,
-    relationshipContactsMap
+    relationshipContactsMap,
+    meetingContactsMap
   );
 
   return await classifyPhase2(phase2Context);

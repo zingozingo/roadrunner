@@ -10,11 +10,12 @@ import {
   getEngagementById,
   getPartner,
   getMeetingNoteByMeetingId,
+  getContactsByMeeting,
 } from "@/lib/db";
 import { buildPartnerContext, formatContextForDisplay } from "@/lib/notes-context";
 import { cleanMeetingTitle, formatFooterDate } from "@/lib/format-utils";
 import MeetingNotesSection from "@/components/notes/MeetingNotesSection";
-import type { MeetingAttendee, MeetingNoteWithTasks, DisplayContext } from "@/lib/types";
+import type { MeetingNoteWithTasks, DisplayContext } from "@/lib/types";
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "Date TBD";
@@ -35,37 +36,35 @@ function isRelayAddress(email: string): boolean {
   return email.toLowerCase().includes("relay.stevenromero.dev");
 }
 
-interface AttendeeGroup {
-  label: string;
-  attendees: MeetingAttendee[];
+interface RegistryAttendee {
+  name: string | null;
+  email: string;
+  org_type: string | null;
 }
 
-/** Group attendees by organization using email domain */
+interface AttendeeGroup {
+  label: string;
+  attendees: RegistryAttendee[];
+}
+
+/** Group attendees by org_type from the contact registry */
 function groupAttendees(
-  attendees: MeetingAttendee[],
+  contacts: RegistryAttendee[],
   partnerName: string | null
 ): AttendeeGroup[] {
-  const aws: MeetingAttendee[] = [];
-  const partner: MeetingAttendee[] = [];
-  const other: MeetingAttendee[] = [];
+  const aws: RegistryAttendee[] = [];
+  const partner: RegistryAttendee[] = [];
+  const other: RegistryAttendee[] = [];
 
-  const partnerLower = partnerName?.toLowerCase() ?? "";
+  for (const c of contacts) {
+    if (isRelayAddress(c.email)) continue;
 
-  for (const a of attendees) {
-    if (isRelayAddress(a.email)) continue;
-
-    const domain = a.email.toLowerCase().split("@")[1] ?? "";
-
-    if (domain === "amazon.com" || domain.endsWith(".amazon.com")) {
-      aws.push(a);
-    } else if (
-      partnerLower &&
-      (domain.includes(partnerLower.replace(/\s+/g, "")) ||
-        (a.name && a.name.toLowerCase().includes(partnerLower)))
-    ) {
-      partner.push(a);
+    if (c.org_type === "internal") {
+      aws.push(c);
+    } else if (c.org_type === "partner") {
+      partner.push(c);
     } else {
-      other.push(a);
+      other.push(c);
     }
   }
 
@@ -87,10 +86,11 @@ export default async function MeetingDetailPage({
   const meeting = await getMeeting(id);
   if (!meeting) notFound();
 
-  const [engagement, partner, existingNote] = await Promise.all([
+  const [engagement, partner, existingNote, meetingContacts] = await Promise.all([
     meeting.engagement_id ? getEngagementById(meeting.engagement_id) : null,
     meeting.partner_id ? getPartner(meeting.partner_id) : null,
     getMeetingNoteByMeetingId(id),
+    getContactsByMeeting(id),
   ]);
 
   // Build partner context for notes workspace (only if partner exists)
@@ -105,7 +105,7 @@ export default async function MeetingDetailPage({
   }
 
   const attendeeGroups = groupAttendees(
-    meeting.attendees,
+    meetingContacts,
     partner?.name ?? null
   );
   const totalAttendees = attendeeGroups.reduce((sum, g) => sum + g.attendees.length, 0);
@@ -159,7 +159,7 @@ export default async function MeetingDetailPage({
             ) : "—",
           },
         ]}
-        actions={<MeetingActions meeting={meeting} partnerName={partner?.name ?? null} />}
+        actions={<MeetingActions meeting={meeting} partnerName={partner?.name ?? null} meetingContacts={meetingContacts} />}
       />
 
       {/* Full-width sections — no sidebar */}
