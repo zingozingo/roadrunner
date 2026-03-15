@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
-import { Meeting } from "@/lib/types";
+import { Meeting, Partner, Engagement } from "@/lib/types";
 import { cleanMeetingTitle } from "@/lib/format-utils";
 
 type MeetingWithNames = Meeting & { engagement_name: string | null; partner_name: string | null };
@@ -24,11 +25,105 @@ const MEETING_TYPE_OPTIONS = [
 
 interface MeetingsClientProps {
   meetings: MeetingWithNames[];
+  partners: Partner[];
+  engagements: Engagement[];
 }
 
-export default function MeetingsClient({ meetings }: MeetingsClientProps) {
+export default function MeetingsClient({ meetings, partners, engagements }: MeetingsClientProps) {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
+
+  // Modal state
+  const [showModal, setShowModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  // Form fields
+  const [selectedPartnerId, setSelectedPartnerId] = useState("");
+  const [title, setTitle] = useState("");
+  const [meetingDate, setMeetingDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [meetingType, setMeetingType] = useState("");
+  const [selectedEngagementId, setSelectedEngagementId] = useState("");
+  const [isRecurring, setIsRecurring] = useState(false);
+
+  const sortedPartners = useMemo(
+    () => [...partners].sort((a, b) => a.name.localeCompare(b.name)),
+    [partners]
+  );
+
+  const filteredEngagements = useMemo(
+    () =>
+      selectedPartnerId
+        ? engagements.filter((e) => e.partner_id === selectedPartnerId && e.status === "active")
+        : [],
+    [engagements, selectedPartnerId]
+  );
+
+  function openModal() {
+    setSelectedPartnerId("");
+    setTitle("");
+    setMeetingDate(new Date().toISOString().split("T")[0]);
+    setMeetingType("");
+    setSelectedEngagementId("");
+    setIsRecurring(false);
+    setFormError(null);
+    setSubmitting(false);
+    setShowModal(true);
+  }
+
+  function handlePartnerChange(partnerId: string) {
+    const oldPartner = partners.find((p) => p.id === selectedPartnerId);
+    const newPartner = partners.find((p) => p.id === partnerId);
+    const oldPrefix = oldPartner ? `${oldPartner.name} — ` : "";
+    const newPrefix = newPartner ? `${newPartner.name} — ` : "";
+
+    // Update title prefix if it currently starts with the old prefix (or is empty)
+    if (!title || title === oldPrefix || title.startsWith(oldPrefix)) {
+      setTitle(newPrefix + title.slice(oldPrefix.length));
+    }
+
+    setSelectedPartnerId(partnerId);
+    // Clear engagement if partner changed (it may no longer be valid)
+    setSelectedEngagementId("");
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedPartnerId || !title.trim() || !meetingDate) return;
+
+    setSubmitting(true);
+    setFormError(null);
+
+    const body: Record<string, unknown> = {
+      title: title.trim(),
+      partner_id: selectedPartnerId,
+      meeting_date: meetingDate,
+      status: "scheduled",
+      is_recurring: isRecurring,
+    };
+    if (meetingType) body.meeting_type = meetingType;
+    if (selectedEngagementId) body.engagement_id = selectedEngagementId;
+
+    try {
+      const res = await fetch("/api/meetings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || `Failed to create meeting (${res.status})`);
+      }
+
+      const { meeting } = await res.json();
+      router.push(`/meetings/${meeting.id}`);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Failed to create meeting");
+      setSubmitting(false);
+    }
+  }
 
   const filteredMeetings = useMemo(() => {
     return meetings.filter((m) => {
@@ -77,15 +172,23 @@ export default function MeetingsClient({ meetings }: MeetingsClientProps) {
 
   return (
     <div className="p-6 lg:p-8">
-      <PageHeader
-        title="Meetings"
-        subtitle={`${meetings.length} meeting${meetings.length !== 1 ? "s" : ""} tracked`}
-      />
+      <div className="mb-6 flex items-start justify-between">
+        <PageHeader
+          title="Meetings"
+          subtitle={`${meetings.length} meeting${meetings.length !== 1 ? "s" : ""} tracked`}
+        />
+        <button
+          onClick={openModal}
+          className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 transition-colors"
+        >
+          + New Meeting
+        </button>
+      </div>
 
       {meetings.length === 0 ? (
         <EmptyState
           title="No meetings yet"
-          description="Meetings will appear here as calendar invites are processed"
+          description="No meetings yet. Create one manually or forward a calendar invite."
         />
       ) : (
         <>
@@ -146,6 +249,137 @@ export default function MeetingsClient({ meetings }: MeetingsClientProps) {
             </div>
           )}
         </>
+      )}
+
+      {/* Create Meeting Modal */}
+      {showModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}
+        >
+          <div className="relative rounded-xl border border-border bg-surface p-6 max-w-md w-full mx-4">
+            <button
+              onClick={() => setShowModal(false)}
+              className="absolute top-4 right-4 text-muted hover:text-foreground transition-colors"
+              aria-label="Close"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M4 4l8 8M12 4l-8 8" />
+              </svg>
+            </button>
+
+            <h2 className="text-lg font-semibold text-foreground mb-4">New Meeting</h2>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Partner */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Partner <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={selectedPartnerId}
+                  onChange={(e) => handlePartnerChange(e.target.value)}
+                  required
+                  className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground"
+                >
+                  <option value="">Select partner...</option>
+                  {sortedPartners.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Title */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Title <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  required
+                  placeholder="e.g. Partner Name — Weekly Sync"
+                  className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground"
+                />
+              </div>
+
+              {/* Date */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={meetingDate}
+                  onChange={(e) => setMeetingDate(e.target.value)}
+                  required
+                  className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground"
+                />
+              </div>
+
+              {/* Meeting Type */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Meeting Type
+                </label>
+                <select
+                  value={meetingType}
+                  onChange={(e) => setMeetingType(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground"
+                >
+                  <option value="">Select type...</option>
+                  {MEETING_TYPE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Engagement */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Engagement
+                </label>
+                <select
+                  value={selectedEngagementId}
+                  onChange={(e) => setSelectedEngagementId(e.target.value)}
+                  disabled={!selectedPartnerId}
+                  className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground disabled:opacity-50"
+                >
+                  <option value="">No specific engagement</option>
+                  {filteredEngagements.map((eng) => (
+                    <option key={eng.id} value={eng.id}>{eng.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Recurring */}
+              <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isRecurring}
+                  onChange={(e) => setIsRecurring(e.target.checked)}
+                  className="rounded border-border"
+                />
+                Recurring meeting
+              </label>
+
+              {/* Error */}
+              {formError && (
+                <p className="text-sm text-red-500">{formError}</p>
+              )}
+
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={submitting || !selectedPartnerId || !title.trim() || !meetingDate}
+                className="w-full rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 transition-colors disabled:opacity-50"
+              >
+                {submitting ? "Creating..." : "Create Meeting"}
+              </button>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

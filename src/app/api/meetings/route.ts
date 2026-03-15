@@ -24,7 +24,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { title, engagement_id, partner_name, status, meeting_date, start_time, end_time, location, attendees, notes } = body;
+    const { title, engagement_id, partner_id: rawPartnerId, partner_name, meeting_type, status, meeting_date, start_time, end_time, location, attendees, notes } = body;
 
     if (!title || typeof title !== "string" || !title.trim()) {
       return NextResponse.json(
@@ -47,9 +47,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Resolve partner_name to partner_id
-    let partner_id: string | null = null;
-    if (partner_name?.trim()) {
+    // Resolve partner: prefer direct partner_id, fall back to ilike name lookup
+    let partner_id: string | null = rawPartnerId || null;
+    if (!partner_id && partner_name?.trim()) {
       const { getSupabaseClient } = await import("@/lib/db");
       const db = getSupabaseClient();
       const { data: partnerRows } = await db
@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
       end_time: end_time?.trim() || null,
       location: location?.trim() || null,
       attendees: attendees ?? [],
+      meeting_type: meeting_type?.trim() || null,
       notes: notes?.trim() || null,
       source: "manual",
     });
