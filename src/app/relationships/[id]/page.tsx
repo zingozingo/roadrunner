@@ -11,6 +11,7 @@ import { formatFooterDate } from "@/lib/format-utils";
 import {
   getRelationship,
   getEngagementsByRelationship,
+  getContactsByRelationship,
 } from "@/lib/db";
 
 export default async function RelationshipDetailPage({
@@ -23,7 +24,10 @@ export default async function RelationshipDetailPage({
   const relationship = await getRelationship(id);
   if (!relationship) notFound();
 
-  const linkedEngagements = await getEngagementsByRelationship(id);
+  const [linkedEngagements, contacts] = await Promise.all([
+    getEngagementsByRelationship(id),
+    getContactsByRelationship(id),
+  ]);
 
   return (
     <div className="p-6 lg:p-8">
@@ -44,13 +48,13 @@ export default async function RelationshipDetailPage({
         fields={[
           { label: "AWS Org", value: relationship.org ?? "—" },
           { label: "AWS Service", value: relationship.service ?? "—" },
-          ...(relationship.contacts && relationship.contacts.length > 0
-            ? relationship.contacts.map((c, i) => ({
-                label: i === 0 ? "Lead Contact" : `Contact ${i + 1}`,
+          ...(contacts.length > 0
+            ? contacts.map((c, i) => ({
+                label: c.role ?? (i === 0 ? "Lead Contact" : `Contact ${i + 1}`),
                 value: (
                   <span>
                     {c.name ?? "Unknown"}
-                    {c.email && c.email !== "—" && (
+                    {c.email && (
                       <a href={`mailto:${c.email}`} className="block text-xs text-muted break-all hover:text-accent">
                         {c.email}
                       </a>

@@ -378,6 +378,7 @@ export default async function PartnerDetailPage({
                   <span className="text-sm font-medium text-foreground">
                     {rel.name}
                   </span>
+                  {/* Transitional: reads JSONB until bulk relationship contacts enrichment */}
                   {rel.contacts?.[0]?.name && (
                     <span className="text-xs text-muted">
                       {rel.contacts[0].name}

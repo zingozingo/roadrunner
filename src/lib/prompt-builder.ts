@@ -98,7 +98,8 @@ export function buildProgramsSection(programs: Program[]): string {
 }
 
 export function buildRelationshipsSection(
-  relationships: Relationship[]
+  relationships: Relationship[],
+  contactsByRelationship?: Map<string, { name: string | null; email: string; role: string | null }[]> | null
 ): string {
   const lines: string[] = ["### AWS Relationships"];
 
@@ -112,16 +113,29 @@ export function buildRelationshipsSection(
     if (r.relationship_type) parts.push(`Type: ${r.relationship_type}`);
     if (r.org) parts.push(`Org: ${r.org}`);
     if (r.service) parts.push(`Service: ${r.service}`);
-    // Render contacts from JSONB: "Name <email> (Role)"
-    const contacts = r.contacts ?? [];
-    if (contacts.length > 0) {
-      const contactStrs = contacts.map((c) => {
+
+    // Render contacts — prefer registry, fall back to JSONB
+    const registryContacts = contactsByRelationship?.get(r.id);
+    if (registryContacts && registryContacts.length > 0) {
+      const contactStrs = registryContacts.map((c) => {
         const namePart = c.name ?? "";
-        const emailPart = c.email ? ` <${c.email}>` : "";
+        const emailPart = ` <${c.email}>`;
         const rolePart = c.role ? ` (${c.role})` : "";
         return `${namePart}${emailPart}${rolePart}`.trim();
       });
       parts.push(`Contacts: ${contactStrs.join(", ")}`);
+    } else {
+      // Fallback to JSONB contacts
+      const contacts = r.contacts ?? [];
+      if (contacts.length > 0) {
+        const contactStrs = contacts.map((c) => {
+          const namePart = c.name ?? "";
+          const emailPart = c.email ? ` <${c.email}>` : "";
+          const rolePart = c.role ? ` (${c.role})` : "";
+          return `${namePart}${emailPart}${rolePart}`.trim();
+        });
+        parts.push(`Contacts: ${contactStrs.join(", ")}`);
+      }
     }
 
     let line = parts[0];

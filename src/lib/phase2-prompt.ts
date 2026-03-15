@@ -226,7 +226,8 @@ export function buildPhase2Context(
     entityLinks: { type: string; name: string; relationship: string }[];
     awsRelationships: { name: string; relationship: string }[];
   } | null,
-  partnerContacts?: { name: string | null; email: string; title: string | null; org_type: string | null; role: string | null }[] | null
+  partnerContacts?: { name: string | null; email: string; title: string | null; org_type: string | null; role: string | null }[] | null,
+  relationshipContacts?: Map<string, { name: string | null; email: string; role: string | null }[]> | null
 ): string {
   const parts: string[] = [];
 
@@ -276,7 +277,7 @@ export function buildPhase2Context(
   parts.push("## Reference Data\n");
   parts.push(buildEventsSection(filteredEvents));
   parts.push(buildProgramsSection(catalogs.programs));
-  parts.push(buildRelationshipsSection(catalogs.relationships));
+  parts.push(buildRelationshipsSection(catalogs.relationships, relationshipContacts ?? null));
 
   return parts.join("\n");
 }

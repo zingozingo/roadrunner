@@ -19,6 +19,7 @@ import {
   getEntityLinksForEntity,
   getRelationshipsByEngagement,
   getContactsByPartner,
+  getContactsByRelationship,
 } from "./db";
 import {
   ClassificationResult,
@@ -114,6 +115,17 @@ async function classifyTwoPhase(
     ? { entityLinks: existingEntityLinks, awsRelationships: existingRelationships }
     : null;
 
+  // Bulk-fetch relationship contacts for prompt rendering
+  const relationshipContactEntries = await Promise.all(
+    relationships.map(async (r) => {
+      const contacts = await getContactsByRelationship(r.id);
+      return [r.id, contacts] as const;
+    })
+  );
+  const relationshipContactsMap = new Map(
+    relationshipContactEntries.filter(([, contacts]) => contacts.length > 0)
+  );
+
   // ── Phase 2: Analyze ────────────────────────────────────────
   const phase2Context = buildPhase2Context(
     messages,
@@ -125,7 +137,8 @@ async function classifyTwoPhase(
     nameMap,
     newMeetings.length > 0 ? newMeetings : null,
     existingLinks,
-    partnerContacts
+    partnerContacts,
+    relationshipContactsMap
   );
 
   return await classifyPhase2(phase2Context);
@@ -293,6 +306,17 @@ export async function runPhase2ForResolve(
     ? { entityLinks: existingEntityLinks, awsRelationships: existingRelationships }
     : null;
 
+  // Bulk-fetch relationship contacts for prompt rendering
+  const relationshipContactEntries = await Promise.all(
+    relationships.map(async (r) => {
+      const contacts = await getContactsByRelationship(r.id);
+      return [r.id, contacts] as const;
+    })
+  );
+  const relationshipContactsMap = new Map(
+    relationshipContactEntries.filter(([, contacts]) => contacts.length > 0)
+  );
+
   const phase2Context = buildPhase2Context(
     messages,
     phase1Result,
@@ -303,7 +327,8 @@ export async function runPhase2ForResolve(
     nameMap,
     null, // newMeetings — not available in resolve path
     existingLinks,
-    partnerContacts
+    partnerContacts,
+    relationshipContactsMap
   );
 
   return await classifyPhase2(phase2Context);
