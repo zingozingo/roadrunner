@@ -363,7 +363,7 @@ export interface MeetingNote {
   partner_id: string;
   meeting_id: string | null;
   engagement_id: string | null;
-  note_type: "meeting" | "seed";
+  note_type: "meeting";
   title: string | null;
   meeting_date: string | null;
   date_range_start: string | null;
@@ -401,7 +401,7 @@ export interface CreateMeetingNoteInput {
   partner_id: string;
   meeting_id?: string | null;
   engagement_id?: string | null;
-  note_type?: "meeting" | "seed";
+  note_type?: "meeting";
   title?: string | null;
   meeting_date?: string | null;
   date_range_start?: string | null;
@@ -575,7 +575,6 @@ export interface DisplayContext {
     ai_summary: string;
     note_type: string;
   }>;
-  hasSeedNote: boolean;
   scratchpadEntries: Array<{
     content: string;
     source: string;

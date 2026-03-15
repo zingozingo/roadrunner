@@ -63,15 +63,13 @@ export async function buildPartnerContext(
   const engagementIds = engagements.map((e) => e.id);
   const entityNames = await resolveEngagementEntities(db, engagementIds);
 
-  // Fetch note_type for previous notes (getRecentNoteSummaries doesn't return it)
-  // We need to re-query with note_type included
+  // Fetch previous note summaries with note_type
   const { data: notesWithType } = await db
     .from("meeting_notes")
     .select("title, meeting_date, ai_summary, note_type")
     .eq("partner_id", partnerId)
     .eq("status", "complete")
     .not("ai_summary", "is", null)
-    .order("note_type", { ascending: false })
     .order("meeting_date", { ascending: false, nullsFirst: false })
     .limit(5);
 
@@ -197,7 +195,7 @@ export function formatContextForPrompt(context: PartnerContext): string {
   // Previous note summaries (key for continuity)
   if (context.previousNotes.length > 0) {
     const noteLines = context.previousNotes.map((n) => {
-      const label = n.note_type === "seed" ? "[SEED]" : `[${n.meeting_date ?? "no date"}]`;
+      const label = `[${n.meeting_date ?? "no date"}]`;
       const title = n.title ? ` ${n.title}` : "";
       return `${label}${title}\n${n.ai_summary}`;
     });
@@ -268,7 +266,6 @@ export function formatContextForDisplay(context: PartnerContext): DisplayContext
       ai_summary: n.ai_summary,
       note_type: n.note_type,
     })),
-    hasSeedNote: context.previousNotes.some((n) => n.note_type === "seed"),
     scratchpadEntries: context.scratchpadEntries,
   };
 }

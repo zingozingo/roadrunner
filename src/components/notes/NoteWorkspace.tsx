@@ -10,7 +10,7 @@ type Phase = "editing" | "review";
 interface NoteWorkspaceProps {
   noteId: string;
   partnerName: string;
-  noteType: "meeting" | "seed";
+  noteType: "meeting";
   meetingDate: string | null;
   title: string | null;
   context: DisplayContext;
@@ -181,10 +181,8 @@ export default function NoteWorkspace({
         {/* Header */}
         <div className="flex items-center gap-3 flex-wrap">
           <span className="text-sm font-medium text-foreground">{partnerName}</span>
-          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-            noteType === "seed" ? "bg-purple-500/15 text-purple-400" : "bg-blue-500/15 text-blue-400"
-          }`}>
-            {noteType === "seed" ? "SEED" : "Meeting"}
+          <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-blue-500/15 text-blue-400">
+            Meeting
           </span>
           {dateDisplay && <span className="text-xs text-muted">{dateDisplay}</span>}
           {title && <span className="text-xs text-muted truncate">{title}</span>}

@@ -20,7 +20,7 @@ function relativeTime(dateStr: string): string {
 }
 
 export default function ContextSidebar({ context }: { context: DisplayContext }) {
-  const { profile, contacts, activeEngagements, openTasks, openTaskCount, hasSeedNote, scratchpadEntries } = context;
+  const { profile, contacts, activeEngagements, openTasks, openTaskCount, scratchpadEntries } = context;
 
   return (
     <div className="space-y-4">
@@ -48,11 +48,6 @@ export default function ContextSidebar({ context }: { context: DisplayContext })
         )}
         {profile.pricing_model.length > 0 && (
           <p className="mt-1 text-xs text-muted">Pricing: <span className="text-foreground/80">{profile.pricing_model.join(", ")}</span></p>
-        )}
-        {hasSeedNote && (
-          <span className="mt-2 inline-block rounded-full bg-purple-500/15 px-2 py-0.5 text-xs font-medium text-purple-400">
-            Has Seed Note
-          </span>
         )}
       </div>
 

@@ -21,12 +21,12 @@ function getClient(): Anthropic {
 export async function summarizeNotes(input: {
   rawNotes: string;
   partnerContext: string;
-  noteType: "meeting" | "seed";
+  noteType?: "meeting";
   meetingTitle?: string;
   meetingDate?: string;
 }): Promise<NoteSummaryResult> {
   const client = getClient();
-  const systemPrompt = buildSystemPrompt(input.noteType);
+  const systemPrompt = buildSystemPrompt(input.noteType ?? "meeting");
   const userMessage = buildUserMessage(input);
 
   const response = await client.messages.create({
@@ -50,7 +50,6 @@ export async function summarizeNotes(input: {
 
 const NOTE_TYPE_MODIFIER = {
   meeting: "These are notes from a single meeting session. Summarize what was discussed in this meeting.",
-  seed: "These notes span a longer period of historical context — possibly months or years of interactions. Summarize the key events and relationship arc chronologically. For tasks, only extract items that appear to still be open or unresolved; omit anything clearly completed in later notes.",
 } as const;
 
 const SYSTEM_PROMPT = `You are a note analyst for an AWS Partner Development Manager (PDM) named Steven. Your job is to produce a concise summary and extract every action item from raw notes.
@@ -101,14 +100,14 @@ OUTPUT: Respond with ONLY a JSON object. No markdown fences, no preamble, no exp
   "flags": []
 }`;
 
-function buildSystemPrompt(noteType: "meeting" | "seed"): string {
+function buildSystemPrompt(noteType: "meeting"): string {
   return SYSTEM_PROMPT.replace("<<NOTE_TYPE>>", NOTE_TYPE_MODIFIER[noteType]);
 }
 
 function buildUserMessage(input: {
   rawNotes: string;
   partnerContext: string;
-  noteType: "meeting" | "seed";
+  noteType?: "meeting";
   meetingTitle?: string;
   meetingDate?: string;
 }): string {
@@ -127,7 +126,7 @@ function buildUserMessage(input: {
 
   // Raw notes (with truncation if needed)
   const truncated = truncateIfNeeded(input.rawNotes);
-  const label = input.noteType === "seed" ? "HISTORICAL NOTES" : "RAW MEETING NOTES";
+  const label = "RAW MEETING NOTES";
   sections.push(`=== ${label} ===\n` + truncated);
 
   return sections.join("\n\n");

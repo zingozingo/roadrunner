@@ -118,7 +118,7 @@ export async function getMeetingNoteByMeetingId(
 
 export async function getMeetingNotesByPartner(
   partnerId: string,
-  options?: { limit?: number; noteType?: "meeting" | "seed" }
+  options?: { limit?: number; noteType?: "meeting" }
 ): Promise<MeetingNoteWithTasks[]> {
   const db = getSupabaseClient();
 
@@ -448,7 +448,6 @@ export async function getRecentNoteSummaries(
     .eq("partner_id", partnerId)
     .eq("status", "complete")
     .not("ai_summary", "is", null)
-    .order("note_type", { ascending: false }) // 'seed' > 'meeting' alphabetically
     .order("meeting_date", { ascending: false, nullsFirst: false })
     .limit(limit);
 

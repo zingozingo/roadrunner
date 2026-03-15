@@ -33,18 +33,16 @@ export default function PreviousNotes({ notes }: { notes: PreviousNote[] }) {
       {open && (
         <div className="mt-3 space-y-2">
           {notes.map((n, i) => {
-            const label = n.note_type === "seed"
-              ? "[SEED]"
-              : n.meeting_date
-                ? new Date(n.meeting_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                : "Note";
+            const label = n.meeting_date
+              ? new Date(n.meeting_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
+              : "Note";
             const isExpanded = expandedIdx === i;
             const summary = isExpanded ? n.ai_summary : n.ai_summary.slice(0, 150);
 
             return (
               <div key={i} className="rounded-lg border border-border/50 bg-background px-3 py-2">
                 <div className="flex items-center gap-2">
-                  <span className={`text-xs font-medium ${n.note_type === "seed" ? "text-purple-400" : "text-muted"}`}>
+                  <span className="text-xs font-medium text-muted">
                     {label}
                   </span>
                   {n.title && <span className="truncate text-xs text-foreground/80">{n.title}</span>}
