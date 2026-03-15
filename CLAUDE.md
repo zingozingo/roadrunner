@@ -1,7 +1,7 @@
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → Claude classifies → structured engagements → Airtable sync.
-> 62 migrations · 18 tables · 30 API routes · 18 UI pages · 427 tests
+> 62 migrations · 18 tables · 30 API routes · 18 UI pages · 426 tests
 
 ---
 
@@ -51,7 +51,7 @@ roadrunner/
 │   ├── CLASSIFICATION.md          #   Two-phase AI pipeline & prompt architecture
 │   ├── entity-model.md            #   Canonical schema — ERD + field-level registry + AT field IDs
 │   └── goal-state.md              #   Living orientation doc — current state & next steps
-├── decisions.md                   # Append-only architectural decision log (182 entries)
+├── decisions.md                   # Append-only architectural decision log (186 entries)
 ├── src/
 │   ├── app/                       # Next.js App Router
 │   │   ├── api/                   #   API routes (30 routes, grouped by entity)
@@ -125,7 +125,7 @@ roadrunner/
 │       │   ├── push.ts            #     RR → AT activity sync
 │       │   ├── field-maps.ts      #     Airtable field ID constants
 │       │   └── utils.ts           #     Coercion helpers + validation
-│       └── __tests__/             #   427 tests across 14 test files
+│       └── __tests__/             #   426 tests across 14 test files
 ├── supabase/
 │   ├── migrations/                # 62 migration files (001-062)
 │   └── schema_live.sql            # Full schema snapshot (derived from migrations)
@@ -245,7 +245,7 @@ AIRTABLE_BASE_ID=appy9TT1LRJTAuQ4W
 ```bash
 npm install                        # Install dependencies
 npm run dev                        # Start Next.js dev server on :3000
-npx vitest run --reporter=verbose  # Run all 427 tests
+npx vitest run --reporter=verbose  # Run all 426 tests
 npx tsc --noEmit                   # TypeScript check (must pass with zero errors)
 ```
 
@@ -358,7 +358,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-061). New migratio
 | `docs/entity-model.md` | Complete schema — 19 tables, all FKs, AT field IDs, ring model | Schema/data work |
 | `docs/CLASSIFICATION.md` | Two-phase AI classification pipeline | Prompt/AI work |
 | `docs/goal-state.md` | Living status — current state + what's next | Session planning |
-| `decisions.md` | Append-only architectural decision log (182 entries) | When you need "why" |
+| `decisions.md` | Append-only architectural decision log (186 entries) | When you need "why" |
 
 ---
 

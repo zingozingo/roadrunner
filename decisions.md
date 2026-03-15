@@ -3988,3 +3988,63 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** JSONB columns (aws_team, partner_contacts, contacts, attendees) are now write-only artifacts. Ready for drop in future migration. 426 tests passing.
 
 ---
+
+### Decision 183: Documentation Consolidated (8 → 5 Files)
+
+**Date:** 2026-03-14
+**Status:** Implemented
+
+**Decision:** Consolidated 8 documentation files into 5. CLAUDE.md absorbed PROJECT.md (principles, terminology), ARCHITECTURE.md (tech stack, directory, data flow), and DEVELOPMENT.md (setup, testing, sync guide). Three source files deleted. Remaining docs: CLAUDE.md (master orientation), entity-model.md (schema bible), CLASSIFICATION.md (AI pipeline), goal-state.md (living status), decisions.md (append-only log).
+
+**Context:** Documentation was scattered across 8 files with significant overlap. PROJECT.md and ARCHITECTURE.md both described "what is this project." DEVELOPMENT.md duplicated setup info. New developers (including Claude Code) had to read 4+ files to get oriented.
+
+**Rationale:** One master orientation doc (CLAUDE.md) that answers "what is this, how does it work, how do I work on it" eliminates cross-referencing. Domain-specific docs (classification pipeline, entity model) stay separate because they serve different work contexts.
+
+**Impact:** Session startup is faster — read CLAUDE.md, then the task-specific doc. Documentation map in CLAUDE.md Section 11 tells you which doc to read for which work.
+
+---
+
+### Decision 184: Entity Model Restructured with Ring Architecture
+
+**Date:** 2026-03-14
+**Status:** Implemented
+
+**Decision:** Rewrote entity-model.md from a flat 2-layer structure (one ERD + field registry) to a ring-based architecture with 5 focused diagrams: Ring Overview (flowchart), Ring 1 Catalog (erDiagram), Ring 2 Activity (erDiagram), People & Connections (erDiagram), Ring 3 Posture (erDiagram). Added CASCADE behavior summary table, Legacy section, and What's Next tracker.
+
+**Context:** The old entity-model.md was dated March 10 with 13 known issues — missing tables (partner_context, 4 join tables), dead tables still listed (notes, participant_links), wrong FK behaviors, stale column names.
+
+**Rationale:** One mega-diagram with 20+ tables is unreadable. Four focused diagrams organized by ring let you understand one layer at a time. The CASCADE summary table prevents future FK mistakes. The ring model (Catalog → Activity → People → Posture) maps directly to the data ownership model and UI architecture.
+
+**Impact:** entity-model.md is now the definitive schema reference. All 13 issues fixed. Every future migration can be placed by asking "which ring does this belong to?"
+
+---
+
+### Decision 185: Bulk Query Pattern for Server→Client Enrichment
+
+**Date:** 2026-03-14
+**Status:** Implemented
+
+**Decision:** Established a pattern for enriching client component data: bulk-fetch from registry using `getContactsByPartnerBulk(ids[])` and `getContactsByRelationshipBulk(ids[])` in server components, serialize as plain objects, pass as props. Single query fetches all associations, Map groups by entity ID.
+
+**Context:** Client components (PartnersClient.tsx) can't call DB functions. The partner list page shows 22 partners with contact names in search — needed registry data without N+1 queries.
+
+**Rationale:** One `.in("partner_id", ids)` query returns all 85 partner-participant associations. Map<partnerId, contacts[]> grouping makes lookup O(1) per partner. Same pattern works for any entity type.
+
+**Impact:** Reusable pattern for any future client component that needs registry data. Zero N+1 queries.
+
+---
+
+### Decision 186: Legacy Notes Table Dropped (Migration 061)
+
+**Date:** 2026-03-14
+**Status:** Implemented
+
+**Decision:** Dropped the legacy engagement-level `notes` table (id, engagement_id, content) in migration 061. This was planned in Decision #179.
+
+**Context:** The old notes table predated the meeting_notes system. Zero code references remained after the meetings+notes merge (Decision #148). All note functionality flows through meeting_notes.
+
+**Rationale:** Dead table with zero references. Keeping it creates confusion about which notes table is the real one.
+
+**Impact:** 20 tables → 19 (then 18 after participant_links drop in 062). Clean schema.
+
+---
