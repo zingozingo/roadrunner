@@ -134,7 +134,7 @@ erDiagram
 | created_at | timestamptz | — | RR | — | — | — |
 | updated_at | timestamptz | — | RR | — | — | — |
 
-> **TRANSITIONAL**: `aws_team` and `partner_contacts` JSONB columns are being replaced by `partner_participants` join table (Decision #178). Will be dropped after contact registry UI rewire.
+> **WRITE-ONLY**: `aws_team` and `partner_contacts` JSONB columns are retained as dual-write artifacts (Decision #182). All reads flow through `partner_participants` join table. Ready for drop in future migration.
 
 **AT fields NOT in Supabase (planned for future sync):**
 
@@ -240,7 +240,7 @@ erDiagram
 | created_at | timestamptz | — | RR | — | — | — |
 | updated_at | timestamptz | — | RR | — | — | — |
 
-> **TRANSITIONAL**: `contacts` JSONB column is being replaced by `relationship_participants` join table (Decision #178). Will be dropped after contact registry UI rewire.
+> **WRITE-ONLY**: `contacts` JSONB column is retained as a dual-write artifact (Decision #182). All reads flow through `relationship_participants` join table. Ready for drop in future migration.
 
 **AT fields NOT in Supabase:**
 
@@ -914,7 +914,7 @@ UNIQUE index on `(participant_id, entity_type, entity_id)`
 
 | Connection | Status | Priority |
 |---|---|---|
-| Contact registry UI rewire (JSONB → join tables) | Open — all 4 write paths complete, 17 JSONB read locations across 10 files remain | Next |
+| Contact registry read+write rewire | **Complete** — 17/17 reads, all write paths, zero JSONB reads remaining | Done |
 | participant_links drop | **Done** — migration 062 | ✅ |
 | JSONB column drops (aws_team, partner_contacts, contacts) | Blocked by UI rewire | Next |
 | Manual meeting quick-capture | Open | Next |

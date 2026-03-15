@@ -3968,3 +3968,23 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** meeting_participants populated on every meeting creation/update. Organizer tracked with role='organizer'. Dual-write: JSONB stays until 7 read locations are rewired.
 
 ---
+
+### Decision 182: Contact Registry Read Rewire Complete — 17/17, Zero JSONB Reads
+
+**Date:** 2026-03-14
+**Status:** Implemented
+
+**Decision:** All 17 JSONB contact reads across 10 files rewired to the contact registry (participants + 4 dedicated join tables). Zero transitional JSONB reads remain.
+
+**Context:** Decision #178 designated JSONB columns as transitional artifacts. Decision #181 completed the write side. This decision completes the read side — every UI page, prompt builder, and sync function now reads from the registry.
+
+**Implementation:**
+- Step 2-3: Name resolver + Phase 1 domain matching rewired from 3 JSONB sources to participants table. getPartnerContactDomains() replaces partner.aws_team/partner_contacts domain extraction. 5 new registry read functions added.
+- Step 4: Partner detail + notes context rewired. getContactsByPartner() replaces partner_contacts/aws_team JSONB parsing.
+- Step 5: Relationship detail + prompt builder rewired. getContactsByRelationship() with optional param + JSONB fallback in buildRelationshipsSection().
+- Step 6: Meeting attendees rewired across 6 files. getContactsByMeeting() with org_type-based bucketing replaces email domain heuristics in groupAttendees(), buildMeetingFields(), buildMeetingHint(), buildLinkedMeetings(), buildNewMeetingData(). Classifier pipeline bulk-fetches meeting contacts.
+- Final: Added getContactsByPartnerBulk() and getContactsByRelationshipBulk() for server→client enrichment patterns. PartnersClient.tsx search and partner detail relationship inline both now read from registry.
+
+**Impact:** JSONB columns (aws_team, partner_contacts, contacts, attendees) are now write-only artifacts. Ready for drop in future migration. 426 tests passing.
+
+---
