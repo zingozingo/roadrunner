@@ -108,6 +108,9 @@ function mapRelationship(
   const teamRaw = str(rec.fields[RF.teamContacts]);
   if (teamRaw) contacts.push(...parseContactList(teamRaw, "Team Member"));
 
+  const rawOrgType = str(rec.fields[RF.orgType]);
+  const orgType = rawOrgType === "Third Party" ? "third_party" : "internal";
+
   return {
     name,
     relationship_type: relationshipType,
@@ -115,6 +118,7 @@ function mapRelationship(
     service: str(rec.fields[RF.awsService]),
     contacts,
     notes: str(rec.fields[RF.notes]),
+    org_type: orgType,
   };
 }
 

@@ -41,6 +41,7 @@ export const RF = {
   leadContact: "fldKELDdEYb8MsJCP",
   teamContacts: "fld472yolP2ujyJ5w",
   notes: "fldOcbNUrtfxjqiW5",
+  orgType: "fldmShxggHOAuioR4",
 } as const;
 
 export const PTRF = {
