@@ -361,11 +361,9 @@ export default async function PartnerDetailPage({
         )}
 
         {/* Tasks — open tasks grouped by owner */}
-        {tasksWithTitles.length > 0 && (
-          <div className="rounded-xl border border-border bg-surface p-4">
-            <PartnerTasksSection tasks={tasksWithTitles} />
-          </div>
-        )}
+        <div className="rounded-xl border border-border bg-surface p-4">
+          <PartnerTasksSection partnerId={id} tasks={tasksWithTitles} />
+        </div>
 
         {/* AWS Relationships — simple text links, no cards */}
         {linkedRelationships.length > 0 && (
