@@ -27,22 +27,34 @@ import {
 // Helpers
 // ============================================================
 
-function mockTableData(table: string, data: Record<string, unknown>[]) {
-  return {
-    select: vi.fn().mockResolvedValue({ data, error: null }),
-  };
+/**
+ * The new buildNameResolutionMap() queries only the "participants" table
+ * with columns: email, name, organization, source.
+ *
+ * Source mapping:
+ *   participant.source === "airtable_sync" → ResolvedName.source = "partner"
+ *   anything else                          → ResolvedName.source = "participant"
+ *
+ * Domain→org comes from participant.organization field.
+ */
+
+interface ParticipantRow {
+  email: string | null;
+  name: string | null;
+  organization?: string | null;
+  source?: string | null;
 }
 
-function setupMockTables(
-  participants: Record<string, unknown>[] = [],
-  relationships: Record<string, unknown>[] = [],
-  partners: Record<string, unknown>[] = []
-) {
+function setupParticipants(rows: ParticipantRow[]) {
   mockFrom.mockImplementation((table: string) => {
-    if (table === "participants") return mockTableData(table, participants);
-    if (table === "relationships") return mockTableData(table, relationships);
-    if (table === "partners") return mockTableData(table, partners);
-    return mockTableData(table, []);
+    if (table === "participants") {
+      return {
+        select: vi.fn().mockResolvedValue({ data: rows, error: null }),
+      };
+    }
+    return {
+      select: vi.fn().mockResolvedValue({ data: [], error: null }),
+    };
   });
 }
 
@@ -56,9 +68,9 @@ describe("buildNameResolutionMap", () => {
   });
 
   it("builds map from participant data", async () => {
-    setupMockTables([
-      { email: "alice@partner.com", name: "Alice Chen" },
-      { email: "bob@aws.com", name: "Bob Lee" },
+    setupParticipants([
+      { email: "alice@partner.com", name: "Alice Chen", source: "ai_extracted" },
+      { email: "bob@aws.com", name: "Bob Lee", source: "ai_extracted" },
     ]);
 
     const map = await buildNameResolutionMap();
@@ -73,152 +85,76 @@ describe("buildNameResolutionMap", () => {
     });
   });
 
-  it("builds map from relationship contacts JSONB", async () => {
-    setupMockTables(
-      [],
-      [
-        {
-          contacts: [
-            { name: "Dana Wright", email: "dana@amazon.com", title: null, role: "Lead Contact" },
-            { name: null, email: "team@amazon.com", title: null, role: "Team Member" },
-          ],
-        },
-      ]
-    );
+  it("maps airtable_sync source to 'partner' resolved source", async () => {
+    setupParticipants([
+      { email: "dana@amazon.com", name: "Dana Wright", source: "airtable_sync" },
+    ]);
 
     const map = await buildNameResolutionMap();
 
     expect(map.emailToName.get("dana@amazon.com")).toEqual({
       name: "Dana Wright",
-      source: "relationship",
+      source: "partner",
     });
-    // team@amazon.com has no name, so NOT added
-    expect(map.emailToName.has("team@amazon.com")).toBe(false);
   });
 
-  it("builds map from partner partner_contacts JSONB", async () => {
-    setupMockTables([], [], [
-      {
-        name: "CyberShield",
-        aws_team: [],
-        partner_contacts: [
-          { name: "Eve Torres", email: "eve@cybershield.io", title: "CTO", role: "Alliance Lead" },
-        ],
-      },
+  it("maps non-airtable_sync sources to 'participant' resolved source", async () => {
+    setupParticipants([
+      { email: "eve@cybershield.io", name: "Eve Torres", source: "ai_extracted", organization: "CyberShield" },
     ]);
 
     const map = await buildNameResolutionMap();
 
     expect(map.emailToName.get("eve@cybershield.io")).toEqual({
       name: "Eve Torres",
-      source: "partner",
+      source: "participant",
     });
   });
 
-  it("respects priority: relationship wins over participant and partner", async () => {
-    setupMockTables(
-      [{ email: "alice@partner.com", name: "Alice (Participant)" }],
-      [
-        {
-          contacts: [
-            { name: "Alice (Relationship)", email: "alice@partner.com", title: null, role: "Lead Contact" },
-          ],
-        },
-      ],
-      [
-        {
-          name: "PartnerCo",
-          aws_team: [],
-          partner_contacts: [
-            { name: "Alice (Partner)", email: "alice@partner.com", title: null, role: "Alliance Lead" },
-          ],
-        },
-      ]
-    );
+  it("first entry wins for duplicate emails (airtable_sync wins when first)", async () => {
+    setupParticipants([
+      { email: "alice@partner.com", name: "Alice (Catalog)", source: "airtable_sync" },
+      { email: "alice@partner.com", name: "Alice (AI)", source: "ai_extracted" },
+    ]);
 
     const map = await buildNameResolutionMap();
 
     expect(map.emailToName.get("alice@partner.com")).toEqual({
-      name: "Alice (Relationship)",
-      source: "relationship",
-    });
-  });
-
-  it("respects priority: partner wins over participant", async () => {
-    setupMockTables(
-      [{ email: "bob@aws.com", name: "Bob (Participant)" }],
-      [],
-      [
-        {
-          name: "AWS",
-          aws_team: [
-            { name: "Bob (Partner)", email: "bob@aws.com", title: null, role: "PSA" },
-          ],
-          partner_contacts: [],
-        },
-      ]
-    );
-
-    const map = await buildNameResolutionMap();
-
-    expect(map.emailToName.get("bob@aws.com")).toEqual({
-      name: "Bob (Partner)",
+      name: "Alice (Catalog)",
       source: "partner",
     });
   });
 
-  it("respects priority: relationship wins over partner (no participants)", async () => {
-    setupMockTables(
-      [],
-      [
-        {
-          contacts: [
-            { name: "Bob (Relationship)", email: "bob@aws.com", title: null, role: "Lead Contact" },
-          ],
-        },
-      ],
-      [
-        {
-          name: "AWS",
-          aws_team: [
-            { name: "Bob (Partner)", email: "bob@aws.com", title: null, role: "PSA" },
-          ],
-          partner_contacts: [],
-        },
-      ]
-    );
+  it("first entry wins for duplicate emails (ai_extracted wins when first)", async () => {
+    setupParticipants([
+      { email: "bob@aws.com", name: "Bob (AI)", source: "ai_extracted" },
+      { email: "bob@aws.com", name: "Bob (Catalog)", source: "airtable_sync" },
+    ]);
 
     const map = await buildNameResolutionMap();
 
     expect(map.emailToName.get("bob@aws.com")).toEqual({
-      name: "Bob (Relationship)",
-      source: "relationship",
+      name: "Bob (AI)",
+      source: "participant",
     });
   });
 
-  it("catalog name wins over participant name for same email", async () => {
-    setupMockTables(
-      [{ email: "crisresl@amazon.com", name: "Cris R" }],
-      [
-        {
-          contacts: [
-            { name: "Cristian Restrepo Lopez", email: "crisresl@amazon.com", title: null, role: "Lead Contact" },
-          ],
-        },
-      ],
-      []
-    );
+  it("catalog name wins when listed first for same email", async () => {
+    setupParticipants([
+      { email: "crisresl@amazon.com", name: "Cristian Restrepo Lopez", source: "airtable_sync" },
+      { email: "crisresl@amazon.com", name: "Cris R", source: "ai_extracted" },
+    ]);
 
     const map = await buildNameResolutionMap();
 
     expect(map.emailToName.get("crisresl@amazon.com")).toEqual({
       name: "Cristian Restrepo Lopez",
-      source: "relationship",
+      source: "partner",
     });
   });
 
   it("skips participants with null email or name", async () => {
-    setupMockTables([
+    setupParticipants([
       { email: null, name: "No Email" },
       { email: "noname@test.com", name: null },
       { email: "valid@test.com", name: "Valid Person" },
@@ -230,16 +166,10 @@ describe("buildNameResolutionMap", () => {
     expect(map.emailToName.has("valid@test.com")).toBe(true);
   });
 
-  it("builds domain→org map from partner_contacts JSONB emails", async () => {
-    setupMockTables([], [], [
-      {
-        name: "NinjaOne",
-        aws_team: [],
-        partner_contacts: [
-          { name: "John", email: "john@ninjaone.com", title: null, role: "Contact" },
-          { name: "Jane", email: "jane@ninjaone.com", title: null, role: "Contact" },
-        ],
-      },
+  it("builds domain→org map from participant organization field", async () => {
+    setupParticipants([
+      { email: "john@ninjaone.com", name: "John", organization: "NinjaOne", source: "airtable_sync" },
+      { email: "jane@ninjaone.com", name: "Jane", organization: "NinjaOne", source: "airtable_sync" },
     ]);
 
     const map = await buildNameResolutionMap();
@@ -247,15 +177,9 @@ describe("buildNameResolutionMap", () => {
     expect(map.domainToOrg.get("ninjaone.com")).toBe("NinjaOne");
   });
 
-  it("builds domain→org map from partner_contacts alliance lead email domain", async () => {
-    setupMockTables([], [], [
-      {
-        name: "CyberShield",
-        aws_team: [],
-        partner_contacts: [
-          { name: "Eve Torres", email: "eve@cybershield.io", title: null, role: "Alliance Lead" },
-        ],
-      },
+  it("builds domain→org from organization field", async () => {
+    setupParticipants([
+      { email: "eve@cybershield.io", name: "Eve Torres", organization: "CyberShield", source: "airtable_sync" },
     ]);
 
     const map = await buildNameResolutionMap();
@@ -263,15 +187,9 @@ describe("buildNameResolutionMap", () => {
     expect(map.domainToOrg.get("cybershield.io")).toBe("CyberShield");
   });
 
-  it("resolves account_manager from aws_team JSONB", async () => {
-    setupMockTables([], [], [
-      {
-        name: "Acme Corp",
-        aws_team: [
-          { name: "Sam Wilson", email: "sam@acme.com", title: null, role: "Account Manager" },
-        ],
-        partner_contacts: [],
-      },
+  it("resolves airtable_sync contacts as 'partner' source", async () => {
+    setupParticipants([
+      { email: "sam@acme.com", name: "Sam Wilson", source: "airtable_sync" },
     ]);
 
     const map = await buildNameResolutionMap();
@@ -282,57 +200,38 @@ describe("buildNameResolutionMap", () => {
     });
   });
 
-  it("resolves psa from aws_team JSONB", async () => {
-    setupMockTables([], [], [
-      {
-        name: "Acme Corp",
-        aws_team: [
-          { name: "Tina Fey", email: "tina@acme.com", title: null, role: "PSA" },
-        ],
-        partner_contacts: [],
-      },
+  it("resolves ai_extracted contacts as 'participant' source", async () => {
+    setupParticipants([
+      { email: "tina@acme.com", name: "Tina Fey", source: "ai_extracted" },
     ]);
 
     const map = await buildNameResolutionMap();
 
     expect(map.emailToName.get("tina@acme.com")).toEqual({
       name: "Tina Fey",
-      source: "partner",
+      source: "participant",
     });
   });
 
-  it("resolves pmm from aws_team JSONB", async () => {
-    setupMockTables([], [], [
-      {
-        name: "Acme Corp",
-        aws_team: [
-          { name: "Ray Park", email: "ray@acme.com", title: null, role: "PMM" },
-        ],
-        partner_contacts: [],
-      },
+  it("resolves contacts with null source as 'participant'", async () => {
+    setupParticipants([
+      { email: "ray@acme.com", name: "Ray Park", source: null },
     ]);
 
     const map = await buildNameResolutionMap();
 
     expect(map.emailToName.get("ray@acme.com")).toEqual({
       name: "Ray Park",
-      source: "partner",
+      source: "participant",
     });
   });
 
-  it("all partner contact emails contribute to domain→org map", async () => {
-    setupMockTables([], [], [
-      {
-        name: "MultiContact Inc",
-        aws_team: [
-          { name: "B Psa", email: "psa@psadomain.com", title: null, role: "PSA" },
-          { name: "C AM", email: "am@amdomain.com", title: null, role: "Account Manager" },
-          { name: "D PMM", email: "pmm@pmmdomain.com", title: null, role: "PMM" },
-        ],
-        partner_contacts: [
-          { name: "A Lead", email: "lead@multicontact.com", title: null, role: "Alliance Lead" },
-        ],
-      },
+  it("all participant org fields contribute to domain→org map", async () => {
+    setupParticipants([
+      { email: "lead@multicontact.com", name: "A Lead", organization: "MultiContact Inc", source: "airtable_sync" },
+      { email: "psa@psadomain.com", name: "B Psa", organization: "MultiContact Inc", source: "airtable_sync" },
+      { email: "am@amdomain.com", name: "C AM", organization: "MultiContact Inc", source: "airtable_sync" },
+      { email: "pmm@pmmdomain.com", name: "D PMM", organization: "MultiContact Inc", source: "airtable_sync" },
     ]);
 
     const map = await buildNameResolutionMap();
@@ -343,20 +242,11 @@ describe("buildNameResolutionMap", () => {
     expect(map.domainToOrg.get("pmmdomain.com")).toBe("MultiContact Inc");
   });
 
-  it("partner contacts (all roles) beat participants", async () => {
-    setupMockTables(
-      [{ email: "sam@acme.com", name: "Sam (Participant)" }],
-      [],
-      [
-        {
-          name: "Acme Corp",
-          aws_team: [
-            { name: "Sam Wilson", email: "sam@acme.com", title: null, role: "Account Manager" },
-          ],
-          partner_contacts: [],
-        },
-      ]
-    );
+  it("airtable_sync source beats ai_extracted when first", async () => {
+    setupParticipants([
+      { email: "sam@acme.com", name: "Sam Wilson", source: "airtable_sync" },
+      { email: "sam@acme.com", name: "Sam (Participant)", source: "ai_extracted" },
+    ]);
 
     const map = await buildNameResolutionMap();
 
@@ -366,16 +256,10 @@ describe("buildNameResolutionMap", () => {
     });
   });
 
-  it("skips JSONB contacts where email or name is null", async () => {
-    setupMockTables([], [], [
-      {
-        name: "Acme Corp",
-        aws_team: [
-          { name: null, email: "orphan@acme.com", title: null, role: "PSA" },
-          { name: "No Email AM", email: null, title: null, role: "Account Manager" },
-        ],
-        partner_contacts: [],
-      },
+  it("skips participants where email or name is null", async () => {
+    setupParticipants([
+      { email: "orphan@acme.com", name: null, source: "airtable_sync" },
+      { email: null, name: "No Email AM", source: "airtable_sync" },
     ]);
 
     const map = await buildNameResolutionMap();
@@ -385,16 +269,10 @@ describe("buildNameResolutionMap", () => {
   });
 
   it("excludes personal email domains from domain→org map", async () => {
-    setupMockTables([], [], [
-      {
-        name: "SomePartner",
-        aws_team: [],
-        partner_contacts: [
-          { name: "Joe", email: "joe@gmail.com", title: null, role: "Alliance Lead" },
-          { name: "Jane", email: "jane@yahoo.com", title: null, role: "Contact" },
-          { name: "Jill", email: "jill@outlook.com", title: null, role: "Contact" },
-        ],
-      },
+    setupParticipants([
+      { email: "joe@gmail.com", name: "Joe", organization: "SomePartner", source: "airtable_sync" },
+      { email: "jane@yahoo.com", name: "Jane", organization: "SomePartner", source: "airtable_sync" },
+      { email: "jill@outlook.com", name: "Jill", organization: "SomePartner", source: "airtable_sync" },
     ]);
 
     const map = await buildNameResolutionMap();
@@ -405,7 +283,7 @@ describe("buildNameResolutionMap", () => {
   });
 
   it("handles empty tables gracefully", async () => {
-    setupMockTables([], [], []);
+    setupParticipants([]);
 
     const map = await buildNameResolutionMap();
 
@@ -414,7 +292,7 @@ describe("buildNameResolutionMap", () => {
   });
 
   it("normalizes email keys to lowercase", async () => {
-    setupMockTables([
+    setupParticipants([
       { email: "Alice@Partner.COM", name: "Alice Chen" },
     ]);
 
@@ -429,7 +307,7 @@ describe("resolveNameByEmail", () => {
   const map: NameResolutionMap = {
     emailToName: new Map([
       ["alice@partner.com", { name: "Alice Chen", source: "participant" }],
-      ["bob@aws.com", { name: "Bob Lee", source: "relationship" }],
+      ["bob@aws.com", { name: "Bob Lee", source: "partner" }],
     ]),
     domainToOrg: new Map(),
   };

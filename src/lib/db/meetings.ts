@@ -1,6 +1,6 @@
 import { getSupabaseClient } from "./client";
-import { Meeting, MeetingAttendee, ParsedMeeting, Partner } from "../types";
-import { syncMeetingAttendeesToRegistry, replaceMeetingParticipants } from "./participants";
+import { Meeting, MeetingAttendee, ParsedMeeting } from "../types";
+import { syncMeetingAttendeesToRegistry, replaceMeetingParticipants, getPartnerContactDomains } from "./participants";
 
 export async function getMeetingsWithEngagements(): Promise<
   (Meeting & { engagement_name: string | null; partner_name: string | null })[]
@@ -287,8 +287,9 @@ export async function linkEngagementRelationship(
 
 /**
  * Match a partner from meeting attendee email domains.
- * Scans non-Amazon attendee domains against partner contact emails.
- * Returns the partner if exactly one matches; null if zero or ambiguous.
+ * Scans non-Amazon attendee domains against partner contact domains
+ * from the contact registry. Returns the partner if exactly one matches;
+ * null if zero or ambiguous.
  */
 export async function matchPartnerFromAttendees(
   attendees: MeetingAttendee[]
@@ -307,42 +308,14 @@ export async function matchPartnerFromAttendees(
   }
   if (attendeeDomains.size === 0) return none;
 
-  // Inline partner query to avoid cross-module dep
-  const { data: partnerData, error } = await getSupabaseClient()
-    .from("partners")
-    .select("*")
-    .order("name", { ascending: true });
-
-  if (error || !partnerData) return none;
-
-  const partners = partnerData as Partner[];
+  // Get partner domains from the contact registry
+  const domainMap = await getPartnerContactDomains();
   const matchedPartnerIds = new Set<string>();
 
-  for (const partner of partners) {
-    const partnerDomains = new Set<string>();
-    // Collect domains from aws_team (skip amazon.com — AWS staff, not partner domains)
-    for (const c of partner.aws_team ?? []) {
-      if (c.email && c.email !== "—") {
-        const d = c.email.toLowerCase().split("@")[1];
-        if (d && !d.endsWith("amazon.com") && !d.endsWith("amazon.co.uk")) {
-          partnerDomains.add(d);
-        }
-      }
-    }
-    // Collect domains from partner_contacts (these ARE partner domains)
-    for (const c of partner.partner_contacts ?? []) {
-      if (c.email && c.email !== "—") {
-        const d = c.email.toLowerCase().split("@")[1];
-        if (d) partnerDomains.add(d);
-      }
-    }
-
-    // Check if any attendee domain matches this partner
-    for (const ad of attendeeDomains) {
-      if (partnerDomains.has(ad)) {
-        matchedPartnerIds.add(partner.id);
-        break;
-      }
+  for (const ad of attendeeDomains) {
+    const match = domainMap.get(ad);
+    if (match) {
+      matchedPartnerIds.add(match.partnerId);
     }
   }
 

@@ -8,6 +8,7 @@ import type { Message, Meeting, Engagement, Partner } from "../types";
 const {
   mockGetActiveEngagements,
   mockGetPartners,
+  mockGetPartnerContactDomains,
   mockFrom,
 } = vi.hoisted(() => {
   const mockOrder = vi.fn().mockResolvedValue({ data: [], error: null });
@@ -20,6 +21,7 @@ const {
   return {
     mockGetActiveEngagements: vi.fn().mockResolvedValue([]),
     mockGetPartners: vi.fn().mockResolvedValue([]),
+    mockGetPartnerContactDomains: vi.fn().mockResolvedValue(new Map()),
     mockFrom,
   };
 });
@@ -27,6 +29,7 @@ const {
 vi.mock("../db", () => ({
   getActiveEngagements: mockGetActiveEngagements,
   getPartners: mockGetPartners,
+  getPartnerContactDomains: mockGetPartnerContactDomains,
   getSupabaseClient: vi.fn().mockReturnValue({ from: mockFrom }),
 }));
 
@@ -424,16 +427,30 @@ describe("buildEngagementIndex", () => {
 });
 
 describe("buildCompactPartnerCatalog", () => {
-  it("includes partners with domains", () => {
-    const result = buildCompactPartnerCatalog([PARTNER_WITH_DOMAINS]);
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("includes partners with domains", async () => {
+    mockGetPartnerContactDomains.mockResolvedValue(new Map([
+      ["cybershield.com", { partnerId: "partner-001", partnerName: "CyberShield" }],
+      ["cybershield.io", { partnerId: "partner-001", partnerName: "CyberShield" }],
+    ]));
+
+    const result = await buildCompactPartnerCatalog([PARTNER_WITH_DOMAINS]);
     expect(result).toContain('"CyberShield"');
     expect(result).toContain("id: partner-001");
     expect(result).toContain("Domains:");
     expect(result).toContain("cybershield.com");
   });
 
-  it("deduplicates domains from multiple emails", () => {
-    const result = buildCompactPartnerCatalog([PARTNER_WITH_DOMAINS]);
+  it("deduplicates domains from multiple emails", async () => {
+    mockGetPartnerContactDomains.mockResolvedValue(new Map([
+      ["cybershield.com", { partnerId: "partner-001", partnerName: "CyberShield" }],
+      ["cybershield.io", { partnerId: "partner-001", partnerName: "CyberShield" }],
+    ]));
+
+    const result = await buildCompactPartnerCatalog([PARTNER_WITH_DOMAINS]);
     // cybershield.com appears twice in emails but should only appear once
     const domainMatches = result.match(/cybershield\.com/g);
     expect(domainMatches).toHaveLength(1);
@@ -441,19 +458,28 @@ describe("buildCompactPartnerCatalog", () => {
     expect(result).toContain("cybershield.io");
   });
 
-  it("excludes partners with no contact emails", () => {
-    const result = buildCompactPartnerCatalog([PARTNER_WITH_DOMAINS, PARTNER_NO_EMAILS]);
+  it("excludes partners with no contact emails", async () => {
+    mockGetPartnerContactDomains.mockResolvedValue(new Map([
+      ["cybershield.com", { partnerId: "partner-001", partnerName: "CyberShield" }],
+      ["cybershield.io", { partnerId: "partner-001", partnerName: "CyberShield" }],
+    ]));
+
+    const result = await buildCompactPartnerCatalog([PARTNER_WITH_DOMAINS, PARTNER_NO_EMAILS]);
     expect(result).toContain("CyberShield");
     expect(result).not.toContain("GhostCorp");
   });
 
-  it("excludes partners with empty contact emails array", () => {
-    const result = buildCompactPartnerCatalog([PARTNER_EMPTY_EMAILS]);
+  it("excludes partners with empty contact emails array", async () => {
+    mockGetPartnerContactDomains.mockResolvedValue(new Map());
+
+    const result = await buildCompactPartnerCatalog([PARTNER_EMPTY_EMAILS]);
     expect(result).not.toContain("EmptyDomains");
   });
 
-  it("returns 'None yet' when no partners have domains", () => {
-    const result = buildCompactPartnerCatalog([PARTNER_NO_EMAILS, PARTNER_EMPTY_EMAILS]);
+  it("returns 'None yet' when no partners have domains", async () => {
+    mockGetPartnerContactDomains.mockResolvedValue(new Map());
+
+    const result = await buildCompactPartnerCatalog([PARTNER_NO_EMAILS, PARTNER_EMPTY_EMAILS]);
     expect(result).toContain("None yet.");
   });
 });
@@ -463,6 +489,10 @@ describe("buildPhase1Context", () => {
     vi.clearAllMocks();
     mockGetActiveEngagements.mockResolvedValue([ENGAGEMENT_A]);
     mockGetPartners.mockResolvedValue([PARTNER_WITH_DOMAINS]);
+    mockGetPartnerContactDomains.mockResolvedValue(new Map([
+      ["cybershield.com", { partnerId: "partner-001", partnerName: "CyberShield" }],
+      ["cybershield.io", { partnerId: "partner-001", partnerName: "CyberShield" }],
+    ]));
   });
 
   it("includes compact forwarder section", async () => {

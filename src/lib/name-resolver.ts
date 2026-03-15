@@ -1,20 +1,14 @@
 import { getSupabaseClient } from "./db";
-import type { Participant, RoleContact } from "./types";
 
 // ============================================================
 // Name Resolution — email→name and domain→org lookups
 // ============================================================
 //
-// Priority chain (first write wins — earlier sources can't be overwritten):
-//
-//   1. relationships.contacts JSONB — Human-curated in Airtable.
-//      Lead contacts with verified name+email pairs. Highest trust.
-//   2. partners.aws_team JSONB — Human-curated AWS-side contacts (PSA, AM, PMM).
-//   3. partners.partner_contacts JSONB — Human-curated partner-side contacts
-//      (Alliance Lead, general contacts). Domain→org mapping built here.
-//   4. participants — AI-extracted by Claude from classified emails.
-//      Fills gaps for tertiary contacts the system learns organically.
-//      Lowest priority because AI extraction can produce noisy names.
+// Reads from the canonical participants registry. All contacts
+// (from Airtable catalog sync, ICS parsing, and AI classification)
+// are merged into participants by the contact registry sync layer.
+// The registry already has the best data — priority was applied
+// during upsert (catalog sources win over AI-extracted names).
 //
 // Personal email domains (gmail.com, outlook.com, etc.) are excluded
 // from the domain→org map to avoid false positive org assignments.
@@ -55,84 +49,40 @@ const PERSONAL_DOMAINS = new Set([
 ]);
 
 /**
- * Build a resolution map by querying relationships, partners, and
- * participants tables in parallel. Merge order determines priority —
- * first write wins, so catalog sources (human-curated) take precedence
- * over AI-extracted participant names.
+ * Build a resolution map from the canonical participants registry.
+ * Single query replaces the old 3-source JSONB assembly — the registry
+ * already has merged/prioritized data from all contact sources.
  */
 export async function buildNameResolutionMap(): Promise<NameResolutionMap> {
   const db = getSupabaseClient();
 
-  const [relationshipsResult, partnersResult, participantsResult] =
-    await Promise.all([
-      db.from("relationships").select("contacts"),
-      db.from("partners").select("name, aws_team, partner_contacts"),
-      db.from("participants").select("email, name"),
-    ]);
+  const { data, error } = await db
+    .from("participants")
+    .select("email, name, organization, source");
 
   const emailToName = new Map<string, ResolvedName>();
   const domainToOrg = new Map<string, string>();
 
-  // --- Priority 1: Relationships contacts JSONB ---
-  for (const row of (relationshipsResult.data ?? []) as { contacts: RoleContact[] }[]) {
-    const contacts = row.contacts ?? [];
-    for (const c of contacts) {
-      if (c.email && c.name) {
-        const key = c.email.toLowerCase().trim();
-        if (!emailToName.has(key)) {
-          emailToName.set(key, { name: c.name, source: "relationship" });
-        }
-      }
-    }
-  }
+  if (error || !data) return { emailToName, domainToOrg };
 
-  // --- Priority 2 & 3: Partners aws_team + partner_contacts JSONB ---
-  for (const row of (partnersResult.data ?? []) as {
-    name: string;
-    aws_team: RoleContact[];
-    partner_contacts: RoleContact[];
-  }[]) {
-    // aws_team contacts (PSA, AM, PMM) — source: "partner"
-    for (const c of row.aws_team ?? []) {
-      if (c.email && c.name) {
-        const key = c.email.toLowerCase().trim();
-        if (!emailToName.has(key)) {
-          emailToName.set(key, { name: c.name, source: "partner" });
-        }
-      }
-      // aws_team emails contribute to domain→org map
-      if (c.email) {
-        const domain = extractDomain(c.email);
-        if (domain && !PERSONAL_DOMAINS.has(domain) && !domainToOrg.has(domain)) {
-          domainToOrg.set(domain, row.name);
-        }
-      }
-    }
-
-    // partner_contacts (Alliance Lead, general contacts) — source: "partner"
-    for (const c of row.partner_contacts ?? []) {
-      if (c.email && c.name) {
-        const key = c.email.toLowerCase().trim();
-        if (!emailToName.has(key)) {
-          emailToName.set(key, { name: c.name, source: "partner" });
-        }
-      }
-      // partner_contacts email domains → partner org
-      if (c.email) {
-        const domain = extractDomain(c.email);
-        if (domain && !PERSONAL_DOMAINS.has(domain) && !domainToOrg.has(domain)) {
-          domainToOrg.set(domain, row.name);
-        }
-      }
-    }
-  }
-
-  // --- Priority 4: Participants (AI-extracted, fills gaps) ---
-  for (const row of (participantsResult.data ?? []) as Pick<Participant, "email" | "name">[]) {
-    if (!row.email || !row.name) continue;
+  for (const row of data as { email: string | null; name: string | null; organization: string | null; source: string | null }[]) {
+    if (!row.email) continue;
     const key = row.email.toLowerCase().trim();
-    if (!emailToName.has(key)) {
-      emailToName.set(key, { name: row.name, source: "participant" });
+
+    // email → name (with source derivation for backward compat)
+    if (row.name && !emailToName.has(key)) {
+      // Derive ResolvedName.source from participant.source column
+      const resolvedSource: ResolvedName["source"] =
+        row.source === "airtable_sync" ? "partner" : "participant";
+      emailToName.set(key, { name: row.name, source: resolvedSource });
+    }
+
+    // domain → organization (first wins, skip personal domains)
+    if (row.organization) {
+      const domain = extractDomain(row.email);
+      if (domain && !PERSONAL_DOMAINS.has(domain) && !domainToOrg.has(domain)) {
+        domainToOrg.set(domain, row.organization);
+      }
     }
   }
 

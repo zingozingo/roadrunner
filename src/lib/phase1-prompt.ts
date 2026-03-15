@@ -1,5 +1,5 @@
 import type { Message, Meeting, Partner, Engagement, Phase1Result } from "./types";
-import { getActiveEngagements, getPartners, getSupabaseClient } from "./db";
+import { getActiveEngagements, getPartners, getSupabaseClient, getPartnerContactDomains } from "./db";
 import { buildEmailSection } from "./prompt-builder";
 import { USER_CONFIG } from "./user-config";
 
@@ -134,7 +134,7 @@ export async function buildPhase1Context(
 
   parts.push(buildCompactForwarder(forwarderNote));
   parts.push(buildEngagementIndex(engagements, lastSubjects, participantMap, entityLinksMap));
-  parts.push(buildCompactPartnerCatalog(partners));
+  parts.push(await buildCompactPartnerCatalog(partners));
   parts.push(buildEmailSection(messages));
 
   // If any message has a linked meeting, append structured meeting data
@@ -281,14 +281,23 @@ function isAwsDomain(email: string): boolean {
   return domain === "amazon.com" || domain.startsWith("amazon.");
 }
 
-export function buildCompactPartnerCatalog(partners: Partner[]): string {
+export async function buildCompactPartnerCatalog(partners: Partner[]): Promise<string> {
   const lines: string[] = ["## Partner Catalog"];
 
+  // Build partner domains from the contact registry join table
+  const domainMap = await getPartnerContactDomains();
+
+  // Reverse lookup: partnerId → Set<domain>
+  const partnerDomains = new Map<string, Set<string>>();
+  for (const [domain, { partnerId }] of domainMap) {
+    const existing = partnerDomains.get(partnerId) ?? new Set();
+    existing.add(domain);
+    partnerDomains.set(partnerId, existing);
+  }
+
   const partnersWithDomains = partners.filter((p) => {
-    const emails = (p.partner_contacts ?? [])
-      .map((c) => c.email)
-      .filter((e): e is string => e !== null && e !== "—");
-    return emails.length > 0;
+    const domains = partnerDomains.get(p.id);
+    return domains && domains.size > 0;
   });
 
   if (partnersWithDomains.length === 0) {
@@ -298,17 +307,7 @@ export function buildCompactPartnerCatalog(partners: Partner[]): string {
   }
 
   for (const p of partnersWithDomains) {
-    const emailSource = (p.partner_contacts ?? [])
-      .map((c) => c.email)
-      .filter((e): e is string => e !== null && e !== "—");
-
-    const domains = [
-      ...new Set(
-        emailSource
-          .map((e) => e.split("@")[1]?.toLowerCase())
-          .filter(Boolean)
-      ),
-    ];
+    const domains = [...(partnerDomains.get(p.id) ?? [])];
     if (domains.length > 0) {
       lines.push(`- "${p.name}" (id: ${p.id}) — Domains: ${domains.join(", ")}`);
     }

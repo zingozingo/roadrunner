@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { ParsedMeeting, MeetingAttendee, Partner } from "../types";
+import type { ParsedMeeting, MeetingAttendee } from "../types";
 
 // ============================================================
 // Hoisted mocks
 // ============================================================
 
-const { mockFrom } = vi.hoisted(() => ({
+const { mockFrom, mockGetPartnerContactDomains } = vi.hoisted(() => ({
   mockFrom: vi.fn(),
+  mockGetPartnerContactDomains: vi.fn().mockResolvedValue(new Map()),
 }));
 
 // Set env vars so getSupabaseClient() doesn't throw before reaching createClient
@@ -16,6 +17,13 @@ process.env.SUPABASE_SERVICE_KEY = "test-key";
 // Mock the Supabase client at the library level so getSupabaseClient() returns our mock
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({ from: mockFrom }),
+}));
+
+// Mock participants module for getPartnerContactDomains
+vi.mock("../db/participants", () => ({
+  syncMeetingAttendeesToRegistry: vi.fn().mockResolvedValue(undefined),
+  replaceMeetingParticipants: vi.fn().mockResolvedValue(undefined),
+  getPartnerContactDomains: mockGetPartnerContactDomains,
 }));
 
 // Suppress fire-and-forget AT push (dynamic import in createMeetingFromICS)
@@ -53,61 +61,29 @@ function buildParsedMeeting(overrides: Partial<ParsedMeeting> = {}): ParsedMeeti
   };
 }
 
-function buildPartner(overrides: Partial<Partner> = {}): Partner {
-  return {
-    id: "partner-001",
-    name: "Acme Corp",
-    segment: "isv",
-    focus_area: [],
-    spms_id: null,
-    what_they_do: null,
-    aws_team: [
-      { name: "Bob PSA", email: "bob@amazon.com", title: null, role: "PSA" },
-    ],
-    partner_contacts: [
-      { name: "Alice Lead", email: "alice@amazon.com", title: null, role: "Alliance Lead" },
-      { name: "Jane Doe", email: "jane@partner.com", title: null, role: "Contact" },
-      { name: "John Smith", email: "john@partner.com", title: null, role: "Contact" },
-    ],
-    aws_stickiness: null,
-    key_aws_services: [],
-    airtable_record_id: null,
-    created_at: "2026-01-01T00:00:00Z",
-    updated_at: "2026-01-01T00:00:00Z",
-    ...overrides,
-  };
-}
 
-/** Helper to set up mockFrom for partners table query (used by getPartners → matchPartnerFromAttendees) */
-function setupPartnersQuery(partners: Partner[]) {
-  const originalImpl = mockFrom.getMockImplementation();
-  mockFrom.mockImplementation((table: string) => {
-    if (table === "partners") {
-      return {
-        select: vi.fn().mockReturnValue({
-          order: vi.fn().mockResolvedValue({ data: partners, error: null }),
-        }),
-      };
-    }
-    // Delegate to existing mock for other tables
-    if (originalImpl) return originalImpl(table);
-    return { select: vi.fn() };
-  });
+/** Helper to set up getPartnerContactDomains mock (used by matchPartnerFromAttendees) */
+function setupPartnerDomains(domainEntries: Array<[string, { partnerId: string; partnerName: string }]>) {
+  mockGetPartnerContactDomains.mockResolvedValue(new Map(domainEntries));
 }
 
 /**
- * Set up mockFrom for meetings + partners tables.
+ * Set up mockFrom for meetings table.
  * Returns capture objects for insert/update data.
+ * Partner matching now uses getPartnerContactDomains (mocked via vi.mock("../db/participants")).
  */
 function setupMeetingMocks(
   existingMeeting: Record<string, unknown> | null,
-  partners: Partner[] = []
+  partnerDomains: Array<[string, { partnerId: string; partnerName: string }]> = []
 ) {
   const captured = {
     insertData: null as Record<string, unknown> | null,
     updateData: null as Record<string, unknown> | null,
     updateCalled: false,
   };
+
+  // Set up partner domain mock for matchPartnerFromAttendees
+  mockGetPartnerContactDomains.mockResolvedValue(new Map(partnerDomains));
 
   mockFrom.mockImplementation((table: string) => {
     if (table === "meetings") {
@@ -140,13 +116,6 @@ function setupMeetingMocks(
         }),
       };
     }
-    if (table === "partners") {
-      return {
-        select: vi.fn().mockReturnValue({
-          order: vi.fn().mockResolvedValue({ data: partners, error: null }),
-        }),
-      };
-    }
     return { select: vi.fn() };
   });
 
@@ -163,8 +132,8 @@ describe("matchPartnerFromAttendees", () => {
   });
 
   it("returns matching partner when single partner domain matches", async () => {
-    setupPartnersQuery([
-      buildPartner({ id: "p-1", name: "Acme Corp", partner_contacts: [{ name: "Jane", email: "jane@acme.com", title: null, role: "Contact" }] }),
+    setupPartnerDomains([
+      ["acme.com", { partnerId: "p-1", partnerName: "Acme Corp" }],
     ]);
 
     const attendees: MeetingAttendee[] = [
@@ -177,8 +146,8 @@ describe("matchPartnerFromAttendees", () => {
   });
 
   it("skips amazon.com attendees", async () => {
-    setupPartnersQuery([
-      buildPartner({ id: "p-1", name: "Acme Corp", partner_contacts: [{ name: "A", email: "a@amazon.com", title: null, role: "Contact" }] }),
+    setupPartnerDomains([
+      ["acme.com", { partnerId: "p-1", partnerName: "Acme Corp" }],
     ]);
 
     const attendees: MeetingAttendee[] = [
@@ -191,8 +160,8 @@ describe("matchPartnerFromAttendees", () => {
   });
 
   it("returns null when no partner domain matches", async () => {
-    setupPartnersQuery([
-      buildPartner({ id: "p-1", name: "Acme Corp", partner_contacts: [{ name: "A", email: "a@acme.com", title: null, role: "Contact" }] }),
+    setupPartnerDomains([
+      ["acme.com", { partnerId: "p-1", partnerName: "Acme Corp" }],
     ]);
 
     const attendees: MeetingAttendee[] = [
@@ -204,9 +173,9 @@ describe("matchPartnerFromAttendees", () => {
   });
 
   it("returns null when multiple partner domains match (ambiguous)", async () => {
-    setupPartnersQuery([
-      buildPartner({ id: "p-1", name: "Acme Corp", partner_contacts: [{ name: "A", email: "a@acme.com", title: null, role: "Contact" }] }),
-      buildPartner({ id: "p-2", name: "Beta Inc", partner_contacts: [{ name: "B", email: "b@beta.com", title: null, role: "Contact" }] }),
+    setupPartnerDomains([
+      ["acme.com", { partnerId: "p-1", partnerName: "Acme Corp" }],
+      ["beta.com", { partnerId: "p-2", partnerName: "Beta Inc" }],
     ]);
 
     const attendees: MeetingAttendee[] = [
@@ -218,14 +187,9 @@ describe("matchPartnerFromAttendees", () => {
     expect(result.partner_id).toBeNull();
   });
 
-  it("matches via aws_team contact domain (non-Amazon)", async () => {
-    setupPartnersQuery([
-      buildPartner({
-        id: "p-1",
-        name: "Acme Corp",
-        aws_team: [{ name: "Lead", email: "lead@acme.com", title: null, role: "Alliance Lead" }],
-        partner_contacts: [],
-      }),
+  it("matches via registry domain (non-Amazon)", async () => {
+    setupPartnerDomains([
+      ["acme.com", { partnerId: "p-1", partnerName: "Acme Corp" }],
     ]);
 
     const attendees: MeetingAttendee[] = [
@@ -266,10 +230,9 @@ describe("createMeetingFromICS", () => {
   });
 
   it("sets partner_id when attendee domain matches a partner", async () => {
-    const partners = [
-      buildPartner({ id: "p-1", name: "PartnerCo", partner_contacts: [{ name: "Jane", email: "jane@partner.com", title: null, role: "Contact" }] }),
-    ];
-    const captured = setupMeetingMocks(null, partners);
+    const captured = setupMeetingMocks(null, [
+      ["partner.com", { partnerId: "p-1", partnerName: "PartnerCo" }],
+    ]);
 
     const parsed = buildParsedMeeting();
     const result = await createMeetingFromICS(parsed, "msg-001");
