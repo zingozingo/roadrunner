@@ -39,7 +39,7 @@ Rules:
 - Write in direct, concise prose. No bullet points. No headers. No markdown.
 - Reference specific people by name, specific engagements by name, specific tasks if relevant
 - If there's very little data (no meetings, no scratchpad), say so honestly — "Early-stage relationship, limited context captured so far."
-- Address the PDM as "you" where natural`;
+- Write in third person as a factual briefing. Do not give advice or use "you". State what IS, not what should be done. Example tone: "Relationship is active with 3 Co-Build engagements. Main contact Jackie Funk has been responsive. CRM integration with Suger is in progress. Key risk: Deployed on AWS status remains N/A, blocking competency pursuit."`;
 
 // ============================================================
 // Synthesize partner brain
