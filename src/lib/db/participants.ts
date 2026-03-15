@@ -410,10 +410,11 @@ export async function upsertContactToRegistry(
     const row = existing[0];
     const updates: Record<string, string | null> = {};
 
-    // Update fields — sync always wins for these fields since Airtable is authoritative for catalog contacts
-    if (name && row.name !== name) updates.name = name;
-    if (title && row.title !== title) updates.title = title;
-    if (organization && row.organization !== organization) updates.organization = organization;
+    // "Richer wins" — only update name if new value has more words (prevents ICS short names from overwriting AT full names)
+    if (name && (!row.name || name.split(/\s+/).length > row.name.split(/\s+/).length)) updates.name = name;
+    // For title and org, longer string wins (more specific is better)
+    if (title && (!row.title || title.length > row.title.length)) updates.title = title;
+    if (organization && (!row.organization || organization.length > row.organization.length)) updates.organization = organization;
     if (!row.org_type) updates.org_type = orgType;
     if (!row.source) updates.source = source;
 

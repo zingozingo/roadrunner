@@ -4048,3 +4048,33 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** 20 tables → 19 (then 18 after participant_links drop in 062). Clean schema.
 
 ---
+
+### Decision 187: Airtable Relationships Table Aligned with Roadrunner Schema
+
+**Date:** 2026-03-14
+**Status:** Implemented
+
+**Decision:** Aligned the Airtable Relationships table naming and fields with Roadrunner's schema. Table renamed AWS Relationships → Relationships. Columns renamed AWS Org → Org, AWS Service(s) → Service. New Org Type single-select field created (Internal / Third Party) with field ID fldmShxggHOAuioR4. All 7 existing records set to Internal. Linked record fields on Engagements and Meetings tables updated: AWS Relationships → Relationships. Stakeholder fields renamed to Internal Stakeholders on both tables. Contact field descriptions updated to remove "AWS" prefix.
+
+**Context:** Migration 058 renamed the Supabase table and columns, and added org_type, but the Airtable source table still used the old "AWS" naming. The sync works by field IDs (not names), so there was no functional break — but the visual inconsistency created confusion when viewing Airtable.
+
+**Rationale:** Airtable is the catalog source. It needs to accurately represent the data model. Adding the Org Type field to Airtable means new relationships created there (including future third-party teams like Symbio) will have org_type properly set and synced into Roadrunner via the new field-maps.ts mapping.
+
+**Impact:** Airtable and Roadrunner schemas are fully aligned for the Relationships table. New field ID fldmShxggHOAuioR4 added to sync field-maps (RF constant). pull.ts maps "Internal" → "internal", "Third Party" → "third_party", default "internal" for backward compat.
+
+---
+
+### Decision 188: "Richer Wins" Contact Data Quality Rule
+
+**Date:** 2026-03-14
+**Status:** Implemented
+
+**Decision:** upsertContactToRegistry() now applies "richer wins" logic: name only updates if the new value has more words than existing (prevents "Jackie Funk" → "Jackie"). Title and organization only update if the new value is longer. org_type and source only fill NULL (unchanged — already correct).
+
+**Context:** Multiple sources write to the same participant record: Airtable sync (richest data — full names, titles, organizations), ICS parsing (minimal — often just first name + email), and the classifier. Without protection, the ICS path could degrade data quality by overwriting rich AT sync data with minimal ICS data.
+
+**Rationale:** The same "richer wins" logic already existed in backfillMessageSenderNames(). Applying it to the central upsert function means all sources benefit. Any data is better than no data (NULL always gets filled), but richer data is never replaced by less-rich data.
+
+**Impact:** Contact data quality is self-improving — the richest source always wins. AT sync provides the baseline, and no other source can degrade it.
+
+---

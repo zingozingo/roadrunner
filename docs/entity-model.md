@@ -233,7 +233,7 @@ erDiagram
 | org | text | singleLineText | AT | ← AT | fldKSmvO7Lhr5v9Fy | relationship detail |
 | service | text | singleLineText | AT | ← AT | fldiieBBkkAFYDOJC | relationship detail |
 | relationship_type | text CHECK (4 options) | singleSelect (4 options) | AT | ← AT | fld2cjVCECNIPGw2d | relationship detail |
-| org_type | text CHECK (internal, third_party) | — | RR | — | — | — |
+| org_type | text CHECK (internal, third_party) | singleSelect (Internal, Third Party) | AT | ← AT | fldmShxggHOAuioR4 | relationship detail |
 | contacts | jsonb (RoleContact[]) | singleLineText + multilineText (Lead Contact, Team Contacts) | AT | ← AT | fldKELDdEYb8MsJCP, fld472yolP2ujyJ5w | relationship detail |
 | notes | text | multilineText | AT | ← AT | fldOcbNUrtfxjqiW5 | — |
 | airtable_record_id | text UNIQUE | — | RR | — | — | — |

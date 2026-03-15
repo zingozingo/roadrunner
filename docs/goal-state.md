@@ -9,7 +9,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 - 62 migrations, 18 active tables, 30 API routes, 18 UI pages, 426 tests across 14 suites
 - Two-phase classification pipeline: curated-input Phase 1 (enriched engagement index) + deep-analysis Phase 2 (full thread history, entity matching, state evolution)
 - Entity model fully rewritten with ring architecture (Catalog → Activity → People → Posture) in docs/entity-model.md
-- Documentation consolidated: 5 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline, goal-state.md status, decisions.md through #186)
+- Documentation consolidated: 5 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline, goal-state.md status, decisions.md through #188)
 - Dead weight cleaned: notes table dropped (migration 061), orphaned components removed (PillGrid, CalendarCard, TableList, SyncStatus), decisions.md merged from two files into one
 - Contact registry complete: 76 participants, 85 partner links, 4 dedicated join tables, sync layer auto-maintains registry — all 17/17 reads and all write paths flow through registry, zero JSONB reads remaining (Decision #182)
 - Tasks promoted to partner-level entities with owner_participant_id FK (decisions 170-175)
@@ -34,6 +34,8 @@ A system where a PDM forwards an email and Roadrunner:
 - ✅ Contact registry read rewire complete — 17/17 JSONB reads eliminated (Decision #182)
 - ✅ meeting_participants write path wired (3 functions, 4 call sites)
 - ✅ All transitional JSONB reads eliminated (bulk query functions for partner list + relationship inline)
+- ✅ Airtable Relationships table aligned (renamed, Org Type field added, sync wired — Decision #187)
+- ✅ "Richer wins" contact data quality rule in upsertContactToRegistry() (Decision #188)
 - Manual meeting quick-capture form
 
 ### Next Session
