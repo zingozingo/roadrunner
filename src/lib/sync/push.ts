@@ -102,6 +102,7 @@ async function fetchPartnerMaps(): Promise<{
 interface EngagementParticipant {
   name: string | null;
   email: string | null;
+  title: string | null;
   organization: string | null;
 }
 
@@ -133,14 +134,14 @@ async function fetchEngagementParticipants(
 
   const { data: participants, error: pErr } = await supabase
     .from("participants")
-    .select("id, name, email, organization")
+    .select("id, name, email, title, organization")
     .in("id", participantIds);
 
   if (pErr || !participants) return result;
 
   const pById = new Map<string, EngagementParticipant>();
-  for (const p of participants as { id: string; name: string | null; email: string | null; organization: string | null }[]) {
-    pById.set(p.id, { name: p.name, email: p.email, organization: p.organization });
+  for (const p of participants as { id: string; name: string | null; email: string | null; title: string | null; organization: string | null }[]) {
+    pById.set(p.id, { name: p.name, email: p.email, title: p.title, organization: p.organization });
   }
 
   for (const link of links as { participant_id: string; engagement_id: string }[]) {
@@ -227,7 +228,7 @@ function buildEngagementFields(
       const rendered = renderContact({
         name: p.name || null,
         email: p.email || null,
-        title: null,
+        title: p.title || null,
       });
 
       const isAws =
@@ -605,6 +606,7 @@ async function buildMeetingLookups(): Promise<MeetingLookups> {
 interface MeetingRegistryContact {
   name: string | null;
   email: string;
+  title: string | null;
   org_type: string | null;
 }
 
@@ -655,7 +657,7 @@ function buildMeetingFields(
         continue;
       }
 
-      const rendered = renderContact({ name: c.name, email: c.email, title: null });
+      const rendered = renderContact({ name: c.name, email: c.email, title: c.title });
 
       if (c.org_type === "internal") {
         awsRendered.push(rendered);
@@ -712,6 +714,7 @@ export async function pushMeetingToAirtable(
   const meetingContacts = registryContacts.map(c => ({
     name: c.name,
     email: c.email,
+    title: c.title,
     org_type: c.org_type,
   }));
   const fields = buildMeetingFields(meeting, lookups, meetingContacts);
@@ -824,6 +827,7 @@ export async function syncMeetingsToAirtable(): Promise<SyncResult> {
       const mtgContacts = rc.map(c => ({
         name: c.name,
         email: c.email,
+        title: c.title,
         org_type: c.org_type,
       }));
       const fields = buildMeetingFields(mtg, lookups, mtgContacts);
