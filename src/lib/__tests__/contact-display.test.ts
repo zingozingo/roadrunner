@@ -4,6 +4,7 @@ import {
   getDisplayOrgType,
   sortContactsByRole,
   isNamedRole,
+  isClassifierRole,
   CLASSIFIER_ROLES,
 } from "../contact-display";
 
@@ -44,10 +45,26 @@ describe("getDisplayRole", () => {
     expect(getDisplayRole(null, null, null)).toBeNull();
   });
 
-  it("suppresses all classifier roles", () => {
+  it("suppresses all known classifier roles", () => {
     for (const role of CLASSIFIER_ROLES) {
       expect(getDisplayRole(role, null, "internal")).toBe("AWS");
     }
+  });
+
+  it("suppresses unknown classifier roles via underscore heuristic", () => {
+    expect(getDisplayRole("partner_contact", "CTO", "partner")).toBe("CTO");
+  });
+
+  it("returns title when role is partner_contact", () => {
+    expect(getDisplayRole("partner_contact", "Head of Alliances", "partner")).toBe("Head of Alliances");
+  });
+
+  it("returns org_type when partner_contact and no title", () => {
+    expect(getDisplayRole("partner_contact", null, "partner")).toBe("Partner");
+  });
+
+  it("returns org_type when third_party role and no title", () => {
+    expect(getDisplayRole("third_party", null, "third_party")).toBe("Third Party");
   });
 });
 
@@ -128,6 +145,40 @@ describe("sortContactsByRole", () => {
   });
 });
 
+describe("isClassifierRole", () => {
+  it("returns true for partner_contact", () => {
+    expect(isClassifierRole("partner_contact")).toBe(true);
+  });
+
+  it("returns true for aws_stakeholder", () => {
+    expect(isClassifierRole("aws_stakeholder")).toBe(true);
+  });
+
+  it("returns true for third_party", () => {
+    expect(isClassifierRole("third_party")).toBe(true);
+  });
+
+  it("returns true for cc_recipient", () => {
+    expect(isClassifierRole("cc_recipient")).toBe(true);
+  });
+
+  it("returns false for Alliance Lead", () => {
+    expect(isClassifierRole("Alliance Lead")).toBe(false);
+  });
+
+  it("returns false for PSA", () => {
+    expect(isClassifierRole("PSA")).toBe(false);
+  });
+
+  it("returns false for Contact", () => {
+    expect(isClassifierRole("Contact")).toBe(false);
+  });
+
+  it("returns false for PMM", () => {
+    expect(isClassifierRole("PMM")).toBe(false);
+  });
+});
+
 describe("isNamedRole", () => {
   it("returns true for PSA", () => {
     expect(isNamedRole("PSA")).toBe(true);
@@ -155,6 +206,14 @@ describe("isNamedRole", () => {
 
   it("returns false for null", () => {
     expect(isNamedRole(null)).toBe(false);
+  });
+
+  it("returns false for partner_contact (underscore heuristic)", () => {
+    expect(isNamedRole("partner_contact")).toBe(false);
+  });
+
+  it("returns false for third_party (underscore heuristic)", () => {
+    expect(isNamedRole("third_party")).toBe(false);
   });
 
   it("returns true for unknown non-classifier role", () => {

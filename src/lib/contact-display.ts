@@ -6,7 +6,7 @@
  * that aren't meaningful to end users.
  */
 
-/** Classifier-assigned roles that should never render in the UI */
+/** Known classifier-assigned roles (for reference/documentation) */
 export const CLASSIFIER_ROLES = new Set([
   "forwarder",
   "primary_contact",
@@ -15,7 +15,22 @@ export const CLASSIFIER_ROLES = new Set([
   "cc_recipient",
   "attendee",
   "organizer",
+  "partner_contact",
+  "third_party",
 ]);
+
+/**
+ * Heuristic: classifier roles use snake_case (underscores) or are
+ * system-assigned single-word lowercase values like "forwarder",
+ * "attendee", "organizer". AT-sourced roles use natural casing
+ * ("Alliance Lead", "PSA", "Contact").
+ */
+export function isClassifierRole(role: string): boolean {
+  if (role.includes("_")) return true;
+  // System-assigned single-word lowercase roles
+  if (role === "forwarder" || role === "attendee" || role === "organizer") return true;
+  return false;
+}
 
 /** AT-sourced roles sorted by display priority (lower = higher priority) */
 export const ROLE_PRIORITY: ReadonlyMap<string, number> = new Map([
@@ -48,7 +63,7 @@ export function getDisplayOrgType(orgType: string | null): string {
  */
 export function isNamedRole(role: string | null): boolean {
   if (!role) return false;
-  if (CLASSIFIER_ROLES.has(role)) return false;
+  if (isClassifierRole(role)) return false;
   if (role === "Contact") return false;
   return true;
 }
