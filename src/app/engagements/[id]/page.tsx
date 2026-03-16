@@ -22,6 +22,23 @@ import {
 import { formatFooterDate } from "@/lib/format-utils";
 import type { TimelineItem } from "@/lib/types";
 
+// Chevron icon for collapsible sections
+function SectionChevron() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      className="shrink-0 transition-transform group-open:rotate-90"
+    >
+      <path d="M6 4l4 4-4 4" />
+    </svg>
+  );
+}
+
 export default async function EngagementDetailPage({
   params,
 }: {
@@ -105,78 +122,99 @@ export default async function EngagementDetailPage({
             ) : "—",
           },
           { label: "Pillar", value: engagement.pillar ?? "—" },
+          { label: "Topic", value: engagement.topic ?? "—" },
           { label: "Updated", value: formatFooterDate(engagement.updated_at) },
         ]}
         actions={<EngagementActions engagement={engagement} partnerName={partnerName} />}
       />
 
-      {/* Full-width sections — ordered by decision-making priority */}
-      <div className="space-y-6">
+      <div className="space-y-4">
 
-        {/* Current State — full-width, most important */}
-        {engagement.current_state && (
-          <CurrentStateCard text={engagement.current_state} />
+        {/* Goal callout — prominent accent bar */}
+        {engagement.goal && (
+          <div className="border-l-2 border-accent/40 pl-4 py-2 text-sm text-foreground/80 italic">
+            {engagement.goal}
+          </div>
         )}
 
-        {/* Participants — collapsed by default */}
+        {/* Current State — default-open */}
+        {engagement.current_state && (
+          <details open className="group rounded-xl border border-border/40 bg-surface">
+            <summary className="flex cursor-pointer list-none items-center gap-2 p-4 text-sm font-semibold uppercase tracking-wider text-muted [&::-webkit-details-marker]:hidden">
+              <SectionChevron />
+              Current State
+            </summary>
+            <div className="px-4 pb-4">
+              <div className="space-y-1.5">
+                {engagement.current_state.split("\n").filter(Boolean).map((para, i) => (
+                  <p key={i} className="text-sm text-foreground/90">{para}</p>
+                ))}
+              </div>
+            </div>
+          </details>
+        )}
+
+        {/* Connections — default-open, structural context */}
+        {hasConnections && (
+          <details open className="group rounded-xl border border-border/40 bg-surface">
+            <summary className="flex cursor-pointer list-none items-center gap-2 p-4 text-sm font-semibold uppercase tracking-wider text-muted [&::-webkit-details-marker]:hidden">
+              <SectionChevron />
+              Connections
+              <span className="rounded-full bg-border px-2 py-0.5 text-xs text-muted">{connectionCount}</span>
+            </summary>
+            <div className="px-4 pb-4">
+              <div className="space-y-1">
+                {relationships.map((rel) => (
+                  <Link
+                    key={rel.id}
+                    href={`/relationships/${rel.id}`}
+                    className="flex items-baseline gap-2 rounded px-2 py-1.5 transition-colors hover:bg-surface-hover"
+                  >
+                    <span className="text-sm font-medium text-foreground">
+                      {rel.name}
+                    </span>
+                    {rel.contacts?.[0]?.name && (
+                      <span className="text-xs text-muted">
+                        {rel.contacts[0].name}
+                      </span>
+                    )}
+                  </Link>
+                ))}
+
+                {validEntityLinks.length > 0 && (
+                  <div className={`flex flex-wrap gap-2 ${relationships.length > 0 ? "pt-2" : ""}`}>
+                    {validEntityLinks.map((link) => {
+                      const isSource = link.source_id === id;
+                      const otherId = isSource ? link.target_id : link.source_id;
+                      const otherType = isSource ? link.target_type : link.source_type;
+                      const otherName = nameMap.get(otherId)!;
+
+                      return (
+                        <EntityLinkChip
+                          key={link.id}
+                          link={link}
+                          entityName={otherName}
+                          entityId={otherId}
+                          entityType={otherType}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </details>
+        )}
+
+        {/* Participants — has built-in collapsibility */}
         <CollapsibleParticipants
           participants={participants}
           engagementId={id}
           partnerName={partnerName}
         />
 
-        {/* Timeline — source emails + meetings interleaved by date */}
+        {/* Timeline — audit trail, has built-in collapsibility */}
         <CollapsibleEmails items={timelineItems} participants={participants} />
-
-        {/* Connections — AWS Relationships as simple text links + Entity Links as chips */}
-        {hasConnections && (
-          <div className="rounded-xl border border-border bg-surface p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-              Connections ({connectionCount})
-            </h2>
-            <div className="space-y-1">
-              {/* AWS Relationships as simple text links */}
-              {relationships.map((rel) => (
-                <Link
-                  key={rel.id}
-                  href={`/relationships/${rel.id}`}
-                  className="flex items-baseline gap-2 rounded px-2 py-1.5 transition-colors hover:bg-surface-hover"
-                >
-                  <span className="text-sm font-medium text-foreground">
-                    {rel.name}
-                  </span>
-                  {rel.contacts?.[0]?.name && (
-                    <span className="text-xs text-muted">
-                      {rel.contacts[0].name}
-                    </span>
-                  )}
-                </Link>
-              ))}
-
-              {/* Entity Links as chips */}
-              {validEntityLinks.length > 0 && (
-                <div className={`flex flex-wrap gap-2 ${relationships.length > 0 ? "pt-2" : ""}`}>
-                  {validEntityLinks.map((link) => {
-                    const isSource = link.source_id === id;
-                    const otherId = isSource ? link.target_id : link.source_id;
-                    const otherType = isSource ? link.target_type : link.source_type;
-                    const otherName = nameMap.get(otherId)!;
-
-                    return (
-                      <EntityLinkChip
-                        key={link.id}
-                        link={link}
-                        entityName={otherName}
-                        entityId={otherId}
-                        entityType={otherType}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* Compact footer */}
         <p className="mt-6 text-xs text-muted">
