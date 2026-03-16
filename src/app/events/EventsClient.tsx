@@ -152,45 +152,71 @@ export default function EventsClient({ events }: { events: EventWithCount[] }) {
             />
           ) : (
             <div className="space-y-8">
-              {sections.map((section) => (
-                <div key={section.label}>
-                  <h2 className="mb-4 text-lg font-semibold text-foreground">
-                    {section.label}
-                    <span className="ml-2 text-sm font-normal text-muted">
-                      ({section.monthGroups.reduce((sum, g) => sum + g.events.length, 0)})
-                    </span>
-                  </h2>
+              {sections.map((section) => {
+                const isUpcoming = section.label === "Upcoming";
+                const isTbd = section.label === "Date TBD";
+                const monthDefaultOpen = isUpcoming || isTbd || !!searchQuery;
 
-                  {section.monthGroups.map((group) => (
-                    <div key={group.key}>
-                      {group.key !== "tbd" && (
-                        <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted">
-                          {group.label}
-                        </h3>
-                      )}
-                      {group.events.map((event) => (
-                        <Link
-                          key={event.id}
-                          href={`/events/${event.id}`}
-                          className="flex items-baseline gap-4 rounded-lg px-3 py-2.5 transition-colors hover:bg-surface-hover"
+                return (
+                  <div key={section.label}>
+                    <h2 className="mb-4 text-lg font-semibold text-foreground">
+                      {section.label}
+                      <span className="ml-2 text-sm font-normal text-muted">
+                        ({section.monthGroups.reduce((sum, g) => sum + g.events.length, 0)})
+                      </span>
+                    </h2>
+
+                    <div className="space-y-3">
+                      {section.monthGroups.map((group) => (
+                        <details
+                          key={group.key}
+                          open={monthDefaultOpen || undefined}
+                          className="group rounded-xl border border-border/40 bg-surface"
                         >
-                          <span className="w-24 shrink-0 text-xs text-muted">
-                            {formatCompactDateRange(event.start_date ?? "", event.end_date ?? null)}
-                          </span>
-                          <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                            {event.name}
-                          </span>
-                          {extractCity(event.location) && (
-                            <span className="shrink-0 text-xs text-muted">
-                              {extractCity(event.location)}
+                          <summary className="flex cursor-pointer list-none items-center gap-2 p-4 text-sm font-semibold uppercase tracking-wider text-muted [&::-webkit-details-marker]:hidden">
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              className="shrink-0 transition-transform group-open:rotate-90"
+                            >
+                              <path d="M6 4l4 4-4 4" />
+                            </svg>
+                            {group.label}
+                            <span className="rounded-full bg-border px-2 py-0.5 text-xs text-muted">
+                              {group.events.length}
                             </span>
-                          )}
-                        </Link>
+                          </summary>
+                          <div className="px-4 pb-4">
+                            {group.events.map((event) => (
+                              <Link
+                                key={event.id}
+                                href={`/events/${event.id}`}
+                                className="flex items-baseline gap-4 rounded-lg px-3 py-2.5 transition-colors hover:bg-surface-hover"
+                              >
+                                <span className="w-24 shrink-0 text-xs text-muted">
+                                  {formatCompactDateRange(event.start_date ?? "", event.end_date ?? null)}
+                                </span>
+                                <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                                  {event.name}
+                                </span>
+                                {extractCity(event.location) && (
+                                  <span className="shrink-0 text-xs text-muted">
+                                    {extractCity(event.location)}
+                                  </span>
+                                )}
+                              </Link>
+                            ))}
+                          </div>
+                        </details>
                       ))}
                     </div>
-                  ))}
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           )}
         </>

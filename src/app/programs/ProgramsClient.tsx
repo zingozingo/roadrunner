@@ -131,35 +131,53 @@ export default function ProgramsClient({ programs }: ProgramsClientProps) {
               description="Try adjusting your search or filters"
             />
           ) : (
-            <div className="space-y-8">
-              {grouped.map((group) => (
-                <section key={group.type}>
-                  <div className="mb-3 flex items-center gap-2">
-                    <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">
+            <div className="space-y-4">
+              {grouped.map((group) => {
+                const defaultOpen = searchQuery || group.programs.length < 10;
+                return (
+                  <details
+                    key={group.type}
+                    open={defaultOpen || undefined}
+                    className="group rounded-xl border border-border/40 bg-surface"
+                  >
+                    <summary className="flex cursor-pointer list-none items-center gap-2 p-4 text-sm font-semibold uppercase tracking-wider text-muted [&::-webkit-details-marker]:hidden">
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        className="shrink-0 transition-transform group-open:rotate-90"
+                      >
+                        <path d="M6 4l4 4-4 4" />
+                      </svg>
                       {pluralizeType(group.type)}
-                    </h2>
-                    <span className="rounded-full bg-border px-2 py-0.5 text-xs text-muted">
-                      {group.programs.length}
-                    </span>
-                  </div>
-                  {group.programs.map((program) => (
-                    <Link
-                      key={program.id}
-                      href={`/programs/${program.id}`}
-                      className="flex items-baseline gap-4 rounded-lg px-3 py-2.5 transition-colors hover:bg-surface-hover"
-                    >
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                        {isGroupedView ? stripTypeSuffix(program.name, group.type) : program.name}
+                      <span className="rounded-full bg-border px-2 py-0.5 text-xs text-muted">
+                        {group.programs.length}
                       </span>
-                      {program.linked_count > 0 && (
-                        <span className="shrink-0 text-xs text-muted">
-                          {program.linked_count} engagement{program.linked_count !== 1 ? "s" : ""}
-                        </span>
-                      )}
-                    </Link>
-                  ))}
-                </section>
-              ))}
+                    </summary>
+                    <div className="px-4 pb-4">
+                      {group.programs.map((program) => (
+                        <Link
+                          key={program.id}
+                          href={`/programs/${program.id}`}
+                          className="flex items-baseline gap-4 rounded-lg px-3 py-2.5 transition-colors hover:bg-surface"
+                        >
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                            {isGroupedView ? stripTypeSuffix(program.name, group.type) : program.name}
+                          </span>
+                          {program.linked_count > 0 && (
+                            <span className="shrink-0 text-xs text-muted">
+                              {program.linked_count} engagement{program.linked_count !== 1 ? "s" : ""}
+                            </span>
+                          )}
+                        </Link>
+                      ))}
+                    </div>
+                  </details>
+                );
+              })}
             </div>
           )}
         </>
