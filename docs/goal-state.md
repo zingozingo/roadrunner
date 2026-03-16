@@ -6,15 +6,19 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 62 migrations, 18 active tables, 30 API routes, 18 UI pages, 426 tests across 14 suites
+- 63 migrations, 18 active tables, 32 API routes, 18 UI pages, 426 tests across 14 suites
 - Two-phase classification pipeline: curated-input Phase 1 (enriched engagement index) + deep-analysis Phase 2 (full thread history, entity matching, state evolution)
 - Entity model fully rewritten with ring architecture (Catalog → Activity → People → Posture) in docs/entity-model.md
-- Documentation consolidated: 5 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline, goal-state.md status, decisions.md through #188)
+- Documentation consolidated: 5 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline, goal-state.md status, decisions.md through #199)
 - Dead weight cleaned: notes table dropped (migration 061), orphaned components removed (PillGrid, CalendarCard, TableList, SyncStatus), decisions.md merged from two files into one
 - Contact registry complete: 76 participants, 85 partner links, 4 dedicated join tables, sync layer auto-maintains registry — all 17/17 reads and all write paths flow through registry, zero JSONB reads remaining (Decision #182)
 - Tasks promoted to partner-level entities with owner_participant_id FK (decisions 170-175)
 - Relationships universally renamed from aws_relationships (decision 173)
 - Meeting notes: 3-phase workspace, AI summarizer, task extraction, scratchpad wired into AI context (decisions 101-119, 156-167)
+- Brain synthesis (AI Call 3): partner-level 60-second briefing from all data sources, manual trigger, stored as partner_context source='ai_synthesis' (decisions 191-193)
+- Seed notes eliminated: note_type CHECK narrowed to 'meeting', historical context lives in scratchpad (decision 195)
+- Manual meeting quick-capture: modal form on /meetings page with partner dropdown, auto-title, meeting type (decision 189)
+- Manual task creation: inline form on partner detail, POST /api/notes/tasks, no meeting note required (decision 196)
 - Partner detail: four-layer model (Profile → Living Context → Engagements → Activity → Tasks → Relationships)
 - 5 active engagements processing real email data (Nozomi Networks, Spacelift x3, Qualys)
 - All Airtable push/delete calls awaited (no fire-and-forget)
@@ -29,27 +33,17 @@ A system where a PDM forwards an email and Roadrunner:
 
 ## What's Next
 
-### This Session (in progress)
-- UI audit — systematically verify every page reflects the real data model
-- ✅ Contact registry read rewire complete — 17/17 JSONB reads eliminated (Decision #182)
-- ✅ meeting_participants write path wired (3 functions, 4 call sites)
-- ✅ All transitional JSONB reads eliminated (bulk query functions for partner list + relationship inline)
-- ✅ Airtable Relationships table aligned (renamed, Org Type field added, sync wired — Decision #187)
-- ✅ "Richer wins" contact data quality rule in upsertContactToRegistry() (Decision #188)
-- Manual meeting quick-capture form
-
 ### Next Session
 - JSONB column drops (aws_team, partner_contacts, contacts, attendees) — unblocked by Decision #182
-- Brain synthesis (AI Call 3)
-- Seed notes → scratchpad migration
-
-### Soon
 - Classifier prompt revision (partner-level meeting routing)
 - UI Skill doc rewrite (.claude/roadrunner-ui/SKILL.md)
-- Ring 3 pull sync planning
+
+### Soon
+- Ring 3 pull sync planning (Partner Programs, Events, Co-Sell Goals, Partner Goals, Funding)
+- Partner Goals pull into brain synthesis context
 
 ### Later
-- Ring 3 pull sync (Partner Programs, Events, Plans, Funding)
+- Ring 3 pull sync implementation
 - Slot registry v1
 - Financial fields on partners table
 - Recurring meeting series engine
@@ -73,6 +67,14 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~Doc consolidation~~ ✅ (PROJECT.md, ARCHITECTURE.md, DEVELOPMENT.md absorbed into CLAUDE.md)
 - ~~participant_links rewire + drop~~ ✅ (migration 062, decision 180)
 - ~~Contact registry read rewire (17/17 JSONB→registry)~~ ✅ (decision 182)
+- ~~Manual meeting quick-capture~~ ✅ (decisions 189-190)
+- ~~Brain synthesis (AI Call 3)~~ ✅ (decisions 191-193)
+- ~~AWS Context → AWS Stickiness rename~~ ✅ (decision 194)
+- ~~Seed notes elimination~~ ✅ (decision 195, migration 063)
+- ~~Manual task creation~~ ✅ (decision 196)
+- ~~AT push gate fix for manual meetings~~ ✅ (decision 197)
+- ~~Partner Plans → Co-Sell Goals rename~~ ✅ (decision 198)
+- ~~Partner Goals table created~~ ✅ (decision 199)
 
 ## Architecture Principles
 

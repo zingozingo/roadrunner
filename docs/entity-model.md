@@ -1,7 +1,7 @@
 # Roadrunner Entity Model
 
-> **Last updated**: 2026-03-14 (Post-contact-registry, post-task-promotion, post-relationship-rename)
-> 18 active tables · 62 migrations · 5 Airtable-only tables (future)
+> **Last updated**: 2026-03-15 (Post-brain-synthesis, seed elimination, manual tasks, AT sync fix)
+> 18 active tables · 63 migrations · 6 Airtable-only tables (future)
 
 ---
 
@@ -54,7 +54,8 @@ graph TB
     subgraph RING3["Ring 3: Posture (AT-only — future)"]
         PARTNER_PROGRAMS[Partner Programs]
         PARTNER_EVENTS[Partner Events]
-        PARTNER_PLANS[Partner Plans 2026]
+        COSELL_GOALS[Co-Sell Goals 2026]
+        PARTNER_GOALS[Partner Goals]
         MPOPP[MPOPP Funding]
         MDF[MDF Funding]
     end
@@ -155,7 +156,7 @@ erDiagram
 | MDF Funding 2026 | linkedRecord → MDF Funding | fldkU6G8mr0oRvlIE | sync later (with table) |
 | MDF Total Allocated | rollup | fld5EmiUardg2DBjA | sync later (read-only) |
 | MDF Remaining | formula | fldp57wu1hlHVZtJL | sync later (read-only) |
-| Partner Plans 2026 | linkedRecord → Partner Plans | fldeeaBJPf3V3aJK3 | sync later (with table) |
+| Co-Sell Goals 2026 | linkedRecord → Co-Sell Goals | fldeeaBJPf3V3aJK3 | sync later (with table) |
 | Partner Engagements | linkedRecord → Engagements | fldQYMSnTe8Y5HmxL | computed (reverse link) |
 
 ---
@@ -724,7 +725,7 @@ erDiagram
     PROGRAMS ||--o{ PARTNER_PROGRAMS : "has enrollments"
     PARTNERS ||--o{ PARTNER_EVENTS : "attending"
     EVENTS ||--o{ PARTNER_EVENTS : "has registrations"
-    PARTNERS ||--o| PARTNER_PLANS : "has plan"
+    PARTNERS ||--o| COSELL_GOALS : "has plan"
     PARTNERS ||--o{ MPOPP_FUNDING : "receives"
     PARTNERS ||--o{ MDF_FUNDING : "receives"
 
@@ -739,7 +740,7 @@ erDiagram
         text status
         text contacts_attending
     }
-    PARTNER_PLANS {
+    COSELL_GOALS {
         text plan_name
         text plan_status
         number tcv_goal
@@ -774,7 +775,7 @@ erDiagram
 | Date Achieved | date | fldJNF6KO3Osq2AWg | completion date |
 | AWS Stakeholder | multilineText | fldi0bBVH4VHkjIM3 | contacts |
 | Notes | multilineText | fldqpulJjUKcro1xM | notes |
-| 2026 Partner Plans | linkedRecord → Partner Plans | fldI8TaeHhb8Hk1bI | plan linking |
+| 2026 Co-Sell Goals | linkedRecord → Co-Sell Goals | fldI8TaeHhb8Hk1bI | plan linking |
 
 ---
 
@@ -791,11 +792,11 @@ erDiagram
 | Status | singleSelect (4 options: Invited, Registered, Sponsoring, Confirming) | fldWjFeK3yyLo4N5U | status tracking |
 | Partner Contacts Attending | multilineText | fldtQthUjkw0028us | contacts |
 | Notes | multilineText | fldQHj66TZ81TSaMc | notes |
-| Partner Plans 2026 | linkedRecord → Partner Plans | fldBsfehaCJfvME9m | plan linking |
+| Co-Sell Goals 2026 | linkedRecord → Co-Sell Goals | fldBsfehaCJfvME9m | plan linking |
 
 ---
 
-### PARTNER_PLANS_2026 (Airtable-only — future: strategic context)
+### COSELL_GOALS_2026 (Airtable-only — future: financial context)
 
 **Airtable Table:** `tbligbfCTvpCkG7tS`
 
@@ -818,6 +819,25 @@ erDiagram
 | Partner Link | linkedRecord → Partners | fldqMc1SjdklIRzFX | FK → partners |
 | Months Elapsed 2026 | formula | fldSqwJsKwAAvmA3o | helper |
 | Expected Progress % | formula | fldABf0iLPAu3JFZc | computed metric |
+
+---
+
+### PARTNER_GOALS (Airtable-only — future: strategic context)
+
+**Airtable Table:** `tblmboZKyBasfh5pV`
+
+| AT Field | AT Type | AT Field ID | Future RR Role |
+|----------|---------|-------------|----------------|
+| Goal | singleLineText | (primary) | goal description |
+| Partner | linkedRecord → Partners | — | FK → partners |
+| Category | singleSelect (Co-Sell, Co-Build, Co-Market, Compliance, Program, Vertical) | — | categorization |
+| Year | singleSelect (2026, 2027) | — | time scope |
+| Target Date | date | — | deadline |
+| Status | singleSelect (Not Started, In Progress, Complete, Blocked) | — | status tracking |
+| Program | linkedRecord → Programs | — | optional program link |
+| Notes | multilineText | — | freeform notes |
+
+> **Note:** Field IDs TBD — table was just created. Will be captured on first sync integration.
 
 ---
 
@@ -917,11 +937,12 @@ UNIQUE index on `(participant_id, entity_type, entity_id)`
 | Contact registry read+write rewire | **Complete** — 17/17 reads, all write paths, zero JSONB reads remaining | Done |
 | participant_links drop | **Done** — migration 062 | ✅ |
 | JSONB column drops (aws_team, partner_contacts, contacts) | Blocked by UI rewire | Next |
-| Manual meeting quick-capture | Open | Next |
-| Brain synthesis (AI Call 3) | partner_context table ready | Soon |
-| Seed notes → scratchpad migration | Open | Soon |
+| ~~Manual meeting quick-capture~~ | **Done** — modal form on /meetings, Decision #189 | ✅ |
+| ~~Brain synthesis (AI Call 3)~~ | **Done** — brain-synthesizer.ts, Decision #191 | ✅ |
+| ~~Seed notes elimination~~ | **Done** — migration 063, Decision #195 | ✅ |
+| ~~Manual task creation~~ | **Done** — POST handler + inline form, Decision #196 | ✅ |
 | Classifier partner-level routing | Open | Soon |
-| Ring 3 pull sync (Partner Programs, Events, Plans, Funding) | Not started | Later |
+| Ring 3 pull sync (Partner Programs, Events, Co-Sell Goals, Partner Goals, Funding) | Not started | Later |
 | Slot registry v1 | Not started | Later |
 | Financial fields on partners table | Not started | Later |
 | ~~Tasks on partner detail~~ | ~~Query by partner_id~~ | **Done** |

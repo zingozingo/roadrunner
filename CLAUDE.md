@@ -1,7 +1,7 @@
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → Claude classifies → structured engagements → Airtable sync.
-> 62 migrations · 18 tables · 30 API routes · 18 UI pages · 426 tests
+> 63 migrations · 18 tables · 32 API routes · 18 UI pages · 426 tests
 
 ---
 
@@ -51,7 +51,7 @@ roadrunner/
 │   ├── CLASSIFICATION.md          #   Two-phase AI pipeline & prompt architecture
 │   ├── entity-model.md            #   Canonical schema — ERD + field-level registry + AT field IDs
 │   └── goal-state.md              #   Living orientation doc — current state & next steps
-├── decisions.md                   # Append-only architectural decision log (188 entries)
+├── decisions.md                   # Append-only architectural decision log (199 entries)
 ├── src/
 │   ├── app/                       # Next.js App Router
 │   │   ├── api/                   #   API routes (30 routes, grouped by entity)
@@ -276,7 +276,7 @@ npx tsc --noEmit                   # TypeScript check (must pass with zero error
 
 ### Migrations
 
-Sequential numbering in `supabase/migrations/` (currently 001-061). New migrations get the next number (062, 063, ...). Write idempotent SQL where possible.
+Sequential numbering in `supabase/migrations/` (currently 001-063). New migrations get the next number (064, 065, ...). Write idempotent SQL where possible.
 
 ### Key Conventions
 
@@ -358,7 +358,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-061). New migratio
 | `docs/entity-model.md` | Complete schema — 19 tables, all FKs, AT field IDs, ring model | Schema/data work |
 | `docs/CLASSIFICATION.md` | Two-phase AI classification pipeline | Prompt/AI work |
 | `docs/goal-state.md` | Living status — current state + what's next | Session planning |
-| `decisions.md` | Append-only architectural decision log (188 entries) | When you need "why" |
+| `decisions.md` | Append-only architectural decision log (199 entries) | When you need "why" |
 
 ---
 

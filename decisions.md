@@ -4078,3 +4078,168 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** Contact data quality is self-improving — the richest source always wins. AT sync provides the baseline, and no other source can degrade it.
 
 ---
+
+### Decision 189: Manual meeting creation — single entry point on /meetings page
+
+**Date:** 2026-03-15
+**Status:** Implemented
+
+**Decision:** Manual meeting quick-capture form lives on the /meetings page as a modal triggered by "+ New Meeting" button. Not duplicated on partner detail.
+
+**Context:** Needed manual meeting creation for calls without ICS invites. Considered having the form on both /meetings and partner detail pages.
+
+**Rationale:** Single entry point prevents duplication and keeps workflow organized. Meeting appears on partner detail automatically via partner_id FK.
+
+**Impact:** Completes the daily workflow loop: create meeting → take notes → AI summarizes → tasks extracted.
+
+---
+
+### Decision 190: Meeting title auto-prefills with partner name
+
+**Date:** 2026-03-15
+**Status:** Implemented
+
+**Decision:** Quick-capture form auto-prefills title with "PartnerName — " when a partner is selected. Suffix is user-editable; prefix updates on partner change.
+
+**Context:** Quick-capture form needs to minimize clicks. Partner name as prefix establishes naming convention.
+
+**Rationale:** "Appgate — " prefix on partner selection saves typing and creates consistent titles.
+
+**Impact:** Minor UX improvement, supports future pattern recognition for recurring meetings.
+
+---
+
+### Decision 191: Brain synthesis is AI Call 3 — manual Synthesize trigger
+
+**Date:** 2026-03-15
+**Status:** Implemented
+
+**Decision:** Partner brain synthesis reads all data sources (profile, note summaries, scratchpad, engagements, tasks, contacts, status fields) and produces a 60-second briefing via Claude. Triggered manually via "Synthesize" button, not auto-generated.
+
+**Context:** Living Context section existed but had no AI output. Scratchpad entries fed into note summarizer but no synthesized overview existed.
+
+**Rationale:** Manual trigger (not auto) to control AI costs and let PDM decide when to refresh. Stored as partner_context source='ai_synthesis', replaced on each re-synthesis.
+
+**Impact:** Partner page now has the "60-second briefing" — the vision's Layer D (What We Know). brain-synthesizer.ts + POST /api/partners/[id]/synthesize.
+
+---
+
+### Decision 192: Brain synthesis uses third-person factual tone
+
+**Date:** 2026-03-15
+**Status:** Implemented
+
+**Decision:** Brain synthesis prompt uses third-person factual tone. No "you should" — state what IS.
+
+**Context:** Initial prompt used "you should prioritize..." which felt like advice, not a briefing.
+
+**Rationale:** A dossier states what IS. "Relationship is active with 3 engagements. Main risk: PRM not started." Not "You should focus on PRM."
+
+**Impact:** Consistent professional tone. Brain reads like an analyst's brief.
+
+---
+
+### Decision 193: Living Context = AI output; Scratchpad = human input
+
+**Date:** 2026-03-15
+**Status:** Implemented
+
+**Decision:** PartnerScratchpad component split into two visual sections: brain synthesis at top (AI output) and collapsible scratchpad below (human input). "New context since last synthesis" indicator bridges them.
+
+**Context:** Confusion between what "Living Context" meant — was it the input box or the synthesis? Both lived in one undifferentiated flat list.
+
+**Rationale:** Clear separation: brain synthesis displayed prominently at top, scratchpad entries collapsed (3 visible, expand to see all) below with input at bottom.
+
+**Impact:** Mental model is clear: type into scratchpad → hit Synthesize → brain updates. Two different things with distinct purposes.
+
+---
+
+### Decision 194: AWS Context renamed to AWS Stickiness
+
+**Date:** 2026-03-15
+**Status:** Implemented
+
+**Decision:** "AWS Context" label in partner detail page renamed to "AWS Stickiness" to match Airtable field name.
+
+**Context:** "AWS Context" was vague. The Airtable field is called "AWS Stickiness" which is more descriptive of the content.
+
+**Rationale:** Match Airtable naming, be explicit about what the field contains.
+
+**Impact:** Single label change in partner detail page. Cosmetic but reduces confusion.
+
+---
+
+### Decision 195: Seed notes eliminated — note_type CHECK allows only 'meeting'
+
+**Date:** 2026-03-15
+**Status:** Implemented
+
+**Decision:** Removed 'seed' from meeting_notes note_type CHECK constraint (migration 063). Cleaned seed-specific logic from 8 files.
+
+**Context:** Seed notes were a pre-meetings concept for dumping historical partner context. With scratchpad live and notes 1:1 with meetings, seeds are redundant.
+
+**Rationale:** Clean data model. Notes = meetings. Historical context = scratchpad (partner_context with source='seed_dump'). No ambiguity.
+
+**Impact:** Migration 063. note_type CHECK narrowed to ('meeting'). Removed hasSeedNote, seed badges, seed ordering, seed prompt modifiers across types, DB, summarizer, context builder, and 3 UI components.
+
+---
+
+### Decision 196: Tasks independently creatable without meeting notes
+
+**Date:** 2026-03-15
+**Status:** Implemented
+
+**Decision:** Added POST /api/notes/tasks for manual task creation and "+ Add Task" inline form on partner detail page. No meeting_note_id required.
+
+**Context:** Tasks only entered the system via AI extraction from meeting notes. PDMs need to add tasks from memory, emails, or ad-hoc observations.
+
+**Rationale:** Tasks are partner-level entities (Decision #170). origin='manual' already existed in schema. POST handler validates partner_id, description, owner.
+
+**Impact:** "+ Add Task" button on partner detail Tasks section. Inline form with description, owner dropdown, optional due date.
+
+---
+
+### Decision 197: AT push gate — only skip ICS meetings without engagement
+
+**Date:** 2026-03-15
+**Status:** Implemented
+
+**Decision:** pushMeetingToAirtable() engagement gate changed from "skip all without engagement" to "skip only ICS-parsed without engagement."
+
+**Context:** The gate blocked ALL meetings without engagement_id, including manual partner-level meetings (cadence calls, QBRs) that legitimately have no engagement.
+
+**Rationale:** ICS meetings arrive before classification — skipping them is correct (they push after classification links them). Manual meetings are intentionally created with a partner — they should push immediately.
+
+**Impact:** Manual meetings now sync to Airtable. ICS pre-classification behavior preserved.
+
+---
+
+### Decision 198: Partner Plans 2026 renamed to Co-Sell Goals 2026
+
+**Date:** 2026-03-15
+**Status:** Implemented (Airtable)
+
+**Decision:** Renamed the Airtable "Partner Plans 2026" table to "Co-Sell Goals 2026" to clarify its purpose.
+
+**Context:** Creating a new Partner Goals table for strategic objectives. "Partner Plans" name conflicted and was confusing.
+
+**Rationale:** The existing table tracks financial/co-sell metrics (TCV, LARR, attainment %). Renaming clarifies its purpose and distinguishes from strategic goals.
+
+**Impact:** All existing formulas, lookups, and links preserved. Name change only in Airtable.
+
+---
+
+### Decision 199: Partner Goals table created in Airtable for strategic objectives
+
+**Date:** 2026-03-15
+**Status:** Implemented (Airtable)
+
+**Decision:** New Airtable table "Partner Goals" (tblmboZKyBasfh5pV) for tracking non-financial strategic objectives per partner.
+
+**Context:** No structured way to track non-financial goals like "attain FSI Competency" or "complete PRM by July." Co-Sell Goals only covered TCV/LARR.
+
+**Rationale:** Flat table with goal + partner + category + year + target date + status + optional program link. One row per goal. Simple, flexible, scales. Categories: Co-Sell, Co-Build, Co-Market, Compliance, Program, Vertical.
+
+**Impact:** Ring 3 data. Future pull into Roadrunner for brain synthesis context.
+
+---
