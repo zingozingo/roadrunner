@@ -65,10 +65,12 @@ export default function CollapsibleParticipants({
   participants,
   engagementId,
   partnerName,
+  compact = false,
 }: {
   participants: ParticipantWithLink[];
   engagementId: string;
   partnerName: string | null;
+  compact?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -99,12 +101,12 @@ export default function CollapsibleParticipants({
       : "None yet";
 
   return (
-    <div className="rounded-xl border border-border bg-surface p-4">
+    <div className={compact ? "" : "rounded-xl border border-border bg-surface p-4"}>
       <button
         onClick={() => setExpanded(!expanded)}
         className="flex w-full items-center justify-between gap-2 text-left"
       >
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">
+        <h2 className={compact ? "text-xs font-semibold uppercase tracking-wider text-muted" : "text-sm font-semibold uppercase tracking-wider text-muted"}>
           Participants ({participants.length})
         </h2>
         <svg

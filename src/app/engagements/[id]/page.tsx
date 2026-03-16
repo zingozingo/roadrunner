@@ -2,13 +2,11 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import DetailHeader from "@/components/shared/DetailHeader";
-import StatusBadge from "@/components/shared/StatusBadge";
-import CurrentStateCard from "@/components/engagement/CurrentStateCard";
 import CollapsibleEmails from "@/components/shared/CollapsibleEmails";
 import EntityLinkChip from "@/components/shared/EntityLink";
 import EngagementActions from "@/components/actions/EngagementActions";
 import CollapsibleParticipants from "@/components/shared/CollapsibleParticipants";
+import PillarBadge from "@/components/shared/PillarBadge";
 import {
   getEngagementById,
   getMessagesByEngagement,
@@ -22,22 +20,14 @@ import {
 import { formatFooterDate } from "@/lib/format-utils";
 import type { TimelineItem } from "@/lib/types";
 
-// Chevron icon for collapsible sections
-function SectionChevron() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      className="shrink-0 transition-transform group-open:rotate-90"
-    >
-      <path d="M6 4l4 4-4 4" />
-    </svg>
-  );
-}
+// Status dot color map
+const statusDotColor: Record<string, string> = {
+  active: "bg-emerald-500",
+  planned: "bg-blue-400",
+  blocked: "bg-amber-500",
+  completed: "bg-violet-500",
+  archived: "bg-zinc-500",
+};
 
 export default async function EngagementDetailPage({
   params,
@@ -61,22 +51,17 @@ export default async function EngagementDetailPage({
   const partnerName = partner?.name ?? null;
 
   // Build unified timeline: messages + meetings sorted by date desc.
-  // Suppress messages that have an associated meeting record — the meeting
-  // card already displays title/date/link and the raw email body is redundant
-  // (mostly Zoom/Teams boilerplate).
   const meetingSourceMessageIds = new Set(
     meetings.filter((m) => m.message_id).map((m) => m.message_id!)
   );
 
   const timelineItems: TimelineItem[] = [];
   for (const msg of messages) {
-    // Skip messages that spawned a meeting — the meeting card replaces them
     if (meetingSourceMessageIds.has(msg.id)) continue;
     const date = msg.sent_at ?? msg.forwarded_at;
     timelineItems.push({ type: "message", date, data: msg });
   }
   for (const mtg of meetings) {
-    // Use meeting_date; if somehow null, sort to top (treat as upcoming)
     const date = mtg.meeting_date
       ? mtg.meeting_date + "T00:00:00"
       : new Date().toISOString();
@@ -87,7 +72,6 @@ export default async function EngagementDetailPage({
   // Resolve entity link target names
   const nameMap = await resolveEntityLinkNames(entityLinks);
 
-  // Filter valid entity links (skip orphaned)
   const validEntityLinks = entityLinks.filter((link) => {
     const isSource = link.source_id === id;
     const otherId = isSource ? link.target_id : link.source_id;
@@ -96,6 +80,18 @@ export default async function EngagementDetailPage({
 
   const hasConnections = relationships.length > 0 || validEntityLinks.length > 0;
   const connectionCount = relationships.length + validEntityLinks.length;
+
+  // Participant org breakdown for right column label
+  const awsCount = participants.filter(p => p.org_type === "internal").length;
+  const partnerCount = participants.filter(p => p.org_type === "partner").length;
+  const otherCount = participants.filter(p => p.org_type !== "internal" && p.org_type !== "partner").length;
+  const orgBreakdown = [
+    awsCount > 0 ? `${awsCount} AWS` : null,
+    partnerCount > 0 ? `${partnerCount} Partner` : null,
+    otherCount > 0 ? `${otherCount} Other` : null,
+  ].filter(Boolean).join(" · ");
+
+  const dotColor = statusDotColor[engagement.status] ?? "bg-zinc-500";
 
   return (
     <div className="p-6 lg:p-8">
@@ -109,78 +105,60 @@ export default async function EngagementDetailPage({
         Back to Engagements
       </Link>
 
-      <DetailHeader
-        title={engagement.name}
-        badges={<StatusBadge status={engagement.status} />}
-        fields={[
-          {
-            label: "Partner",
-            value: partnerName ? (
-              <Link href={`/partners/${engagement.partner_id}`} className="text-accent hover:underline">
-                {partnerName}
-              </Link>
-            ) : "—",
-          },
-          { label: "Pillar", value: engagement.pillar ?? "—" },
-          { label: "Topic", value: engagement.topic ?? "—" },
-          { label: "Updated", value: formatFooterDate(engagement.updated_at) },
-        ]}
-        actions={<EngagementActions engagement={engagement} partnerName={partnerName} />}
-      />
+      {/* ═══ IDENTITY BAR ═══ */}
+      <div className="flex items-center gap-3 pb-4 mb-6 border-b border-border/30">
+        <h1 className="text-xl font-semibold text-foreground">{engagement.name}</h1>
+        <span className={`h-2 w-2 shrink-0 rounded-full ${dotColor}`} title={engagement.status} />
+        <div className="ml-auto">
+          <EngagementActions engagement={engagement} partnerName={partnerName} />
+        </div>
+      </div>
 
-      <div className="space-y-4">
+      {/* ═══ TWO-COLUMN LAYOUT ═══ */}
+      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8">
 
-        {/* Goal callout — prominent accent bar */}
-        {engagement.goal && (
-          <div className="border-l-2 border-accent/40 pl-4 py-2 text-sm text-foreground/80 italic">
-            {engagement.goal}
-          </div>
-        )}
+        {/* ─── LEFT COLUMN: Workflow ─── */}
+        <div className="space-y-10">
 
-        {/* Current State — default-open */}
-        {engagement.current_state && (
-          <details open className="group rounded-xl border border-border/40 bg-surface">
-            <summary className="flex cursor-pointer list-none items-center gap-2 p-4 text-sm font-semibold uppercase tracking-wider text-muted [&::-webkit-details-marker]:hidden">
-              <SectionChevron />
-              Current State
-            </summary>
-            <div className="px-4 pb-4">
+          {/* Goal callout */}
+          {engagement.goal && (
+            <div className="border-l-2 border-accent/40 pl-4 py-2 text-sm text-foreground/80 italic leading-relaxed">
+              {engagement.goal}
+            </div>
+          )}
+
+          {/* Current State */}
+          {engagement.current_state && (
+            <section>
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Current state</h2>
               <div className="space-y-1.5">
                 {engagement.current_state.split("\n").filter(Boolean).map((para, i) => (
-                  <p key={i} className="text-sm text-foreground/90">{para}</p>
+                  <p key={i} className="text-sm text-foreground/80 leading-relaxed">{para}</p>
                 ))}
               </div>
-            </div>
-          </details>
-        )}
+            </section>
+          )}
 
-        {/* Connections — default-open, structural context */}
-        {hasConnections && (
-          <details open className="group rounded-xl border border-border/40 bg-surface">
-            <summary className="flex cursor-pointer list-none items-center gap-2 p-4 text-sm font-semibold uppercase tracking-wider text-muted [&::-webkit-details-marker]:hidden">
-              <SectionChevron />
-              Connections
-              <span className="rounded-full bg-border px-2 py-0.5 text-xs text-muted">{connectionCount}</span>
-            </summary>
-            <div className="px-4 pb-4">
+          {/* Connections */}
+          {hasConnections && (
+            <section>
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
+                Connections
+                <span className="ml-1.5 font-normal text-muted">{connectionCount}</span>
+              </h2>
               <div className="space-y-1">
                 {relationships.map((rel) => (
                   <Link
                     key={rel.id}
                     href={`/relationships/${rel.id}`}
-                    className="flex items-baseline gap-2 rounded px-2 py-1.5 transition-colors hover:bg-surface-hover"
+                    className="flex items-baseline gap-2 py-1 transition-colors hover:text-accent"
                   >
-                    <span className="text-sm font-medium text-foreground">
-                      {rel.name}
-                    </span>
+                    <span className="text-sm font-medium text-foreground">{rel.name}</span>
                     {rel.contacts?.[0]?.name && (
-                      <span className="text-xs text-muted">
-                        {rel.contacts[0].name}
-                      </span>
+                      <span className="text-xs text-muted">{rel.contacts[0].name}</span>
                     )}
                   </Link>
                 ))}
-
                 {validEntityLinks.length > 0 && (
                   <div className={`flex flex-wrap gap-2 ${relationships.length > 0 ? "pt-2" : ""}`}>
                     {validEntityLinks.map((link) => {
@@ -188,7 +166,6 @@ export default async function EngagementDetailPage({
                       const otherId = isSource ? link.target_id : link.source_id;
                       const otherType = isSource ? link.target_type : link.source_type;
                       const otherName = nameMap.get(otherId)!;
-
                       return (
                         <EntityLinkChip
                           key={link.id}
@@ -202,30 +179,108 @@ export default async function EngagementDetailPage({
                   </div>
                 )}
               </div>
-            </div>
-          </details>
-        )}
-
-        {/* Participants — has built-in collapsibility */}
-        <CollapsibleParticipants
-          participants={participants}
-          engagementId={id}
-          partnerName={partnerName}
-        />
-
-        {/* Timeline — audit trail, has built-in collapsibility */}
-        <CollapsibleEmails items={timelineItems} participants={participants} />
-
-        {/* Compact footer */}
-        <p className="mt-6 text-xs text-muted">
-          Created {formatFooterDate(engagement.created_at)}
-          {" · "}
-          Last Updated {formatFooterDate(engagement.updated_at)}
-          {engagement.closed_at && engagement.status === "archived" && (
-            <> · Archived {formatFooterDate(engagement.closed_at)}</>
+            </section>
           )}
-        </p>
+
+          {/* Timeline — audit trail, collapsible */}
+          {timelineItems.length > 0 && (
+            <section>
+              <details className="group">
+                <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted [&::-webkit-details-marker]:hidden">
+                  <svg
+                    width="14" height="14" viewBox="0 0 16 16"
+                    fill="none" stroke="currentColor" strokeWidth="1.5"
+                    className="shrink-0 transition-transform group-open:rotate-90"
+                  >
+                    <path d="M6 4l4 4-4 4" />
+                  </svg>
+                  Timeline
+                  <span className="font-normal text-muted">{timelineItems.length}</span>
+                </summary>
+                <div className="mt-3">
+                  <CollapsibleEmails items={timelineItems} participants={participants} compact />
+                </div>
+              </details>
+            </section>
+          )}
+        </div>
+
+        {/* ─── RIGHT COLUMN: Reference ─── */}
+        <div className="lg:border-l lg:border-border/20 lg:pl-8">
+
+          {/* Partner */}
+          {partnerName && engagement.partner_id && (
+            <section>
+              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Partner</h2>
+              <Link
+                href={`/partners/${engagement.partner_id}`}
+                className="text-sm font-medium text-accent hover:underline"
+              >
+                {partnerName}
+              </Link>
+            </section>
+          )}
+
+          {/* Details */}
+          <section className={partnerName ? "mt-6 pt-6 border-t border-border/20" : ""}>
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Details</h2>
+            <div className="space-y-3">
+              {engagement.pillar && (
+                <div>
+                  <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Pillar</span>
+                  <PillarBadge pillar={engagement.pillar} />
+                </div>
+              )}
+              {engagement.topic && (
+                <div>
+                  <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Topic</span>
+                  <span className="text-sm text-foreground">{engagement.topic}</span>
+                </div>
+              )}
+              <div>
+                <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Status</span>
+                <span className="flex items-center gap-2 text-sm text-foreground capitalize">
+                  <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />
+                  {engagement.status}
+                </span>
+              </div>
+              <div>
+                <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Updated</span>
+                <span className="text-sm text-foreground">{formatFooterDate(engagement.updated_at)}</span>
+              </div>
+            </div>
+          </section>
+
+          {/* Participants */}
+          {participants.length > 0 && (
+            <section className="mt-6 pt-6 border-t border-border/20">
+              <h2 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">
+                Participants
+                <span className="ml-1.5 font-normal text-muted">{participants.length}</span>
+              </h2>
+              {orgBreakdown && (
+                <p className="mb-3 text-xs text-muted">{orgBreakdown}</p>
+              )}
+              <CollapsibleParticipants
+                participants={participants}
+                engagementId={id}
+                partnerName={partnerName}
+                compact
+              />
+            </section>
+          )}
+        </div>
       </div>
+
+      {/* Compact footer */}
+      <p className="mt-10 text-xs text-muted">
+        Created {formatFooterDate(engagement.created_at)}
+        {" · "}
+        Last Updated {formatFooterDate(engagement.updated_at)}
+        {engagement.closed_at && engagement.status === "archived" && (
+          <> · Archived {formatFooterDate(engagement.closed_at)}</>
+        )}
+      </p>
     </div>
   );
 }

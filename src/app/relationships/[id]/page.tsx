@@ -2,10 +2,8 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import DetailHeader from "@/components/shared/DetailHeader";
-import StatusBadge from "@/components/shared/StatusBadge";
 import { RelationshipTypeBadge } from "@/components/shared/TypeBadge";
-import ExpandableList from "@/components/shared/ExpandableList";
+import PillarBadge from "@/components/shared/PillarBadge";
 import RelationshipActions from "@/components/actions/RelationshipActions";
 import { formatFooterDate } from "@/lib/format-utils";
 import {
@@ -13,6 +11,15 @@ import {
   getEngagementsByRelationship,
   getContactsByRelationship,
 } from "@/lib/db";
+
+// Status dot color map
+const statusDotColor: Record<string, string> = {
+  active: "bg-emerald-500",
+  planned: "bg-blue-400",
+  blocked: "bg-amber-500",
+  completed: "bg-violet-500",
+  archived: "bg-zinc-500",
+};
 
 export default async function RelationshipDetailPage({
   params,
@@ -41,67 +48,111 @@ export default async function RelationshipDetailPage({
         Back to Relationships
       </Link>
 
-      <DetailHeader
-        title={relationship.name}
-        badges={<RelationshipTypeBadge type={relationship.relationship_type} />}
-        subtitle={relationship.notes ?? undefined}
-        fields={[
-          { label: "AWS Org", value: relationship.org ?? "—" },
-          { label: "AWS Service", value: relationship.service ?? "—" },
-          ...(contacts.length > 0
-            ? contacts.map((c, i) => ({
-                label: c.role ?? (i === 0 ? "Lead Contact" : `Contact ${i + 1}`),
-                value: (
-                  <span>
-                    {c.name ?? "Unknown"}
-                    {c.email && (
-                      <a href={`mailto:${c.email}`} className="block text-xs text-muted break-all hover:text-accent">
-                        {c.email}
-                      </a>
-                    )}
-                  </span>
-                ),
-              }))
-            : [{ label: "Contacts", value: "—" }]),
-        ]}
-        actions={<RelationshipActions relationship={relationship} />}
-      />
+      {/* ═══ IDENTITY BAR ═══ */}
+      <div className="flex items-center gap-3 pb-4 mb-6 border-b border-border/30">
+        <h1 className="text-xl font-semibold text-foreground">{relationship.name}</h1>
+        <RelationshipTypeBadge type={relationship.relationship_type} />
+        <div className="ml-auto">
+          <RelationshipActions relationship={relationship} />
+        </div>
+      </div>
 
-      {/* Full-width sections — no sidebar */}
-      <div className="space-y-6">
+      {/* ═══ CONTENT ═══ */}
+      <div className="space-y-8">
 
-        {/* Linked Engagements — status right-aligned */}
-        {linkedEngagements.length > 0 && (
-          <div className="rounded-xl border border-border bg-surface p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-              Linked Engagements
-            </h2>
-            <ExpandableList label="engagements">
-              {linkedEngagements.map((eng) => (
-                <Link
-                  key={eng.id}
-                  href={`/engagements/${eng.id}`}
-                  className="flex items-center px-2 py-2 border-b border-border/50 transition-colors duration-150 hover:bg-surface-hover gap-3"
-                >
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                    {eng.name}
-                  </span>
-                  {eng.partner_name && (
-                    <span className="shrink-0 text-xs text-muted">
-                      {eng.partner_name}
-                    </span>
-                  )}
-                  <span className="shrink-0">
-                    <StatusBadge status={eng.status} />
-                  </span>
-                </Link>
-              ))}
-            </ExpandableList>
-          </div>
+        {/* Notes */}
+        {relationship.notes && (
+          <section>
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Notes</h2>
+            <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
+              {relationship.notes}
+            </p>
+          </section>
         )}
 
-        {/* Compact footer */}
-        <p className="mt-6 text-xs text-muted">
+        {/* Contacts */}
+        {contacts.length > 0 && (
+          <section className={relationship.notes ? "pt-6 border-t border-border/20" : ""}>
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
+              Contacts
+              <span className="ml-1.5 font-normal text-muted/50">{contacts.length}</span>
+            </h2>
+            <div className="space-y-2">
+              {contacts.map((c, i) => (
+                <div key={i}>
+                  <div className="text-sm text-foreground">
+                    <span className="font-medium">{c.name ?? "Unknown"}</span>
+                    {c.role && <span className="text-xs text-muted ml-1.5">{c.role}</span>}
+                  </div>
+                  {c.email && (
+                    <a href={`mailto:${c.email}`} className="text-[11px] text-accent/70 hover:text-accent">
+                      {c.email}
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Linked Engagements */}
+        {linkedEngagements.length > 0 && (
+          <section className="pt-6 border-t border-border/20">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
+              Linked engagements
+              <span className="ml-1.5 font-normal text-muted/50">{linkedEngagements.length}</span>
+            </h2>
+            <div className="space-y-1.5">
+              {linkedEngagements.map((eng) => {
+                const dotColor = statusDotColor[eng.status] ?? "bg-zinc-500";
+                return (
+                  <Link
+                    key={eng.id}
+                    href={`/engagements/${eng.id}`}
+                    className="flex items-center gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                      {eng.name}
+                    </span>
+                    {eng.partner_name && (
+                      <span className="shrink-0 text-xs text-muted">{eng.partner_name}</span>
+                    )}
+                    {eng.pillar && (
+                      <span className="shrink-0">
+                        <PillarBadge pillar={eng.pillar} />
+                      </span>
+                    )}
+                    <span className={`shrink-0 h-1.5 w-1.5 rounded-full ${dotColor}`} title={eng.status} />
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* Details */}
+        {(relationship.org || relationship.service) && (
+          <section className="pt-6 border-t border-border/20">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Details</h2>
+            <div className="flex gap-8">
+              {relationship.org && (
+                <div>
+                  <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">AWS Org</span>
+                  <span className="text-sm text-foreground">{relationship.org}</span>
+                </div>
+              )}
+              {relationship.service && (
+                <div>
+                  <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">AWS Service</span>
+                  <span className="text-sm text-foreground">{relationship.service}</span>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* Footer */}
+        <p className="pt-6 text-xs text-muted">
           Created {formatFooterDate(relationship.created_at)}
         </p>
       </div>

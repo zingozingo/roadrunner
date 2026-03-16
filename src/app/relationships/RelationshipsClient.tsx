@@ -99,28 +99,28 @@ export default function RelationshipsClient({ relationships }: RelationshipsClie
               description="Try adjusting your search or filters"
             />
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-8">
               {grouped.map((group) => {
                 const defaultOpen = !!searchQuery || group.relationships.length < 10;
                 return (
                   <details
                     key={group.type}
                     open={defaultOpen || undefined}
-                    className="group rounded-xl border border-border/40 bg-surface"
+                    className="group"
                   >
-                    <summary className="flex cursor-pointer list-none items-center gap-2 p-4 text-sm font-semibold uppercase tracking-wider text-muted [&::-webkit-details-marker]:hidden">
+                    <summary className="flex cursor-pointer list-none items-center gap-2 pb-2 text-xs font-medium uppercase tracking-[0.08em] text-muted/70 [&::-webkit-details-marker]:hidden">
                       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="shrink-0 transition-transform group-open:rotate-90">
                         <path d="M6 4l4 4-4 4" />
                       </svg>
                       {group.type}s
-                      <span className="rounded-full bg-border px-2 py-0.5 text-xs text-muted">{group.relationships.length}</span>
+                      <span className="font-normal text-muted/50">{group.relationships.length}</span>
                     </summary>
-                    <div className="px-4 pb-4">
+                    <div>
                       {group.relationships.map((rel) => (
                         <Link
                           key={rel.id}
                           href={`/relationships/${rel.id}`}
-                          className="flex items-baseline gap-4 rounded-lg px-3 py-2.5 transition-colors hover:bg-surface"
+                          className="flex items-baseline gap-4 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
                         >
                           <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
                             {rel.name}

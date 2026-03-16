@@ -7,19 +7,21 @@ import Timeline from "./Timeline";
 export default function CollapsibleEmails({
   items,
   participants,
+  compact = false,
 }: {
   items: TimelineItem[];
   participants?: Participant[];
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(true);
 
   if (items.length === 0) return null;
 
   return (
-    <div className="rounded-xl border border-border bg-surface p-4">
+    <div className={compact ? "" : "rounded-xl border border-border bg-surface p-4"}>
       <button
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between text-sm font-semibold uppercase tracking-wider text-muted hover:text-foreground transition-colors"
+        className={`flex w-full items-center justify-between uppercase tracking-wider text-muted hover:text-foreground transition-colors ${compact ? "text-xs font-semibold" : "text-sm font-semibold"}`}
       >
         <span>Timeline ({items.length})</span>
         <svg

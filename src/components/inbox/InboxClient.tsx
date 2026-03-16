@@ -25,13 +25,13 @@ export default function InboxClient({
   }
 
   return (
-    <div className="space-y-8">
+    <div>
       <section>
-        <h2 className="mb-4 text-lg font-semibold text-foreground">
-          Pending Reviews
+        <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted">
+          Pending reviews
           {approvals.length > 0 && (
-            <span className="ml-2 text-sm font-normal text-muted">
-              ({approvals.length})
+            <span className="ml-1.5 font-normal text-muted/50">
+              {approvals.length}
             </span>
           )}
         </h2>

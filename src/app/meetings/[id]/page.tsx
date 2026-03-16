@@ -2,9 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import DetailHeader from "@/components/shared/DetailHeader";
 import MeetingActions from "@/components/actions/MeetingActions";
-import { MeetingStatusBadge } from "@/components/shared/TypeBadge";
 import {
   getMeeting,
   getEngagementById,
@@ -15,7 +13,15 @@ import {
 import { buildPartnerContext, formatContextForDisplay } from "@/lib/notes-context";
 import { cleanMeetingTitle, formatFooterDate } from "@/lib/format-utils";
 import MeetingNotesSection from "@/components/notes/MeetingNotesSection";
-import type { MeetingNoteWithTasks, DisplayContext } from "@/lib/types";
+import type { DisplayContext } from "@/lib/types";
+
+// Status dot color map
+const statusDotColor: Record<string, string> = {
+  scheduled: "bg-blue-400",
+  completed: "bg-emerald-500",
+  cancelled: "bg-zinc-500",
+  no_show: "bg-red-400",
+};
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "Date TBD";
@@ -110,6 +116,8 @@ export default async function MeetingDetailPage({
   );
   const totalAttendees = attendeeGroups.reduce((sum, g) => sum + g.attendees.length, 0);
 
+  const dotColor = statusDotColor[meeting.status] ?? "bg-zinc-500";
+
   return (
     <div className="p-6 lg:p-8">
       <Link
@@ -122,143 +130,171 @@ export default async function MeetingDetailPage({
         Back to Meetings
       </Link>
 
-      <DetailHeader
-        title={cleanMeetingTitle(meeting.title)}
-        badges={
-          <>
-            <MeetingStatusBadge status={meeting.status} />
-            {meeting.source === "ics_parsed" && (
-              <span className="rounded-full bg-border px-2 py-0.5 text-xs font-medium text-muted whitespace-nowrap">
-                ICS
-              </span>
-            )}
-          </>
-        }
-        fields={[
-          { label: "Date", value: formatDate(meeting.meeting_date) },
-          {
-            label: "Time",
-            value: meeting.start_time
-              ? `${meeting.start_time}${meeting.end_time ? ` — ${meeting.end_time}` : ""}`
-              : "—",
-          },
-          {
-            label: "Partner",
-            value: partner ? (
-              <Link href={`/partners/${partner.id}`} className="text-accent hover:underline">
-                {partner.name}
-              </Link>
-            ) : "—",
-          },
-          {
-            label: "Engagement",
-            value: engagement ? (
-              <Link href={`/engagements/${engagement.id}`} className="text-accent hover:underline">
-                {engagement.name}
-              </Link>
-            ) : "—",
-          },
-        ]}
-        actions={<MeetingActions meeting={meeting} partnerName={partner?.name ?? null} meetingContacts={meetingContacts} />}
-      />
-
-      {/* Full-width sections — no sidebar */}
-      <div className="space-y-6">
-
-        {/* Location — compact, URL-aware */}
-        {meeting.location && (
-          <div className="rounded-xl border border-border bg-surface px-5 py-3 flex items-center gap-3">
-            <span className="text-xs font-medium uppercase tracking-wider text-muted shrink-0">
-              Location
-            </span>
-            {isUrl(meeting.location) ? (
-              <a
-                href={meeting.location}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-accent/15 px-3 py-1 text-sm font-medium text-accent hover:bg-accent/25 transition-colors"
-              >
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M6 8h4M8 6v4" />
-                  <rect x="2" y="2" width="12" height="12" rx="3" />
-                </svg>
-                {meeting.location.includes("zoom") ? "Join Zoom Meeting" : "Join Meeting"}
-              </a>
-            ) : (
-              <span className="text-sm text-foreground">{meeting.location}</span>
-            )}
-          </div>
+      {/* ═══ IDENTITY BAR ═══ */}
+      <div className="flex items-center gap-3 pb-4 mb-6 border-b border-border/30">
+        <h1 className="text-xl font-semibold text-foreground">{cleanMeetingTitle(meeting.title)}</h1>
+        <span className={`shrink-0 h-2 w-2 rounded-full ${dotColor}`} title={meeting.status} />
+        {meeting.source === "ics_parsed" && (
+          <span className="rounded-full bg-muted/15 px-2 py-0.5 text-xs font-medium text-muted">
+            ICS
+          </span>
         )}
+        <div className="ml-auto">
+          <MeetingActions meeting={meeting} partnerName={partner?.name ?? null} meetingContacts={meetingContacts} />
+        </div>
+      </div>
 
-        {/* Calendar Notes (from ICS invite) */}
-        {meeting.notes && (
-          <div className="rounded-xl border border-border bg-surface p-4">
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted">
-              Calendar Notes
-            </h2>
-            <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-              {meeting.notes}
-            </p>
-          </div>
-        )}
+      {/* ═══ TWO-COLUMN LAYOUT ═══ */}
+      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8">
 
-        {/* Meeting Notes Workspace */}
-        {partner && partnerContext && (
-          <MeetingNotesSection
-            meetingId={id}
-            partnerId={partner.id}
-            partnerName={partner.name}
-            engagementId={meeting.engagement_id}
-            meetingDate={meeting.meeting_date}
-            meetingTitle={cleanMeetingTitle(meeting.title)}
-            existingNote={existingNote}
-            context={partnerContext}
-          />
-        )}
+        {/* ─── LEFT COLUMN: Workspace ─── */}
+        <div className="space-y-8">
 
-        {/* Attendees — grouped by organization */}
-        <div className="rounded-xl border border-border bg-surface p-4">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-            Attendees{totalAttendees > 0 && ` (${totalAttendees})`}
-          </h2>
-          {totalAttendees === 0 ? (
-            <p className="text-sm text-muted">No attendees listed</p>
-          ) : (
-            <div className="space-y-4">
-              {attendeeGroups.map((group) => (
-                <div key={group.label}>
-                  <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted">
-                    {group.label}{" "}
-                    <span className="text-muted/60">({group.attendees.length})</span>
-                  </h3>
-                  <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
-                    {group.attendees.map((a, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm"
-                      >
-                        <span className="text-foreground font-medium truncate">
-                          {a.name ?? a.email.split("@")[0]}
-                        </span>
-                        {a.name && (
-                          <span className="text-xs text-muted truncate">
-                            {a.email}
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+          {/* Location */}
+          {meeting.location && (
+            <section>
+              {isUrl(meeting.location) ? (
+                <a
+                  href={meeting.location}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:text-accent-hover transition-colors"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M6 8h4M8 6v4" />
+                    <rect x="2" y="2" width="12" height="12" rx="3" />
+                  </svg>
+                  {meeting.location.includes("zoom") ? "Join Zoom Meeting" : "Join Meeting"}
+                </a>
+              ) : (
+                <>
+                  <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Location</h2>
+                  <p className="text-sm text-foreground">{meeting.location}</p>
+                </>
+              )}
+            </section>
+          )}
+
+          {/* Calendar Notes (from ICS invite) */}
+          {meeting.notes && (
+            <section className={meeting.location ? "pt-6 border-t border-border/20" : ""}>
+              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Calendar notes</h2>
+              <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
+                {meeting.notes}
+              </p>
+            </section>
+          )}
+
+          {/* Meeting Notes Workspace */}
+          {partner && partnerContext && (
+            <MeetingNotesSection
+              meetingId={id}
+              partnerId={partner.id}
+              partnerName={partner.name}
+              engagementId={meeting.engagement_id}
+              meetingDate={meeting.meeting_date}
+              meetingTitle={cleanMeetingTitle(meeting.title)}
+              existingNote={existingNote}
+              context={partnerContext}
+            />
           )}
         </div>
 
-        {/* Compact footer */}
-        <p className="mt-6 text-xs text-muted">
-          {meeting.organizer_email && <>Organizer: {meeting.organizer_email} · </>}
-          Created {formatFooterDate(meeting.created_at)}
-        </p>
+        {/* ─── RIGHT COLUMN: Context ─── */}
+        <div className="lg:border-l lg:border-border/20 lg:pl-8 space-y-0">
+
+          {/* Partner */}
+          <section className="pb-6">
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Partner</h2>
+            {partner ? (
+              <Link href={`/partners/${partner.id}`} className="text-sm font-medium text-accent hover:underline">
+                {partner.name}
+              </Link>
+            ) : (
+              <span className="text-sm text-muted">—</span>
+            )}
+          </section>
+
+          {/* Details */}
+          <section className="pt-6 border-t border-border/20">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Details</h2>
+            <div className="space-y-3">
+              <div>
+                <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Date</span>
+                <span className="text-sm text-foreground">{formatDate(meeting.meeting_date)}</span>
+              </div>
+              <div>
+                <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Time</span>
+                <span className="text-sm text-foreground">
+                  {meeting.start_time
+                    ? `${meeting.start_time}${meeting.end_time ? ` — ${meeting.end_time}` : ""}`
+                    : "—"}
+                </span>
+              </div>
+              <div>
+                <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Engagement</span>
+                {engagement ? (
+                  <Link href={`/engagements/${engagement.id}`} className="text-sm font-medium text-accent hover:underline">
+                    {engagement.name}
+                  </Link>
+                ) : (
+                  <span className="text-sm text-muted">—</span>
+                )}
+              </div>
+              {meeting.meeting_type && (
+                <div>
+                  <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Type</span>
+                  <span className="text-sm text-foreground capitalize">{meeting.meeting_type}</span>
+                </div>
+              )}
+              <div>
+                <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Source</span>
+                <span className="text-sm text-foreground">
+                  {meeting.source === "ics_parsed" ? "ICS Parsed" : meeting.source === "manual" ? "Manual" : meeting.source}
+                </span>
+              </div>
+            </div>
+          </section>
+
+          {/* Attendees */}
+          <section className="pt-6 border-t border-border/20">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
+              Attendees
+              {totalAttendees > 0 && (
+                <span className="ml-1.5 font-normal text-muted/50">{totalAttendees}</span>
+              )}
+            </h2>
+            {totalAttendees === 0 ? (
+              <p className="text-sm text-muted">No attendees listed</p>
+            ) : (
+              <div className="space-y-4">
+                {attendeeGroups.map((group) => (
+                  <div key={group.label}>
+                    <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1.5">
+                      {group.label}
+                    </span>
+                    <div className="space-y-1">
+                      {group.attendees.map((a, i) => (
+                        <div key={i} className="text-xs text-foreground">
+                          <span className="font-medium">{a.name ?? a.email.split("@")[0]}</span>
+                          {a.name && (
+                            <span className="ml-1.5 text-muted">{a.email}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Footer */}
+          <p className="pt-6 text-xs text-muted">
+            {meeting.organizer_email && <>Organizer: {meeting.organizer_email} · </>}
+            Created {formatFooterDate(meeting.created_at)}
+          </p>
+        </div>
       </div>
     </div>
   );

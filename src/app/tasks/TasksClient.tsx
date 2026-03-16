@@ -263,11 +263,9 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
             <div className="space-y-8">
               {partnerGroups.map(([partnerName, groupTasks]) => (
                 <section key={partnerName}>
-                  <h2 className="mb-4 text-lg font-semibold text-foreground">
+                  <h2 className="mb-2 text-xs font-medium uppercase tracking-[0.08em] text-muted/70">
                     {partnerName}
-                    <span className="ml-2 text-sm font-normal text-muted">
-                      ({groupTasks.length})
-                    </span>
+                    <span className="ml-1.5 font-normal text-muted/50">{groupTasks.length}</span>
                   </h2>
                   {groupTasks.map((task) => {
                     const href = task.meeting_note_id
@@ -278,7 +276,7 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
                       <Link
                         key={task.id}
                         href={href}
-                        className="flex items-baseline gap-4 rounded-lg px-3 py-2.5 transition-colors hover:bg-surface-hover"
+                        className="flex items-baseline gap-4 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
                       >
                         <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
                           {task.description}

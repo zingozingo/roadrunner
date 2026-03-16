@@ -2,16 +2,23 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import DetailHeader from "@/components/shared/DetailHeader";
-import StatusBadge from "@/components/shared/StatusBadge";
 import { ProgramTypeBadge } from "@/components/shared/TypeBadge";
-import ExpandableList from "@/components/shared/ExpandableList";
+import PillarBadge from "@/components/shared/PillarBadge";
 import ProgramActions from "@/components/actions/ProgramActions";
 import { formatFooterDate } from "@/lib/format-utils";
 import {
   getProgramById,
   getLinkedEngagementsForEntity,
 } from "@/lib/db";
+
+// Status dot color map
+const statusDotColor: Record<string, string> = {
+  active: "bg-emerald-500",
+  planned: "bg-blue-400",
+  blocked: "bg-amber-500",
+  completed: "bg-violet-500",
+  archived: "bg-zinc-500",
+};
 
 export default async function ProgramDetailPage({
   params,
@@ -25,10 +32,6 @@ export default async function ProgramDetailPage({
 
   const linkedEngagements = await getLinkedEngagementsForEntity("program", id);
 
-  const hasDescription = !!program.description;
-  const hasRequirements = !!program.requirements;
-  const hasContext = hasDescription || hasRequirements;
-
   return (
     <div className="p-6 lg:p-8">
       <Link
@@ -41,83 +44,106 @@ export default async function ProgramDetailPage({
         Back to Programs
       </Link>
 
-      <DetailHeader
-        title={program.name}
-        badges={
-          <>
-            <ProgramTypeBadge type={program.type} />
-          </>
-        }
-        fields={[
-          { label: "Lifecycle", value: <span className="capitalize">{program.lifecycle_type}</span> },
-          ...(program.lifecycle_duration ? [{ label: "Duration", value: program.lifecycle_duration }] : []),
-        ]}
-        actions={<ProgramActions program={program} />}
-      />
+      {/* ═══ IDENTITY BAR ═══ */}
+      <div className="flex items-center gap-3 pb-4 mb-6 border-b border-border/30">
+        <h1 className="text-xl font-semibold text-foreground">{program.name}</h1>
+        <ProgramTypeBadge type={program.type} />
+        <div className="ml-auto">
+          <ProgramActions program={program} />
+        </div>
+      </div>
 
-      {/* Full-width sections — no sidebar */}
-      <div className="space-y-6">
+      {/* ═══ CONTENT ═══ */}
+      <div className="space-y-8">
 
-        {/* Two-column context card: Description + Requirements/URL */}
-        {hasContext && (
-          <div className="rounded-xl border border-border bg-surface p-5">
-            <div className={`grid gap-6 ${hasDescription && hasRequirements ? "lg:grid-cols-2" : ""}`}>
-              {hasDescription && (
+        {/* Description */}
+        {program.description && (
+          <section>
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Description</h2>
+            <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
+              {program.description}
+            </p>
+          </section>
+        )}
+
+        {/* Requirements */}
+        {program.requirements && (
+          <section className="pt-6 border-t border-border/20">
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Requirements</h2>
+            <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
+              {program.requirements}
+            </p>
+          </section>
+        )}
+
+        {/* What It Unlocks */}
+        {program.what_it_unlocks && (
+          <section className="pt-6 border-t border-border/20">
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">What It Unlocks</h2>
+            <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
+              {program.what_it_unlocks}
+            </p>
+          </section>
+        )}
+
+        {/* Lifecycle */}
+        {(program.lifecycle_type || program.lifecycle_duration) && (
+          <section className="pt-6 border-t border-border/20">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Lifecycle</h2>
+            <div className="flex gap-8">
+              {program.lifecycle_type && (
                 <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted mb-1.5">
-                    Description
-                  </h3>
-                  <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-                    {program.description}
-                  </p>
+                  <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Type</span>
+                  <span className="text-sm text-foreground capitalize">{program.lifecycle_type}</span>
                 </div>
               )}
-              {hasRequirements && (
+              {program.lifecycle_duration && (
                 <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted mb-1.5">
-                    Requirements
-                  </h3>
-                  <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-                    {program.requirements}
-                  </p>
+                  <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Duration</span>
+                  <span className="text-sm text-foreground">{program.lifecycle_duration}</span>
                 </div>
               )}
             </div>
-          </div>
+          </section>
         )}
 
-        {/* Linked Engagements — status right-aligned */}
+        {/* Linked Engagements */}
         {linkedEngagements.length > 0 && (
-          <div className="rounded-xl border border-border bg-surface p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-              Linked Engagements
+          <section className="pt-6 border-t border-border/20">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
+              Linked engagements
+              <span className="ml-1.5 font-normal text-muted/50">{linkedEngagements.length}</span>
             </h2>
-            <ExpandableList label="engagements">
-              {linkedEngagements.map((eng) => (
-                <Link
-                  key={eng.id}
-                  href={`/engagements/${eng.id}`}
-                  className="flex items-center px-2 py-2 border-b border-border/50 transition-colors duration-150 hover:bg-surface-hover gap-3"
-                >
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                    {eng.name}
-                  </span>
-                  {eng.partner_name && (
-                    <span className="shrink-0 text-xs text-muted">
-                      {eng.partner_name}
+            <div className="space-y-1.5">
+              {linkedEngagements.map((eng) => {
+                const dotColor = statusDotColor[eng.status] ?? "bg-zinc-500";
+                return (
+                  <Link
+                    key={eng.id}
+                    href={`/engagements/${eng.id}`}
+                    className="flex items-center gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                      {eng.name}
                     </span>
-                  )}
-                  <span className="shrink-0">
-                    <StatusBadge status={eng.status} />
-                  </span>
-                </Link>
-              ))}
-            </ExpandableList>
-          </div>
+                    {eng.partner_name && (
+                      <span className="shrink-0 text-xs text-muted">{eng.partner_name}</span>
+                    )}
+                    {eng.pillar && (
+                      <span className="shrink-0">
+                        <PillarBadge pillar={eng.pillar} />
+                      </span>
+                    )}
+                    <span className={`shrink-0 h-1.5 w-1.5 rounded-full ${dotColor}`} title={eng.status} />
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
         )}
 
-        {/* Compact footer */}
-        <p className="mt-6 text-xs text-muted">
+        {/* Footer */}
+        <p className="pt-6 text-xs text-muted">
           Created {formatFooterDate(program.created_at)}
         </p>
       </div>

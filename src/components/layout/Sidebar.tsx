@@ -73,8 +73,8 @@ const activityItems: NavItem[] = [
   },
 ];
 
-// — Catalog: reference browsing (collapsible)
-const catalogItems: NavItem[] = [
+// — Reference: catalog browsing
+const referenceItems: NavItem[] = [
   {
     href: "/programs",
     label: "Programs",
@@ -119,7 +119,6 @@ export default function Sidebar({
   const pathname = usePathname();
   const [badgeCount, setBadgeCount] = useState(initialBadgeCount);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [catalogOpen, setCatalogOpen] = useState(false);
 
   // Poll for inbox count every 30s
   useEffect(() => {
@@ -150,18 +149,16 @@ export default function Sidebar({
     return pathname.startsWith(href);
   };
 
-  const catalogChildActive = catalogItems.some((item) => isActive(item.href));
-
-  function renderItem(item: NavItem, extraClass?: string) {
+  function renderItem(item: NavItem) {
     const active = isActive(item.href);
     return (
       <Link
         key={item.href}
         href={item.href}
         onClick={() => setMobileOpen(false)}
-        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+        className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
           active ? ACTIVE_STYLE : IDLE_STYLE
-        } ${extraClass ?? ""}`}
+        }`}
       >
         {item.icon}
         <span>{item.label}</span>
@@ -178,12 +175,12 @@ export default function Sidebar({
     <nav className="flex h-full flex-col px-3 py-4">
       {/* Brand */}
       <div className="mb-4 px-3 py-2">
-        <span className="text-lg font-bold text-accent">Relay</span>
+        <span className="text-base font-bold text-accent">Relay</span>
       </div>
 
       {/* Zone 1 — Review */}
       <div>
-        <div className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted/50">Review</div>
+        <div className="px-3 mb-1 text-[10px] font-medium uppercase tracking-[0.1em] text-muted/40">Review</div>
         <div className="flex flex-col gap-1">
           {reviewItems.map((item) => renderItem(item))}
         </div>
@@ -191,7 +188,7 @@ export default function Sidebar({
 
       {/* Zone 2 — Work */}
       <div className="mt-6">
-        <div className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted/50">Work</div>
+        <div className="px-3 mb-1 text-[10px] font-medium uppercase tracking-[0.1em] text-muted/40">Work</div>
         <div className="flex flex-col gap-1">
           {workItems.map((item) => renderItem(item))}
         </div>
@@ -199,45 +196,18 @@ export default function Sidebar({
 
       {/* Zone 3 — Activity */}
       <div className="mt-6">
-        <div className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted/50">Activity</div>
+        <div className="px-3 mb-1 text-[10px] font-medium uppercase tracking-[0.1em] text-muted/40">Activity</div>
         <div className="flex flex-col gap-1">
           {activityItems.map((item) => renderItem(item))}
         </div>
       </div>
 
-      {/* Zone 4 — Catalog (collapsible) */}
+      {/* Zone 4 — Reference */}
       <div className="mt-6">
-        <div className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted/50">Catalog</div>
+        <div className="px-3 mb-1 text-[10px] font-medium uppercase tracking-[0.1em] text-muted/40">Reference</div>
         <div className="flex flex-col gap-1">
-        <button
-          onClick={() => setCatalogOpen(!catalogOpen)}
-          className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-            catalogChildActive && !catalogOpen ? ACTIVE_STYLE : IDLE_STYLE
-          }`}
-        >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path d="M3 4h14M3 8h14M3 12h10M3 16h6" />
-          </svg>
-          <span>Catalog</span>
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            className={`ml-auto transition-transform ${catalogOpen ? "rotate-90" : ""}`}
-          >
-            <path d="M6 4l4 4-4 4" />
-          </svg>
-        </button>
-
-        {catalogOpen && (
-          <div className="flex flex-col gap-1">
-            {catalogItems.map((item) => renderItem(item, "pl-10"))}
-          </div>
-        )}
-      </div>
+          {referenceItems.map((item) => renderItem(item))}
+        </div>
       </div>
     </nav>
   );
@@ -269,7 +239,7 @@ export default function Sidebar({
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 z-40 h-full w-64 border-r border-border/30 bg-surface transition-transform lg:static lg:translate-x-0 ${
+        className={`fixed top-0 left-0 z-40 h-full w-64 border-r border-border/15 bg-surface transition-transform lg:static lg:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
