@@ -1,7 +1,7 @@
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → Claude classifies → structured engagements → Airtable sync.
-> 63 migrations · 18 tables · 32 API routes · 18 UI pages · 426 tests
+> 63 migrations · 18 tables · 30 API routes · 18 UI pages · 426 tests
 
 ---
 
@@ -80,7 +80,7 @@ roadrunner/
 │   │   ├── tasks/                 #   Cross-partner task dashboard
 │   │   ├── layout.tsx             #   Root layout + sidebar
 │   │   └── page.tsx               #   Redirects to /partners
-│   ├── components/                # React components (21, organized by function)
+│   ├── components/                # React components (32 across 7 groups)
 │   │   ├── actions/               #   Entity action buttons (5 files)
 │   │   ├── engagement/            #   Engagement-specific cards/forms (4 files)
 │   │   ├── inbox/                 #   Review queue UI (4 files)
@@ -102,7 +102,6 @@ roadrunner/
 │       ├── notes-summarizer.ts    #   AI meeting note summarizer (Claude API)
 │       ├── notes-context.ts       #   Partner context builder for notes
 │       ├── meeting-status-map.ts  #   Meeting status display mapping
-│       ├── dedup.ts               #   Message fingerprint deduplication
 │       ├── types.ts               #   All shared TypeScript interfaces
 │       ├── user-config.ts         #   Canonical user identity config
 │       ├── airtable.ts            #   Airtable REST API client
@@ -128,7 +127,7 @@ roadrunner/
 │       └── __tests__/             #   426 tests across 14 test files
 ├── supabase/
 │   ├── migrations/                # 62 migration files (001-062)
-│   └── schema_live.sql            # Full schema snapshot (derived from migrations)
+│   └── (authoritative schema lives in migrations/)
 ├── scripts/
 │   ├── seed-data.ts               # CLI script to seed events/programs
 │   └── hydrate-contact-registry.ts # Backfill contact registry join tables
@@ -266,7 +265,7 @@ npx tsc --noEmit                   # TypeScript check (must pass with zero error
 | meeting-pipeline.test.ts | 13 | Meeting creation, ICS parsing, linking |
 | classifier.test.ts | 11 | Classification orchestration, confidence routing |
 | prompt-builder.test.ts | 11 | Shared context section builders |
-| dedup.test.ts | 6 | Message deduplication |
+| dedup.test.ts | 6 | Message fingerprint deduplication |
 | meeting-status-map.test.ts | 5 | Meeting status mapping |
 | resolve-route.test.ts | 4 | Inbox resolve route logic |
 
