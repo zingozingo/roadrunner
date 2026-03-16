@@ -1,6 +1,8 @@
 # Design Tokens
 
-CSS custom properties, color palette, spacing conventions, and typography for Roadrunner.
+CSS custom properties, spacing, typography, and visual specs for Roadrunner.
+
+---
 
 ## CSS Custom Properties
 
@@ -11,28 +13,35 @@ Defined in `src/app/globals.css` via Tailwind v4 `@theme inline` block.
 | Token | Value | Usage |
 |---|---|---|
 | `--color-background` | `#0f1117` | Page background |
-| `--color-surface` | `#1a1b23` | Cards, sidebar, input backgrounds |
-| `--color-surface-hover` | `#22232d` | Card hover state |
+| `--color-surface` | `#1a1b23` | Sidebar, input backgrounds, modal cards |
+| `--color-surface-hover` | `#22232d` | Hover state for interactive surfaces |
 | `--color-foreground` | `#e4e4e7` | Primary text |
 | `--color-muted` | `#71717a` | Secondary text, labels, placeholders |
-| `--color-border` | `#27272a` | Borders, dividers |
-| `--color-accent` | `#6366f1` | Indigo — primary accent, links, active states |
+| `--color-border` | `#27272a` | Borders, dividers (always used with opacity) |
+| `--color-accent` | `#6366f1` | Indigo — links, active states, primary actions |
 | `--color-accent-hover` | `#818cf8` | Accent hover |
 
 ### Status Colors
 
-Used by StatusBadge for engagement/program status:
-
-| Status | Background | Text |
+| Status | Dot Class | CSS Variable |
 |---|---|---|
-| active | `bg-status-active/20` | `text-status-active` |
-| blocked | `bg-status-blocked/20` | `text-status-blocked` |
-| completed | `bg-status-completed/20` | `text-status-completed` |
-| archived | `bg-status-archived/20` | `text-status-archived` |
+| active | `bg-emerald-500` | `--color-status-active` (#22c55e) |
+| blocked | `bg-amber-500` | `--color-status-blocked` (#f59e0b) |
+| completed | `bg-violet-500` | `--color-status-completed` (#8b5cf6) |
+| archived | `bg-zinc-500` | `--color-status-archived` (#6b7280) |
 
-### Confidence Colors
+### Program Type Colors
 
-Used for AI classification confidence display:
+| Type | Variable | Color |
+|---|---|---|
+| Competency | `--color-program-competency` | #3b82f6 (blue) |
+| Service Ready | `--color-program-service-ready` | #8b5cf6 (violet) |
+| SCA | `--color-program-sca` | #f59e0b (amber) |
+| Funding | `--color-program-funding` | #10b981 (emerald) |
+| Channel | `--color-program-channel` | #ec4899 (pink) |
+| Enablement | `--color-program-enablement` | #06b6d4 (cyan) |
+
+### Confidence Colors (Inbox)
 
 | Level | Background | Text |
 |---|---|---|
@@ -40,100 +49,108 @@ Used for AI classification confidence display:
 | medium | `bg-yellow-500/20` | `text-yellow-400` |
 | low | `bg-red-500/20` | `text-red-400` |
 
-### Program Type Colors
+---
 
-Defined as CSS custom properties for ProgramTypeBadge:
+## Typography Hierarchy
 
-| Type | Color Variable |
-|---|---|
-| Competency | `--color-program-competency` (#3b82f6, blue) |
-| Service Ready | `--color-program-service-ready` (#8b5cf6, violet) |
-| SCA | `--color-program-sca` (#f59e0b, amber) |
-| Funding | `--color-program-funding` (#10b981, emerald) |
-| Channel | `--color-program-channel` (#ec4899, pink) |
-| Enablement | `--color-program-enablement` (#06b6d4, cyan) |
+| Element | Size | Weight | Color | Extra |
+|---|---|---|---|---|
+| Page title (identity bar) | `text-xl` (20px) | `font-semibold` | `text-foreground` | — |
+| Section label | `text-xs` (11px) | `font-semibold` | `text-muted` | `uppercase tracking-wider` |
+| Sub-label (category) | `text-[10px]` | `font-semibold` | `text-muted/50` | `uppercase tracking-widest` |
+| Row primary text | `text-sm` (13px) | `font-medium` | `text-foreground` | — |
+| Row secondary | `text-sm` | normal | `text-muted` | — |
+| Metadata/dates | `text-xs` (11px) | normal | `text-muted` | — |
+| Body prose | `text-sm` | normal | `text-foreground/80` | `leading-relaxed` |
+| Pills/badges | `text-xs` | `font-medium` | tinted color | `whitespace-nowrap` |
+| Sidebar zone label | `text-[10px]` | `font-medium` | `text-muted/40` | `uppercase tracking-[0.1em]` |
+| List group label | `text-xs` | `font-medium` | `text-muted/70` | `uppercase tracking-[0.08em]` |
 
-### Event Type Colors
+---
 
-| Type | Background | Text |
-|---|---|---|
-| Conference | `bg-blue-500/20` | `text-blue-400` |
-| Summit | `bg-purple-500/20` | `text-purple-400` |
-| Webinar | `bg-green-500/20` | `text-green-400` |
-| Workshop | `bg-amber-500/20` | `text-amber-400` |
-| Other | `bg-border` | `text-muted` |
-
-## Spacing Conventions
+## Spacing
 
 ### Page Layout
 - Page padding: `p-6 lg:p-8`
-- Section gap (between groups): `space-y-8`
-- Row gap (between items within a group): `space-y-2`
-- Detail page two-column: `grid gap-6 lg:grid-cols-3`
+- Two-column grid: `grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8`
+- Right column border: `lg:border-l lg:border-border/20 lg:pl-8`
+- Section spacing (between sections): `space-y-8` or explicit `pt-6`
 
-### Cards & Rows
-- Inline table rows: `px-4 py-2.5` (list pages), `px-2 py-2` (inside detail page section cards)
-- Detail cards: `p-5`
-- DetailHeader: `p-5 mb-6`
-- Border radius: `rounded-xl` (cards), `rounded-lg` (CalendarCard items, PillGrid pills)
+### Section Separation
+- Between sections on detail pages: `pt-6 border-t border-border/20`
+- First section after identity bar: no top border
+- Between right-column sections: `mt-6 pt-6 border-t border-border/20`
 
-### Group Headers
-- Margin below: `mb-3`
-- Label: `text-sm font-semibold uppercase tracking-wider text-muted`
-- Count badge: `rounded-full bg-border px-2 py-0.5 text-xs text-muted`
+### Identity Bar
+- Bottom border: `border-b border-border/30`
+- Bottom padding: `pb-4`
+- Bottom margin: `mb-6`
 
-### FilterBar
-- Margin below: `mb-6`
-- Chip padding: `px-3 py-1`
-- Chip text: `text-xs font-medium`
+### Row Spacing
+- Row padding: `px-3 py-2.5`
+- Row border: `border-b border-border/20`
+- Row hover: `hover:bg-surface/50`
+- Gap between row elements: `gap-3` or `gap-4`
 
-## Typography
+### Collapsible Groups (List Pages)
+- Groups container: `space-y-8`
+- Summary padding: `pb-2`
+- No card wrapper around `<details>`
+- Summary chevron: 14px SVG, `group-open:rotate-90`
 
-### Headings
-- Page title (h1 in PageHeader): `text-2xl font-bold`
-- Detail page title (in DetailHeader): `text-xl font-semibold`
-- Section header (group label): `text-sm font-semibold uppercase tracking-wider text-muted`
-- Time section header: `text-lg font-semibold text-foreground`
+---
 
-### Body Text
-- Row primary: `font-medium text-foreground`
-- Row secondary: `text-sm text-muted`
-- Metadata: `text-xs text-muted`
-- Detail field label: `text-xs font-medium uppercase tracking-wider text-muted`
-- Detail field value: `text-sm text-foreground`
+## Status Dots
 
-### Badge Text
-- All badges: `text-xs font-medium whitespace-nowrap`
-- Badge padding: `px-2 py-0.5` (standard) or `px-2.5 py-0.5` (association chips)
+| Context | Size | Classes |
+|---|---|---|
+| Identity bar | 8px | `h-2 w-2 shrink-0 rounded-full` |
+| Entity rows | 6px | `h-1.5 w-1.5 shrink-0 rounded-full` |
+
+Always include `title={status}` for accessibility.
+
+---
+
+## Pills / Badges
+
+### Standard pill
+```
+text-xs font-medium rounded-full px-2 py-0.5 whitespace-nowrap
+bg-{color}/10-15  text-{color}
+```
+
+### Specific pill patterns
+
+| Type | Background | Text |
+|---|---|---|
+| Segment | `bg-accent/10` | `text-accent` |
+| Pillar | per-pillar colors in PillarBadge | — |
+| Owner (Me) | `bg-accent/10` | `text-accent` |
+| Owner (Partner) | `bg-emerald-500/10` | `text-emerald-400` |
+| Owner (Internal) | `bg-amber-500/10` | `text-amber-400` |
+| Owner (3rd Party) | `bg-purple-500/10` | `text-purple-400` |
+| GEO / ICS | `bg-muted/15` | `text-muted` |
+
+---
 
 ## Interactive States
 
 | Element | Idle | Hover | Active/Selected |
 |---|---|---|---|
-| Inline row | `border-border/50` | `bg-surface` (list) / `bg-surface-hover` (detail) | N/A |
+| Entity row | `border-border/20` | `bg-surface/50` | N/A |
 | Filter chip | `border-border bg-background text-muted` | `hover:text-foreground` | `border-accent bg-accent/10 text-accent` |
 | Nav item | `text-muted` | `bg-surface-hover text-foreground` | `bg-accent/10 text-accent` |
 | Button (primary) | `bg-accent text-white` | `bg-accent-hover` | `disabled:opacity-50` |
+| Accent link | `text-accent` | `hover:underline` or `hover:text-accent-hover` | — |
 
-## Common Patterns
+---
 
-### Inline badge (no dedicated component)
-```tsx
-<span className="rounded-full bg-{color}/15 px-2 py-0.5 text-xs font-medium text-{color} whitespace-nowrap">
-  {label}
-</span>
-```
-Replace `{color}` with the appropriate Tailwind color (accent, blue-500, purple-500, etc.).
+## Data Formatting
 
-### Metadata in inline table rows
-```tsx
-<span className="shrink-0 text-xs text-muted hidden sm:block">
-  {count} msgs · {date}
-</span>
-```
+All utilities in `src/lib/format-utils.ts`:
 
-### Data formatting
-- Locations: `extractCity(location)` on list pages, full text on detail pages
-- Meeting titles: `cleanMeetingTitle(title)` everywhere
-- Compact dates: `formatCompactDateRange(start, end)` for cards
-- All utilities in `src/lib/format-utils.ts`
+- **Locations:** `extractCity()` on list pages, full text on detail pages
+- **Meeting titles:** `cleanMeetingTitle()` everywhere
+- **Compact dates:** `formatCompactDateRange()` for list rows
+- **Footer dates:** `formatFooterDate()` for entity footers
+- **Empty values:** Nothing on list rows, "—" on detail pages

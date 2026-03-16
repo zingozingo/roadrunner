@@ -1,6 +1,6 @@
 ---
 name: roadrunner-ui
-description: UI design system and component patterns for Roadrunner (Relay), an AWS partner engagement management app. Use when building, modifying, or extending any Roadrunner UI — list pages, detail pages, filters, sidebar, or shared components. Also use when adding new entity types, fixing layout issues, or ensuring visual consistency across pages. Trigger on any mention of Roadrunner UI, Relay UI, list pages, detail pages, FilterBar, MeetingTimeline, NoteWorkspace, or entity-specific page work.
+description: UI design system and component patterns for Roadrunner (Relay), an AWS partner engagement management app. Use when building, modifying, or extending any Roadrunner UI — list pages, detail pages, filters, sidebar, or shared components. Also use when adding new entity types, fixing layout issues, or ensuring visual consistency across pages. Trigger on any mention of Roadrunner UI, Relay UI, list pages, detail pages, FilterBar, NoteWorkspace, identity bar, two-column layout, or entity-specific page work.
 ---
 
 # Roadrunner UI Design System
@@ -79,7 +79,7 @@ Individual items inside collapsible `<details>` groups. Subtle hover, no per-row
 ```tsx
 <Link
   href={`/entity/${id}`}
-  className="flex items-baseline gap-4 rounded-lg px-3 py-2.5 transition-colors hover:bg-surface"
+  className="flex items-baseline gap-4 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
 >
   <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{name}</span>
   <span className="shrink-0 text-xs text-muted">{metadata}</span>
@@ -88,9 +88,10 @@ Individual items inside collapsible `<details>` groups. Subtle hover, no per-row
 
 **Rules:**
 - Name takes `flex-1`, metadata/badges right-aligned with `shrink-0`
-- `items-baseline` for text alignment
-- `hover:bg-surface` universally (list and detail pages)
-- Status/type pills as last element when present
+- `items-baseline` for text-only rows, `items-center` when dots/badges present
+- `hover:bg-surface/50` universally
+- `border-b border-border/20` for subtle row separation
+- Status dots as last element when present
 
 ### Reference list rows (contacts, relationships in right column)
 Compact, no separators. Grouped by category label (`text-[10px] font-semibold uppercase tracking-widest text-muted/50`).
@@ -103,9 +104,9 @@ All list pages use `<details>/<summary>` for grouped sections. This is the stand
 <details
   key={group.key}
   open={defaultOpen || undefined}
-  className="group rounded-xl border border-border/40 bg-surface"
+  className="group"
 >
-  <summary className="flex cursor-pointer list-none items-center gap-2 p-4 text-sm font-semibold uppercase tracking-wider text-muted [&::-webkit-details-marker]:hidden">
+  <summary className="flex cursor-pointer list-none items-center gap-2 pb-2 text-xs font-medium uppercase tracking-[0.08em] text-muted/70 [&::-webkit-details-marker]:hidden">
     <svg
       width="14" height="14" viewBox="0 0 16 16"
       fill="none" stroke="currentColor" strokeWidth="1.5"
@@ -114,11 +115,11 @@ All list pages use `<details>/<summary>` for grouped sections. This is the stand
       <path d="M6 4l4 4-4 4" />
     </svg>
     {group.label}
-    <span className="rounded-full bg-border px-2 py-0.5 text-xs text-muted">
+    <span className="font-normal text-muted/50">
       {group.items.length}
     </span>
   </summary>
-  <div className="px-4 pb-4">
+  <div>
     {/* Row items here */}
   </div>
 </details>
@@ -159,9 +160,9 @@ All list pages follow this structure:
       {filtered.length === 0 ? (
         <EmptyState title="No matching ..." description="Try adjusting..." />
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-8">
           {groups.map((group) => (
-            <details key={...} open={...} className="group rounded-xl border border-border/40 bg-surface">
+            <details key={...} open={...} className="group">
               {/* summary + rows */}
             </details>
           ))}
@@ -188,52 +189,51 @@ All list pages follow this structure:
 
 Detail pages use a two-column layout: primary content left, reference/metadata right. **No box-stack wrapper cards around sections.**
 
-#### Partner Detail (three-tier hierarchy)
+#### Partner Detail
 
 ```
-Left Column (lg:col-span-2)
-├── Primary: DetailHeader (name, segment, key contacts name-only)
-├── Primary: PartnerScratchpad (living context, always visible)
-├── Activity: Engagements (<details open>)
-├── Activity: Open Tasks (<details open>, inline read-only rows)
-└── Activity: Recent Meetings (<details open>, MeetingTimeline)
+Left Column (3fr)
+├── PartnerScratchpad (compact — no card wrapper)
+├── Engagements (clickable entity rows)
+├── Open Tasks (flat rows)
+└── Recent Meetings (flat rows)
 
-Right Column (lg:col-span-1)
-├── Reference: About (What They Do + AWS Context)
-├── Reference: Profile (architecture, listings, pricing, statuses)
-├── Reference: Contacts (grouped by org_type: Partner Team / AWS Team)
-└── Reference: Relationships
+Right Column (2fr, border-l)
+├── What They Do (prose)
+├── AWS Stickiness (accent label + service pills)
+├── Profile (2-col grid: architecture, listing, pricing, SPMS ID)
+├── Contacts (grouped by org_type)
+└── Relationships
 ```
-
-- Primary tier: always visible, no collapsing
-- Activity tier: `<details open>` by default
-- Reference tier: `<details>` (collapsed by default on right column)
 
 #### Engagement Detail
 
 ```
-Left Column
+Left Column (3fr)
 ├── Goal callout (border-l-2 border-accent/40, italic)
-├── Current State (<details open>)
-└── Timeline
+├── Current State (section label + prose)
+├── Connections (relationship links + EntityLinkChips)
+└── Timeline (collapsible <details>, CollapsibleEmails compact)
 
-Right Column
-├── Partner link
-├── Topic, Pillar
-├── Connections (<details open>, count badge)
-└── Participants (by org)
+Right Column (2fr, border-l)
+├── Partner link (accent)
+├── Details (pillar, topic, status dot+text, updated)
+└── Participants (count + org breakdown, CollapsibleParticipants compact)
 ```
 
 #### Meeting Detail
 
 ```
-Left Column
-├── MeetingNotesSection (NoteWorkspace client bridge)
+Left Column (3fr)
+├── Location (URL → accent link, physical → label+text)
+├── Calendar Notes (prose)
+└── MeetingNotesSection (client bridge, manages own state)
 
-Right Column
-├── Partner context
-├── Attendees (grouped by org)
-└── Meeting metadata
+Right Column (2fr, border-l)
+├── Partner (accent link)
+├── Details (date, time, engagement, type, source)
+├── Attendees (grouped by org: AWS/Partner/Other)
+└── Footer (organizer + created)
 ```
 
 ### Sidebar
@@ -252,14 +252,15 @@ ACTIVITY
   Meetings
   Tasks
 
-CATALOG (collapsible toggle)
-  Programs    (pl-10 indent)
-  Events      (pl-10 indent)
-  Relationships (pl-10 indent)
+REFERENCE
+  Programs
+  Events
+  Relationships
 ```
 
-Zone label style: `text-[10px] font-semibold uppercase tracking-widest text-muted/50 px-3 mb-1`
+Zone label style: `text-[10px] font-medium uppercase tracking-[0.1em] text-muted/40 px-3 mb-1`
 Zone spacing: `mt-6` between zones (whitespace, no borders)
+Sidebar border: `border-border/15` (very subtle)
 
 ## 7. Shared Components
 
@@ -307,25 +308,12 @@ interface EmptyStateProps {
 
 Two uses: initial empty ("No {entities} yet") and filter empty ("No matching {entities}").
 
-### MeetingTimeline (`src/components/shared/MeetingTimeline.tsx`)
+### Compact Prop Components
 
-Vertical dot timeline for meetings on detail pages. Filters to upcoming + past 90 days. Upcoming: accent dot, full brightness. Past: muted. Shows note status indicators (emerald dot + task count for complete, amber for draft).
-
-### SectionChevron (inline helper)
-
-Rotating chevron for collapsible `<details>` on detail pages. Defined inline in page files that need it:
-
-```tsx
-function SectionChevron() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"
-      stroke="currentColor" strokeWidth="1.5"
-      className="shrink-0 transition-transform group-open:rotate-90">
-      <path d="M6 4l4 4-4 4" />
-    </svg>
-  );
-}
-```
+Three components support `compact?: boolean` (default false). When true, suppresses the `rounded-xl border border-border bg-surface p-4` card wrapper:
+- **PartnerScratchpad** — used compact on partner detail
+- **CollapsibleParticipants** — used compact on engagement detail
+- **CollapsibleEmails** — used compact on engagement detail
 
 ### Notes Components (`src/components/notes/`)
 
