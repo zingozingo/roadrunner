@@ -126,10 +126,10 @@ All list pages use `<details>/<summary>` for grouped sections. This is the stand
 ```
 
 **Smart defaults:**
-- Groups with **10+ items** default-collapsed
-- Groups with **<10 items** default-open
+- If **any group** on a page has **10+ items**, **all groups** on that page default-collapsed (clean header-only overview)
+- If **no group** exceeds 10, all groups default-open
 - **Search active** → all groups forced open (`!!searchQuery`)
-- Time-based: Upcoming/TBD default-open, Past default-collapsed (unless <10)
+- Time-based (Events/Meetings): Upcoming/TBD default-open, Past default-collapsed
 
 **Important:** Use `!!searchQuery` (double-bang) for boolean coercion — `string | true` doesn't satisfy `boolean | undefined` for the `<details open>` attribute.
 

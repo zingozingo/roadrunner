@@ -3,7 +3,6 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import CollapsibleEmails from "@/components/shared/CollapsibleEmails";
-import EntityLinkChip from "@/components/shared/EntityLink";
 import EngagementActions from "@/components/actions/EngagementActions";
 import CollapsibleParticipants from "@/components/shared/CollapsibleParticipants";
 import PillarBadge from "@/components/shared/PillarBadge";
@@ -27,6 +26,13 @@ const statusDotColor: Record<string, string> = {
   blocked: "bg-amber-500",
   completed: "bg-violet-500",
   archived: "bg-zinc-500",
+};
+
+// Entity type label + route prefix
+const entityTypeConfig: Record<string, { label: string; prefix: string }> = {
+  program: { label: "Program", prefix: "/programs" },
+  event: { label: "Event", prefix: "/events" },
+  engagement: { label: "Engagement", prefix: "/engagements" },
 };
 
 export default async function EngagementDetailPage({
@@ -81,26 +87,6 @@ export default async function EngagementDetailPage({
   const hasConnections = relationships.length > 0 || validEntityLinks.length > 0;
   const connectionCount = relationships.length + validEntityLinks.length;
 
-  // Participant org breakdown for right column label (heuristic from email/org)
-  const partnerLower = partnerName?.toLowerCase().replace(/\s+/g, "") ?? "";
-  let awsCount = 0, partnerCount = 0, otherCount = 0;
-  for (const p of participants) {
-    const domain = (p.email?.toLowerCase() ?? "").split("@")[1] ?? "";
-    const org = p.organization?.toLowerCase() ?? "";
-    if (domain === "amazon.com" || domain.endsWith(".amazon.com") || org.includes("amazon") || org.includes("aws")) {
-      awsCount++;
-    } else if (partnerLower && (domain.includes(partnerLower) || org.includes(partnerLower))) {
-      partnerCount++;
-    } else {
-      otherCount++;
-    }
-  }
-  const orgBreakdown = [
-    awsCount > 0 ? `${awsCount} AWS` : null,
-    partnerCount > 0 ? `${partnerCount} Partner` : null,
-    otherCount > 0 ? `${otherCount} Other` : null,
-  ].filter(Boolean).join(" · ");
-
   const dotColor = statusDotColor[engagement.status] ?? "bg-zinc-500";
 
   return (
@@ -127,7 +113,7 @@ export default async function EngagementDetailPage({
       {/* ═══ TWO-COLUMN LAYOUT ═══ */}
       <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8">
 
-        {/* ─── LEFT COLUMN: Workflow ─── */}
+        {/* ─── LEFT COLUMN: What's happening ─── */}
         <div className="space-y-10">
 
           {/* Goal callout */}
@@ -137,57 +123,14 @@ export default async function EngagementDetailPage({
             </div>
           )}
 
-          {/* Current State */}
+          {/* Activity Summary (current_state) */}
           {engagement.current_state && (
             <section>
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Current state</h2>
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Activity summary</h2>
               <div className="space-y-1.5">
                 {engagement.current_state.split("\n").filter(Boolean).map((para, i) => (
                   <p key={i} className="text-sm text-foreground/80 leading-relaxed">{para}</p>
                 ))}
-              </div>
-            </section>
-          )}
-
-          {/* Connections */}
-          {hasConnections && (
-            <section>
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
-                Connections
-                <span className="ml-1.5 font-normal text-muted">{connectionCount}</span>
-              </h2>
-              <div className="space-y-1">
-                {relationships.map((rel) => (
-                  <Link
-                    key={rel.id}
-                    href={`/relationships/${rel.id}`}
-                    className="flex items-baseline gap-2 py-1 transition-colors hover:text-accent"
-                  >
-                    <span className="text-sm font-medium text-foreground">{rel.name}</span>
-                    {rel.contacts?.[0]?.name && (
-                      <span className="text-xs text-muted">{rel.contacts[0].name}</span>
-                    )}
-                  </Link>
-                ))}
-                {validEntityLinks.length > 0 && (
-                  <div className={`flex flex-wrap gap-2 ${relationships.length > 0 ? "pt-2" : ""}`}>
-                    {validEntityLinks.map((link) => {
-                      const isSource = link.source_id === id;
-                      const otherId = isSource ? link.target_id : link.source_id;
-                      const otherType = isSource ? link.target_type : link.source_type;
-                      const otherName = nameMap.get(otherId)!;
-                      return (
-                        <EntityLinkChip
-                          key={link.id}
-                          link={link}
-                          entityName={otherName}
-                          entityId={otherId}
-                          entityType={otherType}
-                        />
-                      );
-                    })}
-                  </div>
-                )}
               </div>
             </section>
           )}
@@ -205,7 +148,7 @@ export default async function EngagementDetailPage({
                     <path d="M6 4l4 4-4 4" />
                   </svg>
                   Timeline
-                  <span className="font-normal text-muted">{timelineItems.length}</span>
+                  <span className="font-normal text-muted/50">{timelineItems.length}</span>
                 </summary>
                 <div className="mt-3">
                   <CollapsibleEmails items={timelineItems} participants={participants} compact />
@@ -215,7 +158,7 @@ export default async function EngagementDetailPage({
           )}
         </div>
 
-        {/* ─── RIGHT COLUMN: Reference ─── */}
+        {/* ─── RIGHT COLUMN: Structural context ─── */}
         <div className="lg:border-l lg:border-border/20 lg:pl-8">
 
           {/* Partner */}
@@ -261,16 +204,60 @@ export default async function EngagementDetailPage({
             </div>
           </section>
 
-          {/* Participants */}
+          {/* Connections — relationships + entity links */}
+          {hasConnections && (
+            <section className="mt-6 pt-6 border-t border-border/20">
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
+                Connections
+                <span className="ml-1.5 font-normal text-muted/50">{connectionCount}</span>
+              </h2>
+              <div className="space-y-0.5">
+                {relationships.map((rel) => (
+                  <Link
+                    key={rel.id}
+                    href={`/relationships/${rel.id}`}
+                    className="flex items-center gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{rel.name}</span>
+                    {rel.service && (
+                      <span className="shrink-0 text-xs text-muted">{rel.service}</span>
+                    )}
+                    {rel.org && (
+                      <span className="shrink-0 text-xs text-muted/60">{rel.org}</span>
+                    )}
+                  </Link>
+                ))}
+                {validEntityLinks.map((link) => {
+                  const isSource = link.source_id === id;
+                  const otherId = isSource ? link.target_id : link.source_id;
+                  const otherType = isSource ? link.target_type : link.source_type;
+                  const otherName = nameMap.get(otherId)!;
+                  const config = entityTypeConfig[otherType] ?? { label: otherType, prefix: `/${otherType}s` };
+                  return (
+                    <Link
+                      key={link.id}
+                      href={`${config.prefix}/${otherId}`}
+                      className="flex items-center gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
+                    >
+                      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-widest text-muted/50 w-16">
+                        {config.label}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                        {otherName}
+                      </span>
+                      {link.relationship && (
+                        <span className="shrink-0 text-xs text-muted italic">{link.relationship}</span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* Participants — single instance, CollapsibleParticipants handles its own summary */}
           {participants.length > 0 && (
             <section className="mt-6 pt-6 border-t border-border/20">
-              <h2 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">
-                Participants
-                <span className="ml-1.5 font-normal text-muted">{participants.length}</span>
-              </h2>
-              {orgBreakdown && (
-                <p className="mb-3 text-xs text-muted">{orgBreakdown}</p>
-              )}
               <CollapsibleParticipants
                 participants={participants}
                 engagementId={id}
