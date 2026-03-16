@@ -2,30 +2,20 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import DetailHeader from "@/components/shared/DetailHeader";
-import StatusBadge from "@/components/shared/StatusBadge";
-import MeetingTimeline from "@/components/shared/MeetingTimeline";
-import ExpandableList from "@/components/shared/ExpandableList";
+import PillarBadge from "@/components/shared/PillarBadge";
 import PartnerScratchpad from "@/components/partners/PartnerScratchpad";
+import { cleanMeetingTitle } from "@/lib/format-utils";
 import { getPartner, getSupabaseClient, getRelationshipsByPartner, getMeetingNotesByPartner, getTasksByPartner, getPartnerContext, getContactsByPartner, getContactsByRelationshipBulk } from "@/lib/db";
-import type { Engagement, Meeting, MeetingNoteWithTasks, Task } from "@/lib/types";
+import type { Engagement, Meeting, MeetingNoteWithTasks } from "@/lib/types";
 
-// Chevron icon for collapsible sections
-function SectionChevron() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      className="shrink-0 transition-transform group-open:rotate-90"
-    >
-      <path d="M6 4l4 4-4 4" />
-    </svg>
-  );
-}
+// Status dot color map
+const statusDotColor: Record<string, string> = {
+  active: "bg-emerald-500",
+  planned: "bg-blue-400",
+  blocked: "bg-amber-500",
+  completed: "bg-violet-500",
+  archived: "bg-zinc-500",
+};
 
 export default async function PartnerDetailPage({
   params,
@@ -39,10 +29,6 @@ export default async function PartnerDetailPage({
 
   // Extract role contacts from canonical participants registry
   const contacts = await getContactsByPartner(id);
-  const allianceLead = contacts.find(c => c.role === 'Alliance Lead' && c.org_type === 'partner');
-  const psa = contacts.find(c => c.role === 'PSA' && c.org_type === 'internal');
-  const accountManager = contacts.find(c => c.role === 'Account Manager' && c.org_type === 'internal');
-  const pmm = contacts.find(c => c.role === 'PMM' && c.org_type === 'internal');
 
   const db = getSupabaseClient();
 
@@ -76,13 +62,7 @@ export default async function PartnerDetailPage({
     linkedRelationships.map((r) => r.id)
   );
 
-  // Build engagement name map for MeetingTimeline
-  const engagementNames = new Map<string, string>();
-  for (const eng of linkedEngagements) {
-    engagementNames.set(eng.id, eng.name);
-  }
-
-  // Build note status map for MeetingTimeline
+  // Build note status map for meeting rows
   const noteStatusByMeetingId = new Map<string, { noteId: string; status: "draft" | "complete"; taskCount: number }>();
   for (const note of partnerNotes) {
     if (note.meeting_id) {
@@ -105,7 +85,7 @@ export default async function PartnerDetailPage({
     note_title: (t.meeting_note_id ? noteTitleMap.get(t.meeting_note_id) : null) ?? "Untitled",
   }));
 
-  // Group contacts for Reference > Contacts section
+  // Group contacts for right column
   const partnerTeam = contacts.filter(c => c.org_type === 'partner');
   const awsTeam = contacts.filter(c => c.org_type === 'internal');
 
@@ -116,6 +96,16 @@ export default async function PartnerDetailPage({
     partner: { label: "Partner", color: "bg-amber-500/15 text-amber-400" },
     third_party: { label: "3rd Party", color: "bg-purple-500/15 text-purple-400" },
   };
+
+  // Recent meetings — last 90 days + upcoming
+  const now = new Date();
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 90);
+  const recentMeetings = linkedMeetings.filter((m) => {
+    if (!m.meeting_date) return false;
+    const d = new Date(m.meeting_date + "T00:00:00");
+    return d >= cutoff;
+  }).slice(0, 15);
 
   return (
     <div className="p-6 lg:p-8">
@@ -129,186 +119,194 @@ export default async function PartnerDetailPage({
         Back to Partners
       </Link>
 
-      {/* ═══ PRIMARY TIER ═══ */}
-
-      <DetailHeader
-        title={partner.name}
-        badges={
-          partner.segment ? (
-            <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent whitespace-nowrap capitalize">
-              {partner.segment}
-            </span>
-          ) : undefined
-        }
-        fields={[
-          { label: "Alliance Lead", value: allianceLead?.name ?? "—" },
-          { label: "PSA", value: psa?.name ?? "—" },
-          { label: "Account Manager", value: accountManager?.name ?? "—" },
-          { label: "PMM", value: pmm?.name ?? "—" },
-          { label: "SPMS ID", value: partner.spms_id?.toString() ?? "—" },
-          { label: "Focus Areas", value: partner.focus_area.length > 0 ? partner.focus_area.join(", ") : "—" },
-        ]}
-      />
-
-      {/* Living Context — brain + scratchpad (always visible, top position) */}
-      <div className="space-y-4">
-        <PartnerScratchpad partnerId={id} initialEntries={partnerContextEntries} />
+      {/* ═══ IDENTITY BAR ═══ */}
+      <div className="flex items-center gap-3 pb-4 mb-6 border-b border-border/30">
+        <h1 className="text-xl font-semibold text-foreground">{partner.name}</h1>
+        {partner.segment && (
+          <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent capitalize">
+            {partner.segment}
+          </span>
+        )}
+        <span className="ml-auto text-xs text-muted">
+          {partner.spms_id ? `SPMS ${partner.spms_id}` : ""}
+        </span>
       </div>
 
-      {/* ═══ ACTIVITY TIER ═══ */}
-      <div className="mt-8 space-y-4">
+      {/* ═══ TWO-COLUMN LAYOUT ═══ */}
+      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8">
 
-        {/* Engagements */}
-        {linkedEngagements.length > 0 && (
-          <details open className="group rounded-xl border border-border/40 bg-surface">
-            <summary className="flex cursor-pointer list-none items-center gap-2 p-4 text-sm font-semibold uppercase tracking-wider text-muted [&::-webkit-details-marker]:hidden">
-              <SectionChevron />
-              Engagements
-              <span className="rounded-full bg-border px-2 py-0.5 text-xs text-muted">{linkedEngagements.length}</span>
-            </summary>
-            <div className="px-4 pb-4">
-              <ExpandableList label="engagements">
-                {linkedEngagements.map((eng) => (
-                  <Link
-                    key={eng.id}
-                    href={`/engagements/${eng.id}`}
-                    className="flex items-center px-2 py-2 border-b border-border/50 transition-colors duration-150 hover:bg-surface-hover gap-3"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                      {eng.name}
-                    </span>
-                    <span className="shrink-0">
-                      <StatusBadge status={eng.status} />
-                    </span>
-                  </Link>
-                ))}
-              </ExpandableList>
+        {/* ─── LEFT COLUMN: Workflow ─── */}
+        <div className="space-y-10">
+
+          {/* Living Context */}
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">Living context</h2>
             </div>
-          </details>
-        )}
+            <PartnerScratchpad partnerId={id} initialEntries={partnerContextEntries} compact />
+          </section>
 
-        {/* Meetings */}
-        {linkedMeetings.length > 0 && (
-          <details open className="group rounded-xl border border-border/40 bg-surface">
-            <summary className="flex cursor-pointer list-none items-center gap-2 p-4 text-sm font-semibold uppercase tracking-wider text-muted [&::-webkit-details-marker]:hidden">
-              <SectionChevron />
-              Meetings
-              <span className="rounded-full bg-border px-2 py-0.5 text-xs text-muted">{linkedMeetings.length}</span>
-            </summary>
-            <div className="px-4 pb-4">
-              <MeetingTimeline
-                meetings={linkedMeetings}
-                engagementNames={engagementNames}
-                noteStatusByMeetingId={noteStatusByMeetingId}
-              />
-            </div>
-          </details>
-        )}
-
-        {/* Tasks (read-only inline rows) */}
-        {tasksWithTitles.length > 0 && (
-          <details open className="group rounded-xl border border-border/40 bg-surface">
-            <summary className="flex cursor-pointer list-none items-center gap-2 p-4 text-sm font-semibold uppercase tracking-wider text-muted [&::-webkit-details-marker]:hidden">
-              <SectionChevron />
-              Open Tasks
-              <span className="rounded-full bg-border px-2 py-0.5 text-xs text-muted">{tasksWithTitles.length}</span>
-            </summary>
-            <div className="px-4 pb-4 space-y-1">
-              {tasksWithTitles.map((t) => {
-                const owner = ownerLabels[t.owner] ?? ownerLabels.me;
-                return (
-                  <div key={t.id} className="flex items-center gap-3 rounded px-2 py-1.5 text-sm">
-                    <span className="min-w-0 flex-1 truncate text-foreground">{t.description}</span>
-                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${owner.color}`}>
-                      {owner.label}
-                    </span>
-                    {t.due_date && (
-                      <span className="shrink-0 text-xs text-muted">
-                        {new Date(t.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+          {/* Engagements */}
+          {linkedEngagements.length > 0 && (
+            <section>
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
+                Engagements
+                <span className="ml-1.5 font-normal text-muted">{linkedEngagements.length}</span>
+              </h2>
+              <div className="space-y-1.5">
+                {linkedEngagements.map((eng) => {
+                  const dotColor = statusDotColor[eng.status] ?? "bg-zinc-500";
+                  return (
+                    <Link
+                      key={eng.id}
+                      href={`/engagements/${eng.id}`}
+                      className="flex items-center gap-3 rounded-lg border border-border/30 px-3 py-2.5 transition-colors hover:bg-surface-hover"
+                    >
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                        {eng.name}
                       </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </details>
-        )}
-      </div>
-
-      {/* ═══ REFERENCE TIER ═══ */}
-      <div className="mt-8 space-y-4">
-
-        {/* About — What They Do + AWS Stickiness */}
-        {(partner.what_they_do || partner.aws_stickiness || partner.key_aws_services.length > 0) && (
-          <details className="group rounded-xl border border-border/40 bg-surface">
-            <summary className="flex cursor-pointer list-none items-center gap-2 p-4 text-sm font-semibold uppercase tracking-wider text-muted [&::-webkit-details-marker]:hidden">
-              <SectionChevron />
-              About
-            </summary>
-            <div className="px-4 pb-4">
-              <div className="grid gap-6 lg:grid-cols-2">
-                {partner.what_they_do && (
-                  <div>
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted mb-1.5">
-                      What They Do
-                    </h3>
-                    <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-                      {partner.what_they_do}
-                    </p>
-                  </div>
-                )}
-                {(partner.aws_stickiness || partner.key_aws_services.length > 0) && (
-                  <div className="space-y-3">
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-accent">
-                      AWS Stickiness
-                    </h3>
-                    {partner.aws_stickiness && (
-                      <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-                        {partner.aws_stickiness}
-                      </p>
-                    )}
-                    {partner.key_aws_services.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {partner.key_aws_services.map((svc) => (
-                          <span
-                            key={svc}
-                            className="rounded-full bg-accent/15 px-2.5 py-0.5 text-xs font-medium text-accent whitespace-nowrap"
-                          >
-                            {svc}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                      {eng.pillar && (
+                        <span className="shrink-0">
+                          <PillarBadge pillar={eng.pillar} />
+                        </span>
+                      )}
+                      <span className={`shrink-0 h-1.5 w-1.5 rounded-full ${dotColor}`} title={eng.status} />
+                    </Link>
+                  );
+                })}
               </div>
-            </div>
-          </details>
-        )}
+            </section>
+          )}
 
-        {/* Profile — architecture, listings, pricing, status */}
-        {(partner.architecture || partner.listing_types?.length || partner.pricing_model?.length || partner.isva_status || partner.deployed_on_aws || partner.prm_status || partner.crm_status) && (
-          <details className="group rounded-xl border border-border/40 bg-surface">
-            <summary className="flex cursor-pointer list-none items-center gap-2 p-4 text-sm font-semibold uppercase tracking-wider text-muted [&::-webkit-details-marker]:hidden">
-              <SectionChevron />
-              Profile
-            </summary>
-            <div className="px-4 pb-4">
-              <div className="flex flex-wrap gap-x-8 gap-y-4">
+          {/* Open Tasks */}
+          {tasksWithTitles.length > 0 && (
+            <section>
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
+                Open tasks
+                <span className="ml-1.5 font-normal text-muted">{tasksWithTitles.length}</span>
+              </h2>
+              <div>
+                {tasksWithTitles.map((t) => {
+                  const owner = ownerLabels[t.owner] ?? ownerLabels.me;
+                  return (
+                    <div
+                      key={t.id}
+                      className="flex items-center gap-3 border-b border-border/20 py-2 text-sm"
+                    >
+                      <span className="min-w-0 flex-1 truncate text-foreground">{t.description}</span>
+                      {t.due_date && (
+                        <span className="shrink-0 text-xs text-muted">
+                          {new Date(t.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </span>
+                      )}
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${owner.color}`}>
+                        {owner.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* Recent Meetings */}
+          {recentMeetings.length > 0 && (
+            <section>
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
+                Recent meetings
+              </h2>
+              <div>
+                {recentMeetings.map((m) => {
+                  const shortDate = m.meeting_date
+                    ? new Date(m.meeting_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                    : "TBD";
+                  const noteStatus = noteStatusByMeetingId.get(m.id);
+                  const noteDotColor = noteStatus
+                    ? noteStatus.status === "complete"
+                      ? "bg-emerald-500"
+                      : "bg-amber-500"
+                    : null;
+
+                  return (
+                    <Link
+                      key={m.id}
+                      href={`/meetings/${m.id}`}
+                      className="flex items-center gap-3 border-b border-border/20 py-2 transition-colors hover:bg-surface-hover"
+                    >
+                      <span className="w-14 shrink-0 text-xs text-muted">{shortDate}</span>
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                        {cleanMeetingTitle(m.title)}
+                      </span>
+                      {noteDotColor && (
+                        <span
+                          className={`shrink-0 h-1.5 w-1.5 rounded-full ${noteDotColor}`}
+                          title={noteStatus!.status === "complete" ? `Notes complete (${noteStatus!.taskCount} tasks)` : "Notes in progress"}
+                        />
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+        </div>
+
+        {/* ─── RIGHT COLUMN: Reference ─── */}
+        <div className="lg:border-l lg:border-border/20 lg:pl-8">
+
+          {/* What They Do */}
+          {partner.what_they_do && (
+            <section>
+              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">What they do</h2>
+              <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
+                {partner.what_they_do}
+              </p>
+            </section>
+          )}
+
+          {/* AWS Stickiness */}
+          {(partner.aws_stickiness || partner.key_aws_services.length > 0) && (
+            <section className={partner.what_they_do ? "mt-6 pt-6 border-t border-border/20" : ""}>
+              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-accent">AWS Stickiness</h2>
+              {partner.aws_stickiness && (
+                <p className="text-xs text-muted leading-relaxed whitespace-pre-wrap mb-2">
+                  {partner.aws_stickiness}
+                </p>
+              )}
+              {partner.key_aws_services.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {partner.key_aws_services.map((svc) => (
+                    <span
+                      key={svc}
+                      className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent"
+                    >
+                      {svc}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Profile */}
+          {(partner.architecture || partner.listing_types?.length || partner.pricing_model?.length || partner.isva_status || partner.deployed_on_aws || partner.prm_status || partner.crm_status) && (
+            <section className="mt-6 pt-6 border-t border-border/20">
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Profile</h2>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                 {partner.architecture && (
                   <div>
-                    <span className="block text-xs text-muted mb-1">Architecture</span>
-                    <span className="rounded-full bg-blue-500/15 px-2.5 py-0.5 text-xs font-medium text-blue-400 whitespace-nowrap">
+                    <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Architecture</span>
+                    <span className="rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-medium text-blue-400">
                       {partner.architecture}
                     </span>
                   </div>
                 )}
                 {partner.listing_types && partner.listing_types.length > 0 && (
                   <div>
-                    <span className="block text-xs text-muted mb-1">Listing Types</span>
-                    <div className="flex flex-wrap gap-1.5">
+                    <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Listing Types</span>
+                    <div className="flex flex-wrap gap-1">
                       {partner.listing_types.map((t) => (
-                        <span key={t} className="rounded-full bg-purple-500/15 px-2.5 py-0.5 text-xs font-medium text-purple-400 whitespace-nowrap">
+                        <span key={t} className="rounded-full bg-purple-500/15 px-2 py-0.5 text-xs font-medium text-purple-400">
                           {t}
                         </span>
                       ))}
@@ -317,10 +315,10 @@ export default async function PartnerDetailPage({
                 )}
                 {partner.pricing_model && partner.pricing_model.length > 0 && (
                   <div>
-                    <span className="block text-xs text-muted mb-1">Pricing Model</span>
-                    <div className="flex flex-wrap gap-1.5">
+                    <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Pricing</span>
+                    <div className="flex flex-wrap gap-1">
                       {partner.pricing_model.map((m) => (
-                        <span key={m} className="rounded-full bg-indigo-500/15 px-2.5 py-0.5 text-xs font-medium text-indigo-400 whitespace-nowrap">
+                        <span key={m} className="rounded-full bg-indigo-500/15 px-2 py-0.5 text-xs font-medium text-indigo-400">
                           {m}
                         </span>
                       ))}
@@ -329,11 +327,9 @@ export default async function PartnerDetailPage({
                 )}
                 {partner.isva_status && (
                   <div>
-                    <span className="block text-xs text-muted mb-1">ISVa Status</span>
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap ${
-                      partner.isva_status === "Approved"
-                        ? "bg-emerald-500/15 text-emerald-400"
-                        : "bg-amber-500/15 text-amber-400"
+                    <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">ISVa</span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      partner.isva_status === "Approved" ? "bg-emerald-500/15 text-emerald-400" : "bg-amber-500/15 text-amber-400"
                     }`}>
                       {partner.isva_status}
                     </span>
@@ -341,11 +337,9 @@ export default async function PartnerDetailPage({
                 )}
                 {partner.deployed_on_aws && (
                   <div>
-                    <span className="block text-xs text-muted mb-1">Deployed on AWS</span>
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap ${
-                      partner.deployed_on_aws === "Approved"
-                        ? "bg-emerald-500/15 text-emerald-400"
-                        : "bg-gray-500/15 text-gray-400"
+                    <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Deployed on AWS</span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      partner.deployed_on_aws === "Approved" ? "bg-emerald-500/15 text-emerald-400" : "bg-gray-500/15 text-gray-400"
                     }`}>
                       {partner.deployed_on_aws}
                     </span>
@@ -353,100 +347,93 @@ export default async function PartnerDetailPage({
                 )}
                 {partner.prm_status && (
                   <div>
-                    <span className="block text-xs text-muted mb-1">PRM Status</span>
+                    <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">PRM</span>
                     <span className="text-sm text-foreground">{partner.prm_status}</span>
                   </div>
                 )}
                 {partner.crm_status && (
                   <div>
-                    <span className="block text-xs text-muted mb-1">CRM Status</span>
+                    <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">CRM</span>
                     <span className="text-sm text-foreground">{partner.crm_status}</span>
                   </div>
                 )}
               </div>
-            </div>
-          </details>
-        )}
+            </section>
+          )}
 
-        {/* Contacts — all contacts with emails, grouped by org_type */}
-        {contacts.length > 0 && (
-          <details className="group rounded-xl border border-border/40 bg-surface">
-            <summary className="flex cursor-pointer list-none items-center gap-2 p-4 text-sm font-semibold uppercase tracking-wider text-muted [&::-webkit-details-marker]:hidden">
-              <SectionChevron />
-              Contacts
-              <span className="rounded-full bg-border px-2 py-0.5 text-xs text-muted">{contacts.length}</span>
-            </summary>
-            <div className="px-4 pb-4 space-y-4">
-              {partnerTeam.length > 0 && (
-                <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted mb-2">Partner Team</h3>
-                  <div className="space-y-1.5">
-                    {partnerTeam.map((c, i) => (
-                      <div key={i} className="text-sm text-foreground">
-                        <span className="font-medium">{c.name ?? "Unknown"}</span>
-                        {c.role && <span className="text-xs text-muted ml-1.5">({c.role})</span>}
-                        {c.email && c.email !== "—" && (
-                          <a href={`mailto:${c.email}`} className="ml-2 text-xs text-muted hover:text-accent">
-                            {c.email}
-                          </a>
-                        )}
-                      </div>
-                    ))}
+          {/* Contacts */}
+          {contacts.length > 0 && (
+            <section className="mt-6 pt-6 border-t border-border/20">
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Contacts</h2>
+              <div className="space-y-4">
+                {partnerTeam.length > 0 && (
+                  <div>
+                    <h3 className="text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1.5">Partner Team</h3>
+                    <div className="space-y-1">
+                      {partnerTeam.map((c, i) => (
+                        <div key={i}>
+                          <div className="text-sm text-foreground">
+                            <span className="font-medium">{c.name ?? "Unknown"}</span>
+                            {c.role && <span className="text-xs text-muted ml-1.5">{c.role}</span>}
+                          </div>
+                          {c.email && c.email !== "—" && (
+                            <a href={`mailto:${c.email}`} className="text-[11px] text-accent/70 hover:text-accent">
+                              {c.email}
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-              {awsTeam.length > 0 && (
-                <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted mb-2">AWS Team</h3>
-                  <div className="space-y-1.5">
-                    {awsTeam.map((c, i) => (
-                      <div key={i} className="text-sm text-foreground">
-                        <span className="font-medium">{c.name ?? "Unknown"}</span>
-                        {c.role && <span className="text-xs text-muted ml-1.5">({c.role})</span>}
-                        {c.email && c.email !== "—" && (
-                          <a href={`mailto:${c.email}`} className="ml-2 text-xs text-muted hover:text-accent">
-                            {c.email}
-                          </a>
-                        )}
-                      </div>
-                    ))}
+                )}
+                {awsTeam.length > 0 && (
+                  <div>
+                    <h3 className="text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1.5">AWS Team</h3>
+                    <div className="space-y-1">
+                      {awsTeam.map((c, i) => (
+                        <div key={i}>
+                          <div className="text-sm text-foreground">
+                            <span className="font-medium">{c.name ?? "Unknown"}</span>
+                            {c.role && <span className="text-xs text-muted ml-1.5">{c.role}</span>}
+                          </div>
+                          {c.email && c.email !== "—" && (
+                            <a href={`mailto:${c.email}`} className="text-[11px] text-accent/70 hover:text-accent">
+                              {c.email}
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          </details>
-        )}
-
-        {/* AWS Relationships */}
-        {linkedRelationships.length > 0 && (
-          <details className="group rounded-xl border border-border/40 bg-surface">
-            <summary className="flex cursor-pointer list-none items-center gap-2 p-4 text-sm font-semibold uppercase tracking-wider text-muted [&::-webkit-details-marker]:hidden">
-              <SectionChevron />
-              AWS Relationships
-              <span className="rounded-full bg-border px-2 py-0.5 text-xs text-muted">{linkedRelationships.length}</span>
-            </summary>
-            <div className="px-4 pb-4">
-              <div className="space-y-1">
-                {linkedRelationships.map((rel) => (
-                  <Link
-                    key={rel.id}
-                    href={`/relationships/${rel.id}`}
-                    className="flex items-baseline gap-2 rounded px-2 py-1.5 transition-colors hover:bg-surface-hover"
-                  >
-                    <span className="text-sm font-medium text-foreground">
-                      {rel.name}
-                    </span>
-                    {(relContactsMap.get(rel.id)?.find(c => c.role === 'Lead Contact')?.name || relContactsMap.get(rel.id)?.[0]?.name) && (
-                      <span className="text-xs text-muted">
-                        {relContactsMap.get(rel.id)?.find(c => c.role === 'Lead Contact')?.name || relContactsMap.get(rel.id)?.[0]?.name}
-                      </span>
-                    )}
-                  </Link>
-                ))}
+                )}
               </div>
-            </div>
-          </details>
-        )}
+            </section>
+          )}
+
+          {/* Relationships */}
+          <section className="mt-6 pt-6 border-t border-border/20">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Relationships</h2>
+            {linkedRelationships.length > 0 ? (
+              <div className="space-y-1">
+                {linkedRelationships.map((rel) => {
+                  const leadName = relContactsMap.get(rel.id)?.find(c => c.role === 'Lead Contact')?.name || relContactsMap.get(rel.id)?.[0]?.name;
+                  return (
+                    <Link
+                      key={rel.id}
+                      href={`/relationships/${rel.id}`}
+                      className="flex items-baseline gap-2 py-1 transition-colors hover:text-accent"
+                    >
+                      <span className="text-sm font-medium text-foreground">{rel.name}</span>
+                      {leadName && <span className="text-xs text-muted">{leadName}</span>}
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm italic text-muted">No linked relationships</p>
+            )}
+          </section>
+        </div>
       </div>
     </div>
   );

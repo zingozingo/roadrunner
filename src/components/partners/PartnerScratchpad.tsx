@@ -6,6 +6,8 @@ import type { PartnerContextEntry } from "@/lib/types";
 interface PartnerScratchpadProps {
   partnerId: string;
   initialEntries: PartnerContextEntry[];
+  /** When true, renders without the card wrapper (border/bg/padding) */
+  compact?: boolean;
 }
 
 function relativeTime(dateStr: string): string {
@@ -39,6 +41,7 @@ const COLLAPSED_COUNT = 3;
 export default function PartnerScratchpad({
   partnerId,
   initialEntries,
+  compact = false,
 }: PartnerScratchpadProps) {
   // Split entries by source
   const initialSynth = initialEntries.find((e) => e.source === "ai_synthesis") ?? null;
@@ -163,10 +166,12 @@ export default function PartnerScratchpad({
   const hasMore = scratchEntries.length > COLLAPSED_COUNT;
 
   return (
-    <div className="rounded-xl border border-border bg-surface p-4">
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
-        Living Context
-      </h2>
+    <div className={compact ? "" : "rounded-xl border border-border bg-surface p-4"}>
+      {!compact && (
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">
+          Living Context
+        </h2>
+      )}
 
       {/* ---- Brain Synthesis ---- */}
       <div className="relative">
