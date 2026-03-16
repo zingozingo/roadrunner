@@ -162,6 +162,20 @@ async function ensureEngagementParticipant(
  * Creates new participants or updates existing ones with richer info.
  * Optionally links each participant to an engagement.
  */
+/**
+ * Infer org_type from email domain.
+ * Amazon domains → "internal", known partner domains → "partner", else → "third_party".
+ */
+function inferOrgType(
+  email: string,
+  partnerDomains: Map<string, { partnerId: string; partnerName: string }>
+): "internal" | "partner" | "third_party" {
+  if (isAmazonEmail(email)) return "internal";
+  const domain = email.split("@")[1]?.toLowerCase();
+  if (domain && partnerDomains.has(domain)) return "partner";
+  return "third_party";
+}
+
 export async function upsertParticipants(
   participants: ClassificationResult["participants"],
   engagementId: string | null
@@ -170,6 +184,9 @@ export async function upsertParticipants(
 
   const db = getSupabaseClient();
   const pdmEmail = process.env.RELAY_EMAIL_ADDRESS?.toLowerCase();
+
+  // Fetch partner domains once for org_type inference
+  const partnerDomains = await getPartnerContactDomains();
 
   for (const participant of participants) {
     if (!participant.email && !participant.name) continue;
@@ -219,6 +236,10 @@ export async function upsertParticipants(
           if (!existing[0].organization && participant.organization) {
             updates.organization = participant.organization;
           }
+          // Backfill org_type if not already set (AT sync is authoritative, classifier infers as fallback)
+          if (!existing[0].org_type && participant.email) {
+            updates.org_type = inferOrgType(participant.email, partnerDomains);
+          }
           // title column reserved for non-classifier sources (AT catalog sync, email signatures, manual entry)
           // participant.role goes to engagement_participants.role only (via ensureEngagementParticipant)
           if (Object.keys(updates).length > 0) {
@@ -238,6 +259,7 @@ export async function upsertParticipants(
               email: insertEmail,
               name: insertName,
               organization: participant.organization,
+              org_type: isUser ? "internal" : inferOrgType(insertEmail, partnerDomains),
             })
             .select("id")
             .maybeSingle();
@@ -383,7 +405,8 @@ export function normalizeEmail(email: string): string {
 
 function isAmazonEmail(email: string): boolean {
   const domain = email.split("@")[1]?.toLowerCase();
-  return domain === "amazon.com" || domain === "amazon.co.uk" || domain === "amazon.de";
+  if (!domain) return false;
+  return domain === "amazon.com" || domain.startsWith("amazon.");
 }
 
 /**

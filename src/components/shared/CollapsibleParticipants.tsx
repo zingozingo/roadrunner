@@ -21,7 +21,7 @@ interface OrgCount {
   count: number;
 }
 
-/** Group participants by org using email domain (same logic as meeting attendees) */
+/** Group participants by org_type from the contact registry */
 function summarizeByOrg(
   participants: ParticipantWithLink[],
   partnerName: string | null
@@ -30,24 +30,10 @@ function summarizeByOrg(
   let partnerCount = 0;
   let otherCount = 0;
 
-  const partnerLower = partnerName?.toLowerCase().replace(/\s+/g, "") ?? "";
-
   for (const p of participants) {
-    const email = p.email?.toLowerCase() ?? "";
-    const domain = email.split("@")[1] ?? "";
-    const org = p.organization?.toLowerCase() ?? "";
-
-    if (
-      domain === "amazon.com" ||
-      domain.endsWith(".amazon.com") ||
-      org.includes("amazon") ||
-      org.includes("aws")
-    ) {
+    if (p.org_type === "internal") {
       awsCount++;
-    } else if (
-      partnerLower &&
-      (domain.includes(partnerLower) || org.includes(partnerLower))
-    ) {
+    } else if (p.org_type === "partner") {
       partnerCount++;
     } else {
       otherCount++;
@@ -64,12 +50,10 @@ function summarizeByOrg(
 
 export default function CollapsibleParticipants({
   participants,
-  engagementId,
   partnerName,
   compact = false,
 }: {
   participants: ParticipantWithLink[];
-  engagementId: string;
   partnerName: string | null;
   compact?: boolean;
 }) {
@@ -86,14 +70,6 @@ export default function CollapsibleParticipants({
   useEffect(() => {
     updateHeight();
   }, [expanded, participants, updateHeight]);
-
-  // Re-measure on DOM mutations (add/edit participant)
-  useEffect(() => {
-    if (!contentRef.current) return;
-    const observer = new MutationObserver(updateHeight);
-    observer.observe(contentRef.current, { childList: true, subtree: true, attributes: true });
-    return () => observer.disconnect();
-  }, [updateHeight]);
 
   const orgSummary = summarizeByOrg(participants, partnerName);
   const summaryText =
@@ -134,7 +110,7 @@ export default function CollapsibleParticipants({
         style={{ maxHeight: expanded ? `${height + 16}px` : "0px" }}
       >
         <div ref={contentRef} className="pt-3">
-          <ParticipantList participants={participants} engagementId={engagementId} />
+          <ParticipantList participants={participants} />
         </div>
       </div>
     </div>

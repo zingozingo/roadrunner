@@ -260,7 +260,6 @@ export default async function EngagementDetailPage({
             <section className="mt-6 pt-6 border-t border-border/20">
               <CollapsibleParticipants
                 participants={participants}
-                engagementId={id}
                 partnerName={partnerName}
                 compact
               />
