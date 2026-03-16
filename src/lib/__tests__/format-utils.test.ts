@@ -113,7 +113,6 @@ describe("displayName", () => {
 // Helper to build a minimal Message for timeline tests
 function makeMessage(overrides: Partial<Message> & { id: string; sent_at?: string | null; forwarded_at?: string }): Message {
   return {
-    id: overrides.id,
     engagement_id: null,
     sender_name: null,
     sender_email: null,
@@ -138,7 +137,6 @@ function makeMessage(overrides: Partial<Message> & { id: string; sent_at?: strin
 
 function makeMeeting(overrides: Partial<Meeting> & { id: string; meeting_date?: string | null }): Meeting {
   return {
-    id: overrides.id,
     title: "Test Meeting",
     engagement_id: null,
     partner_id: null,

@@ -515,7 +515,7 @@ describe("processUnclassifiedMessages", () => {
     // The message update should set pending_review=true and NOT set engagement_id
     // Find the messages.update() call
     const updateCalls = mockFrom.mock.calls.filter(
-      ([table]: [string]) => table === "messages"
+      (args: unknown[]) => args[0] === "messages"
     );
     // There should be at least one update call for classification data
     expect(updateCalls.length).toBeGreaterThan(0);
