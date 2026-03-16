@@ -12,21 +12,14 @@ const MEETING_STATUSES: MeetingStatus[] = [
   "did_not_occur",
 ];
 
-interface MeetingContact {
-  name: string | null;
-  email: string;
-}
-
 export default function MeetingActions({
   meeting,
   partnerName: initialPartnerName,
   engagements: initialEngagements,
-  meetingContacts,
 }: {
   meeting: Meeting;
   partnerName?: string | null;
   engagements?: Engagement[];
-  meetingContacts?: MeetingContact[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -46,10 +39,6 @@ export default function MeetingActions({
   const [endTime, setEndTime] = useState(meeting.end_time ?? "");
   const [location, setLocation] = useState(meeting.location ?? "");
   const [notes, setNotes] = useState(meeting.notes ?? "");
-  const [attendeesJson, setAttendeesJson] = useState(() => {
-    const contacts = meetingContacts ?? meeting.attendees;
-    return contacts.map((a) => `${a.name ?? ""}|${a.email}`).join("\n");
-  });
 
   // Fetch engagements for dropdown if not passed as props
   useEffect(() => {
@@ -71,10 +60,6 @@ export default function MeetingActions({
     setEndTime(meeting.end_time ?? "");
     setLocation(meeting.location ?? "");
     setNotes(meeting.notes ?? "");
-    const contacts = meetingContacts ?? meeting.attendees;
-    setAttendeesJson(
-      contacts.map((a) => `${a.name ?? ""}|${a.email}`).join("\n")
-    );
     setError(null);
     setEditing(true);
   }
@@ -90,18 +75,6 @@ export default function MeetingActions({
     setError(null);
   }
 
-  function parseAttendees(text: string): { name: string | null; email: string }[] {
-    return text
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => {
-        const [name, email] = line.split("|").map((s) => s.trim());
-        return { name: name || null, email: email || name || "" };
-      })
-      .filter((a) => a.email);
-  }
-
   async function handleSave() {
     if (!title.trim()) {
       setError("Title is required");
@@ -111,8 +84,6 @@ export default function MeetingActions({
     setSaving(true);
     setError(null);
     try {
-      const attendees = parseAttendees(attendeesJson);
-
       const res = await fetch(`/api/meetings/${meeting.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -126,7 +97,6 @@ export default function MeetingActions({
           end_time: endTime.trim() || null,
           location: location.trim() || null,
           notes: notes.trim() || null,
-          attendees,
         }),
       });
 
@@ -291,19 +261,6 @@ export default function MeetingActions({
               placeholder="Meeting notes..."
               className={`${inputClass} resize-y min-h-[80px]`}
             />
-          </div>
-
-          {/* Attendees */}
-          <div>
-            <label className={labelClass}>Attendees</label>
-            <textarea
-              value={attendeesJson}
-              onChange={(e) => setAttendeesJson(e.target.value)}
-              rows={4}
-              placeholder={"Name|email@example.com\nName|email@example.com"}
-              className={`${inputClass} resize-y min-h-[80px] font-mono text-xs`}
-            />
-            <p className="mt-1 text-xs text-muted">One per line: Name|email</p>
           </div>
 
           {/* Error */}

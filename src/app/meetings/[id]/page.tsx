@@ -101,7 +101,7 @@ export default async function MeetingDetailPage({
           </span>
         )}
         <div className="ml-auto">
-          <MeetingActions meeting={meeting} partnerName={partner?.name ?? null} meetingContacts={meetingContacts} />
+          <MeetingActions meeting={meeting} partnerName={partner?.name ?? null} />
         </div>
       </div>
 

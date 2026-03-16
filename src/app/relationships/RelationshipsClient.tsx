@@ -6,8 +6,14 @@ import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
 import { Relationship, RelationshipType } from "@/lib/types";
+import { isNamedRole } from "@/lib/contact-display";
 
 type RelationshipWithCount = Relationship & { linked_count: number };
+
+interface RelationshipContact {
+  name: string | null;
+  role: string | null;
+}
 
 const TYPE_ORDER: RelationshipType[] = [
   "Exec/Leader",
@@ -23,9 +29,24 @@ const TYPE_FILTER_OPTIONS = TYPE_ORDER.map((t) => ({
 
 interface RelationshipsClientProps {
   relationships: RelationshipWithCount[];
+  contactsByRelationship: Record<string, RelationshipContact[]>;
 }
 
-export default function RelationshipsClient({ relationships }: RelationshipsClientProps) {
+/** Find the best "lead" contact for a relationship from registry data */
+function findLeadContact(contacts: RelationshipContact[]): string | null {
+  if (!contacts || contacts.length === 0) return null;
+  // Prefer contact with a named AT role containing "Lead"
+  const lead = contacts.find((c) => c.role && /lead/i.test(c.role));
+  if (lead?.name) return lead.name;
+  // Fall back to first contact with a named role
+  const named = contacts.find((c) => isNamedRole(c.role));
+  if (named?.name) return named.name;
+  // Fall back to first contact with a name
+  const any = contacts.find((c) => c.name);
+  return any?.name ?? null;
+}
+
+export default function RelationshipsClient({ relationships, contactsByRelationship }: RelationshipsClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
@@ -36,7 +57,8 @@ export default function RelationshipsClient({ relationships }: RelationshipsClie
         const matchesName = rel.name.toLowerCase().includes(q);
         const matchesOrg = rel.org?.toLowerCase().includes(q);
         const matchesService = rel.service?.toLowerCase().includes(q);
-        const matchesContact = rel.contacts?.[0]?.name?.toLowerCase().includes(q);
+        const leadName = findLeadContact(contactsByRelationship[rel.id] ?? []);
+        const matchesContact = leadName?.toLowerCase().includes(q);
         if (!matchesName && !matchesOrg && !matchesService && !matchesContact) return false;
       }
       if (activeFilter && rel.relationship_type !== activeFilter) {
@@ -44,7 +66,7 @@ export default function RelationshipsClient({ relationships }: RelationshipsClie
       }
       return true;
     });
-  }, [relationships, searchQuery, activeFilter]);
+  }, [relationships, contactsByRelationship, searchQuery, activeFilter]);
 
   const grouped = useMemo(() => {
     const groups: { type: RelationshipType; relationships: RelationshipWithCount[] }[] = [];
@@ -130,11 +152,14 @@ export default function RelationshipsClient({ relationships }: RelationshipsClie
                               {rel.org}
                             </span>
                           )}
-                          {rel.contacts?.[0]?.name && (
-                            <span className="shrink-0 text-xs text-muted">
-                              {rel.contacts[0].name}
-                            </span>
-                          )}
+                          {(() => {
+                            const leadName = findLeadContact(contactsByRelationship[rel.id] ?? []);
+                            return leadName ? (
+                              <span className="shrink-0 text-xs text-muted">
+                                {leadName}
+                              </span>
+                            ) : null;
+                          })()}
                         </Link>
                       ))}
                     </div>
