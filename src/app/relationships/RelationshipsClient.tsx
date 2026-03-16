@@ -101,7 +101,7 @@ export default function RelationshipsClient({ relationships }: RelationshipsClie
           ) : (
             <div className="space-y-4">
               {grouped.map((group) => {
-                const defaultOpen = searchQuery || group.relationships.length < 10;
+                const defaultOpen = !!searchQuery || group.relationships.length < 10;
                 return (
                   <details
                     key={group.type}

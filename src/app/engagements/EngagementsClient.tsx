@@ -99,7 +99,7 @@ export default function EngagementsClient({ engagements }: EngagementsClientProp
           ) : (
             <div className="space-y-4">
               {statusGroups.map(([status, items]) => {
-                const defaultOpen = searchQuery || items.length < 10;
+                const defaultOpen = !!searchQuery || items.length < 10;
                 return (
                   <details
                     key={status}

@@ -213,7 +213,7 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
               {sections.map((section) => {
                 const isUpcoming = section.label === "Upcoming";
                 const isTbd = section.label === "Date TBD";
-                const defaultOpen = isUpcoming || isTbd || searchQuery || section.meetings.length < 10;
+                const defaultOpen = isUpcoming || isTbd || !!searchQuery || section.meetings.length < 10;
 
                 return (
                   <details

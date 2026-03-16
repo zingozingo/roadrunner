@@ -133,7 +133,7 @@ export default function ProgramsClient({ programs }: ProgramsClientProps) {
           ) : (
             <div className="space-y-4">
               {grouped.map((group) => {
-                const defaultOpen = searchQuery || group.programs.length < 10;
+                const defaultOpen = !!searchQuery || group.programs.length < 10;
                 return (
                   <details
                     key={group.type}

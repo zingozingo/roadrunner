@@ -148,7 +148,7 @@ export default function PartnersClient({ partners, contactsByPartner }: Partners
           ) : (
             <div className="space-y-4">
               {grouped.map((group) => {
-                const defaultOpen = searchQuery || group.partners.length < 10;
+                const defaultOpen = !!searchQuery || group.partners.length < 10;
                 return (
                   <details
                     key={group.segment}
