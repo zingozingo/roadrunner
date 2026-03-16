@@ -6,10 +6,10 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 63 migrations, 18 active tables, 32 API routes, 18 UI pages, 426 tests across 14 suites
+- 63 migrations, 18 active tables, 30 API routes, 18 UI pages, 426 tests across 14 suites
 - Two-phase classification pipeline: curated-input Phase 1 (enriched engagement index) + deep-analysis Phase 2 (full thread history, entity matching, state evolution)
 - Entity model fully rewritten with ring architecture (Catalog → Activity → People → Posture) in docs/entity-model.md
-- Documentation consolidated: 5 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline, goal-state.md status, decisions.md through #199)
+- Documentation consolidated: 5 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline, goal-state.md status, decisions.md through #209)
 - Dead weight cleaned: notes table dropped (migration 061), orphaned components removed (PillGrid, CalendarCard, TableList, SyncStatus), decisions.md merged from two files into one
 - Contact registry complete: 76 participants, 85 partner links, 4 dedicated join tables, sync layer auto-maintains registry — all 17/17 reads and all write paths flow through registry, zero JSONB reads remaining (Decision #182)
 - Tasks promoted to partner-level entities with owner_participant_id FK (decisions 170-175)
@@ -34,9 +34,9 @@ A system where a PDM forwards an email and Roadrunner:
 ## What's Next
 
 ### Next Session
-- JSONB column drops (aws_team, partner_contacts, contacts, attendees) — unblocked by Decision #182
+- JSONB column drops (aws_team, partner_contacts, contacts, attendees) — unblocked by Decision #182, 4 UI reads remain (Decision #207)
 - Classifier prompt revision (partner-level meeting routing)
-- UI Skill doc rewrite (.claude/roadrunner-ui/SKILL.md)
+- DetailHeader component deletion (deprecated by Decision #202, no longer imported anywhere)
 
 ### Soon
 - Ring 3 pull sync planning (Partner Programs, Events, Co-Sell Goals, Partner Goals, Funding)
@@ -75,6 +75,9 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~AT push gate fix for manual meetings~~ ✅ (decision 197)
 - ~~Partner Plans → Co-Sell Goals rename~~ ✅ (decision 198)
 - ~~Partner Goals table created~~ ✅ (decision 199)
+- ~~Full UI overhaul — dashboard aesthetic~~ ✅ (decisions 200-209): two-column detail pages, identity bars, no-boxes default, sidebar flattened, collapsible groups, JSONB fallbacks removed, UI skill docs rewritten
+- ~~schema_live.sql deprecated~~ ✅ (decision 209)
+- ~~Debug route cleanup~~ ✅ (/api/debug/classify-two-phase deleted)
 
 ## Architecture Principles
 

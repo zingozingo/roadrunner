@@ -4243,3 +4243,153 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** Ring 3 data. Future pull into Roadrunner for brain synthesis context.
 
 ---
+
+### Decision 200: Dashboard spatial model for detail pages
+
+**Date:** 2026-03-16
+**Status:** Implemented
+
+**Decision:** Complex detail pages (partner, engagement, meeting) use a two-column grid layout (`grid-cols-[3fr_2fr] gap-8`). Left column = workflow (brain, engagements, tasks, notes, activity). Right column = reference (about, profile, contacts, metadata). Right column separated by subtle vertical border (`border-l border-border/20 pl-8`). Simpler detail pages (program, event, relationship) use single-column. Responsive: stacks on mobile.
+
+**Context:** Previous layout was a vertical stack of equally-weighted bordered cards. PDMs need a dashboard they can scan in 5 seconds before a call — not a document to scroll through.
+
+**Rationale:** Two-column dashboard mirrors how CRMs display account data. Workflow on left because it's action-oriented. Reference on right because it's glanceable context.
+
+**Impact:** All detail pages restructured. DetailHeader component deprecated (replaced by inline identity bar).
+
+---
+
+### Decision 201: "No boxes" default — borders are earned
+
+**Date:** 2026-03-16
+**Status:** Implemented
+
+**Decision:** Sections separated by whitespace (20-28px) and section labels (11px uppercase muted). No `rounded-xl border bg-surface` card wrappers around sections. Borders earned ONLY when: element is a distinct clickable entity (engagement card), element is an input (scratchpad, search), or element is a data boundary (column separator).
+
+**Context:** Every section was wrapped in identical bordered cards, making everything equal weight. Information hierarchy was nonexistent.
+
+**Rationale:** Whitespace creates visual hierarchy. Cards around everything create visual noise. Only bordered elements draw the eye — making borders earned means the important interactive elements stand out.
+
+**Impact:** Every page rewritten. ~50 `rounded-xl` card wrappers removed across all pages.
+
+---
+
+### Decision 202: Identity bar replaces DetailHeader
+
+**Date:** 2026-03-16
+**Status:** Implemented
+
+**Decision:** Every detail page uses a compact identity bar: entity name (20px weight-500) + badge(s) + actions right-aligned, separated by a single bottom border (`border-border/30`). No card wrapper. DetailHeader component is deprecated.
+
+**Context:** DetailHeader was a card component with title, badges, subtitle, fields grid. It consumed significant viewport space and treated all metadata as equally important.
+
+**Rationale:** The identity bar is a thin strip that says "you're looking at X" without dominating. Metadata that was in DetailHeader fields now lives in the right column where it belongs.
+
+**Impact:** DetailHeader removed from all 6 detail pages. Component still exists for backward compat but is no longer used.
+
+---
+
+### Decision 203: Status dots replace text badges for binary status
+
+**Date:** 2026-03-16
+**Status:** Implemented
+
+**Decision:** Engagement/meeting status uses a 6-7px colored circle (green=active, amber=blocked, purple=completed, gray=archived) instead of StatusBadge text labels. Pills reserved for categorical data (pillar, owner, type). Plain text for free-form metadata.
+
+**Context:** StatusBadge took up horizontal space with text like "Active" when a green dot communicates the same thing instantly.
+
+**Rationale:** Three-tier status display: dots (binary), pills (categorical), text (free-form). Each serves a different scanning need.
+
+**Impact:** StatusBadge removed from all detail page identity bars. Still available for list pages.
+
+---
+
+### Decision 204: Partner page is convergence-only — task creation moved to /tasks
+
+**Date:** 2026-03-16
+**Status:** Implemented
+
+**Decision:** Partner detail page shows tasks read-only (description + owner + due date). "+ Add Task" button and form added to /tasks page with partner assignment dropdown. PartnerTasksSection no longer renders creation UI.
+
+**Context:** Partner page was trying to be both a convergence point (things flow TO it) and a creation point (create tasks FROM it). The only creation on partner page is scratchpad input.
+
+**Rationale:** Scratchpad is inherently partner-level input. Tasks are cross-cutting work items that happen to be assigned to partners. Creating them on the dedicated /tasks page is cleaner.
+
+**Impact:** PartnerTasksSection simplified to display-only. TasksClient gained creation form with partner dropdown.
+
+---
+
+### Decision 205: Sidebar flattened — collapsible Catalog removed
+
+**Date:** 2026-03-16
+**Status:** Implemented
+
+**Decision:** All 8 nav items shown flat under 4 zone labels: REVIEW (Inbox), WORK (Partners, Engagements), ACTIVITY (Meetings, Tasks), REFERENCE (Programs, Events, Relationships). No collapsible parent. Zone labels: 10px, font-medium, uppercase, tracking-[0.1em], text-muted/40.
+
+**Context:** The collapsible Catalog parent created janky indentation alignment and hid reference items behind an extra click.
+
+**Rationale:** With only 8 items total, collapsibility adds complexity without saving space. Zone labels provide grouping without nesting.
+
+**Impact:** Sidebar reduced in complexity. catalogOpen state, chevron animation, indent logic all removed.
+
+---
+
+### Decision 206: Page-level collapsibility rule
+
+**Date:** 2026-03-16
+**Status:** Implemented
+
+**Decision:** If ANY group on a list page has 10+ items, ALL groups on that page default-collapsed (showing header-only overview). If no group exceeds 10, all default-open. Search forces all groups open.
+
+**Context:** Previous per-group threshold (10+ = collapsed, under 10 = open) created inconsistent states on the same page — e.g., Competencies collapsed while Service Ready was open.
+
+**Rationale:** Consistency within a page matters more than per-group optimization. A page is either a scannable overview (all collapsed) or a readable list (all open).
+
+**Impact:** Programs page: all 8 groups now default-collapsed. Other list pages unaffected (no group exceeds 10).
+
+---
+
+### Decision 207: JSONB backend fallbacks eliminated — registry is sole read source
+
+**Date:** 2026-03-16
+**Status:** Implemented
+
+**Decision:** Removed 3 JSONB fallback branches from phase2-prompt.ts (partner_contacts, aws_team, attendees). Activated registry path in push.ts (getContactsByMeeting now called, meetingContacts passed to buildMeetingFields). Deleted dead buildNameResolutionMapFromRegistry and duplicate PERSONAL_DOMAINS from participants.ts.
+
+**Context:** Registry was declared authoritative (Decision #177-182) but backend still had fallback code that read JSONB when registry was empty. This was dead code in practice (registry always populated for synced data) but contradicted the architectural decision.
+
+**Rationale:** "Registry is the sole source" means no fallbacks. If registry is empty, the data doesn't exist — don't mask it with JSONB.
+
+**Impact:** 4 JSONB UI reads remain (RelationshipsClient, engagement page JSONB rel.contacts, MeetingActions, RelationshipActions) — tracked for rewire during JSONB column drop.
+
+---
+
+### Decision 208: Engagement detail restructured with proper hierarchy
+
+**Date:** 2026-03-16
+**Status:** Implemented
+
+**Decision:** Left column: goal callout + "Activity summary" (renamed from current_state) + timeline. Right column: partner + details (pillar, topic, status, updated) + connections (relationships with org/service + entity links with relationship labels) + participants (single instance, no duplication). EntityLink chips replaced with rows showing type + name + relationship label.
+
+**Context:** Previous version had participants rendered twice (page-level org summary + CollapsibleParticipants), connections in left column (reference data in workflow zone), and EntityLinks shown as opaque chips without relationship context.
+
+**Rationale:** Goal is structural (what we're trying to achieve). Activity summary is narrative (what's happened). They serve different purposes and belong in different visual treatments. Connections are reference data (right column). Participants should render exactly once.
+
+**Impact:** Engagement detail page fully restructured. EntityLinkChip import removed. Page-level org breakdown calculation removed (CollapsibleParticipants handles its own).
+
+---
+
+### Decision 209: schema_live.sql deprecated
+
+**Date:** 2026-03-16
+**Status:** Implemented
+
+**Decision:** Deleted schema_live.sql (stale since migration 051, now at 063). Updated CLAUDE.md to reference `supabase/migrations/` as the authoritative schema source.
+
+**Context:** schema_live.sql was a convenience snapshot that was never maintained. It showed `note_type IN ('meeting', 'seed')` despite migration 063 removing 'seed'.
+
+**Rationale:** A stale snapshot is worse than no snapshot — it actively misleads. The migrations directory is always correct.
+
+**Impact:** One less file to maintain. Any future schema questions go to migrations.
+
+---
