@@ -22,6 +22,7 @@ import { hasChanges, STATUS_TO_AIRTABLE } from "./utils";
 import { mapMeetingStatus } from "./utils";
 import type { SyncResult } from "./pull";
 import { renderContact } from "../contact-parser";
+import { getContactsByMeeting } from "../db/participants";
 
 export interface PushResult {
   action: "created" | "updated" | "unchanged" | "skipped";
@@ -664,49 +665,6 @@ function buildMeetingFields(
         thirdPartyRendered.push(rendered);
       }
     }
-  } else {
-    // JSONB fallback: domain/org heuristics
-    const attendees = (meeting.attendees ?? []) as Record<string, unknown>[];
-    const meetingPartnerId = meeting.partner_id as string | null;
-    const partnerNameLower = (meetingPartnerId ? lookups.partnerDbToName.get(meetingPartnerId) ?? "" : "").toLowerCase();
-
-    for (const a of attendees) {
-      const email = ((a.email as string) || "").toLowerCase();
-      const org = ((a.organization as string) || "").toLowerCase();
-
-      if (
-        !email ||
-        email.includes("relay.stevenromero.dev") ||
-        email.includes("salesforce") ||
-        isUserEmail(email)
-      ) {
-        continue;
-      }
-
-      const rendered = renderContact({
-        name: (a.name as string) || null,
-        email: (a.email as string) || null,
-        title: null,
-      });
-
-      const isAws =
-        email.includes("@amazon.com") ||
-        org.includes("aws") ||
-        org.includes("amazon");
-
-      const isPartner =
-        !isAws &&
-        partnerNameLower &&
-        org.includes(partnerNameLower);
-
-      if (isAws) {
-        awsRendered.push(rendered);
-      } else if (isPartner) {
-        partnerRendered.push(rendered);
-      } else {
-        thirdPartyRendered.push(rendered);
-      }
-    }
   }
 
   if (awsRendered.length > 0) fields[MF.awsStakeholders] = awsRendered.join("\n");
@@ -747,8 +705,16 @@ export async function pushMeetingToAirtable(
     console.log(`Pushing manual meeting "${meeting.title}" to Airtable (no engagement)`);
   }
 
-  const lookups = await buildMeetingLookups();
-  const fields = buildMeetingFields(meeting, lookups);
+  const [lookups, registryContacts] = await Promise.all([
+    buildMeetingLookups(),
+    getContactsByMeeting(meetingId),
+  ]);
+  const meetingContacts = registryContacts.map(c => ({
+    name: c.name,
+    email: c.email,
+    org_type: c.org_type,
+  }));
+  const fields = buildMeetingFields(meeting, lookups, meetingContacts);
 
   let atRecordId: string | null = meeting.airtable_record_id;
 
@@ -854,7 +820,13 @@ export async function syncMeetingsToAirtable(): Promise<SyncResult> {
         continue;
       }
 
-      const fields = buildMeetingFields(mtg, lookups);
+      const rc = await getContactsByMeeting(mtg.id);
+      const mtgContacts = rc.map(c => ({
+        name: c.name,
+        email: c.email,
+        org_type: c.org_type,
+      }));
+      const fields = buildMeetingFields(mtg, lookups, mtgContacts);
 
       let atRecord: AirtableRecord | undefined;
       if (mtg.airtable_record_id) {

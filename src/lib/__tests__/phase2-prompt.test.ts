@@ -358,7 +358,13 @@ describe("buildPhase2Context — existing engagement", () => {
   });
 
   it("includes matched partner details with key contacts", () => {
-    const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
+    const registryContacts = [
+      { name: "Alice Chen", email: "alice@cybershield.com", title: "CTO", org_type: "partner", role: "Alliance Lead" },
+    ];
+    const result = buildPhase2Context(
+      [NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER,
+      null, null, null, null, registryContacts
+    );
     expect(result).toContain("## Matched Partner");
     expect(result).toContain("CyberShield");
     expect(result).toContain("security");
@@ -784,9 +790,15 @@ describe("buildPhase2Context — incoming meeting data", () => {
   };
 
   it("includes incoming meeting data when newMeetings provided", () => {
+    const meetingContacts = new Map([
+      ["mtg-new", [
+        { name: "Alice Chen", email: "alice@cybershield.com" },
+        { name: "Bob Smith", email: "bob@cybershield.com" },
+      ]],
+    ]);
     const result = buildPhase2Context(
       [NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER,
-      null, null, [NEW_MEETING]
+      null, null, [NEW_MEETING], null, null, null, meetingContacts
     );
     expect(result).toContain("Incoming Meeting Data");
     expect(result).toContain("Partner Kickoff Call");

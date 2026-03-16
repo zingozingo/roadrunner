@@ -414,16 +414,11 @@ function buildLinkedMeetings(
       lines.push(`  Organizer: ${m.organizer_email}`);
     }
 
-    // Prefer registry contacts; fall back to JSONB attendees
+    // Render attendees from registry
     const registryContacts = meetingContactsMap?.get(m.id);
     if (registryContacts && registryContacts.length > 0) {
       const formatted = registryContacts.map((c) =>
         c.name ? `${c.name} <${c.email}>` : c.email
-      );
-      lines.push(`  Attendees: ${formatted.join(", ")}`);
-    } else if (m.attendees && m.attendees.length > 0) {
-      const formatted = m.attendees.map((a) =>
-        a.name ? `${a.name} <${a.email}>` : a.email
       );
       lines.push(`  Attendees: ${formatted.join(", ")}`);
     }
@@ -495,19 +490,13 @@ function buildNewMeetingData(
     }
     if (m.is_recurring) lines.push(`**Recurring:** Yes`);
 
-    // Prefer registry contacts; fall back to JSONB attendees
+    // Render attendees from registry
     const registryContacts = meetingContactsMap?.get(m.id);
     if (registryContacts && registryContacts.length > 0) {
       lines.push("**Attendees:**");
       for (const c of registryContacts) {
         const name = c.name ? `${c.name} ` : "";
         lines.push(`- ${name}<${c.email}>`);
-      }
-    } else if (m.attendees && m.attendees.length > 0) {
-      lines.push("**Attendees:**");
-      for (const a of m.attendees) {
-        const name = a.name ? `${a.name} ` : "";
-        lines.push(`- ${name}<${a.email}>`);
       }
     }
   }
@@ -553,7 +542,7 @@ function buildMatchedPartnerSection(
   lines.push(`**Name:** ${partner.name} (id: ${partner.id})`);
   if (partner.segment) lines.push(`**Segment:** ${partner.segment}`);
 
-  // Render key contacts — prefer registry, fall back to JSONB
+  // Render key contacts from registry
   if (registryContacts && registryContacts.length > 0) {
     const keyContacts = registryContacts.slice(0, 4);
     const contactStrs = keyContacts.map((c) => {
@@ -562,21 +551,6 @@ function buildMatchedPartnerSection(
       return `${namePart}${emailPart} (${c.role})`;
     });
     lines.push(`**Key Contacts:** ${contactStrs.join(", ")}`);
-  } else {
-    // Fallback to JSONB for backward compatibility
-    const keyContacts = [
-      ...(partner.partner_contacts ?? []),
-      ...(partner.aws_team ?? []),
-    ].slice(0, 4);
-
-    if (keyContacts.length > 0) {
-      const contactStrs = keyContacts.map((c) => {
-        const namePart = c.name ?? "Unknown";
-        const emailPart = c.email ? ` <${c.email}>` : "";
-        return `${namePart}${emailPart} (${c.role})`;
-      });
-      lines.push(`**Key Contacts:** ${contactStrs.join(", ")}`);
-    }
   }
 
   if (partner.what_they_do) lines.push(`**What they do:** ${partner.what_they_do}`);

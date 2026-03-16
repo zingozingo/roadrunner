@@ -96,7 +96,6 @@ export {
   getContactsByRelationshipBulk,
   getContactsByMeeting,
   getPartnerContactDomains,
-  buildNameResolutionMapFromRegistry,
 } from "./participants";
 
 // Inbox (Approval Queue)
