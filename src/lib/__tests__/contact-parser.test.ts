@@ -6,6 +6,7 @@ import {
   renderContact,
   renderContactList,
 } from "../contact-parser";
+import { normalizeEmail } from "../db/participants";
 
 describe("parseContact", () => {
   it("parses full format: Name <email> (Title)", () => {
@@ -133,6 +134,47 @@ describe("parseContactList", () => {
     expect(result).toHaveLength(1);
     expect(result[0].email).toBe("alice@cybershield.com");
   });
+
+  it("splits semicolon-delimited contacts", () => {
+    const raw =
+      "Caroline Calcaterra <carolinec@knowbe4.com> (Alliance Lead); Harley Algie <harleya@knowbe4.com> (Contact); Kelly Hannon <kellyh@knowbe4.com> (Contact)";
+    const result = parseContactList(raw, "Contact");
+    expect(result).toHaveLength(3);
+    expect(result[0]).toEqual({
+      name: "Caroline Calcaterra",
+      email: "carolinec@knowbe4.com",
+      title: "Alliance Lead",
+      role: "Contact",
+    });
+    expect(result[1]).toEqual({
+      name: "Harley Algie",
+      email: "harleya@knowbe4.com",
+      title: "Contact",
+      role: "Contact",
+    });
+    expect(result[2]).toEqual({
+      name: "Kelly Hannon",
+      email: "kellyh@knowbe4.com",
+      title: "Contact",
+      role: "Contact",
+    });
+  });
+
+  it("handles mixed newline and semicolon delimiters", () => {
+    const raw =
+      "Alice Chen <alice@cybershield.com> (CTO); Bob Lee <bob@cybershield.com> (Engineer)\nCarol Wu <carol@cybershield.com> (PM)";
+    const result = parseContactList(raw, "Contact");
+    expect(result).toHaveLength(3);
+    expect(result[0].name).toBe("Alice Chen");
+    expect(result[1].name).toBe("Bob Lee");
+    expect(result[2].name).toBe("Carol Wu");
+  });
+
+  it("handles semicolons with empty segments", () => {
+    const raw = "Alice Chen <alice@cybershield.com> (CTO);;; Bob Lee <bob@cybershield.com>";
+    const result = parseContactList(raw, "Contact");
+    expect(result).toHaveLength(2);
+  });
 });
 
 describe("renderContact", () => {
@@ -235,5 +277,27 @@ describe("renderContactList", () => {
 
   it("returns empty string for empty array", () => {
     expect(renderContactList([])).toBe("");
+  });
+});
+
+describe("normalizeEmail", () => {
+  it("strips trailing dot from email", () => {
+    expect(normalizeEmail("harleya@knowbe4.com.")).toBe("harleya@knowbe4.com");
+  });
+
+  it("strips multiple trailing dots", () => {
+    expect(normalizeEmail("user@domain.com...")).toBe("user@domain.com");
+  });
+
+  it("trims whitespace", () => {
+    expect(normalizeEmail("  user@domain.com  ")).toBe("user@domain.com");
+  });
+
+  it("handles clean email unchanged", () => {
+    expect(normalizeEmail("user@domain.com")).toBe("user@domain.com");
+  });
+
+  it("strips trailing dot and whitespace together", () => {
+    expect(normalizeEmail(" harleya@knowbe4.com. ")).toBe("harleya@knowbe4.com");
   });
 });

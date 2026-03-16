@@ -376,6 +376,11 @@ function isValidEmail(email: string | null | undefined): email is string {
   return email.includes("@");
 }
 
+/** Strip trailing dots and whitespace — common Airtable typo (e.g. "user@domain.com.") */
+export function normalizeEmail(email: string): string {
+  return email.trim().replace(/\.+$/, "");
+}
+
 function isAmazonEmail(email: string): boolean {
   const domain = email.split("@")[1]?.toLowerCase();
   return domain === "amazon.com" || domain === "amazon.co.uk" || domain === "amazon.de";
@@ -396,7 +401,7 @@ export async function upsertContactToRegistry(
 ): Promise<string | null> {
   if (!isValidEmail(email)) return null;
 
-  const normalizedEmail = email.toLowerCase().trim();
+  const normalizedEmail = normalizeEmail(email).toLowerCase();
   const db = getSupabaseClient();
 
   // Check if already exists

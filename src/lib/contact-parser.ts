@@ -57,7 +57,7 @@ export function parseRoleContact(raw: string, role: string): RoleContact {
 export function parseContactList(raw: string, role: string): RoleContact[] {
   if (!raw || !raw.trim()) return [];
   return raw
-    .split("\n")
+    .split(/[\n;]/)
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => parseRoleContact(line, role));
