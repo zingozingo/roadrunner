@@ -182,28 +182,33 @@ export default function Sidebar({
       </div>
 
       {/* Zone 1 — Review */}
-      <div className="flex flex-col gap-1">
-        {reviewItems.map((item) => renderItem(item))}
+      <div>
+        <div className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted/50">Review</div>
+        <div className="flex flex-col gap-1">
+          {reviewItems.map((item) => renderItem(item))}
+        </div>
       </div>
-
-      <div className="my-2 mx-3 border-t border-border/40" />
 
       {/* Zone 2 — Work */}
-      <div className="flex flex-col gap-1">
-        {workItems.map((item) => renderItem(item))}
+      <div className="mt-6">
+        <div className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted/50">Work</div>
+        <div className="flex flex-col gap-1">
+          {workItems.map((item) => renderItem(item))}
+        </div>
       </div>
-
-      <div className="my-2 mx-3 border-t border-border/40" />
 
       {/* Zone 3 — Activity */}
-      <div className="flex flex-col gap-1">
-        {activityItems.map((item) => renderItem(item))}
+      <div className="mt-6">
+        <div className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted/50">Activity</div>
+        <div className="flex flex-col gap-1">
+          {activityItems.map((item) => renderItem(item))}
+        </div>
       </div>
 
-      <div className="my-2 mx-3 border-t border-border/40" />
-
       {/* Zone 4 — Catalog (collapsible) */}
-      <div className="flex flex-col gap-1">
+      <div className="mt-6">
+        <div className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted/50">Catalog</div>
+        <div className="flex flex-col gap-1">
         <button
           onClick={() => setCatalogOpen(!catalogOpen)}
           className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
@@ -229,7 +234,7 @@ export default function Sidebar({
 
         {catalogOpen && (
           <div className="flex flex-col gap-1">
-            {catalogItems.map((item) => renderItem(item, "pl-9"))}
+            {catalogItems.map((item) => renderItem(item, "pl-10"))}
           </div>
         )}
       </div>
@@ -263,7 +268,7 @@ export default function Sidebar({
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 z-40 h-full w-64 border-r border-border bg-surface transition-transform lg:static lg:translate-x-0 ${
+        className={`fixed top-0 left-0 z-40 h-full w-64 border-r border-border/30 bg-surface transition-transform lg:static lg:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
