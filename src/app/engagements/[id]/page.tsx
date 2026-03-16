@@ -81,10 +81,20 @@ export default async function EngagementDetailPage({
   const hasConnections = relationships.length > 0 || validEntityLinks.length > 0;
   const connectionCount = relationships.length + validEntityLinks.length;
 
-  // Participant org breakdown for right column label
-  const awsCount = participants.filter(p => p.org_type === "internal").length;
-  const partnerCount = participants.filter(p => p.org_type === "partner").length;
-  const otherCount = participants.filter(p => p.org_type !== "internal" && p.org_type !== "partner").length;
+  // Participant org breakdown for right column label (heuristic from email/org)
+  const partnerLower = partnerName?.toLowerCase().replace(/\s+/g, "") ?? "";
+  let awsCount = 0, partnerCount = 0, otherCount = 0;
+  for (const p of participants) {
+    const domain = (p.email?.toLowerCase() ?? "").split("@")[1] ?? "";
+    const org = p.organization?.toLowerCase() ?? "";
+    if (domain === "amazon.com" || domain.endsWith(".amazon.com") || org.includes("amazon") || org.includes("aws")) {
+      awsCount++;
+    } else if (partnerLower && (domain.includes(partnerLower) || org.includes(partnerLower))) {
+      partnerCount++;
+    } else {
+      otherCount++;
+    }
+  }
   const orgBreakdown = [
     awsCount > 0 ? `${awsCount} AWS` : null,
     partnerCount > 0 ? `${partnerCount} Partner` : null,
