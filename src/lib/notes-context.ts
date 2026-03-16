@@ -125,6 +125,13 @@ export async function buildPartnerContext(
       source: e.source,
       created_at: e.created_at,
     })),
+    registryContacts: registryContacts.map((c) => ({
+      name: c.name,
+      email: c.email,
+      title: c.title,
+      role: c.role,
+      org_type: c.org_type,
+    })),
   };
 }
 
@@ -236,12 +243,7 @@ export function formatContextForDisplay(context: PartnerContext): DisplayContext
       prm_status: context.partner.prm_status,
       crm_status: context.partner.crm_status,
     },
-    contacts: {
-      alliance_lead: context.contacts.alliance_lead,
-      account_manager: context.contacts.account_manager,
-      psa: context.contacts.psa,
-      others: context.contacts.other_contacts,
-    },
+    contacts: context.registryContacts,
     activeEngagements: context.engagements.map((e) => ({
       id: e.id,
       name: e.name,

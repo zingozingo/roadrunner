@@ -8,24 +8,19 @@ const OWNER_LABELS: Record<string, string> = {
   third_party: "Third Party",
 };
 
-interface ContactInfo {
-  alliance_lead: string | null;
-  account_manager: string | null;
-  psa: string | null;
-  others: string[];
+interface ContactEntry {
+  name: string | null;
+  email: string | null;
+  title: string | null;
+  role: string | null;
+  org_type: string | null;
 }
 
 interface TaskEditorProps {
   tasks: Task[];
   noteId: string;
-  contacts?: ContactInfo;
+  contacts?: ContactEntry[];
   onRefresh: () => void;
-}
-
-function extractName(contact: string | null): string | null {
-  if (!contact) return null;
-  const idx = contact.indexOf(" <");
-  return idx > 0 ? contact.slice(0, idx) : contact;
 }
 
 export default function TaskEditor({ tasks, noteId, contacts, onRefresh }: TaskEditorProps) {
@@ -125,18 +120,11 @@ export default function TaskEditor({ tasks, noteId, contacts, onRefresh }: TaskE
               <div className="flex items-center gap-2 flex-wrap">
                 {contacts && (() => {
                   const picks: string[] = [];
-                  if (owner === "partner") {
-                    const al = extractName(contacts.alliance_lead);
-                    if (al) picks.push(al);
-                    for (const o of contacts.others) {
-                      const n = extractName(o);
-                      if (n && !picks.includes(n)) picks.push(n);
+                  const orgFilter = owner === "partner" ? "partner" : "internal";
+                  for (const c of contacts) {
+                    if (c.org_type === orgFilter && c.name && !picks.includes(c.name)) {
+                      picks.push(c.name);
                     }
-                  } else {
-                    const psa = extractName(contacts.psa);
-                    if (psa) picks.push(psa);
-                    const am = extractName(contacts.account_manager);
-                    if (am) picks.push(am);
                   }
                   return picks.map((name) => (
                     <button

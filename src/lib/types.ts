@@ -528,6 +528,14 @@ export interface PartnerContext {
     source: string;
     created_at: string;
   }>;
+  /** Raw registry contacts for UI display (not used by AI prompt pipeline) */
+  registryContacts: Array<{
+    name: string | null;
+    email: string | null;
+    title: string | null;
+    role: string | null;
+    org_type: string | null;
+  }>;
 }
 
 export interface DisplayContext {
@@ -546,12 +554,13 @@ export interface DisplayContext {
     prm_status: string | null;
     crm_status: string | null;
   };
-  contacts: {
-    alliance_lead: string | null;
-    account_manager: string | null;
-    psa: string | null;
-    others: string[];
-  };
+  contacts: Array<{
+    name: string | null;
+    email: string | null;
+    title: string | null;
+    role: string | null;
+    org_type: string | null;
+  }>;
   activeEngagements: Array<{
     id: string;
     name: string;

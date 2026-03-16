@@ -1,4 +1,6 @@
 import type { DisplayContext } from "@/lib/types";
+import ContactRow from "@/components/shared/ContactRow";
+import { isNamedRole } from "@/lib/contact-display";
 
 const PILLAR_COLORS: Record<string, string> = {
   "Co-Sell": "bg-blue-500/15 text-blue-400",
@@ -52,31 +54,26 @@ export default function ContextSidebar({ context }: { context: DisplayContext })
       </div>
 
       {/* Key Contacts */}
-      {(contacts.alliance_lead || contacts.account_manager || contacts.psa) && (
-        <div className="rounded-xl border border-border bg-surface p-4">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Key Contacts</h3>
-          <div className="space-y-1.5 text-xs">
-            {contacts.alliance_lead && (
-              <div>
-                <span className="text-muted">Alliance Lead:</span>{" "}
-                <span className="text-foreground/80">{contacts.alliance_lead}</span>
-              </div>
-            )}
-            {contacts.account_manager && (
-              <div>
-                <span className="text-muted">AM:</span>{" "}
-                <span className="text-foreground/80">{contacts.account_manager}</span>
-              </div>
-            )}
-            {contacts.psa && (
-              <div>
-                <span className="text-muted">PSA:</span>{" "}
-                <span className="text-foreground/80">{contacts.psa}</span>
-              </div>
-            )}
+      {(() => {
+        const keyContacts = contacts.filter((c) => isNamedRole(c.role));
+        return keyContacts.length > 0 ? (
+          <div className="rounded-xl border border-border bg-surface p-4">
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Key Contacts</h3>
+            <div className="space-y-2">
+              {keyContacts.map((c, i) => (
+                <ContactRow
+                  key={c.email ?? i}
+                  name={c.name}
+                  email={c.email}
+                  title={c.title}
+                  role={c.role}
+                  orgType={c.org_type}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        ) : null;
+      })()}
 
       {/* Partner Context (scratchpad entries) */}
       {scratchpadEntries.length > 0 && (
