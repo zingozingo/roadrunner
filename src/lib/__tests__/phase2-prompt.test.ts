@@ -130,6 +130,7 @@ const PARTICIPANT: Participant & { role: string | null } = {
   name: "Alice Chen",
   organization: "CyberShield",
   title: "CTO",
+  org_type: "partner",
   notes: null,
   created_at: "2026-01-20T00:00:00Z",
   role: "partner_contact",

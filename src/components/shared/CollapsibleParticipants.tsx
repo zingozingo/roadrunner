@@ -9,6 +9,7 @@ type ParticipantWithLink = {
   name: string | null;
   organization: string | null;
   title: string | null;
+  org_type: string | null;
   notes: string | null;
   created_at: string;
   role: string | null;

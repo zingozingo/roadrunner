@@ -13,6 +13,8 @@ import {
 import { buildPartnerContext, formatContextForDisplay } from "@/lib/notes-context";
 import { cleanMeetingTitle, formatFooterDate } from "@/lib/format-utils";
 import MeetingNotesSection from "@/components/notes/MeetingNotesSection";
+import ContactGroup from "@/components/shared/ContactGroup";
+import { USER_CONFIG } from "@/lib/user-config";
 import type { DisplayContext } from "@/lib/types";
 
 // Status dot color map
@@ -40,46 +42,6 @@ function isUrl(s: string): boolean {
 /** Filter out relay/infrastructure addresses that aren't real attendees */
 function isRelayAddress(email: string): boolean {
   return email.toLowerCase().includes("relay.stevenromero.dev");
-}
-
-interface RegistryAttendee {
-  name: string | null;
-  email: string;
-  org_type: string | null;
-}
-
-interface AttendeeGroup {
-  label: string;
-  attendees: RegistryAttendee[];
-}
-
-/** Group attendees by org_type from the contact registry */
-function groupAttendees(
-  contacts: RegistryAttendee[],
-  partnerName: string | null
-): AttendeeGroup[] {
-  const aws: RegistryAttendee[] = [];
-  const partner: RegistryAttendee[] = [];
-  const other: RegistryAttendee[] = [];
-
-  for (const c of contacts) {
-    if (isRelayAddress(c.email)) continue;
-
-    if (c.org_type === "internal") {
-      aws.push(c);
-    } else if (c.org_type === "partner") {
-      partner.push(c);
-    } else {
-      other.push(c);
-    }
-  }
-
-  const groups: AttendeeGroup[] = [];
-  if (aws.length > 0) groups.push({ label: "AWS", attendees: aws });
-  if (partner.length > 0)
-    groups.push({ label: partnerName ?? "Partner", attendees: partner });
-  if (other.length > 0) groups.push({ label: "Other", attendees: other });
-  return groups;
 }
 
 export default async function MeetingDetailPage({
@@ -110,11 +72,10 @@ export default async function MeetingDetailPage({
     }
   }
 
-  const attendeeGroups = groupAttendees(
-    meetingContacts,
-    partner?.name ?? null
+  const filteredAttendees = meetingContacts.filter(
+    (c) => !c.email || !isRelayAddress(c.email)
   );
-  const totalAttendees = attendeeGroups.reduce((sum, g) => sum + g.attendees.length, 0);
+  const totalAttendees = filteredAttendees.length;
 
   const dotColor = statusDotColor[meeting.status] ?? "bg-zinc-500";
 
@@ -267,25 +228,7 @@ export default async function MeetingDetailPage({
             {totalAttendees === 0 ? (
               <p className="text-sm text-muted">No attendees listed</p>
             ) : (
-              <div className="space-y-4">
-                {attendeeGroups.map((group) => (
-                  <div key={group.label}>
-                    <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1.5">
-                      {group.label}
-                    </span>
-                    <div className="space-y-1">
-                      {group.attendees.map((a, i) => (
-                        <div key={i} className="text-xs text-foreground">
-                          <span className="font-medium">{a.name ?? a.email.split("@")[0]}</span>
-                          {a.name && (
-                            <span className="ml-1.5 text-muted">{a.email}</span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <ContactGroup contacts={filteredAttendees} currentUserEmail={USER_CONFIG.email} />
             )}
           </section>
 

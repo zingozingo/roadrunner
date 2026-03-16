@@ -6,6 +6,8 @@ import PillarBadge from "@/components/shared/PillarBadge";
 import PartnerScratchpad from "@/components/partners/PartnerScratchpad";
 import { cleanMeetingTitle } from "@/lib/format-utils";
 import { getPartner, getSupabaseClient, getRelationshipsByPartner, getMeetingNotesByPartner, getTasksByPartner, getPartnerContext, getContactsByPartner, getContactsByRelationshipBulk } from "@/lib/db";
+import ContactGroup from "@/components/shared/ContactGroup";
+import { USER_CONFIG } from "@/lib/user-config";
 import type { Engagement, Meeting, MeetingNoteWithTasks } from "@/lib/types";
 
 // Status dot color map
@@ -85,9 +87,7 @@ export default async function PartnerDetailPage({
     note_title: (t.meeting_note_id ? noteTitleMap.get(t.meeting_note_id) : null) ?? "Untitled",
   }));
 
-  // Group contacts for right column
-  const partnerTeam = contacts.filter(c => c.org_type === 'partner');
-  const awsTeam = contacts.filter(c => c.org_type === 'internal');
+  // Contacts are grouped/sorted by ContactGroup component
 
   // Owner label map for inline task display
   const ownerLabels: Record<string, { label: string; color: string }> = {
@@ -365,48 +365,7 @@ export default async function PartnerDetailPage({
           {contacts.length > 0 && (
             <section className="mt-6 pt-6 border-t border-border/20">
               <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Contacts</h2>
-              <div className="space-y-4">
-                {partnerTeam.length > 0 && (
-                  <div>
-                    <h3 className="text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1.5">Partner Team</h3>
-                    <div className="space-y-1">
-                      {partnerTeam.map((c, i) => (
-                        <div key={i}>
-                          <div className="text-sm text-foreground">
-                            <span className="font-medium">{c.name ?? "Unknown"}</span>
-                            {c.role && <span className="text-xs text-muted ml-1.5">{c.role}</span>}
-                          </div>
-                          {c.email && c.email !== "—" && (
-                            <a href={`mailto:${c.email}`} className="text-[11px] text-accent/70 hover:text-accent">
-                              {c.email}
-                            </a>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {awsTeam.length > 0 && (
-                  <div>
-                    <h3 className="text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1.5">AWS Team</h3>
-                    <div className="space-y-1">
-                      {awsTeam.map((c, i) => (
-                        <div key={i}>
-                          <div className="text-sm text-foreground">
-                            <span className="font-medium">{c.name ?? "Unknown"}</span>
-                            {c.role && <span className="text-xs text-muted ml-1.5">{c.role}</span>}
-                          </div>
-                          {c.email && c.email !== "—" && (
-                            <a href={`mailto:${c.email}`} className="text-[11px] text-accent/70 hover:text-accent">
-                              {c.email}
-                            </a>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <ContactGroup contacts={contacts} currentUserEmail={USER_CONFIG.email} />
             </section>
           )}
 

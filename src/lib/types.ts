@@ -210,6 +210,7 @@ export interface Participant {
   name: string | null;
   organization: string | null;
   title: string | null;
+  org_type: string | null;
   notes: string | null;
   created_at: string;
 }

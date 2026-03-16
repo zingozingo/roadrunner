@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Participant } from "@/lib/types";
 import ConfirmDialog from "./ConfirmDialog";
-import { displayName } from "@/lib/format-utils";
+import ContactRow from "./ContactRow";
+import { isUserEmail } from "@/lib/user-config";
 
 type ParticipantWithLink = Participant & { role: string | null; linkId: string };
 
@@ -54,8 +55,6 @@ function ParticipantRow({
   const [email, setEmail] = useState(participant.email ?? "");
   const [title, setTitle] = useState(participant.title ?? "");
   const [organization, setOrganization] = useState(participant.organization ?? "");
-
-  const isForwarder = participant.role === "forwarder";
 
   function startEdit() {
     setName(participant.name ?? "");
@@ -131,29 +130,21 @@ function ParticipantRow({
   }
 
   // ── View mode ──
+  const isCurrentUser = participant.email ? isUserEmail(participant.email) : false;
+
   return (
     <li className="group flex items-start justify-between gap-2 text-sm">
       <div className="min-w-0 flex-1">
-        <p className="font-medium text-foreground">
-          {displayName(participant.name, participant.email)}
-        </p>
-        {participant.organization && (
-          <p className="text-xs text-muted">{participant.organization}</p>
-        )}
-        {participant.title && !isForwarder && (
-          <p className="text-xs text-accent">{participant.title}</p>
-        )}
-        {participant.role && participant.role !== "forwarder" && !participant.title && (
-          <p className="text-xs text-accent">{participant.role}</p>
-        )}
-        {isForwarder && (
-          <p className="text-xs text-muted italic">You</p>
-        )}
-        {!participant.email && (
-          <p className="text-xs text-muted/50">No email</p>
-        )}
+        <ContactRow
+          name={participant.name}
+          email={participant.email}
+          title={participant.title}
+          role={participant.role}
+          orgType={participant.org_type ?? null}
+          isCurrentUser={isCurrentUser}
+        />
       </div>
-      {!isForwarder && (
+      {!isCurrentUser && (
         <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <button
             onClick={startEdit}
