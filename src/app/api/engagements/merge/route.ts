@@ -51,6 +51,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!targetEng.partner_id) {
+      return NextResponse.json(
+        { error: "Cannot merge engagements without a partner" },
+        { status: 400 }
+      );
+    }
+
     console.log(`Merging engagement "${sourceEng.name}" → "${targetEng.name}"`);
 
     // 1. Move all messages from source to target
