@@ -22,7 +22,7 @@ export async function getInboxItems(): Promise<InboxItem[]> {
   const db = getSupabaseClient();
   const { data, error } = await db
     .from("messages")
-    .select("id, sender_name, sender_email, subject, body_text, forwarded_at, partner_id, content_type, forwarder_note, partners!messages_partner_id_fkey(name)")
+    .select("id, sender_name, sender_email, subject, body_text, forwarded_at, partner_id, content_type, forwarder_note, partners(name)")
     .is("engagement_id", null)
     .or("content_type.is.null,content_type.neq.noise")
     .order("forwarded_at", { ascending: false });
