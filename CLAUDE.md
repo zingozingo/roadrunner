@@ -1,7 +1,7 @@
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → Claude classifies → structured engagements → Airtable sync.
-> 64 migrations · 18 tables · 30 API routes · 18 UI pages · 426 tests
+> 65 migrations · 18 tables · 30 API routes · 18 UI pages · 475 tests
 
 ---
 
@@ -102,6 +102,8 @@ roadrunner/
 │       ├── notes-summarizer.ts    #   AI meeting note summarizer (Claude API)
 │       ├── notes-context.ts       #   Partner context builder for notes
 │       ├── meeting-status-map.ts  #   Meeting status display mapping
+│       ├── contact-display.ts     #   Contact display formatting for UI
+│       ├── brain-synthesizer.ts   #   AI synthesis utilities
 │       ├── types.ts               #   All shared TypeScript interfaces
 │       ├── user-config.ts         #   Canonical user identity config
 │       ├── airtable.ts            #   Airtable REST API client
@@ -116,7 +118,7 @@ roadrunner/
 │       │   ├── catalog.ts         #     Events + Programs CRUD
 │       │   ├── relationships.ts   #     Relationships + junction queries
 │       │   ├── participants.ts    #     Participant upsert + registry joins
-│       │   ├── entity-links.ts    #     Entity link CRUD
+│       │   ├── engagement-links.ts #     Engagement↔program/event junction queries
 │       │   ├── inbox.ts           #     Approval queue operations
 │       │   └── index.ts           #     Barrel re-exports
 │       ├── sync/                  #   Airtable sync engine
@@ -124,9 +126,9 @@ roadrunner/
 │       │   ├── push.ts            #     RR → AT activity sync
 │       │   ├── field-maps.ts      #     Airtable field ID constants
 │       │   └── utils.ts           #     Coercion helpers + validation
-│       └── __tests__/             #   426 tests across 14 test files
+│       └── __tests__/             #   475 tests across 15 test files
 ├── supabase/
-│   ├── migrations/                # 64 migration files (001-064)
+│   ├── migrations/                # 65 migration files (001-065)
 │   └── (authoritative schema lives in migrations/)
 ├── scripts/
 │   ├── seed-data.ts               # CLI script to seed events/programs
@@ -171,7 +173,7 @@ roadrunner/
    Single function handles both auto-assign and approval-resolve paths:
    - Create or update engagement (current_state, topic, goal, pillar)
    - Upsert participants + link to engagement
-   - Create entity_links (programs, events, relationships)
+   - Link engagement↔programs, engagement↔events, engagement↔relationships
    - Create meetings (if ICS data present)
    - Link message to engagement
    ↓
@@ -244,7 +246,7 @@ AIRTABLE_BASE_ID=appy9TT1LRJTAuQ4W
 ```bash
 npm install                        # Install dependencies
 npm run dev                        # Start Next.js dev server on :3000
-npx vitest run --reporter=verbose  # Run all 426 tests
+npx vitest run --reporter=verbose  # Run all 475 tests
 npx tsc --noEmit                   # TypeScript check (must pass with zero errors)
 ```
 
@@ -267,6 +269,7 @@ npx tsc --noEmit                   # TypeScript check (must pass with zero error
 | prompt-builder.test.ts | 11 | Shared context section builders |
 | dedup.test.ts | 6 | Message fingerprint deduplication |
 | meeting-status-map.test.ts | 5 | Meeting status mapping |
+| contact-display.test.ts | 41 | Contact display formatting |
 | resolve-route.test.ts | 4 | Inbox resolve route logic |
 
 **DB mocking:** Supabase client is mocked via `vi.mock` with `vi.hoisted()` for mock variables — see existing tests for the pattern.
@@ -275,7 +278,7 @@ npx tsc --noEmit                   # TypeScript check (must pass with zero error
 
 ### Migrations
 
-Sequential numbering in `supabase/migrations/` (currently 001-064). New migrations get the next number (065, 066, ...). Write idempotent SQL where possible.
+Sequential numbering in `supabase/migrations/` (currently 001-065). New migrations get the next number (066, 067, ...). Write idempotent SQL where possible.
 
 ### Key Conventions
 
@@ -341,7 +344,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-064). New migratio
 
 **Sync:** `sync/pull.ts` / `sync/push.ts` → `sync/field-maps.ts` → `sync/utils.ts`
 
-**Data layer:** `db/index.ts` → `db/engagements.ts` → `db/messages.ts` → `db/meetings.ts` → `db/meeting-notes.ts` → `db/participants.ts` → `db/partner-context.ts` → `db/catalog.ts` → `db/entity-links.ts` → `db/relationships.ts` → `db/partners.ts` → `db/inbox.ts`
+**Data layer:** `db/index.ts` → `db/engagements.ts` → `db/messages.ts` → `db/meetings.ts` → `db/meeting-notes.ts` → `db/participants.ts` → `db/partner-context.ts` → `db/catalog.ts` → `db/engagement-links.ts` → `db/relationships.ts` → `db/partners.ts` → `db/inbox.ts`
 
 **Email:** `email-parser.ts` → `ics-parser.ts` → `name-resolver.ts` → `contact-parser.ts` → `format-utils.ts`
 

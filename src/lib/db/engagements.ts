@@ -243,26 +243,10 @@ export async function deleteEngagement(id: string): Promise<void> {
     }
   }
 
-  // Application-level cascade for polymorphic FKs (no DB cascade possible):
+  // engagement_programs, engagement_events, engagement_participants
+  // all cascade-deleted via FK ON DELETE CASCADE
 
-  // 1. Delete entity links (both directions)
-  const { error: linkSrcErr } = await db
-    .from("entity_links")
-    .delete()
-    .eq("source_type", "engagement")
-    .eq("source_id", id);
-  if (linkSrcErr) throw new Error(`Failed to delete entity links (source): ${linkSrcErr.message}`);
-
-  const { error: linkTgtErr } = await db
-    .from("entity_links")
-    .delete()
-    .eq("target_type", "engagement")
-    .eq("target_id", id);
-  if (linkTgtErr) throw new Error(`Failed to delete entity links (target): ${linkTgtErr.message}`);
-
-  // 2. engagement_participants cascade-deleted via FK ON DELETE CASCADE
-
-  // 3. Delete unresolved approvals referencing this engagement
+  // Delete unresolved approvals referencing this engagement
   const { error: approvalErr } = await db
     .from("approval_queue")
     .delete()

@@ -364,7 +364,7 @@ async function getEngagementParticipants(
 }
 
 /**
- * Fetch entity links (programs, events) for engagements with resolved names.
+ * Fetch programs and events linked to engagements with resolved names.
  * Returns a Map<engagementId, {type, name}[]>.
  */
 async function getEngagementEntityLinks(
@@ -375,35 +375,30 @@ async function getEngagementEntityLinks(
 
   const db = getSupabaseClient();
 
-  const { data: links, error } = await db
-    .from("entity_links")
-    .select("source_id, target_type, target_id, context")
-    .eq("source_type", "engagement")
-    .in("source_id", engagementIds);
+  // Fetch from typed junction tables with joined names
+  const [{ data: programLinks }, { data: eventLinks }] = await Promise.all([
+    db
+      .from("engagement_programs")
+      .select("engagement_id, programs(name)")
+      .in("engagement_id", engagementIds),
+    db
+      .from("engagement_events")
+      .select("engagement_id, events(name)")
+      .in("engagement_id", engagementIds),
+  ]);
 
-  if (error || !links || links.length === 0) return result;
-
-  // Resolve names: try programs and events tables
-  const programIds = links.filter((l: { target_type: string }) => l.target_type === "program").map((l: { target_id: string }) => l.target_id);
-  const eventIds = links.filter((l: { target_type: string }) => l.target_type === "event").map((l: { target_id: string }) => l.target_id);
-
-  const nameMap = new Map<string, string>();
-
-  if (programIds.length > 0) {
-    const { data: progs } = await db.from("programs").select("id, name").in("id", programIds);
-    for (const p of progs ?? []) nameMap.set(p.id, p.name);
-  }
-  if (eventIds.length > 0) {
-    const { data: evts } = await db.from("events").select("id, name").in("id", eventIds);
-    for (const e of evts ?? []) nameMap.set(e.id, e.name);
+  for (const link of (programLinks ?? []) as { engagement_id: string; programs: { name: string } | null }[]) {
+    const name = link.programs?.name ?? "Unknown";
+    const existing = result.get(link.engagement_id) ?? [];
+    existing.push({ type: "program", name });
+    result.set(link.engagement_id, existing);
   }
 
-  // Group by engagement
-  for (const link of links) {
-    const name = nameMap.get(link.target_id) ?? link.context ?? link.target_id;
-    const existing = result.get(link.source_id) ?? [];
-    existing.push({ type: link.target_type, name });
-    result.set(link.source_id, existing);
+  for (const link of (eventLinks ?? []) as { engagement_id: string; events: { name: string } | null }[]) {
+    const name = link.events?.name ?? "Unknown";
+    const existing = result.get(link.engagement_id) ?? [];
+    existing.push({ type: "event", name });
+    result.set(link.engagement_id, existing);
   }
 
   return result;

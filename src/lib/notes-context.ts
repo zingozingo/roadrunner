@@ -59,7 +59,7 @@ export async function buildPartnerContext(
   const registryContacts = await getContactsByPartner(partnerId);
   const contacts = buildContactsFromRegistry(registryContacts);
 
-  // Resolve program/event names for engagements via entity_links
+  // Resolve program/event names for engagements via typed junction tables
   const engagementIds = engagements.map((e) => e.id);
   const entityNames = await resolveEngagementEntities(db, engagementIds);
 
@@ -325,7 +325,7 @@ function buildContactsFromRegistry(
 }
 
 /**
- * Resolve program and event names linked to engagements via entity_links.
+ * Resolve program and event names linked to engagements via typed junction tables.
  * Returns maps of engagement_id → first program name, engagement_id → first event name.
  */
 async function resolveEngagementEntities(
@@ -336,54 +336,27 @@ async function resolveEngagementEntities(
   const events = new Map<string, string>();
   if (engagementIds.length === 0) return { programs, events };
 
-  // Get entity_links where engagement is source
-  const { data: links } = await db
-    .from("entity_links")
-    .select("source_id, target_type, target_id")
-    .eq("source_type", "engagement")
-    .in("source_id", engagementIds)
-    .in("target_type", ["program", "event"]);
-
-  if (!links || links.length === 0) return { programs, events };
-
-  const typedLinks = links as { source_id: string; target_type: string; target_id: string }[];
-
-  // Collect IDs by type
-  const programIds = new Set<string>();
-  const eventIds = new Set<string>();
-  for (const l of typedLinks) {
-    if (l.target_type === "program") programIds.add(l.target_id);
-    if (l.target_type === "event") eventIds.add(l.target_id);
-  }
-
-  // Resolve names in parallel
-  const [programRows, eventRows] = await Promise.all([
-    programIds.size > 0
-      ? db.from("programs").select("id, name").in("id", [...programIds])
-      : { data: [] },
-    eventIds.size > 0
-      ? db.from("events").select("id, name").in("id", [...eventIds])
-      : { data: [] },
+  const [{ data: programLinks }, { data: eventLinks }] = await Promise.all([
+    db
+      .from("engagement_programs")
+      .select("engagement_id, programs(name)")
+      .in("engagement_id", engagementIds),
+    db
+      .from("engagement_events")
+      .select("engagement_id, events(name)")
+      .in("engagement_id", engagementIds),
   ]);
 
-  const programNameMap = new Map<string, string>();
-  for (const p of ((programRows.data ?? []) as { id: string; name: string }[])) {
-    programNameMap.set(p.id, p.name);
-  }
-  const eventNameMap = new Map<string, string>();
-  for (const e of ((eventRows.data ?? []) as { id: string; name: string }[])) {
-    eventNameMap.set(e.id, e.name);
+  // Take first match per engagement
+  for (const link of (programLinks ?? []) as { engagement_id: string; programs: { name: string } | null }[]) {
+    if (!programs.has(link.engagement_id) && link.programs?.name) {
+      programs.set(link.engagement_id, link.programs.name);
+    }
   }
 
-  // Map back to engagement IDs (take first match per engagement)
-  for (const l of typedLinks) {
-    if (l.target_type === "program" && !programs.has(l.source_id)) {
-      const name = programNameMap.get(l.target_id);
-      if (name) programs.set(l.source_id, name);
-    }
-    if (l.target_type === "event" && !events.has(l.source_id)) {
-      const name = eventNameMap.get(l.target_id);
-      if (name) events.set(l.source_id, name);
+  for (const link of (eventLinks ?? []) as { engagement_id: string; events: { name: string } | null }[]) {
+    if (!events.has(link.engagement_id) && link.events?.name) {
+      events.set(link.engagement_id, link.events.name);
     }
   }
 

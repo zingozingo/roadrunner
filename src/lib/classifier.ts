@@ -11,12 +11,14 @@ import {
   getPartner,
   createApproval,
   createEngagement,
-  createEntityLink,
   upsertParticipants,
   backfillMessageSenderNames,
   linkMeetingToEngagement,
   linkEngagementRelationship,
-  getEntityLinksForEntity,
+  getEngagementPrograms,
+  getEngagementEvents,
+  linkEngagementToProgram,
+  linkEngagementToEvent,
   getRelationshipsByEngagement,
   getContactsByPartner,
   getContactsByRelationship,
@@ -70,7 +72,7 @@ async function classifyTwoPhase(
     .in("message_id", messageIds)
     .then(({ data }: { data: unknown }) => (data ?? []) as Meeting[]);
 
-  const [history, matchedPartner, events, programs, relationships, nameMap, newMeetings, engagementEntityLinks, engagementRels, partnerContacts] =
+  const [history, matchedPartner, events, programs, relationships, nameMap, newMeetings, linkedPrograms, linkedEvents, engagementRels, partnerContacts] =
     await Promise.all([
       engagementId && !isNew
         ? getEngagementHistory(engagementId)
@@ -84,7 +86,10 @@ async function classifyTwoPhase(
         : buildNameResolutionMap(),
       meetingsQuery,
       engagementId && !isNew
-        ? getEntityLinksForEntity("engagement", engagementId)
+        ? getEngagementPrograms(engagementId)
+        : Promise.resolve([]),
+      engagementId && !isNew
+        ? getEngagementEvents(engagementId)
         : Promise.resolve([]),
       engagementId && !isNew
         ? getRelationshipsByEngagement(engagementId)
@@ -94,18 +99,19 @@ async function classifyTwoPhase(
         : Promise.resolve([]),
     ]);
 
-  // Resolve entity link names from in-memory catalogs (no extra DB call)
-  const existingEntityLinks = engagementEntityLinks.map(link => {
-    let name = link.target_id;
-    if (link.target_type === "program") {
-      const prog = programs.find(p => p.id === link.target_id);
-      if (prog) name = prog.name;
-    } else if (link.target_type === "event") {
-      const evt = events.find(e => e.id === link.target_id);
-      if (evt) name = evt.name;
-    }
-    return { type: link.target_type, name, relationship: link.context || "linked" };
-  });
+  // Build existing entity links for Phase 2 context (names come from join)
+  const existingEntityLinks = [
+    ...linkedPrograms.map(lp => ({
+      type: "program" as const,
+      name: lp.program_name ?? lp.program_id,
+      relationship: lp.context || "linked",
+    })),
+    ...linkedEvents.map(le => ({
+      type: "event" as const,
+      name: le.event_name ?? le.event_id,
+      relationship: le.context || "linked",
+    })),
+  ];
 
   const existingRelationships = engagementRels.map(r => ({
     name: r.name,
@@ -280,7 +286,7 @@ export async function runPhase2ForResolve(
   const partnerId = phase1Result.engagement_match.partner_id;
   const isNew = phase1Result.engagement_match.is_new;
 
-  const [history, matchedPartner, events, programs, relationships, nameMap, engagementEntityLinks, engagementRels, partnerContacts] =
+  const [history, matchedPartner, events, programs, relationships, nameMap, linkedPrograms, linkedEvents, engagementRels, partnerContacts] =
     await Promise.all([
       engagementId && !isNew
         ? getEngagementHistory(engagementId)
@@ -291,7 +297,10 @@ export async function runPhase2ForResolve(
       getRelationships(),
       buildNameResolutionMap(),
       engagementId && !isNew
-        ? getEntityLinksForEntity("engagement", engagementId)
+        ? getEngagementPrograms(engagementId)
+        : Promise.resolve([]),
+      engagementId && !isNew
+        ? getEngagementEvents(engagementId)
         : Promise.resolve([]),
       engagementId && !isNew
         ? getRelationshipsByEngagement(engagementId)
@@ -301,18 +310,19 @@ export async function runPhase2ForResolve(
         : Promise.resolve([]),
     ]);
 
-  // Resolve entity link names from in-memory catalogs (no extra DB call)
-  const existingEntityLinks = engagementEntityLinks.map(link => {
-    let name = link.target_id;
-    if (link.target_type === "program") {
-      const prog = programs.find(p => p.id === link.target_id);
-      if (prog) name = prog.name;
-    } else if (link.target_type === "event") {
-      const evt = events.find(e => e.id === link.target_id);
-      if (evt) name = evt.name;
-    }
-    return { type: link.target_type, name, relationship: link.context || "linked" };
-  });
+  // Build existing entity links for Phase 2 context (names come from join)
+  const existingEntityLinks = [
+    ...linkedPrograms.map(lp => ({
+      type: "program" as const,
+      name: lp.program_name ?? lp.program_id,
+      relationship: lp.context || "linked",
+    })),
+    ...linkedEvents.map(le => ({
+      type: "event" as const,
+      name: le.event_name ?? le.event_id,
+      relationship: le.context || "linked",
+    })),
+  ];
 
   const existingRelationships = engagementRels.map(r => ({
     name: r.name,
@@ -456,17 +466,10 @@ export async function persistClassificationResult(
     }
   }
 
-  // 3. Create entity links by ID (engagement↔event, engagement↔program)
+  // 3. Create engagement↔event and engagement↔program links
   for (const event of result.matched_events) {
     try {
-      await createEntityLink({
-        source_type: "engagement",
-        source_id: engagementId,
-        target_type: "event",
-        target_id: event.id,
-        relationship: event.relationship,
-        context: event.name,
-      });
+      await linkEngagementToEvent(engagementId, event.id);
     } catch (err) {
       console.error(`Failed to link engagement to event "${event.name}":`, err);
     }
@@ -474,14 +477,7 @@ export async function persistClassificationResult(
 
   for (const program of result.matched_programs) {
     try {
-      await createEntityLink({
-        source_type: "engagement",
-        source_id: engagementId,
-        target_type: "program",
-        target_id: program.id,
-        relationship: program.relationship,
-        context: program.name,
-      });
+      await linkEngagementToProgram(engagementId, program.id);
     } catch (err) {
       console.error(`Failed to link engagement to program "${program.name}":`, err);
     }

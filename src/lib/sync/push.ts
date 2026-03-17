@@ -293,8 +293,7 @@ export async function pushEngagementToAirtable(
     supabase.from("programs").select("id, airtable_record_id").not("airtable_record_id", "is", null),
     supabase.from("engagement_relationships").select("engagement_id, relationship_id").eq("engagement_id", engagementId),
     supabase.from("relationships").select("id, airtable_record_id").not("airtable_record_id", "is", null),
-    supabase.from("entity_links").select("source_type, source_id, target_type, target_id")
-      .or(`and(source_type.eq.engagement,source_id.eq.${engagementId},target_type.eq.event),and(target_type.eq.engagement,target_id.eq.${engagementId},source_type.eq.event)`),
+    supabase.from("engagement_events").select("engagement_id, event_id").eq("engagement_id", engagementId),
     supabase.from("events").select("id, airtable_record_id").not("airtable_record_id", "is", null),
   ]);
 
@@ -324,13 +323,12 @@ export async function pushEngagementToAirtable(
   }
 
   const engagementEventAtIds = new Map<string, string[]>();
-  for (const link of (eventLinks ?? []) as { source_type: string; source_id: string; target_type: string; target_id: string }[]) {
-    const eventId = link.source_type === "event" ? link.source_id : link.target_id;
-    const atId = eventDbToAtId.get(eventId);
+  for (const link of (eventLinks ?? []) as { engagement_id: string; event_id: string }[]) {
+    const atId = eventDbToAtId.get(link.event_id);
     if (atId) {
-      const existing = engagementEventAtIds.get(engagementId) ?? [];
+      const existing = engagementEventAtIds.get(link.engagement_id) ?? [];
       existing.push(atId);
-      engagementEventAtIds.set(engagementId, existing);
+      engagementEventAtIds.set(link.engagement_id, existing);
     }
   }
 
@@ -429,7 +427,7 @@ export async function syncEngagementsToAirtable(): Promise<SyncResult> {
     { data: programs },
     { data: junctions },
     { data: relationships },
-    { data: entityLinks },
+    { data: eventLinks },
     { data: events },
   ] = await Promise.all([
       supabase.from("engagements").select("*"),
@@ -439,8 +437,7 @@ export async function syncEngagementsToAirtable(): Promise<SyncResult> {
       supabase.from("programs").select("id, airtable_record_id").not("airtable_record_id", "is", null),
       supabase.from("engagement_relationships").select("engagement_id, relationship_id"),
       supabase.from("relationships").select("id, airtable_record_id").not("airtable_record_id", "is", null),
-      supabase.from("entity_links").select("source_type, source_id, target_type, target_id")
-        .or("source_type.eq.event,target_type.eq.event"),
+      supabase.from("engagement_events").select("engagement_id, event_id"),
       supabase.from("events").select("id, airtable_record_id").not("airtable_record_id", "is", null),
     ]);
 
@@ -472,23 +469,12 @@ export async function syncEngagementsToAirtable(): Promise<SyncResult> {
   }
 
   const engagementEventAtIds = new Map<string, string[]>();
-  for (const link of (entityLinks ?? []) as { source_type: string; source_id: string; target_type: string; target_id: string }[]) {
-    let engId: string | null = null;
-    let eventId: string | null = null;
-    if (link.source_type === "engagement" && link.target_type === "event") {
-      engId = link.source_id;
-      eventId = link.target_id;
-    } else if (link.source_type === "event" && link.target_type === "engagement") {
-      engId = link.target_id;
-      eventId = link.source_id;
-    }
-    if (engId && eventId) {
-      const atId = eventDbToAtId.get(eventId);
-      if (atId) {
-        const existing = engagementEventAtIds.get(engId) ?? [];
-        existing.push(atId);
-        engagementEventAtIds.set(engId, existing);
-      }
+  for (const link of (eventLinks ?? []) as { engagement_id: string; event_id: string }[]) {
+    const atId = eventDbToAtId.get(link.event_id);
+    if (atId) {
+      const existing = engagementEventAtIds.get(link.engagement_id) ?? [];
+      existing.push(atId);
+      engagementEventAtIds.set(link.engagement_id, existing);
     }
   }
 

@@ -4,15 +4,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EventTypeBadge } from "@/components/shared/TypeBadge";
 import PillarBadge from "@/components/shared/PillarBadge";
-import EntityLinkChip from "@/components/shared/EntityLink";
 import EventActions from "@/components/actions/EventActions";
 import { formatFooterDate } from "@/lib/format-utils";
-import {
-  getEventById,
-  getEntityLinksForEntity,
-  resolveEntityLinkNames,
-  getLinkedEngagementsForEntity,
-} from "@/lib/db";
+import { getEventById, getLinkedEngagementsForEntity } from "@/lib/db";
 
 // Status dot color map
 const statusDotColor: Record<string, string> = {
@@ -46,18 +40,7 @@ export default async function EventDetailPage({
   const event = await getEventById(id);
   if (!event) notFound();
 
-  const [entityLinks, linkedEngagements] = await Promise.all([
-    getEntityLinksForEntity("event", id),
-    getLinkedEngagementsForEntity("event", id),
-  ]);
-  const nameMap = await resolveEntityLinkNames(entityLinks);
-
-  // Separate non-engagement entity links for EntityLinkChip rendering
-  const nonEngagementLinks = entityLinks.filter((link) => {
-    const isSource = link.source_id === id;
-    const otherType = isSource ? link.target_type : link.source_type;
-    return otherType !== "engagement";
-  });
+  const linkedEngagements = await getLinkedEngagementsForEntity("event", id);
 
   return (
     <div className="p-6 lg:p-8">
@@ -71,7 +54,7 @@ export default async function EventDetailPage({
         Back to Events
       </Link>
 
-      {/* ═══ IDENTITY BAR ═══ */}
+      {/* IDENTITY BAR */}
       <div className="flex items-center gap-3 pb-4 mb-6 border-b border-border/30">
         <h1 className="text-xl font-semibold text-foreground">{event.name}</h1>
         <EventTypeBadge type={event.type} />
@@ -85,7 +68,7 @@ export default async function EventDetailPage({
         </div>
       </div>
 
-      {/* ═══ CONTENT ═══ */}
+      {/* CONTENT */}
       <div className="space-y-8">
 
         {/* Description */}
@@ -120,33 +103,6 @@ export default async function EventDetailPage({
             )}
           </div>
         </section>
-
-        {/* Entity links (non-engagement) */}
-        {nonEngagementLinks.length > 0 && (
-          <section className="pt-6 border-t border-border/20">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Linked entities</h2>
-            <div className="flex flex-wrap gap-2">
-              {nonEngagementLinks.map((link) => {
-                const isSource = link.source_id === id;
-                const otherId = isSource ? link.target_id : link.source_id;
-                const otherType = isSource ? link.target_type : link.source_type;
-                const otherName = nameMap.get(otherId);
-
-                if (!otherName) return null;
-
-                return (
-                  <EntityLinkChip
-                    key={link.id}
-                    link={link}
-                    entityName={otherName}
-                    entityId={otherId}
-                    entityType={otherType}
-                  />
-                );
-              })}
-            </div>
-          </section>
-        )}
 
         {/* Linked Engagements */}
         {linkedEngagements.length > 0 && (

@@ -68,12 +68,17 @@ export {
   getRelationshipsByPartner,
 } from "./relationships";
 
-// Entity Links
+// Engagement Links (programs + events)
 export {
-  getEntityLinksForEntity,
-  createEntityLink,
-  resolveEntityLinkNames,
-} from "./entity-links";
+  getEngagementPrograms,
+  getProgramEngagements,
+  linkEngagementToProgram,
+  unlinkEngagementFromProgram,
+  getEngagementEvents,
+  getEventEngagements,
+  linkEngagementToEvent,
+  unlinkEngagementFromEvent,
+} from "./engagement-links";
 
 // Participants
 export {

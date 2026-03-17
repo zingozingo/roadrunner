@@ -161,16 +161,26 @@ export interface ParsedMeeting {
   is_cancellation: boolean;
 }
 
-export interface EntityLink {
+export interface EngagementProgram {
   id: string;
-  source_type: "engagement" | "event" | "program";
-  source_id: string;
-  target_type: "engagement" | "event" | "program";
-  target_id: string;
-  relationship: string;
+  engagement_id: string;
+  program_id: string;
   context: string | null;
   created_by: "ai" | "user";
   created_at: string;
+  program_name?: string;
+  engagement_name?: string;
+}
+
+export interface EngagementEvent {
+  id: string;
+  engagement_id: string;
+  event_id: string;
+  context: string | null;
+  created_by: "ai" | "user";
+  created_at: string;
+  event_name?: string;
+  engagement_name?: string;
 }
 
 export interface Message {

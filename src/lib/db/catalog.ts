@@ -32,14 +32,12 @@ export async function getAllEventsWithCounts(): Promise<
   if (error) throw new Error(`Failed to fetch events: ${error.message}`);
 
   const { data: links } = await getSupabaseClient()
-    .from("entity_links")
-    .select("source_type, source_id, target_type, target_id");
+    .from("engagement_events")
+    .select("event_id");
 
   const linkCounts = new Map<string, number>();
-  for (const link of links ?? []) {
-    const l = link as { source_type: string; source_id: string; target_type: string; target_id: string };
-    if (l.source_type === "event") linkCounts.set(l.source_id, (linkCounts.get(l.source_id) ?? 0) + 1);
-    if (l.target_type === "event") linkCounts.set(l.target_id, (linkCounts.get(l.target_id) ?? 0) + 1);
+  for (const link of (links ?? []) as { event_id: string }[]) {
+    linkCounts.set(link.event_id, (linkCounts.get(link.event_id) ?? 0) + 1);
   }
 
   return ((events ?? []) as Event[]).map((e) => ({
@@ -59,14 +57,12 @@ export async function getAllProgramsWithCounts(): Promise<
   if (error) throw new Error(`Failed to fetch programs: ${error.message}`);
 
   const { data: links } = await getSupabaseClient()
-    .from("entity_links")
-    .select("source_type, source_id, target_type, target_id");
+    .from("engagement_programs")
+    .select("program_id");
 
   const linkCounts = new Map<string, number>();
-  for (const link of links ?? []) {
-    const l = link as { source_type: string; source_id: string; target_type: string; target_id: string };
-    if (l.source_type === "program") linkCounts.set(l.source_id, (linkCounts.get(l.source_id) ?? 0) + 1);
-    if (l.target_type === "program") linkCounts.set(l.target_id, (linkCounts.get(l.target_id) ?? 0) + 1);
+  for (const link of (links ?? []) as { program_id: string }[]) {
+    linkCounts.set(link.program_id, (linkCounts.get(link.program_id) ?? 0) + 1);
   }
 
   return ((programs ?? []) as Program[]).map((p) => ({
@@ -96,25 +92,19 @@ export async function getLinkedEngagementsForEntity(
 ): Promise<(Engagement & { partner_name: string | null })[]> {
   const db = getSupabaseClient();
 
-  // Find engagements linked in either direction
-  const [asSource, asTarget] = await Promise.all([
-    db
-      .from("entity_links")
-      .select("target_id")
-      .eq("source_type", entityType)
-      .eq("source_id", entityId)
-      .eq("target_type", "engagement"),
-    db
-      .from("entity_links")
-      .select("source_id")
-      .eq("target_type", entityType)
-      .eq("target_id", entityId)
-      .eq("source_type", "engagement"),
-  ]);
+  // Find engagements linked via typed junction table
+  const tableName = entityType === "event" ? "engagement_events" : "engagement_programs";
+  const fkColumn = entityType === "event" ? "event_id" : "program_id";
+
+  const { data: junctionRows } = await db
+    .from(tableName)
+    .select("engagement_id")
+    .eq(fkColumn, entityId);
 
   const ids = new Set<string>();
-  for (const row of asSource.data ?? []) ids.add((row as { target_id: string }).target_id);
-  for (const row of asTarget.data ?? []) ids.add((row as { source_id: string }).source_id);
+  for (const row of (junctionRows ?? []) as { engagement_id: string }[]) {
+    ids.add(row.engagement_id);
+  }
 
   if (ids.size === 0) return [];
 
@@ -180,22 +170,7 @@ export async function updateEvent(
 export async function deleteEvent(id: string): Promise<void> {
   const db = getSupabaseClient();
 
-  // 1. Delete entity links (both directions)
-  const { error: linkSrcErr } = await db
-    .from("entity_links")
-    .delete()
-    .eq("source_type", "event")
-    .eq("source_id", id);
-  if (linkSrcErr) throw new Error(`Failed to delete entity links (source): ${linkSrcErr.message}`);
-
-  const { error: linkTgtErr } = await db
-    .from("entity_links")
-    .delete()
-    .eq("target_type", "event")
-    .eq("target_id", id);
-  if (linkTgtErr) throw new Error(`Failed to delete entity links (target): ${linkTgtErr.message}`);
-
-  // 2. Delete the event
+  // engagement_events cascade-deleted via FK ON DELETE CASCADE
   const { error: evtErr } = await db
     .from("events")
     .delete()
@@ -243,22 +218,7 @@ export async function updateProgram(
 export async function deleteProgram(id: string): Promise<void> {
   const db = getSupabaseClient();
 
-  // 1. Delete entity links (both directions)
-  const { error: linkSrcErr } = await db
-    .from("entity_links")
-    .delete()
-    .eq("source_type", "program")
-    .eq("source_id", id);
-  if (linkSrcErr) throw new Error(`Failed to delete entity links (source): ${linkSrcErr.message}`);
-
-  const { error: linkTgtErr } = await db
-    .from("entity_links")
-    .delete()
-    .eq("target_type", "program")
-    .eq("target_id", id);
-  if (linkTgtErr) throw new Error(`Failed to delete entity links (target): ${linkTgtErr.message}`);
-
-  // 2. Delete the program
+  // engagement_programs cascade-deleted via FK ON DELETE CASCADE
   const { error: progErr } = await db
     .from("programs")
     .delete()

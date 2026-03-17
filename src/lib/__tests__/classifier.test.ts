@@ -24,7 +24,8 @@ const {
   mockGetRelationships,
   mockCreateApproval,
   mockCreateEngagement,
-  mockCreateEntityLink,
+  mockLinkEngagementToProgram,
+  mockLinkEngagementToEvent,
   mockUpsertParticipants,
   mockLinkEngagementRelationship,
   mockFrom,
@@ -46,24 +47,6 @@ const {
           in: vi.fn().mockResolvedValue({ data: [], error: null }),
         }),
         update: mockUpdate,
-      };
-    }
-    if (table === "entity_links") {
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  eq: vi.fn().mockReturnValue({
-                    limit: vi.fn().mockResolvedValue({ data: [], error: null }),
-                  }),
-                }),
-              }),
-            }),
-          }),
-        }),
-        insert: vi.fn().mockResolvedValue({ error: null }),
       };
     }
     if (table === "meetings") {
@@ -132,7 +115,8 @@ const {
       partner_id: null, pillar: null,
       created_at: "", updated_at: "", closed_at: null,
     }),
-    mockCreateEntityLink: vi.fn().mockResolvedValue(undefined),
+    mockLinkEngagementToProgram: vi.fn().mockResolvedValue(undefined),
+    mockLinkEngagementToEvent: vi.fn().mockResolvedValue(undefined),
     mockUpsertParticipants: vi.fn().mockResolvedValue(undefined),
     mockLinkEngagementRelationship: vi.fn().mockResolvedValue(undefined),
     mockFrom,
@@ -166,12 +150,14 @@ vi.mock("../db", () => ({
   getRelationships: mockGetRelationships,
   createApproval: mockCreateApproval,
   createEngagement: mockCreateEngagement,
-  createEntityLink: mockCreateEntityLink,
+  linkEngagementToProgram: mockLinkEngagementToProgram,
+  linkEngagementToEvent: mockLinkEngagementToEvent,
   upsertParticipants: mockUpsertParticipants,
   backfillMessageSenderNames: vi.fn().mockResolvedValue(0),
   linkMeetingToEngagement: vi.fn().mockResolvedValue(undefined),
   linkEngagementRelationship: mockLinkEngagementRelationship,
-  getEntityLinksForEntity: vi.fn().mockResolvedValue([]),
+  getEngagementPrograms: vi.fn().mockResolvedValue([]),
+  getEngagementEvents: vi.fn().mockResolvedValue([]),
   getRelationshipsByEngagement: vi.fn().mockResolvedValue([]),
 }));
 

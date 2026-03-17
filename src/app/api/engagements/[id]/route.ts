@@ -3,11 +3,11 @@ import {
   getEngagementById,
   getMessagesByEngagement,
   getParticipantsByEngagement,
-  getEntityLinksForEntity,
   updateEngagement,
   deleteEngagement,
   deleteMessagesByEngagement,
 } from "@/lib/db";
+import { getEngagementPrograms, getEngagementEvents } from "@/lib/db/engagement-links";
 
 export async function GET(
   _request: NextRequest,
@@ -24,17 +24,19 @@ export async function GET(
       );
     }
 
-    const [messages, participants, entityLinks] = await Promise.all([
+    const [messages, participants, programs, events] = await Promise.all([
       getMessagesByEngagement(id),
       getParticipantsByEngagement(id),
-      getEntityLinksForEntity("engagement", id),
+      getEngagementPrograms(id),
+      getEngagementEvents(id),
     ]);
 
     return NextResponse.json({
       engagement,
       messages,
       participants,
-      entityLinks,
+      programs,
+      events,
     });
   } catch (error) {
     console.error("GET /api/engagements/[id] error:", error);

@@ -11,11 +11,10 @@ import {
   getMessagesByEngagement,
   getMeetingsByEngagement,
   getParticipantsByEngagement,
-  getEntityLinksForEntity,
-  resolveEntityLinkNames,
   getRelationshipsByEngagement,
   getPartner,
 } from "@/lib/db";
+import { getEngagementPrograms, getEngagementEvents } from "@/lib/db/engagement-links";
 import { formatFooterDate } from "@/lib/format-utils";
 import type { TimelineItem } from "@/lib/types";
 
@@ -28,13 +27,6 @@ const statusDotColor: Record<string, string> = {
   archived: "bg-zinc-500",
 };
 
-// Entity type label + route prefix
-const entityTypeConfig: Record<string, { label: string; prefix: string }> = {
-  program: { label: "Program", prefix: "/programs" },
-  event: { label: "Event", prefix: "/events" },
-  engagement: { label: "Engagement", prefix: "/engagements" },
-};
-
 export default async function EngagementDetailPage({
   params,
 }: {
@@ -45,11 +37,12 @@ export default async function EngagementDetailPage({
   const engagement = await getEngagementById(id);
   if (!engagement) notFound();
 
-  const [messages, meetings, participants, entityLinks, relationships, partner] = await Promise.all([
+  const [messages, meetings, participants, linkedPrograms, linkedEvents, relationships, partner] = await Promise.all([
     getMessagesByEngagement(id),
     getMeetingsByEngagement(id),
     getParticipantsByEngagement(id),
-    getEntityLinksForEntity("engagement", id),
+    getEngagementPrograms(id),
+    getEngagementEvents(id),
     getRelationshipsByEngagement(id),
     engagement.partner_id ? getPartner(engagement.partner_id) : null,
   ]);
@@ -75,17 +68,8 @@ export default async function EngagementDetailPage({
   }
   timelineItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  // Resolve entity link target names
-  const nameMap = await resolveEntityLinkNames(entityLinks);
-
-  const validEntityLinks = entityLinks.filter((link) => {
-    const isSource = link.source_id === id;
-    const otherId = isSource ? link.target_id : link.source_id;
-    return nameMap.has(otherId);
-  });
-
-  const hasConnections = relationships.length > 0 || validEntityLinks.length > 0;
-  const connectionCount = relationships.length + validEntityLinks.length;
+  const hasConnections = relationships.length > 0 || linkedPrograms.length > 0 || linkedEvents.length > 0;
+  const connectionCount = relationships.length + linkedPrograms.length + linkedEvents.length;
 
   const dotColor = statusDotColor[engagement.status] ?? "bg-zinc-500";
 
@@ -204,7 +188,7 @@ export default async function EngagementDetailPage({
             </div>
           </section>
 
-          {/* Connections — relationships + entity links */}
+          {/* Connections — relationships + programs + events */}
           {hasConnections && (
             <section className="mt-6 pt-6 border-t border-border/20">
               <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
@@ -227,30 +211,34 @@ export default async function EngagementDetailPage({
                     )}
                   </Link>
                 ))}
-                {validEntityLinks.map((link) => {
-                  const isSource = link.source_id === id;
-                  const otherId = isSource ? link.target_id : link.source_id;
-                  const otherType = isSource ? link.target_type : link.source_type;
-                  const otherName = nameMap.get(otherId)!;
-                  const config = entityTypeConfig[otherType] ?? { label: otherType, prefix: `/${otherType}s` };
-                  return (
-                    <Link
-                      key={link.id}
-                      href={`${config.prefix}/${otherId}`}
-                      className="flex items-center gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
-                    >
-                      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-widest text-muted/50 w-16">
-                        {config.label}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                        {otherName}
-                      </span>
-                      {link.relationship && (
-                        <span className="shrink-0 text-xs text-muted italic">{link.relationship}</span>
-                      )}
-                    </Link>
-                  );
-                })}
+                {linkedPrograms.map((lp) => (
+                  <Link
+                    key={lp.id}
+                    href={`/programs/${lp.program_id}`}
+                    className="flex items-center gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
+                  >
+                    <span className="shrink-0 text-[10px] font-semibold uppercase tracking-widest text-muted/50 w-16">
+                      Program
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                      {lp.program_name ?? "Unknown"}
+                    </span>
+                  </Link>
+                ))}
+                {linkedEvents.map((le) => (
+                  <Link
+                    key={le.id}
+                    href={`/events/${le.event_id}`}
+                    className="flex items-center gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
+                  >
+                    <span className="shrink-0 text-[10px] font-semibold uppercase tracking-widest text-muted/50 w-16">
+                      Event
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                      {le.event_name ?? "Unknown"}
+                    </span>
+                  </Link>
+                ))}
               </div>
             </section>
           )}
