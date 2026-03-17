@@ -37,19 +37,6 @@ export async function POST(request: NextRequest) {
     // ── Discard ──────────────────────────────────────────────
     if (action === "discard") {
       await discardInboxItem(message_id);
-
-      // If message has a linked meeting, delete it too
-      const { data: linkedMeeting } = await db
-        .from("meetings")
-        .select("id")
-        .eq("message_id", message_id)
-        .maybeSingle();
-
-      if (linkedMeeting) {
-        await db.from("meetings").delete().eq("id", linkedMeeting.id);
-        console.log(`Discarded meeting ${linkedMeeting.id} linked to message ${message_id}`);
-      }
-
       return NextResponse.json({ status: "discarded" });
     }
 

@@ -57,12 +57,20 @@ export async function getInboxCount(): Promise<number> {
 
 export async function discardInboxItem(messageId: string): Promise<void> {
   const db = getSupabaseClient();
+
+  // Delete any meeting linked to this message first
+  await db
+    .from("meetings")
+    .delete()
+    .eq("message_id", messageId);
+
+  // Delete the message itself
   const { error } = await db
     .from("messages")
-    .update({ content_type: "noise" })
+    .delete()
     .eq("id", messageId);
 
-  if (error) throw new Error(`Failed to discard message: ${error.message}`);
+  if (error) throw new Error(`Failed to delete message: ${error.message}`);
 }
 
 export async function getMessagesForInboxItem(messageId: string): Promise<Message[]> {

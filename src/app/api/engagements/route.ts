@@ -5,9 +5,13 @@ import {
   updateEngagement,
 } from "@/lib/db";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const engagements = await getEngagementsWithMessageCounts();
+    const partnerId = request.nextUrl.searchParams.get("partner_id");
+    let engagements = await getEngagementsWithMessageCounts();
+    if (partnerId) {
+      engagements = engagements.filter((e) => e.partner_id === partnerId);
+    }
     return NextResponse.json({ engagements });
   } catch (error) {
     console.error("GET /api/engagements error:", error);
