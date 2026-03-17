@@ -1,19 +1,14 @@
-import { classifyPhase1, classifyPhase2 } from "./claude";
-import { buildPhase1Context } from "./phase1-prompt";
+import { classifyPhase2 } from "./claude";
 import { buildPhase2Context } from "./phase2-prompt";
 import {
   getSupabaseClient,
   getActiveEvents,
   getActivePrograms,
   getRelationships,
-  getUnclassifiedMessages,
   getEngagementHistory,
   getPartner,
-  createApproval,
-  createEngagement,
   upsertParticipants,
   backfillMessageSenderNames,
-  linkMeetingToEngagement,
   linkEngagementRelationship,
   getEngagementPrograms,
   getEngagementEvents,
@@ -27,257 +22,21 @@ import {
 import {
   ClassificationResult,
   CombinedClassificationResult,
-  Meeting,
   Phase1Result,
   Message,
 } from "./types";
 import { buildNameResolutionMap } from "./name-resolver";
-import type { NameResolutionMap } from "./name-resolver";
-
-const AUTO_ASSIGN_THRESHOLD = 0.85;
 
 // ============================================================
-// Two-phase classification pipeline
+// Phase 2 synthesis (called from inbox resolve after user routes)
 // ============================================================
 
 /**
- * Run Phase 1 (match) → Phase 2 (analyze) on a group of messages.
- * Returns a CombinedClassificationResult suitable for persistence.
+ * Run Phase 2 synthesis for a routed engagement.
+ * Core operation used by inbox assignment, new engagement creation,
+ * and engagement merge.
  */
-async function classifyTwoPhase(
-  messages: Message[],
-  forwarderNote?: string | null,
-  nameResolutionMap?: NameResolutionMap | null
-): Promise<CombinedClassificationResult> {
-  // ── Phase 1: Match ──────────────────────────────────────────
-  const phase1Context = await buildPhase1Context(messages, forwarderNote);
-  const phase1Result = await classifyPhase1(messages, phase1Context);
-
-  // If noise, return early — no Phase 2 needed
-  if (phase1Result.content_type === "noise") {
-    return noiseResult(phase1Result);
-  }
-
-  // ── Between phases: fetch data for Phase 2 ──────────────────
-  const engagementId = phase1Result.engagement_match.id;
-  const partnerId = phase1Result.engagement_match.partner_id;
-  const isNew = phase1Result.engagement_match.is_new;
-  const db = getSupabaseClient();
-
-  // Query meetings linked to these messages (created by createMeetingFromICS before classification)
-  const messageIds = messages.map((m) => m.id);
-  const meetingsQuery = db
-    .from("meetings")
-    .select("*")
-    .in("message_id", messageIds)
-    .then(({ data }: { data: unknown }) => (data ?? []) as Meeting[]);
-
-  const [history, matchedPartner, events, programs, relationships, nameMap, newMeetings, linkedPrograms, linkedEvents, engagementRels, partnerContacts] =
-    await Promise.all([
-      engagementId && !isNew
-        ? getEngagementHistory(engagementId)
-        : Promise.resolve(null),
-      partnerId ? getPartner(partnerId) : Promise.resolve(null),
-      getActiveEvents(),
-      getActivePrograms(),
-      getRelationships(),
-      nameResolutionMap
-        ? Promise.resolve(nameResolutionMap)
-        : buildNameResolutionMap(),
-      meetingsQuery,
-      engagementId && !isNew
-        ? getEngagementPrograms(engagementId)
-        : Promise.resolve([]),
-      engagementId && !isNew
-        ? getEngagementEvents(engagementId)
-        : Promise.resolve([]),
-      engagementId && !isNew
-        ? getRelationshipsByEngagement(engagementId)
-        : Promise.resolve([]),
-      partnerId
-        ? getContactsByPartner(partnerId)
-        : Promise.resolve([]),
-    ]);
-
-  // Build existing entity links for Phase 2 context (names come from join)
-  const existingEntityLinks = [
-    ...linkedPrograms.map(lp => ({
-      type: "program" as const,
-      name: lp.program_name ?? lp.program_id,
-      relationship: lp.context || "linked",
-    })),
-    ...linkedEvents.map(le => ({
-      type: "event" as const,
-      name: le.event_name ?? le.event_id,
-      relationship: le.context || "linked",
-    })),
-  ];
-
-  const existingRelationships = engagementRels.map(r => ({
-    name: r.name,
-    relationship: "linked",
-  }));
-
-  const existingLinks = (existingEntityLinks.length > 0 || existingRelationships.length > 0)
-    ? { entityLinks: existingEntityLinks, awsRelationships: existingRelationships }
-    : null;
-
-  // Bulk-fetch relationship contacts for prompt rendering
-  const relationshipContactEntries = await Promise.all(
-    relationships.map(async (r) => {
-      const contacts = await getContactsByRelationship(r.id);
-      return [r.id, contacts] as const;
-    })
-  );
-  const relationshipContactsMap = new Map(
-    relationshipContactEntries.filter(([, contacts]) => contacts.length > 0)
-  );
-
-  // Bulk-fetch meeting contacts for prompt rendering
-  const allMeetingIds = [
-    ...(history?.meetings ?? []).map((m) => m.id),
-    ...newMeetings.map((m) => m.id),
-  ];
-  const meetingContactEntries = await Promise.all(
-    allMeetingIds.map(async (mid) => {
-      const contacts = await getContactsByMeeting(mid);
-      return [mid, contacts.map((c) => ({ name: c.name, email: c.email }))] as const;
-    })
-  );
-  const meetingContactsMap = new Map(
-    meetingContactEntries.filter(([, contacts]) => contacts.length > 0)
-  );
-
-  // ── Phase 2: Analyze ────────────────────────────────────────
-  const phase2Context = buildPhase2Context(
-    messages,
-    phase1Result,
-    history,
-    { events, programs, relationships },
-    matchedPartner,
-    forwarderNote,
-    nameMap,
-    newMeetings.length > 0 ? newMeetings : null,
-    existingLinks,
-    partnerContacts,
-    relationshipContactsMap,
-    meetingContactsMap
-  );
-
-  return await classifyPhase2(phase2Context);
-}
-
-/**
- * Build a CombinedClassificationResult for noise without running Phase 2.
- */
-function noiseResult(phase1: Phase1Result): CombinedClassificationResult {
-  return {
-    content_type: "noise",
-    engagement_match: phase1.engagement_match,
-    matched_events: [],
-    matched_programs: [],
-    matched_relationships: [],
-    participants: [],
-    current_state: null,
-    topic: null,
-    goal: null,
-    engagement_name: null,
-    pillar: null,
-  };
-}
-
-// ============================================================
-// Orchestration: process all unclassified messages
-// ============================================================
-
-export async function processUnclassifiedMessages(): Promise<{
-  processed: number;
-  autoAssigned: number;
-  flaggedForReview: number;
-  errors: number;
-}> {
-  const stats = { processed: 0, autoAssigned: 0, flaggedForReview: 0, errors: 0 };
-
-  const messages = await getUnclassifiedMessages();
-  if (messages.length === 0) return stats;
-
-  // Group messages by forwarded_at timestamp (within 5s = same forwarded email)
-  const groups = groupByForwardedAt(messages);
-
-  for (const group of groups) {
-    try {
-      const representative = group[0];
-      const forwarderNote = representative.forwarder_note ?? null;
-
-      const result = await classifyTwoPhase(group, forwarderNote);
-      const { needsReview } = await applyClassificationResult(group, result);
-      stats.processed += group.length;
-
-      const isNoise = result.content_type === "noise";
-      if (!isNoise && !needsReview) {
-        stats.autoAssigned += group.length;
-      } else if (needsReview) {
-        stats.flaggedForReview += group.length;
-      }
-    } catch (error) {
-      console.error(
-        `Classification error for message group [${group.map((m) => m.id).join(", ")}]:`,
-        error
-      );
-      stats.errors += group.length;
-    }
-  }
-
-  return stats;
-}
-
-// ============================================================
-// Process a single message (called after inbound webhook)
-// ============================================================
-
-export async function processSingleMessage(
-  messageIds: string[],
-  forwarderNote?: string | null,
-  nameResolutionMap?: NameResolutionMap | null
-): Promise<CombinedClassificationResult | null> {
-  if (messageIds.length === 0) return null;
-
-  const db = getSupabaseClient();
-
-  // Fetch the messages
-  const { data: messages, error } = await db
-    .from("messages")
-    .select("*")
-    .in("id", messageIds);
-
-  if (error || !messages || messages.length === 0) {
-    console.error("Failed to fetch messages for classification:", error);
-    return null;
-  }
-
-  try {
-    const result = await classifyTwoPhase(
-      messages as Message[],
-      forwarderNote,
-      nameResolutionMap
-    );
-    await applyClassificationResult(messages as Message[], result);
-    return result;
-  } catch (error) {
-    console.error("Classification error:", error);
-    return null;
-  }
-}
-
-// ============================================================
-// Run Phase 2 only (called from inbox resolve after user assigns)
-// ============================================================
-
-/**
- * Run Phase 2 analysis for an already-matched engagement.
- * Used by the inbox resolve flow after the user picks/creates an engagement.
- */
-export async function runPhase2ForResolve(
+export async function synthesizeIntoEngagement(
   messages: Message[],
   phase1Result: Phase1Result,
   forwarderNote?: string | null
@@ -372,6 +131,35 @@ export async function runPhase2ForResolve(
   );
 
   return await classifyPhase2(phase2Context);
+}
+
+// ============================================================
+// Synthetic Phase 1 result builder
+// ============================================================
+
+/**
+ * Build a synthetic Phase1Result for the synthesis pipeline.
+ * Used by the resolve route to construct the routing context
+ * that synthesizeIntoEngagement expects.
+ */
+export function buildSyntheticPhase1Result(
+  engagementId: string | null,
+  partnerId: string,
+  partnerName: string,
+  isNew: boolean,
+  suggestedName?: string
+): Phase1Result {
+  return {
+    content_type: "engagement_email",
+    engagement_match: {
+      id: engagementId,
+      name: suggestedName ?? "New Engagement",
+      confidence: 1.0,
+      is_new: isNew,
+      partner_name: partnerName,
+      partner_id: partnerId,
+    },
+  };
 }
 
 // ============================================================
@@ -502,119 +290,4 @@ export async function persistClassificationResult(
   if (backfilled > 0) {
     console.log(`[BACKFILL] Updated ${backfilled} message sender name(s) for engagement ${engagementId}`);
   }
-}
-
-// ============================================================
-// Apply classification results to the database
-// ============================================================
-
-async function applyClassificationResult(
-  messages: Message[],
-  result: CombinedClassificationResult
-): Promise<{ needsReview: boolean }> {
-  const db = getSupabaseClient();
-  const messageIds = messages.map((m) => m.id);
-
-  // Determine routing
-  const isNoise = result.content_type === "noise";
-  const isHighConfidence =
-    !isNoise &&
-    result.engagement_match.confidence >= AUTO_ASSIGN_THRESHOLD;
-  const hasHighConfidenceExisting =
-    isHighConfidence && !result.engagement_match.is_new && result.engagement_match.id;
-  const hasHighConfidenceNew =
-    isHighConfidence && result.engagement_match.is_new;
-
-  let needsReview = !isNoise && !isHighConfidence;
-
-  // Track which engagement ID gets assigned to messages
-  let assignedEngagementId: string | null = null;
-
-  // 1. Auto-create new engagement at high confidence
-  if (hasHighConfidenceNew) {
-    try {
-      const currentState = result.current_state ?? null;
-      const engagementName = result.engagement_name || result.engagement_match.name;
-
-      const engagement = await createEngagement({
-        name: engagementName,
-        partner_name: result.engagement_match.partner_name,
-        current_state: currentState,
-        topic: result.topic ?? null,
-        goal: result.goal ?? null,
-      });
-      assignedEngagementId = engagement.id;
-
-      // Set pillar on newly created engagement
-      if (result.pillar) {
-        await db.from("engagements").update({ pillar: result.pillar }).eq("id", engagement.id);
-      }
-
-      console.log(
-        `Auto-created engagement: ${engagement.name} (${engagement.id}) from ${messageIds.length} message(s)`
-      );
-    } catch (err) {
-      console.error("Auto-create engagement failed, falling back to review:", err);
-      needsReview = true;
-    }
-  }
-
-  // 2. Auto-assign to existing engagement at high confidence
-  if (hasHighConfidenceExisting) {
-    assignedEngagementId = result.engagement_match.id!;
-  }
-
-  // 3. Persist classification data
-  if (assignedEngagementId && !needsReview) {
-    await persistClassificationResult(
-      result,
-      assignedEngagementId,
-      messageIds,
-      !!hasHighConfidenceNew
-    );
-
-    // Push engagement to Airtable (awaited to prevent serverless termination)
-    try {
-      const { pushEngagementToAirtable } = await import("./sync");
-      const pushResult = await pushEngagementToAirtable(assignedEngagementId!);
-      console.log(`Airtable push: ${pushResult.action} engagement ${assignedEngagementId}`);
-    } catch (err) {
-      console.error(`Airtable push failed for ${assignedEngagementId}:`, err);
-    }
-  } else {
-    // Not assigned — still update messages with classification data
-    const messageUpdate: Record<string, unknown> = {
-      content_type: result.content_type,
-      classification_confidence: result.engagement_match.confidence,
-      classification_result: result,
-      pending_review: needsReview,
-    };
-
-    await db.from("messages").update(messageUpdate).in("id", messageIds);
-  }
-
-  // 3b. Link any meetings associated with these messages to the engagement.
-  // No content_type gate — if a meeting record exists for a message, link it.
-  if (assignedEngagementId && !needsReview) {
-    for (const msgId of messageIds) {
-      await linkMeetingToEngagement(msgId, assignedEngagementId);
-    }
-  }
-
-  // 4. If flagged for review, create pending approval (resolved via Inbox UI)
-  if (needsReview) {
-    await createApproval({
-      type: "engagement_assignment",
-      message_id: messages[0].id,
-      classification_result: result,
-    });
-  }
-
-  console.log(
-    `Classified ${messageIds.length} message(s): type=${result.content_type}, ` +
-      `confidence=${result.engagement_match.confidence}, ` +
-      `review=${needsReview}, engagement=${result.engagement_match.name}`
-  );
-
-  return { needsReview };
 }
