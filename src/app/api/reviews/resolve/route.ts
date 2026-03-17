@@ -1,183 +1,136 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getSupabaseClient,
-  resolveApproval,
   createEngagement,
   linkMeetingToEngagement,
+  getMessagesForInboxItem,
+  discardInboxItem,
 } from "@/lib/db";
-import { persistClassificationResult, runPhase2ForResolve } from "@/lib/classifier";
-import type { ApprovalQueueItem, CombinedClassificationResult, Engagement, Message, Phase1Result } from "@/lib/types";
+import {
+  synthesizeIntoEngagement,
+  persistClassificationResult,
+  buildSyntheticPhase1Result,
+} from "@/lib/classifier";
+import type { Engagement, Message } from "@/lib/types";
 
 interface ResolveRequest {
-  review_id: string;
-  action: "confirm" | "assign_existing" | "discard";
-  engagement_id?: string; // required for assign_existing
+  message_id: string;
+  action: "discard" | "create_new" | "assign_existing";
+  engagement_id?: string;   // required for assign_existing
+  title?: string;           // optional for create_new (defaults to suggested title)
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as ResolveRequest;
-    const { review_id, action, engagement_id } = body;
+    const { message_id, action, engagement_id, title } = body;
 
-    if (!review_id || !action) {
+    if (!message_id || !action) {
       return NextResponse.json(
-        { error: "review_id and action are required" },
+        { error: "message_id and action are required" },
         { status: 400 }
       );
     }
 
-    // Fetch the approval by ID
     const db = getSupabaseClient();
-    const { data: row, error: fetchError } = await db
-      .from("approval_queue")
-      .select("*")
-      .eq("id", review_id)
-      .maybeSingle();
-
-    if (fetchError) {
-      console.error("Approval fetch error:", fetchError.message, fetchError.code);
-      return NextResponse.json(
-        { error: `Database error fetching approval: ${fetchError.message}` },
-        { status: 500 }
-      );
-    }
-
-    if (!row) {
-      console.error("No approval found with id:", review_id);
-      return NextResponse.json(
-        { error: `No approval found with id ${review_id}` },
-        { status: 404 }
-      );
-    }
-
-    const approval = row as ApprovalQueueItem;
-
-    if (approval.resolved) {
-      console.warn("Approval already resolved:", review_id, approval.resolution);
-      return NextResponse.json(
-        { error: "This approval has already been resolved" },
-        { status: 409 }
-      );
-    }
-
-    const classResult = approval.classification_result as CombinedClassificationResult;
 
     // ── Discard ──────────────────────────────────────────────
     if (action === "discard") {
-      if (approval.message_id) {
-        await db
-          .from("messages")
-          .update({ content_type: "noise", pending_review: false })
-          .eq("id", approval.message_id);
+      await discardInboxItem(message_id);
+
+      // If message has a linked meeting, delete it too
+      const { data: linkedMeeting } = await db
+        .from("meetings")
+        .select("id")
+        .eq("message_id", message_id)
+        .maybeSingle();
+
+      if (linkedMeeting) {
+        await db.from("meetings").delete().eq("id", linkedMeeting.id);
+        console.log(`Discarded meeting ${linkedMeeting.id} linked to message ${message_id}`);
       }
-      await resolveApproval(review_id, "discarded");
+
       return NextResponse.json({ status: "discarded" });
     }
 
-    // ── Shared: fetch messages for confirm & assign_existing ─
-    const messageIds = approval.message_id ? [approval.message_id] : [];
-    let messages: Message[] = [];
-    if (messageIds.length > 0) {
-      const { data } = await db
-        .from("messages")
-        .select("*")
-        .in("id", messageIds);
-      messages = (data ?? []) as Message[];
-    }
+    // ── Shared: fetch messages for create_new & assign_existing ──
+    const messages = await getMessagesForInboxItem(message_id);
+    const messageIds = messages.map((m) => m.id);
     const forwarderNote = messages[0]?.forwarder_note ?? null;
+    const partnerId = messages[0]?.partner_id ?? null;
 
-    // ── Confirm ──────────────────────────────────────────────
-    if (action === "confirm") {
-      let engagement: Engagement;
-      let isNew: boolean;
+    if (!partnerId) {
+      return NextResponse.json(
+        { error: "Message has no detected partner. Select a partner first." },
+        { status: 400 }
+      );
+    }
 
-      if (classResult.engagement_match.is_new) {
-        // Create new engagement with full parity to auto-assign
-        const engagementName = classResult.engagement_name || classResult.engagement_match.name;
-        engagement = await createEngagement({
-          name: engagementName,
-          partner_name: classResult.engagement_match.partner_name,
-          current_state: classResult.current_state ?? null,
-          topic: classResult.topic ?? null,
-          goal: classResult.goal ?? null,
-        });
+    // Get partner name
+    const { data: partner } = await db
+      .from("partners")
+      .select("name")
+      .eq("id", partnerId)
+      .single();
+    const partnerName = partner?.name ?? "Unknown Partner";
 
-        // Set pillar separately (same as auto-assign path)
-        if (classResult.pillar) {
-          await db
-            .from("engagements")
-            .update({ pillar: classResult.pillar })
-            .eq("id", engagement.id);
-        }
+    // ── Create New Engagement ────────────────────────────────
+    if (action === "create_new") {
+      const engagementTitle = title || `${partnerName} - ${cleanSubject(messages[0]?.subject)}`;
 
-        isNew = true;
-      } else {
-        // Existing engagement match — use the ID from classification
-        const existingId = classResult.engagement_match.id!;
-        const { data: eng } = await db
-          .from("engagements")
-          .select("*")
-          .eq("id", existingId)
-          .single();
-        if (!eng) {
-          return NextResponse.json(
-            { error: `Engagement ${existingId} not found` },
-            { status: 404 }
-          );
-        }
-        engagement = eng as Engagement;
-        isNew = false;
-      }
+      const engagement = await createEngagement({
+        name: engagementTitle,
+        partner_name: partnerName,
+        current_state: null,
+        topic: null,
+        goal: null,
+      });
 
-      // Run Phase 2 for fresh analysis
-      let finalResult: CombinedClassificationResult = classResult;
-      if (messages.length > 0) {
-        try {
-          const phase1ForResolve: Phase1Result = {
-            content_type: classResult.content_type ?? "engagement_email",
-            engagement_match: {
-              ...classResult.engagement_match,
-              id: engagement.id,
-              name: engagement.name,
-              is_new: isNew,
-              partner_id: classResult.engagement_match.partner_id ?? null,
-            },
-          };
-          finalResult = await runPhase2ForResolve(messages, phase1ForResolve, forwarderNote);
-        } catch (err) {
-          console.error("Phase 2 failed during resolve, using stored result:", err);
-        }
-      }
+      // Run AI synthesis
+      const phase1 = buildSyntheticPhase1Result(
+        engagement.id,
+        partnerId,
+        partnerName,
+        true,
+        engagementTitle
+      );
 
-      // Persist classification result
-      await persistClassificationResult(finalResult, engagement.id, messageIds, isNew);
-
-      // Push to Airtable (awaited to prevent serverless termination)
+      let finalResult;
       try {
-        const { pushEngagementToAirtable } = await import("@/lib/sync");
-        const pushResult = await pushEngagementToAirtable(engagement.id);
-        console.log(`Airtable push: ${pushResult.action} engagement ${engagement.id}`);
+        finalResult = await synthesizeIntoEngagement(messages, phase1, forwarderNote);
       } catch (err) {
-        console.error(`Airtable push failed for ${engagement.id}:`, err);
+        console.error("Synthesis failed for new engagement, continuing with basic data:", err);
+        finalResult = null;
       }
 
-      // Link any meetings associated with these messages to the engagement
+      if (finalResult) {
+        await persistClassificationResult(finalResult, engagement.id, messageIds, true);
+      } else {
+        // Minimal: just link messages to engagement
+        await db
+          .from("messages")
+          .update({ engagement_id: engagement.id, pending_review: false })
+          .in("id", messageIds);
+      }
+
+      // Link any meetings
       for (const msgId of messageIds) {
         await linkMeetingToEngagement(msgId, engagement.id);
       }
 
-      const resolution = isNew
-        ? `created:${engagement.id}:${engagement.name}`
-        : `confirmed:${engagement.id}:${engagement.name}`;
-      await resolveApproval(review_id, resolution);
+      // Push to Airtable
+      try {
+        const { pushEngagementToAirtable } = await import("@/lib/sync");
+        await pushEngagementToAirtable(engagement.id);
+        console.log(`Airtable push: created engagement ${engagement.id}`);
+      } catch (err) {
+        console.error(`Airtable push failed for ${engagement.id}:`, err);
+      }
 
-      return NextResponse.json({
-        status: "confirmed",
-        engagement,
-      });
+      return NextResponse.json({ status: "created", engagement });
     }
 
-    // ── Assign Existing ──────────────────────────────────────
+    // ── Assign to Existing Engagement ────────────────────────
     if (action === "assign_existing") {
       if (!engagement_id) {
         return NextResponse.json(
@@ -186,76 +139,92 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Validate the engagement exists
       const { data: eng } = await db
         .from("engagements")
         .select("*")
         .eq("id", engagement_id)
         .single();
+
       if (!eng) {
         return NextResponse.json(
           { error: `Engagement ${engagement_id} not found` },
           { status: 404 }
         );
       }
+
       const engagement = eng as Engagement;
 
-      // Run Phase 2 with the user-selected engagement
-      let finalResult: CombinedClassificationResult = classResult;
-      if (messages.length > 0) {
-        try {
-          const phase1ForResolve: Phase1Result = {
-            content_type: classResult.content_type ?? "engagement_email",
-            engagement_match: {
-              id: engagement.id,
-              name: engagement.name,
-              confidence: 1.0, // user-assigned = full confidence
-              is_new: false,
-              partner_name: null, // resolved via partner_id
-              partner_id: engagement.partner_id,
-            },
-          };
-          finalResult = await runPhase2ForResolve(messages, phase1ForResolve, forwarderNote);
-        } catch (err) {
-          console.error("Phase 2 failed during assign_existing, using stored result:", err);
-        }
+      // Validate same partner
+      if (engagement.partner_id && engagement.partner_id !== partnerId) {
+        return NextResponse.json(
+          { error: "Message partner does not match engagement partner" },
+          { status: 400 }
+        );
       }
 
-      await persistClassificationResult(finalResult, engagement.id, messageIds, false);
+      // Run AI synthesis
+      const phase1 = buildSyntheticPhase1Result(
+        engagement.id,
+        partnerId,
+        partnerName,
+        false,
+        engagement.name
+      );
 
-      // Push to Airtable (awaited to prevent serverless termination)
+      let finalResult;
       try {
-        const { pushEngagementToAirtable } = await import("@/lib/sync");
-        const pushResult = await pushEngagementToAirtable(engagement.id);
-        console.log(`Airtable push: ${pushResult.action} engagement ${engagement.id}`);
+        finalResult = await synthesizeIntoEngagement(messages, phase1, forwarderNote);
       } catch (err) {
-        console.error(`Airtable push failed for ${engagement.id}:`, err);
+        console.error("Synthesis failed for assign_existing, continuing with basic link:", err);
+        finalResult = null;
       }
 
-      // Link any meetings associated with these messages to the engagement
+      if (finalResult) {
+        await persistClassificationResult(finalResult, engagement.id, messageIds, false);
+      } else {
+        await db
+          .from("messages")
+          .update({ engagement_id: engagement.id, pending_review: false })
+          .in("id", messageIds);
+      }
+
+      // Link any meetings
       for (const msgId of messageIds) {
         await linkMeetingToEngagement(msgId, engagement.id);
       }
 
-      await resolveApproval(review_id, `assigned:${engagement.id}:${engagement.name}`);
+      // Push to Airtable
+      try {
+        const { pushEngagementToAirtable } = await import("@/lib/sync");
+        await pushEngagementToAirtable(engagement.id);
+        console.log(`Airtable push: updated engagement ${engagement.id}`);
+      } catch (err) {
+        console.error(`Airtable push failed for ${engagement.id}:`, err);
+      }
 
-      return NextResponse.json({
-        status: "assigned",
-        engagement,
-      });
+      return NextResponse.json({ status: "assigned", engagement });
     }
 
     return NextResponse.json(
-      { error: "Invalid action. Must be confirm, assign_existing, or discard" },
+      { error: "Invalid action. Must be discard, create_new, or assign_existing" },
       { status: 400 }
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    const stack = error instanceof Error ? error.stack : "";
-    console.error("Resolve approval failed:", message, stack);
+    console.error("Resolve failed:", message);
     return NextResponse.json(
-      { error: `Failed to resolve approval: ${message}` },
+      { error: `Failed to resolve: ${message}` },
       { status: 500 }
     );
   }
+}
+
+/** Strip common prefixes from email subject for title suggestion */
+function cleanSubject(subject: string | null): string {
+  if (!subject) return "New Engagement";
+  return subject
+    .replace(/^(RE|FW|FWD|Fwd|Re|Fw):\s*/gi, "")
+    .replace(/^\[EXTERNAL\]\s*/i, "")
+    .replace(/^\[.*?\]\s*/, "")
+    .trim() || "New Engagement";
 }

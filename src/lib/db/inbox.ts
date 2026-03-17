@@ -1,65 +1,95 @@
 import { getSupabaseClient } from "./client";
-import { ApprovalQueueItem, ClassificationResult, Message, Engagement } from "../types";
+import type { Message } from "../types";
 
-export async function createApproval(data: {
-  type: ApprovalQueueItem["type"];
-  message_id?: string | null;
-  engagement_id?: string | null;
-  classification_result?: ClassificationResult | null;
-}): Promise<ApprovalQueueItem> {
-  const { data: row, error } = await getSupabaseClient()
-    .from("approval_queue")
-    .insert({
-      type: data.type,
-      message_id: data.message_id ?? null,
-      engagement_id: data.engagement_id ?? null,
-      classification_result: data.classification_result ?? null,
-    })
-    .select()
-    .single();
+/**
+ * Inbox = unrouted messages (engagement_id IS NULL, not noise).
+ */
 
-  if (error) throw new Error(`Failed to create approval: ${error.message}`);
-  return row as ApprovalQueueItem;
+export interface InboxItem {
+  id: string;
+  sender_name: string | null;
+  sender_email: string | null;
+  subject: string | null;
+  body_text: string | null;
+  forwarded_at: string;
+  partner_id: string | null;
+  partner_name: string | null;
+  content_type: string | null;
+  forwarder_note: string | null;
 }
 
-export async function getUnresolvedApprovals(): Promise<
-  (ApprovalQueueItem & { message: Message | null; engagement: Engagement | null })[]
-> {
-  const { data, error } = await getSupabaseClient()
-    .from("approval_queue")
-    .select("*, message:messages(*), engagement:engagements(*)")
-    .eq("resolved", false)
-    .order("created_at", { ascending: false });
+export async function getInboxItems(): Promise<InboxItem[]> {
+  const db = getSupabaseClient();
+  const { data, error } = await db
+    .from("messages")
+    .select("id, sender_name, sender_email, subject, body_text, forwarded_at, partner_id, content_type, forwarder_note, partners!messages_partner_id_fkey(name)")
+    .is("engagement_id", null)
+    .or("content_type.is.null,content_type.neq.noise")
+    .order("forwarded_at", { ascending: false });
 
-  if (error) throw new Error(`Failed to fetch approvals: ${error.message}`);
-  return (data ?? []) as (ApprovalQueueItem & {
-    message: Message | null;
-    engagement: Engagement | null;
-  })[];
+  if (error) throw new Error(`Failed to fetch inbox items: ${error.message}`);
+
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    sender_name: row.sender_name,
+    sender_email: row.sender_email,
+    subject: row.subject,
+    body_text: row.body_text,
+    forwarded_at: row.forwarded_at,
+    partner_id: row.partner_id,
+    partner_name: row.partners?.name ?? null,
+    content_type: row.content_type,
+    forwarder_note: row.forwarder_note,
+  }));
 }
 
-export async function getUnresolvedApprovalCount(): Promise<number> {
-  const { count, error } = await getSupabaseClient()
-    .from("approval_queue")
+export async function getInboxCount(): Promise<number> {
+  const db = getSupabaseClient();
+  const { count, error } = await db
+    .from("messages")
     .select("*", { count: "exact", head: true })
-    .eq("resolved", false);
+    .is("engagement_id", null)
+    .or("content_type.is.null,content_type.neq.noise");
 
-  if (error) throw new Error(`Failed to count approvals: ${error.message}`);
+  if (error) throw new Error(`Failed to count inbox items: ${error.message}`);
   return count ?? 0;
 }
 
-export async function resolveApproval(
-  id: string,
-  resolution: string
-): Promise<void> {
-  const { error } = await getSupabaseClient()
-    .from("approval_queue")
-    .update({
-      resolved: true,
-      resolved_at: new Date().toISOString(),
-      resolution,
-    })
-    .eq("id", id);
+export async function discardInboxItem(messageId: string): Promise<void> {
+  const db = getSupabaseClient();
+  const { error } = await db
+    .from("messages")
+    .update({ content_type: "noise" })
+    .eq("id", messageId);
 
-  if (error) throw new Error(`Failed to resolve approval: ${error.message}`);
+  if (error) throw new Error(`Failed to discard message: ${error.message}`);
+}
+
+export async function getMessagesForInboxItem(messageId: string): Promise<Message[]> {
+  const db = getSupabaseClient();
+
+  // Get the target message first
+  const { data: target, error: targetError } = await db
+    .from("messages")
+    .select("*")
+    .eq("id", messageId)
+    .single();
+
+  if (targetError || !target) throw new Error(`Message ${messageId} not found`);
+
+  // Find grouped messages (same forwarded_at within 5 seconds)
+  const targetTime = new Date(target.forwarded_at).getTime();
+  const windowStart = new Date(targetTime - 5000).toISOString();
+  const windowEnd = new Date(targetTime + 5000).toISOString();
+
+  const { data: grouped, error: groupError } = await db
+    .from("messages")
+    .select("*")
+    .is("engagement_id", null)
+    .gte("forwarded_at", windowStart)
+    .lte("forwarded_at", windowEnd);
+
+  if (groupError) throw new Error(`Failed to fetch grouped messages: ${groupError.message}`);
+
+  return (grouped ?? [target]) as Message[];
 }

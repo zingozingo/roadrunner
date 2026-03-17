@@ -246,15 +246,7 @@ export async function deleteEngagement(id: string): Promise<void> {
   // engagement_programs, engagement_events, engagement_participants
   // all cascade-deleted via FK ON DELETE CASCADE
 
-  // Delete unresolved approvals referencing this engagement
-  const { error: approvalErr } = await db
-    .from("approval_queue")
-    .delete()
-    .eq("engagement_id", id)
-    .eq("resolved", false);
-  if (approvalErr) throw new Error(`Failed to delete approvals: ${approvalErr.message}`);
-
-  // 4. Delete the engagement — DB cascades handle:
+  // Delete the engagement — DB cascades handle:
   //    messages.engagement_id → SET NULL
   //    notes.engagement_id → CASCADE
   const { error: engErr } = await db

@@ -103,13 +103,14 @@ export {
   getPartnerContactDomains,
 } from "./participants";
 
-// Inbox (Approval Queue)
+// Inbox (message-based)
 export {
-  createApproval,
-  getUnresolvedApprovals,
-  getUnresolvedApprovalCount,
-  resolveApproval,
+  getInboxItems,
+  getInboxCount,
+  discardInboxItem,
+  getMessagesForInboxItem,
 } from "./inbox";
+export type { InboxItem } from "./inbox";
 
 // Meeting Notes
 export {

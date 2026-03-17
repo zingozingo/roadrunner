@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Sidebar from "@/components/layout/Sidebar";
-import { getUnresolvedApprovalCount } from "@/lib/db";
+import { getInboxCount } from "@/lib/db";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,7 +26,7 @@ export default async function RootLayout({
 }>) {
   let badgeCount = 0;
   try {
-    badgeCount = await getUnresolvedApprovalCount();
+    badgeCount = await getInboxCount();
   } catch {
     // Supabase may not be available during build
   }
