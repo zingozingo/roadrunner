@@ -18,7 +18,7 @@ export async function getEngagementPrograms(
     ...row,
     program_name: (row.programs as { name: string } | null)?.name ?? null,
     programs: undefined,
-  })) as EngagementProgram[];
+  })) as unknown as EngagementProgram[];
 }
 
 export async function getProgramEngagements(
@@ -34,7 +34,7 @@ export async function getProgramEngagements(
     ...row,
     engagement_name: (row.engagements as { name: string } | null)?.name ?? null,
     engagements: undefined,
-  })) as EngagementProgram[];
+  })) as unknown as EngagementProgram[];
 }
 
 export async function linkEngagementToProgram(
@@ -88,7 +88,7 @@ export async function getEngagementEvents(
     ...row,
     event_name: (row.events as { name: string } | null)?.name ?? null,
     events: undefined,
-  })) as EngagementEvent[];
+  })) as unknown as EngagementEvent[];
 }
 
 export async function getEventEngagements(
@@ -104,7 +104,7 @@ export async function getEventEngagements(
     ...row,
     engagement_name: (row.engagements as { name: string } | null)?.name ?? null,
     engagements: undefined,
-  })) as EngagementEvent[];
+  })) as unknown as EngagementEvent[];
 }
 
 export async function linkEngagementToEvent(

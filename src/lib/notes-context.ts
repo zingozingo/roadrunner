@@ -348,13 +348,13 @@ async function resolveEngagementEntities(
   ]);
 
   // Take first match per engagement
-  for (const link of (programLinks ?? []) as { engagement_id: string; programs: { name: string } | null }[]) {
+  for (const link of (programLinks ?? []) as unknown as { engagement_id: string; programs: { name: string } | null }[]) {
     if (!programs.has(link.engagement_id) && link.programs?.name) {
       programs.set(link.engagement_id, link.programs.name);
     }
   }
 
-  for (const link of (eventLinks ?? []) as { engagement_id: string; events: { name: string } | null }[]) {
+  for (const link of (eventLinks ?? []) as unknown as { engagement_id: string; events: { name: string } | null }[]) {
     if (!events.has(link.engagement_id) && link.events?.name) {
       events.set(link.engagement_id, link.events.name);
     }

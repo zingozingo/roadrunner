@@ -387,14 +387,14 @@ async function getEngagementEntityLinks(
       .in("engagement_id", engagementIds),
   ]);
 
-  for (const link of (programLinks ?? []) as { engagement_id: string; programs: { name: string } | null }[]) {
+  for (const link of (programLinks ?? []) as unknown as { engagement_id: string; programs: { name: string } | null }[]) {
     const name = link.programs?.name ?? "Unknown";
     const existing = result.get(link.engagement_id) ?? [];
     existing.push({ type: "program", name });
     result.set(link.engagement_id, existing);
   }
 
-  for (const link of (eventLinks ?? []) as { engagement_id: string; events: { name: string } | null }[]) {
+  for (const link of (eventLinks ?? []) as unknown as { engagement_id: string; events: { name: string } | null }[]) {
     const name = link.events?.name ?? "Unknown";
     const existing = result.get(link.engagement_id) ?? [];
     existing.push({ type: "event", name });
