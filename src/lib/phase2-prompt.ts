@@ -138,17 +138,17 @@ Return null if unclear. It's fine to not classify early-stage engagements.
 
 Return ONLY valid JSON. No markdown code blocks, no preamble.
 
-The content_type and engagement_match fields are provided to you in the "Phase 1 Classification" section below — echo them back exactly as given.
+The content_type and engagement_match fields are provided in the "Routing Decision" section below. Return them as-is in your response — the routing has already been decided by the user.
 
 {
   "content_type": "engagement_email" | "meeting_invite" | "mixed" | "noise",
   "engagement_match": {
-    "id": "echo from Phase 1",
-    "name": "echo from Phase 1 (or updated name for new engagements)",
+    "id": "from routing decision",
+    "name": "from routing decision (or compute as '{Partner} - {topic}' for new engagements)",
     "confidence": 0.0-1.0,
     "is_new": true/false,
-    "partner_name": "echo from Phase 1",
-    "partner_id": "echo from Phase 1"
+    "partner_name": "from routing decision",
+    "partner_id": "from routing decision"
   },
   "topic": "3-8 word description of engagement subject",
   "goal": "One sentence describing what success looks like",
@@ -239,8 +239,8 @@ export function buildPhase2Context(
   // Section 1: Forwarder identity
   parts.push(buildForwarderSection(forwarderNote));
 
-  // Section 2: Phase 1 classification (pass-through)
-  parts.push(buildPhase1PassThrough(phase1Result));
+  // Section 2: Routing decision (user-provided)
+  parts.push(buildRoutingContext(phase1Result));
 
   // Section 3 & 4: Engagement context + history (existing engagements only)
   if (history) {
@@ -315,10 +315,10 @@ export function parsePhase2Response(raw: string): CombinedClassificationResult {
 // Internal section builders
 // ============================================================
 
-function buildPhase1PassThrough(phase1Result: Phase1Result): string {
+function buildRoutingContext(phase1Result: Phase1Result): string {
   const em = phase1Result.engagement_match;
   const lines = [
-    "## Phase 1 Classification (echo these in your response)\n",
+    "## Routing Decision\n",
     `content_type: "${phase1Result.content_type}"`,
     `engagement_match: ${JSON.stringify(em)}`,
     "",
