@@ -3905,7 +3905,7 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 ### Decision 178: JSONB Columns Are Transitional Artifacts
 
 **Date:** 2026-03-14
-**Status:** Planned
+**Status:** ✅ Implemented (migration 064)
 
 **Decision:** aws_team, partner_contacts, contacts JSONB columns will be dropped once UI reads are fully rewired to join tables.
 
@@ -3920,7 +3920,7 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 ### Decision 179: Legacy Notes Table Confirmed Dead
 
 **Date:** 2026-03-14
-**Status:** Planned
+**Status:** ✅ Implemented (migration 061)
 
 **Decision:** The old engagement-level notes table (id, engagement_id, content) should be dropped. Zero code references remain.
 
@@ -4592,7 +4592,7 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 ### Decision 223: Kill Phase 1 AI routing — all items go to inbox
 
 **Date:** 2026-03-17
-**Status:** Planned
+**Status:** ✅ Implemented
 
 **Decision:** Eliminate the Phase 1 AI classification that auto-routes emails to engagements. All incoming emails and ICS invites go to the inbox for human triage.
 
@@ -4607,7 +4607,7 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 ### Decision 224: Mechanical partner detection via domain matching
 
 **Date:** 2026-03-17
-**Status:** Planned
+**Status:** ✅ Implemented
 
 **Decision:** Detect the partner from incoming emails using domain matching against the contact registry, not AI. Falls back to manual selection if no domain match.
 
@@ -4622,7 +4622,7 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 ### Decision 225: Messages get partner_id column
 
 **Date:** 2026-03-17
-**Status:** Planned
+**Status:** ✅ Implemented
 
 **Decision:** Add partner_id (FK to partners, ON DELETE SET NULL) to the messages table so the inbox can display partner association before an engagement is assigned.
 
@@ -4637,7 +4637,7 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 ### Decision 226: approval_queue table dropped — inbox = unrouted messages
 
 **Date:** 2026-03-17
-**Status:** Planned
+**Status:** ✅ Implemented
 
 **Decision:** Drop the approval_queue table. The inbox becomes a query on messages WHERE engagement_id IS NULL AND content_type IS NULL.
 
@@ -4652,7 +4652,7 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 ### Decision 227: synthesizeIntoEngagement() = one core operation
 
 **Date:** 2026-03-17
-**Status:** Planned
+**Status:** ✅ Implemented
 
 **Decision:** Rename runPhase2ForResolve() to synthesizeIntoEngagement(). This single function handles inbox assignment, new engagement creation, and engagement merge.
 
@@ -4667,7 +4667,7 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 ### Decision 228: Phase 2 prompt refactored — no Phase 1 echo
 
 **Date:** 2026-03-17
-**Status:** Planned
+**Status:** ✅ Implemented
 
 **Decision:** Remove "echo Phase 1" references from the Phase 2 system prompt. The AI receives the user's routing decision as fact, not a suggestion to echo.
 
@@ -4682,7 +4682,7 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 ### Decision 229: Engagement merge — permanent, same-partner only
 
 **Date:** 2026-03-17
-**Status:** Planned
+**Status:** ✅ Implemented
 
 **Decision:** Engagement merge is a permanent operation that combines all child entities (messages, meetings, participants, programs, events) from source into target, re-synthesizes, and hard-deletes the source.
 
@@ -4697,7 +4697,7 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 ### Decision 230: No noise auto-detection
 
 **Date:** 2026-03-17
-**Status:** Planned
+**Status:** ✅ Implemented
 
 **Decision:** Do not auto-filter noise (auto-replies, OOO, newsletters). Everything the PDM forwards goes to the inbox.
 
@@ -4712,7 +4712,7 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 ### Decision 231: Suggested title format for new engagements
 
 **Date:** 2026-03-17
-**Status:** Planned
+**Status:** ✅ Implemented
 
 **Decision:** When creating a new engagement from an inbox item, suggest the title as "{Partner Name} - {cleaned subject}" where cleaned = strip RE:, FW:, [EXTERNAL] prefixes.
 
@@ -4727,7 +4727,7 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 ### Decision 232: phase1-prompt.ts deleted, utilities moved
 
 **Date:** 2026-03-17
-**Status:** Planned
+**Status:** ✅ Implemented
 
 **Decision:** Delete phase1-prompt.ts entirely. Move reusable utilities before deletion: getMeetingsForMessages()→db/meetings.ts, buildMeetingHint()→prompt-builder.ts, truncateToWords()→format-utils.ts, isAwsDomain()→partner-detection.ts.
 
@@ -4736,5 +4736,110 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Rationale:** Don't lose useful utilities. Move them to their natural homes based on what they do.
 
 **Impact:** 4 functions preserved in appropriate modules. Everything else in the file killed.
+
+---
+
+### Decision 233: Discard = hard delete, not soft delete
+
+**Date:** 2026-03-17
+**Status:** ✅ Implemented
+
+**Decision:** Discarding an inbox item permanently deletes the message and any linked meeting from the database.
+
+**Context:** Original plan marked discarded messages as content_type='noise'. This creates orphaned rows with no purpose.
+
+**Rationale:** The PDM forwards intentionally. Discards are rare and deliberate. No analytics value in keeping noise rows. Hard delete eliminates orphan risk entirely.
+
+**Impact:** discardInboxItem() in db/inbox.ts does DELETE, not UPDATE. Resolve route's discard path is two lines.
+
+---
+
+### Decision 234: Inbox groups messages by forwarded_at for display
+
+**Date:** 2026-03-17
+**Status:** ✅ Implemented
+
+**Decision:** Messages within 5 seconds of each other are displayed as a single inbox item with a count badge (e.g., "3 messages").
+
+**Context:** Email parser splits forwarded threads into individual messages. Displaying each separately creates confusing duplicate rows.
+
+**Rationale:** Backend already groups by forwarded_at for routing (getMessagesForInboxItem). Display grouping matches the backend behavior. Acting on one item routes the entire group.
+
+**Impact:** InboxClient groups items client-side before rendering. Badge shows count only when >1.
+
+---
+
+### Decision 235: Assign hidden when partner_id is null
+
+**Date:** 2026-03-17
+**Status:** ✅ Implemented
+
+**Decision:** When an inbox item has no detected partner, only "New" and "Discard" actions are shown. "Assign" is hidden.
+
+**Context:** Showing all engagements when partner is unknown defeats the purpose of partner-filtered assignment.
+
+**Rationale:** Without a partner, there's no meaningful filter. User should create a new engagement (which sets the partner) or discard. Partner detection covers 90%+ of forwarded emails.
+
+**Impact:** InboxClient conditionally renders Assign button based on partner_id presence.
+
+---
+
+### Decision 236: Merge includes Airtable source deletion
+
+**Date:** 2026-03-17
+**Status:** ✅ Implemented
+
+**Decision:** Engagement merge deletes the source engagement from Airtable via airtable_record_id before deleting from Supabase.
+
+**Context:** First merge left an orphaned AT record. Supabase deletion was clean but AT was never notified.
+
+**Rationale:** "No orphans" principle. If Roadrunner deletes an engagement, the AT mirror must also be cleaned. Uses existing airtable_record_id field. Non-blocking — merge succeeds even if AT delete fails.
+
+**Impact:** Merge route calls deleteEngagementFromAirtable() with the source's AT record ID. Existing sync function reused.
+
+---
+
+### Decision 237: Two-query inbox fetch pattern
+
+**Date:** 2026-03-17
+**Status:** ✅ Implemented
+
+**Decision:** getInboxItems() uses two queries (messages + batch partner lookup) instead of a PostgREST join.
+
+**Context:** PostgREST schema cache didn't pick up the new messages→partners FK from migration 066 immediately. Join syntax failed at runtime.
+
+**Rationale:** Two simple queries are more reliable than fighting PostgREST cache timing. Performance difference is negligible (batch partner lookup uses IN clause). No schema cache dependency.
+
+**Impact:** getInboxItems() in db/inbox.ts. Pattern can be revisited if PostgREST caching improves.
+
+---
+
+### Decision 238: partner_id on Message TypeScript type
+
+**Date:** 2026-03-17
+**Status:** ✅ Implemented
+
+**Decision:** Added partner_id: string | null to the Message interface in types.ts.
+
+**Context:** Migration 066 added the column but the TypeScript type wasn't updated, causing Vercel build failures.
+
+**Rationale:** Type must match schema.
+
+**Impact:** types.ts Message interface.
+
+---
+
+### Decision 239: /api/classify stubbed at 410 Gone
+
+**Date:** 2026-03-17
+**Status:** ✅ Implemented (stub — full deletion in Phase D)
+
+**Decision:** The batch classification route returns 410 Gone with an informative message instead of calling removed functions.
+
+**Context:** processUnclassifiedMessages was deleted in A3 but the route file still imported it.
+
+**Rationale:** Stubbing with 410 is cleaner than leaving dead imports. Route will be fully deleted in Phase D cleanup.
+
+**Impact:** /api/classify returns { error: "Batch classification has been removed..." }.
 
 ---

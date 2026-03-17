@@ -1,7 +1,7 @@
 # Roadrunner (Relay)
 
-> AI-powered partner engagement management for AWS PDMs. Forward emails → Claude classifies → structured engagements → Airtable sync.
-> 65 migrations · 18 tables · 30 API routes · 18 UI pages · 475 tests
+> AI-powered partner engagement management for AWS PDMs. Forward emails → human-guided routing → AI synthesis → structured engagements → Airtable sync.
+> 66 migrations · 17 tables · 31 API routes · 18 UI pages · 424 passing tests (18 pending Phase D rewrite)
 
 ---
 
@@ -24,7 +24,7 @@ Roadrunner turns scattered partner email threads into structured, trackable enga
 | **Task** | An action item extracted from meeting notes or created manually. Belongs to a partner, optionally linked to a meeting note. |
 | **Participant** | A person in the system. The canonical person registry — every contact resolves here. |
 | **Partner Context** | PDM scratchpad notes about a partner. Wired into AI context pipeline for meeting note summarization. |
-| **Approval Queue** | Low-confidence classifications land here for human review via the Inbox UI. |
+| **Inbox** | Unrouted messages (engagement_id IS NULL). PDM triages via assign, create new, or discard. Replaced the old approval_queue table. |
 
 ---
 
@@ -80,18 +80,18 @@ roadrunner/
 │   │   ├── tasks/                 #   Cross-partner task dashboard
 │   │   ├── layout.tsx             #   Root layout + sidebar
 │   │   └── page.tsx               #   Redirects to /partners
-│   ├── components/                # React components (32 across 7 groups)
-│   │   ├── actions/               #   Entity action buttons (5 files)
+│   ├── components/                # React components (31 across 7 groups)
+│   │   ├── actions/               #   Entity action buttons + MergeButton (6 files)
 │   │   ├── engagement/            #   Engagement-specific cards/forms (4 files)
-│   │   ├── inbox/                 #   Review queue UI (4 files)
+│   │   ├── inbox/                 #   Inbox triage UI — InboxClient (1 file)
 │   │   ├── layout/                #   App structure — sidebar, headers (4 files)
 │   │   ├── notes/                 #   NoteWorkspace, ContextSidebar, PreviousNotes, TaskEditor, MeetingNotesSection
 │   │   ├── partners/              #   PartnerTasksSection, PartnerScratchpad
 │   │   └── shared/                #   Reusable primitives — CompactRow, DetailHeader, badges (12 files)
 │   └── lib/                       # Core business logic
-│       ├── classifier.ts          #   Two-phase classification orchestrator
-│       ├── claude.ts              #   Anthropic API client (Phase 1 + Phase 2)
-│       ├── phase1-prompt.ts       #   Phase 1 system prompt + context builders
+│       ├── classifier.ts          #   Synthesis orchestrator (synthesizeIntoEngagement, persistClassificationResult)
+│       ├── claude.ts              #   Anthropic API client (Phase 2 synthesis)
+│       ├── partner-detection.ts   #   Mechanical partner detection via domain matching
 │       ├── phase2-prompt.ts       #   Phase 2 system prompt + context builders
 │       ├── prompt-builder.ts      #   Shared section builders (events, programs, etc.)
 │       ├── email-parser.ts        #   Forwarded email chain parser (two-pass)
@@ -119,16 +119,16 @@ roadrunner/
 │       │   ├── relationships.ts   #     Relationships + junction queries
 │       │   ├── participants.ts    #     Participant upsert + registry joins
 │       │   ├── engagement-links.ts #     Engagement↔program/event junction queries
-│       │   ├── inbox.ts           #     Approval queue operations
+│       │   ├── inbox.ts           #     Inbox queries (unrouted messages + partner lookup)
 │       │   └── index.ts           #     Barrel re-exports
 │       ├── sync/                  #   Airtable sync engine
 │       │   ├── pull.ts            #     AT → RR catalog sync
 │       │   ├── push.ts            #     RR → AT activity sync
 │       │   ├── field-maps.ts      #     Airtable field ID constants
 │       │   └── utils.ts           #     Coercion helpers + validation
-│       └── __tests__/             #   475 tests across 15 test files
+│       └── __tests__/             #   424 passing tests across 15 test files (18 pending rewrite)
 ├── supabase/
-│   ├── migrations/                # 65 migration files (001-065)
+│   ├── migrations/                # 66 migration files (001-066)
 │   └── (authoritative schema lives in migrations/)
 ├── scripts/
 │   ├── seed-data.ts               # CLI script to seed events/programs
@@ -160,29 +160,32 @@ roadrunner/
    Raw email saved to messages table with parsed metadata
    Per-message fingerprint dedup (sender_email + body prefix)
    ↓
-6. TWO-PHASE CLASSIFIER (classifier.ts)
-   Phase 1 (phase1-prompt.ts): Compact engagement index → routing decision
-   Phase 2 (phase2-prompt.ts): Full engagement history → deep analysis
-   Returns: engagement match, current_state, participants, entity links, pillar
+6. PARTNER DETECTION (partner-detection.ts)
+   Mechanical domain matching against contact registry
+   Sets partner_id on message — no AI involved
    ↓
-7. CONFIDENCE CHECK
-   ≥ 0.85 → auto-persist (step 8)
-   < 0.85 → create approval_queue item → appears in Inbox UI
+7. INBOX (messages WHERE engagement_id IS NULL)
+   Messages appear in Inbox UI grouped by forwarded_at (5s window)
+   PDM chooses: Assign to existing engagement, Create new, or Discard
    ↓
-8. PERSIST (classifier.ts → persistClassificationResult)
-   Single function handles both auto-assign and approval-resolve paths:
+8. AI SYNTHESIS (classifier.ts → synthesizeIntoEngagement)
+   Phase 2 only: full thread history → deep analysis
+   Returns: current_state, participants, entity links, pillar, topic, goal
+   ↓
+9. PERSIST (classifier.ts → persistClassificationResult)
+   Single function handles assign-existing, create-new, and merge paths:
    - Create or update engagement (current_state, topic, goal, pillar)
    - Upsert participants + link to engagement
    - Link engagement↔programs, engagement↔events, engagement↔relationships
    - Create meetings (if ICS data present)
    - Link message to engagement
    ↓
-9. SYNC TO AIRTABLE (sync/push.ts — awaited)
-   Push: engagements → Partner Engagements table
-   Push: meetings → Meetings table
-   Pull: partners, programs, events, relationships ← catalog tables
-   ↓
-10. DASHBOARD (Next.js pages)
+10. SYNC TO AIRTABLE (sync/push.ts — awaited)
+    Push: engagements → Partner Engagements table
+    Push: meetings → Meetings table
+    Pull: partners, programs, events, relationships ← catalog tables
+    ↓
+11. DASHBOARD (Next.js pages)
     Server components query Supabase directly
     Client components use API routes for mutations
 ```
@@ -200,14 +203,14 @@ Airtable owns **catalog** (Ring 1: Partners, Programs, Events, Relationships). R
 These are **NON-NEGOTIABLE**. Every code change must respect these:
 
 1. **Email-in, insight-out** — The user never leaves Outlook to feed the system. Forwarding is the only input.
-2. **AI proposes, user disposes** — Auto-classify when confident (≥0.85); ask when not. Every AI decision is editable.
+2. **Human routes, AI synthesizes** — The PDM decides where emails go. AI handles deep analysis only after routing.
 3. **Summaries are the product** — Raw emails are stored but never the primary view. `current_state` is the living output.
 4. **Connect, don't create** — The AI is biased toward linking to existing entities, never fabricating new ones. Empty arrays over hallucinated matches.
 5. **AI creates engagements only** — Programs, events, partners, and relationships are human-curated catalog data.
 6. **Data ownership boundary** — Airtable owns catalogs (pull only). Roadrunner owns activity (push only). Never cross the boundary.
 7. **Single source of truth per concern** — `contact-parser.ts` for contact format, `user-config.ts` for PDM identity, `field-maps.ts` for Airtable field IDs, `types.ts` for TypeScript types. Don't scatter.
 8. **Await all async operations** — No fire-and-forget. Vercel serverless kills processes after HTTP response. An unawaited promise WILL be silently murdered (this happened in production — decisions.md #89).
-9. **One persistence path** — Auto-assign and approval-resolve share the same `persistClassificationResult()` function. No divergent code paths.
+9. **One persistence path** — Assign-existing, create-new, and merge all share `persistClassificationResult()`. No divergent code paths.
 10. **Structured over freeform** — Categorization uses pillar, program links, and relationship links — not free-form labels.
 11. **Resolve, don't duplicate** — Every piece of data has one authoritative home. Everything else references it.
 12. **Partner is gravity** — Everything orbits the partner. Delete a partner, cascade everything.
@@ -223,7 +226,7 @@ These are **NON-NEGOTIABLE**. Every code change must respect these:
 
 **External Webhooks:** `/api/inbound` (Mailgun) and `/api/health` (monitoring) are called by external services, not the frontend.
 
-**Dev-only Routes:** `/api/classify/test`, `/api/classify/live-test`, `/api/classify/test-cleanup` are available for classification pipeline testing via direct API calls.
+**Stubbed Routes:** `/api/classify` returns 410 Gone (batch classification removed). Dev test routes (`/api/classify/test`, `/api/classify/live-test`, `/api/classify/test-cleanup`) are available for classification pipeline testing.
 
 ---
 
@@ -246,7 +249,7 @@ AIRTABLE_BASE_ID=appy9TT1LRJTAuQ4W
 ```bash
 npm install                        # Install dependencies
 npm run dev                        # Start Next.js dev server on :3000
-npx vitest run --reporter=verbose  # Run all 475 tests
+npx vitest run --reporter=verbose  # Run tests (424 passing, 18 pending Phase D rewrite)
 npx tsc --noEmit                   # TypeScript check (must pass with zero errors)
 ```
 
@@ -257,20 +260,20 @@ npx tsc --noEmit                   # TypeScript check (must pass with zero error
 | Test File | Tests | Covers |
 |-----------|-------|--------|
 | email-parser.test.ts | 123 | Email chain parsing, forwarded content extraction |
-| phase2-prompt.test.ts | 54 | Phase 2 prompt building, context sections |
-| phase1-prompt.test.ts | 45 | Phase 1 prompt building, engagement index enrichment |
+| phase2-prompt.test.ts | 54 | Phase 2 prompt building, context sections (3 pending rewrite) |
+| phase1-prompt.test.ts | 45 | Phase 1 prompt building (deleted — tests pending removal) |
 | format-utils.test.ts | 39 | Display name formatting utilities |
 | ics-parser.test.ts | 31 | ICS calendar parsing (RFC 5545) |
 | name-resolver.test.ts | 28 | Contact name resolution from JSONB columns |
 | contact-parser.test.ts | 26 | Universal contact format parsing/rendering |
 | user-config.test.ts | 18 | User identity matching |
 | meeting-pipeline.test.ts | 13 | Meeting creation, ICS parsing, linking |
-| classifier.test.ts | 11 | Classification orchestration, confidence routing |
+| classifier.test.ts | 11 | Classification orchestration (11 pending rewrite — tests old pipeline) |
 | prompt-builder.test.ts | 11 | Shared context section builders |
 | dedup.test.ts | 6 | Message fingerprint deduplication |
 | meeting-status-map.test.ts | 5 | Meeting status mapping |
 | contact-display.test.ts | 41 | Contact display formatting |
-| resolve-route.test.ts | 4 | Inbox resolve route logic |
+| resolve-route.test.ts | 4 | Inbox resolve route logic (4 pending rewrite — tests old approval flow) |
 
 **DB mocking:** Supabase client is mocked via `vi.mock` with `vi.hoisted()` for mock variables — see existing tests for the pattern.
 
@@ -278,7 +281,7 @@ npx tsc --noEmit                   # TypeScript check (must pass with zero error
 
 ### Migrations
 
-Sequential numbering in `supabase/migrations/` (currently 001-065). New migrations get the next number (066, 067, ...). Write idempotent SQL where possible.
+Sequential numbering in `supabase/migrations/` (currently 001-066). New migrations get the next number (067, 068, ...). Write idempotent SQL where possible.
 
 ### Key Conventions
 
@@ -340,7 +343,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-065). New migratio
 
 ## File Quick Reference
 
-**Classification:** `classifier.ts` → `phase1-prompt.ts` → `phase2-prompt.ts` → `prompt-builder.ts` → `claude.ts`
+**Classification:** `classifier.ts` → `phase2-prompt.ts` → `prompt-builder.ts` → `claude.ts` · Partner detection: `partner-detection.ts`
 
 **Sync:** `sync/pull.ts` / `sync/push.ts` → `sync/field-maps.ts` → `sync/utils.ts`
 
@@ -348,7 +351,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-065). New migratio
 
 **Email:** `email-parser.ts` → `ics-parser.ts` → `name-resolver.ts` → `contact-parser.ts` → `format-utils.ts`
 
-**Entry points:** `/api/inbound` (Mailgun webhook), `/api/classify` (classification trigger), `/api/reviews/resolve` (approval resolution), `/api/sync` (catalog sync)
+**Entry points:** `/api/inbound` (Mailgun webhook), `/api/reviews/resolve` (inbox routing — assign/create/discard), `/api/engagements/merge` (engagement merge), `/api/sync` (catalog sync)
 
 ---
 
@@ -358,9 +361,9 @@ Sequential numbering in `supabase/migrations/` (currently 001-065). New migratio
 |-----|---------|--------------|
 | `CLAUDE.md` | This file — project overview, architecture, development | Start of every session |
 | `docs/entity-model.md` | Complete schema — 19 tables, all FKs, AT field IDs, ring model | Schema/data work |
-| `docs/CLASSIFICATION.md` | Two-phase AI classification pipeline | Prompt/AI work |
+| `docs/CLASSIFICATION.md` | AI synthesis pipeline (Phase 1 removed, Phase 2 active) | Prompt/AI work |
 | `docs/goal-state.md` | Living status — current state + what's next | Session planning |
-| `decisions.md` | Append-only architectural decision log (220 entries) | When you need "why" |
+| `decisions.md` | Append-only architectural decision log (239 entries) | When you need "why" |
 
 ---
 

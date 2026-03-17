@@ -189,9 +189,15 @@ Partner name as `text-xs font-medium uppercase tracking-[0.08em] text-muted/70` 
 ## Inbox
 
 **Page:** `inbox/page.tsx` + `InboxClient.tsx`
-**Layout:** Single-column, section label "Pending reviews" with count
+**Layout:** Single-column, section label "Unrouted Messages" with count
 
 - Section header: `text-xs font-semibold uppercase tracking-wider text-muted`
 - Count: plain text `text-muted/50`
-- ReviewCard components keep their own card borders (each review item is a distinct actionable entity)
-- EmptyState when no pending reviews
+- Messages grouped by `forwarded_at` (5-second window) — displayed as single rows with count badge when >1
+- Flat rows: `border-b border-border/20`, `hover:bg-surface/50`
+- Partner pills: `bg-accent/10 text-accent` for known, `bg-amber-500/10 text-amber-400` for "Unknown Partner"
+- 3 text-only action buttons per row: Assign (only when partner_id present), New, Discard
+- Assign panel: fetches partner's engagements, clickable entity rows to pick target
+- Create panel: pre-filled title (`"{Partner} - {cleaned subject}"`), underline input
+- EmptyState when inbox is empty
+- ReviewCard and ConfidenceBar deleted — no longer used

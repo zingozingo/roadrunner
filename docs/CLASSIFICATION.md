@@ -2,7 +2,7 @@
 
 > Last updated: 2026-03-17
 
-> **⚠️ MAJOR REDESIGN IN PROGRESS** — The two-phase auto-classification pipeline described below is being replaced with a human-guided intake pipeline. See `intake-pipeline-redesign.md` for the new architecture. The Phase 2 analysis (deep synthesis) is being preserved; Phase 1 (AI routing) is being eliminated. Decisions #223-232 document the rationale.
+> **⚠️ PHASE 1 REMOVED (2026-03-17)** — The two-phase auto-classification pipeline described below is no longer active. Phase 1 (AI routing) has been deleted. The new pipeline is: webhook → mechanical partner detection (`partner-detection.ts`) → inbox triage (human routes) → single-phase AI synthesis (Phase 2 only, triggered by user action via `synthesizeIntoEngagement()`). See decisions #223-239 for rationale and implementation details. The Phase 2 documentation below remains accurate for the synthesis step.
 
 ## Overview
 
