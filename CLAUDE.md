@@ -3,8 +3,6 @@
 > AI-powered partner engagement management for AWS PDMs. Forward emails → human-guided routing → AI synthesis → structured engagements → Airtable sync.
 > 66 migrations · 17 tables · 31 API routes · 18 UI pages · 424 passing tests (18 pending Phase D rewrite)
 
-**Session start:** When asked to "run the diagnostic", execute `bash scripts/session-diagnostic.sh` and summarize the output (test health, stats, recent decisions, current status, git state).
-
 ---
 
 ## What This Is
