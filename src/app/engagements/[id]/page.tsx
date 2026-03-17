@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import CollapsibleEmails from "@/components/shared/CollapsibleEmails";
 import EngagementActions from "@/components/actions/EngagementActions";
+import MergeButton from "@/components/actions/MergeButton";
 import CollapsibleParticipants from "@/components/shared/CollapsibleParticipants";
 import PillarBadge from "@/components/shared/PillarBadge";
 import {
@@ -89,7 +90,14 @@ export default async function EngagementDetailPage({
       <div className="flex items-center gap-3 pb-4 mb-6 border-b border-border/30">
         <h1 className="text-xl font-semibold text-foreground">{engagement.name}</h1>
         <span className={`h-2 w-2 shrink-0 rounded-full ${dotColor}`} title={engagement.status} />
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          {engagement.partner_id && (
+            <MergeButton
+              engagementId={engagement.id}
+              engagementName={engagement.name}
+              partnerId={engagement.partner_id}
+            />
+          )}
           <EngagementActions engagement={engagement} partnerName={partnerName} />
         </div>
       </div>
