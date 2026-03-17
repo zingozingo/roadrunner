@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { InboxItem } from "@/lib/db/inbox";
+import EmptyState from "@/components/layout/EmptyState";
 
 interface Props {
   items: InboxItem[];
@@ -12,36 +13,71 @@ interface EngagementOption {
   name: string;
 }
 
+/** Group of messages from the same email forward (within 5s window) */
+interface InboxGroup {
+  key: string;        // first message id — used as group key + API id
+  items: InboxItem[];
+  primary: InboxItem; // first item — used for display
+}
+
+function groupByForwardedAt(items: InboxItem[]): InboxGroup[] {
+  if (items.length === 0) return [];
+
+  const sorted = [...items].sort(
+    (a, b) => new Date(b.forwarded_at).getTime() - new Date(a.forwarded_at).getTime()
+  );
+
+  const groups: InboxGroup[] = [];
+  let current: InboxItem[] = [sorted[0]];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const prevTime = new Date(sorted[i - 1].forwarded_at).getTime();
+    const currTime = new Date(sorted[i].forwarded_at).getTime();
+
+    if (Math.abs(currTime - prevTime) <= 5000) {
+      current.push(sorted[i]);
+    } else {
+      groups.push({ key: current[0].id, items: current, primary: current[0] });
+      current = [sorted[i]];
+    }
+  }
+  groups.push({ key: current[0].id, items: current, primary: current[0] });
+
+  return groups;
+}
+
 export default function InboxClient({ items: initialItems }: Props) {
   const [items, setItems] = useState(initialItems);
-  const [activeItem, setActiveItem] = useState<string | null>(null);
+  const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [actionMode, setActionMode] = useState<"none" | "assign" | "create">("none");
   const [engagements, setEngagements] = useState<EngagementOption[]>([]);
   const [newTitle, setNewTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingEngagements, setLoadingEngagements] = useState(false);
 
-  if (items.length === 0) {
-    return (
-      <div className="text-center py-16 text-[var(--color-text-tertiary)]">
-        <p className="text-lg">Inbox is empty</p>
-        <p className="text-sm mt-1">Forward emails to your Relay address to see them here</p>
-      </div>
-    );
+  const groups = useMemo(() => groupByForwardedAt(items), [items]);
+
+  if (groups.length === 0) {
+    return <EmptyState title="Inbox is empty" description="Forward emails to your Relay address to see them here" />;
   }
 
-  async function handleDiscard(messageId: string) {
+  function removeGroup(groupKey: string) {
+    const group = groups.find((g) => g.key === groupKey);
+    if (!group) return;
+    const idsToRemove = new Set(group.items.map((i) => i.id));
+    setItems((prev) => prev.filter((item) => !idsToRemove.has(item.id)));
+  }
+
+  async function handleDiscard(groupKey: string) {
     if (!confirm("Delete this message? This cannot be undone.")) return;
     setLoading(true);
     try {
       const res = await fetch("/api/reviews/resolve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message_id: messageId, action: "discard" }),
+        body: JSON.stringify({ message_id: groupKey, action: "discard" }),
       });
-      if (res.ok) {
-        setItems((prev) => prev.filter((item) => item.id !== messageId));
-      }
+      if (res.ok) removeGroup(groupKey);
     } catch (err) {
       console.error("Discard failed:", err);
     } finally {
@@ -49,22 +85,17 @@ export default function InboxClient({ items: initialItems }: Props) {
     }
   }
 
-  async function startAssign(item: InboxItem) {
-    setActiveItem(item.id);
+  async function startAssign(group: InboxGroup) {
+    const item = group.primary;
+    if (!item.partner_id) return; // guard — shouldn't be callable
+    setActiveGroup(group.key);
     setActionMode("assign");
     setLoadingEngagements(true);
     try {
-      // Fetch engagements filtered by partner
-      const url = item.partner_id
-        ? `/api/engagements?partner_id=${item.partner_id}`
-        : "/api/engagements";
-      const res = await fetch(url);
+      const res = await fetch(`/api/engagements?partner_id=${item.partner_id}`);
       const data = await res.json();
       setEngagements(
-        (data.engagements ?? data ?? []).map((e: any) => ({
-          id: e.id,
-          name: e.name,
-        }))
+        (data.engagements ?? []).map((e: any) => ({ id: e.id, name: e.name }))
       );
     } catch (err) {
       console.error("Failed to fetch engagements:", err);
@@ -73,35 +104,35 @@ export default function InboxClient({ items: initialItems }: Props) {
     }
   }
 
-  function startCreate(item: InboxItem) {
-    setActiveItem(item.id);
+  function startCreate(group: InboxGroup) {
+    const item = group.primary;
+    setActiveGroup(group.key);
     setActionMode("create");
     const partnerPrefix = item.partner_name ? `${item.partner_name} - ` : "";
-    const cleanedSubject = cleanSubject(item.subject);
-    setNewTitle(`${partnerPrefix}${cleanedSubject}`);
+    setNewTitle(`${partnerPrefix}${cleanSubject(item.subject)}`);
   }
 
   function cancelAction() {
-    setActiveItem(null);
+    setActiveGroup(null);
     setActionMode("none");
     setEngagements([]);
     setNewTitle("");
   }
 
-  async function confirmAssign(messageId: string, engagementId: string) {
+  async function confirmAssign(groupKey: string, engagementId: string) {
     setLoading(true);
     try {
       const res = await fetch("/api/reviews/resolve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message_id: messageId,
+          message_id: groupKey,
           action: "assign_existing",
           engagement_id: engagementId,
         }),
       });
       if (res.ok) {
-        setItems((prev) => prev.filter((item) => item.id !== messageId));
+        removeGroup(groupKey);
         cancelAction();
       }
     } catch (err) {
@@ -111,7 +142,7 @@ export default function InboxClient({ items: initialItems }: Props) {
     }
   }
 
-  async function confirmCreate(messageId: string) {
+  async function confirmCreate(groupKey: string) {
     if (!newTitle.trim()) return;
     setLoading(true);
     try {
@@ -119,13 +150,13 @@ export default function InboxClient({ items: initialItems }: Props) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message_id: messageId,
+          message_id: groupKey,
           action: "create_new",
           title: newTitle.trim(),
         }),
       });
       if (res.ok) {
-        setItems((prev) => prev.filter((item) => item.id !== messageId));
+        removeGroup(groupKey);
         cancelAction();
       }
     } catch (err) {
@@ -136,156 +167,167 @@ export default function InboxClient({ items: initialItems }: Props) {
   }
 
   return (
-    <div className="space-y-2">
-      {items.map((item) => (
-        <div
-          key={item.id}
-          className="border border-[var(--color-border)] rounded-lg p-4 hover:border-[var(--color-border-hover)] transition-colors"
-        >
-          {/* Header row */}
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                {item.partner_name && (
-                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
-                    {item.partner_name}
-                  </span>
-                )}
-                {!item.partner_name && item.partner_id === null && (
-                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400">
-                    Unknown Partner
-                  </span>
-                )}
-                <span className="text-xs text-[var(--color-text-tertiary)]">
-                  {new Date(item.forwarded_at).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
-                </span>
-              </div>
-              <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">
-                {item.subject || "(no subject)"}
-              </p>
-              <p className="text-xs text-[var(--color-text-tertiary)] mt-0.5">
-                From: {item.sender_name || item.sender_email || "Unknown"}
-              </p>
-              {item.body_text && (
-                <p className="text-xs text-[var(--color-text-tertiary)] mt-1 line-clamp-2">
-                  {item.body_text.slice(0, 200)}
-                </p>
-              )}
-            </div>
+    <>
+      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
+        Unrouted Messages
+        <span className="ml-1.5 font-normal text-muted/50">{groups.length}</span>
+      </h2>
 
-            {/* Action buttons — only show when not in action mode for this item */}
-            {activeItem !== item.id && (
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  onClick={() => startAssign(item)}
-                  disabled={loading}
-                  className="text-xs px-3 py-1.5 rounded-md bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
-                >
-                  Assign
-                </button>
-                <button
-                  onClick={() => startCreate(item)}
-                  disabled={loading}
-                  className="text-xs px-3 py-1.5 rounded-md bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
-                >
-                  New
-                </button>
-                <button
-                  onClick={() => handleDiscard(item.id)}
-                  disabled={loading}
-                  className="text-xs px-3 py-1.5 rounded-md text-[var(--color-text-tertiary)] hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                >
-                  Discard
-                </button>
-              </div>
-            )}
-          </div>
+      <div>
+        {groups.map((group) => {
+          const item = group.primary;
+          const count = group.items.length;
 
-          {/* Assign to existing — engagement picker */}
-          {activeItem === item.id && actionMode === "assign" && (
-            <div className="mt-3 pt-3 border-t border-[var(--color-border)]">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-[var(--color-text-secondary)]">
-                  Assign to engagement{item.partner_name ? ` (${item.partner_name})` : ""}
-                </span>
-                <button
-                  onClick={cancelAction}
-                  className="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
-                >
-                  Cancel
-                </button>
-              </div>
-              {loadingEngagements ? (
-                <p className="text-xs text-[var(--color-text-tertiary)]">Loading engagements...</p>
-              ) : engagements.length === 0 ? (
-                <p className="text-xs text-[var(--color-text-tertiary)]">
-                  No existing engagements for this partner.{" "}
-                  <button
-                    onClick={() => startCreate(item)}
-                    className="text-blue-400 hover:underline"
-                  >
-                    Create new instead?
-                  </button>
-                </p>
-              ) : (
-                <div className="space-y-1 max-h-48 overflow-y-auto">
-                  {engagements.map((eng) => (
+          return (
+            <div
+              key={group.key}
+              className="border-b border-border/20 px-3 py-3 transition-colors hover:bg-surface/50"
+            >
+              {/* Main row */}
+              <div className="flex items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    {item.partner_name ? (
+                      <span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent whitespace-nowrap">
+                        {item.partner_name}
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400 whitespace-nowrap">
+                        Unknown Partner
+                      </span>
+                    )}
+                    {count > 1 && (
+                      <span className="text-xs text-muted/50">{count} messages</span>
+                    )}
+                    <span className="text-xs text-muted">
+                      {new Date(item.forwarded_at).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium text-foreground truncate">
+                    {item.subject || "(no subject)"}
+                  </p>
+                  <p className="text-xs text-muted mt-0.5">
+                    {item.sender_name || item.sender_email || "Unknown"}
+                  </p>
+                </div>
+
+                {/* Actions — only when not expanded */}
+                {activeGroup !== group.key && (
+                  <div className="flex items-center gap-3 shrink-0">
+                    {item.partner_id ? (
+                      <button
+                        onClick={() => startAssign(group)}
+                        disabled={loading}
+                        className="text-xs text-muted hover:text-foreground transition-colors disabled:opacity-50"
+                      >
+                        Assign
+                      </button>
+                    ) : null}
                     <button
-                      key={eng.id}
-                      onClick={() => confirmAssign(item.id, eng.id)}
+                      onClick={() => startCreate(group)}
                       disabled={loading}
-                      className="w-full text-left text-sm px-3 py-2 rounded-md hover:bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] transition-colors"
+                      className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
                     >
-                      {eng.name}
+                      New
                     </button>
-                  ))}
+                    <button
+                      onClick={() => handleDiscard(group.key)}
+                      disabled={loading}
+                      className="text-xs text-muted hover:text-red-400 transition-colors disabled:opacity-50"
+                    >
+                      Discard
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Assign panel */}
+              {activeGroup === group.key && actionMode === "assign" && (
+                <div className="mt-3 pt-3 border-t border-border/20">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-muted">
+                      Assign to engagement{item.partner_name ? ` (${item.partner_name})` : ""}
+                    </span>
+                    <button
+                      onClick={cancelAction}
+                      className="text-xs text-muted hover:text-foreground transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  {loadingEngagements ? (
+                    <p className="text-xs text-muted">Loading...</p>
+                  ) : engagements.length === 0 ? (
+                    <p className="text-xs text-muted">
+                      No existing engagements.{" "}
+                      <button
+                        onClick={() => startCreate(group)}
+                        className="text-accent hover:underline"
+                      >
+                        Create new?
+                      </button>
+                    </p>
+                  ) : (
+                    <div className="max-h-48 overflow-y-auto">
+                      {engagements.map((eng) => (
+                        <button
+                          key={eng.id}
+                          onClick={() => confirmAssign(group.key, eng.id)}
+                          disabled={loading}
+                          className="w-full text-left flex items-baseline gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
+                        >
+                          <span className="text-sm font-medium text-foreground">{eng.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Create panel */}
+              {activeGroup === group.key && actionMode === "create" && (
+                <div className="mt-3 pt-3 border-t border-border/20">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-muted">
+                      Create new engagement
+                    </span>
+                    <button
+                      onClick={cancelAction}
+                      className="text-xs text-muted hover:text-foreground transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={newTitle}
+                      onChange={(e) => setNewTitle(e.target.value)}
+                      placeholder="Engagement title"
+                      className="flex-1 bg-transparent border-b border-border/30 text-sm text-foreground placeholder:text-muted/50 focus:border-accent focus:outline-none py-1"
+                      onKeyDown={(e) => e.key === "Enter" && confirmCreate(group.key)}
+                      autoFocus
+                    />
+                    <button
+                      onClick={() => confirmCreate(group.key)}
+                      disabled={loading || !newTitle.trim()}
+                      className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
+                    >
+                      {loading ? "Creating..." : "Create"}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
-          )}
-
-          {/* Create new engagement */}
-          {activeItem === item.id && actionMode === "create" && (
-            <div className="mt-3 pt-3 border-t border-[var(--color-border)]">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-[var(--color-text-secondary)]">
-                  Create new engagement
-                </span>
-                <button
-                  onClick={cancelAction}
-                  className="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
-                >
-                  Cancel
-                </button>
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="Engagement title"
-                  className="flex-1 text-sm px-3 py-1.5 rounded-md bg-[var(--color-bg-primary)] border border-[var(--color-border)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:border-blue-500"
-                  onKeyDown={(e) => e.key === "Enter" && confirmCreate(item.id)}
-                  autoFocus
-                />
-                <button
-                  onClick={() => confirmCreate(item.id)}
-                  disabled={loading || !newTitle.trim()}
-                  className="text-xs px-4 py-1.5 rounded-md bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 transition-colors"
-                >
-                  Create
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
