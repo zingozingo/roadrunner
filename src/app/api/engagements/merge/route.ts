@@ -153,6 +153,17 @@ export async function POST(request: NextRequest) {
         );
     }
 
+    // 6b. Delete source engagement from Airtable
+    if (sourceEng.airtable_record_id) {
+      try {
+        const { deleteEngagementFromAirtable } = await import("@/lib/sync");
+        await deleteEngagementFromAirtable(sourceEng.airtable_record_id);
+        console.log(`Airtable delete: removed source engagement ${source_id}`);
+      } catch (err) {
+        console.error(`Airtable delete failed for source ${source_id} (non-blocking):`, err);
+      }
+    }
+
     // 7. Delete source engagement (CASCADE cleans up its junction table rows)
     await db.from("engagements").delete().eq("id", source_id);
     console.log(`Deleted source engagement ${source_id}`);
