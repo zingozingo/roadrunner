@@ -186,6 +186,7 @@ export interface EngagementEvent {
 export interface Message {
   id: string;
   engagement_id: string | null;
+  partner_id: string | null;
   sender_name: string | null;
   sender_email: string | null;
   sent_at: string | null;
