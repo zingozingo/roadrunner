@@ -180,7 +180,6 @@ export async function createMeeting(data: {
       end_time: data.end_time ?? null,
       location: data.location ?? null,
       organizer_email: data.organizer_email ?? null,
-      attendees: data.attendees ?? [],
       meeting_type: data.meeting_type ?? null,
       notes: data.notes ?? null,
       source: data.source ?? "manual",
@@ -220,7 +219,6 @@ export async function updateMeeting(
     end_time?: string | null;
     location?: string | null;
     organizer_email?: string | null;
-    attendees?: MeetingAttendee[];
     meeting_type?: string | null;
     notes?: string | null;
   }
@@ -397,7 +395,6 @@ export async function createMeetingFromICS(
         location: parsed.location,
         organizer_email: parsed.organizer_email,
         organizer_name: parsed.organizer_name,
-        attendees: parsed.attendees,
         sequence: parsed.sequence,
         is_recurring: parsed.is_recurring,
       };
@@ -444,7 +441,6 @@ export async function createMeetingFromICS(
         location: parsed.location,
         organizer_email: parsed.organizer_email,
         organizer_name: parsed.organizer_name,
-        attendees: parsed.attendees,
         ics_uid: parsed.ics_uid,
         sequence: parsed.sequence,
         is_recurring: parsed.is_recurring,

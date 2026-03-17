@@ -142,12 +142,6 @@ const PARTNER_WITH_DOMAINS: Partner = {
   segment: "security",
   focus_area: [],
   spms_id: null,
-  aws_team: [],
-  partner_contacts: [
-    { name: "Alice Chen", email: "alice@cybershield.com", title: "CTO", role: "Alliance Lead" },
-    { name: "Bob Smith", email: "bob@cybershield.com", title: null, role: "Contact" },
-    { name: "Carol Lee", email: "carol@cybershield.io", title: null, role: "Contact" },
-  ],
   aws_stickiness: null,
   key_aws_services: [],
   what_they_do: null,
@@ -162,8 +156,6 @@ const PARTNER_NO_EMAILS: Partner = {
   segment: null,
   focus_area: [],
   spms_id: null,
-  aws_team: [],
-  partner_contacts: [],
   aws_stickiness: null,
   key_aws_services: [],
   what_they_do: null,
@@ -634,10 +626,6 @@ describe("buildMeetingHint", () => {
     location: "Chime",
     organizer_email: "sterme@amazon.com",
     organizer_name: "Steven Romero",
-    attendees: [
-      { name: "Steven Romero", email: "sterme@amazon.com" },
-      { name: "Alice Chen", email: "alice@cybershield.com" },
-    ],
     ics_uid: "uid-123",
     sequence: 0,
     is_recurring: false,
@@ -655,8 +643,14 @@ describe("buildMeetingHint", () => {
     expect(result).toContain("**Partner Hint:** CyberShield (id: partner-001)");
   });
 
-  it("includes organizer and attendee list", () => {
-    const result = buildMeetingHint([MEETING]);
+  it("includes organizer and attendee list from registry", () => {
+    const contactsMap = new Map([
+      [MEETING.id, [
+        { name: "Steven Romero", email: "sterme@amazon.com" },
+        { name: "Alice Chen", email: "alice@cybershield.com" },
+      ]],
+    ]);
+    const result = buildMeetingHint([MEETING], contactsMap);
     expect(result).toContain("**Organizer:** sterme@amazon.com");
     expect(result).toContain("**Attendees:**");
     expect(result).toContain("Steven Romero <sterme@amazon.com>");
@@ -676,7 +670,12 @@ describe("buildMeetingHint", () => {
 
   it("omits partner hint when no partner matched", () => {
     const noPartner = { ...MEETING, partner_name: null, partner_id: null };
-    const result = buildMeetingHint([noPartner]);
+    const contactsMap = new Map([
+      [MEETING.id, [
+        { name: "Steven Romero", email: "sterme@amazon.com" },
+      ]],
+    ]);
+    const result = buildMeetingHint([noPartner], contactsMap);
     expect(result).not.toContain("Partner Hint");
     expect(result).toContain("**Attendees:**");
   });

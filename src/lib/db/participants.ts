@@ -518,8 +518,8 @@ export async function linkRelationshipParticipant(
 }
 
 /**
- * Sync a partner's JSONB contacts into the contact registry.
- * Processes aws_team (internal) and partner_contacts (partner).
+ * Sync a partner's contacts into the contact registry.
+ * Called during AT pull with parsed AWS team and partner contact arrays.
  */
 export async function syncPartnerContactsToRegistry(
   partnerId: string,
@@ -561,7 +561,7 @@ export async function syncPartnerContactsToRegistry(
 }
 
 /**
- * Sync a relationship's JSONB contacts into the contact registry.
+ * Sync a relationship's contacts into the contact registry.
  */
 export async function syncRelationshipContactsToRegistry(
   relationshipId: string,

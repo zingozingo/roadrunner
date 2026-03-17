@@ -39,7 +39,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { notes, contacts } = body;
+    const { notes } = body;
 
     const existing = await getRelationship(id);
     if (!existing) {
@@ -49,16 +49,8 @@ export async function PUT(
       );
     }
 
-    if (contacts !== undefined && contacts !== null && !Array.isArray(contacts)) {
-      return NextResponse.json(
-        { error: "contacts must be an array or null" },
-        { status: 400 }
-      );
-    }
-
-    const updates: { notes?: string | null; contacts?: typeof contacts } = {};
+    const updates: { notes?: string | null } = {};
     if (notes !== undefined) updates.notes = notes || null;
-    if (contacts !== undefined) updates.contacts = contacts;
 
     const updated = await updateRelationship(id, updates);
 

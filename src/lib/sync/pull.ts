@@ -101,7 +101,7 @@ function mapRelationship(
   const rawType = str(rec.fields[RF.type]);
   const relationshipType = rawType && VALID_RELATIONSHIP_TYPES.has(rawType) ? rawType : null;
 
-  // Build contacts JSONB from new unified fields
+  // Parse contacts from AT fields (used for registry sync only — no JSONB column)
   const contacts: RoleContact[] = [];
   const leadRaw = str(rec.fields[RF.leadContact]);
   if (leadRaw) contacts.push(parseRoleContact(leadRaw, "Lead Contact"));
@@ -116,9 +116,9 @@ function mapRelationship(
     relationship_type: relationshipType,
     org: str(rec.fields[RF.awsOrg]),
     service: str(rec.fields[RF.awsService]),
-    contacts,
     notes: str(rec.fields[RF.notes]),
     org_type: orgType,
+    _contacts: contacts, // transient — used for registry sync, not written to DB
   };
 }
 
@@ -129,27 +129,27 @@ function mapPartner(rec: AirtableRecord): Record<string, unknown> | null {
   const rawSegment = selectName(rec.fields[PTRF.segment]);
   const segment = rawSegment ? rawSegment.toLowerCase() : null;
 
-  // Build JSONB arrays from new unified fields
+  // Parse contacts from AT fields (used for registry sync only — no JSONB columns)
   const partnerContacts: RoleContact[] = [];
   const awsTeam: RoleContact[] = [];
 
-  // Alliance Lead → partner_contacts (partner-side role)
+  // Alliance Lead → partner contacts (partner-side role)
   const allianceLeadRaw = str(rec.fields[PTRF.allianceLead]);
   if (allianceLeadRaw) partnerContacts.push(parseRoleContact(allianceLeadRaw, "Alliance Lead"));
 
-  // Contacts (multi-line) → partner_contacts
+  // Contacts (multi-line) → partner contacts
   const contactsRaw = str(rec.fields[PTRF.contacts]);
   if (contactsRaw) partnerContacts.push(...parseContactList(contactsRaw, "Contact"));
 
-  // PSA → aws_team (AWS-side role)
+  // PSA → AWS team (AWS-side role)
   const psaRaw = str(rec.fields[PTRF.psa]);
   if (psaRaw) awsTeam.push(parseRoleContact(psaRaw, "PSA"));
 
-  // Account Manager → aws_team
+  // Account Manager → AWS team
   const amRaw = str(rec.fields[PTRF.accountManager]);
   if (amRaw) awsTeam.push(parseRoleContact(amRaw, "Account Manager"));
 
-  // PMM → aws_team
+  // PMM → AWS team
   const pmmRaw = str(rec.fields[PTRF.pmm]);
   if (pmmRaw) awsTeam.push(parseRoleContact(pmmRaw, "PMM"));
 
@@ -157,8 +157,8 @@ function mapPartner(rec: AirtableRecord): Record<string, unknown> | null {
     name,
     segment,
     focus_area: arr(rec.fields[PTRF.focusArea]),
-    aws_team: awsTeam,
-    partner_contacts: partnerContacts,
+    _awsTeam: awsTeam, // transient — used for registry sync, not written to DB
+    _partnerContacts: partnerContacts, // transient — used for registry sync, not written to DB
     aws_stickiness: str(rec.fields[PTRF.awsStickiness]),
     key_aws_services: arr(rec.fields[PTRF.keyAwsServices]),
     what_they_do: str(rec.fields[PTRF.whatTheyDo]),
@@ -361,6 +361,10 @@ export async function syncRelationships(): Promise<SyncResult> {
         continue;
       }
 
+      // Extract transient contacts before DB write
+      const registryContacts = (mapped._contacts as RoleContact[]) ?? [];
+      delete mapped._contacts;
+
       const match = byAtId.get(rec.id) ?? byName.get((mapped.name as string).toLowerCase());
 
       let relationshipId: string | null = null;
@@ -404,7 +408,7 @@ export async function syncRelationships(): Promise<SyncResult> {
         try {
           await syncRelationshipContactsToRegistry(
             relationshipId,
-            (mapped.contacts as RoleContact[]) ?? []
+            registryContacts
           );
         } catch (regErr) {
           console.error(`Registry sync failed for relationship "${mapped.name}":`, regErr);
@@ -459,6 +463,12 @@ export async function syncPartners(): Promise<SyncResult> {
         continue;
       }
 
+      // Extract transient contacts before DB write
+      const awsTeam = (mapped._awsTeam as RoleContact[]) ?? [];
+      const partnerContacts = (mapped._partnerContacts as RoleContact[]) ?? [];
+      delete mapped._awsTeam;
+      delete mapped._partnerContacts;
+
       const match = byAtId.get(rec.id) ?? byName.get((mapped.name as string).toLowerCase());
 
       let partnerId: string | null = null;
@@ -503,8 +513,8 @@ export async function syncPartners(): Promise<SyncResult> {
           await syncPartnerContactsToRegistry(
             partnerId,
             mapped.name as string,
-            (mapped.aws_team as RoleContact[]) ?? [],
-            (mapped.partner_contacts as RoleContact[]) ?? []
+            awsTeam,
+            partnerContacts
           );
         } catch (regErr) {
           console.error(`Registry sync failed for partner "${mapped.name}":`, regErr);

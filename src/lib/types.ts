@@ -78,7 +78,6 @@ export interface Relationship {
   service: string | null;
   org_type: "internal" | "third_party" | null;
   relationship_type: RelationshipType | null;
-  contacts: RoleContact[];
   notes: string | null;
   airtable_record_id: string | null;
   created_at: string;
@@ -92,8 +91,6 @@ export interface Partner {
   focus_area: string[];
   spms_id: number | null;
   what_they_do: string | null;
-  aws_team: RoleContact[];
-  partner_contacts: RoleContact[];
   aws_stickiness: string | null;
   key_aws_services: string[];
   architecture?: string | null;
@@ -128,7 +125,6 @@ export interface Meeting {
   location: string | null;
   organizer_email: string | null;
   organizer_name: string | null;
-  attendees: MeetingAttendee[];
   ics_uid: string | null;
   sequence: number | null;
   is_recurring: boolean;

@@ -504,19 +504,13 @@ export function buildMeetingHint(
       lines.push(`**Organizer:** ${m.organizer_email}`);
     }
 
-    // Prefer registry contacts; fall back to JSONB attendees
+    // Render attendees from registry
     const registryContacts = meetingContactsMap?.get(m.id);
     if (registryContacts && registryContacts.length > 0) {
       lines.push("**Attendees:**");
       for (const c of registryContacts) {
         const name = c.name ? `${c.name} ` : "";
         lines.push(`- ${name}<${c.email}>`);
-      }
-    } else if (m.attendees && m.attendees.length > 0) {
-      lines.push("**Attendees:**");
-      for (const a of m.attendees) {
-        const name = a.name ? `${a.name} ` : "";
-        lines.push(`- ${name}<${a.email}>`);
       }
     }
 

@@ -48,9 +48,6 @@ const RELATIONSHIP: Relationship = {
   service: null,
   org_type: "internal",
   relationship_type: "Product Team",
-  contacts: [
-    { name: "Jane Doe", email: "janedoe@amazon.com", title: null, role: "Lead Contact" },
-  ],
   notes: null,
   airtable_record_id: null,
   created_at: "2025-01-01T00:00:00Z",
@@ -132,8 +129,13 @@ describe("buildProgramsSection", () => {
 });
 
 describe("buildRelationshipsSection", () => {
-  it("renders relationship with contacts from JSONB", () => {
-    const result = buildRelationshipsSection([RELATIONSHIP]);
+  it("renders relationship with contacts from registry", () => {
+    const contactsMap = new Map([
+      ["rel-001", [
+        { name: "Jane Doe", email: "janedoe@amazon.com", role: "Lead Contact" },
+      ]],
+    ]);
+    const result = buildRelationshipsSection([RELATIONSHIP], contactsMap);
     expect(result).toContain("Security Team - ISV");
     expect(result).toContain("rel-001");
     expect(result).toContain("Product Team");

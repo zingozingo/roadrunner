@@ -1,5 +1,5 @@
 import { getSupabaseClient } from "./client";
-import { Relationship, Contact, Engagement } from "../types";
+import { Relationship, Engagement } from "../types";
 
 export async function getRelationships(): Promise<Relationship[]> {
   const { data, error } = await getSupabaseClient()
@@ -102,7 +102,6 @@ export async function updateRelationship(
   id: string,
   updates: {
     notes?: string | null;
-    contacts?: Contact[] | null;
   }
 ): Promise<Relationship> {
   const { data, error } = await getSupabaseClient()

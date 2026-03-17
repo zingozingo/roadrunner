@@ -69,8 +69,6 @@ export async function PUT(
     if (body.focus_area !== undefined) updates.focus_area = Array.isArray(body.focus_area) ? body.focus_area : [];
     if (body.aws_stickiness !== undefined) updates.aws_stickiness = body.aws_stickiness || null;
     if (body.key_aws_services !== undefined) updates.key_aws_services = Array.isArray(body.key_aws_services) ? body.key_aws_services : [];
-    if (body.aws_team !== undefined) updates.aws_team = Array.isArray(body.aws_team) ? body.aws_team : [];
-    if (body.partner_contacts !== undefined) updates.partner_contacts = Array.isArray(body.partner_contacts) ? body.partner_contacts : [];
 
     const { data, error } = await getSupabaseClient()
       .from("partners")

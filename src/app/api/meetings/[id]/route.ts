@@ -52,7 +52,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { title, engagement_id, partner_name, status, meeting_date, start_time, end_time, location, attendees, notes } = body;
+    const { title, engagement_id, partner_name, status, meeting_date, start_time, end_time, location, notes } = body;
 
     if (title !== undefined && (typeof title !== "string" || !title.trim())) {
       return NextResponse.json(
@@ -73,13 +73,6 @@ export async function PUT(
       return NextResponse.json(
         { error: "Meeting not found" },
         { status: 404 }
-      );
-    }
-
-    if (attendees !== undefined && !Array.isArray(attendees)) {
-      return NextResponse.json(
-        { error: "Attendees must be an array" },
-        { status: 400 }
       );
     }
 
@@ -106,17 +99,9 @@ export async function PUT(
     if (start_time !== undefined) updates.start_time = start_time?.trim() || null;
     if (end_time !== undefined) updates.end_time = end_time?.trim() || null;
     if (location !== undefined) updates.location = location?.trim() || null;
-    if (attendees !== undefined) updates.attendees = attendees;
     if (notes !== undefined) updates.notes = notes?.trim() || null;
 
     const updated = await updateMeeting(id, updates);
-
-    // Re-sync meeting_participants when attendees change
-    if (attendees) {
-      const { replaceMeetingParticipants, syncMeetingAttendeesToRegistry } = await import("@/lib/db/participants");
-      await replaceMeetingParticipants(id);
-      await syncMeetingAttendeesToRegistry(id, attendees, updated.organizer_email, updated.organizer_name);
-    }
 
     return NextResponse.json({ meeting: updated });
   } catch (error) {
