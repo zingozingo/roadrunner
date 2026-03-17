@@ -6,11 +6,13 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 64 migrations, 18 active tables, 30 API routes, 18 UI pages, 426 tests across 14 suites
+- 65 migrations, 18 active tables, 30 API routes, 18 UI pages, 475 tests across 15 suites
 - Two-phase classification pipeline: curated-input Phase 1 (enriched engagement index) + deep-analysis Phase 2 (full thread history, entity matching, state evolution)
+- Intake pipeline redesign planned — human-guided routing replacing auto-classification (see intake-pipeline-redesign.md, decisions #223-232)
 - Entity model fully rewritten with ring architecture (Catalog → Activity → People → Posture) in docs/entity-model.md
-- Documentation consolidated: 5 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline, goal-state.md status, decisions.md through #220)
+- Documentation consolidated: 5 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline, goal-state.md status, decisions.md through #232)
 - Dead weight cleaned: notes table dropped (migration 061), orphaned components removed (PillGrid, CalendarCard, TableList, SyncStatus), decisions.md merged from two files into one
+- Zero polymorphic tables: entity_links replaced with engagement_programs + engagement_events (migration 065, decisions #221-222)
 - Contact registry complete: 76 participants, 85 partner links, 4 dedicated join tables, sync layer auto-maintains registry — all reads and writes flow through registry, JSONB columns dropped (Decisions #182, #218)
 - Shared contact rendering: ContactRow + ContactGroup components used by every contact surface, with centralized display hierarchy and role-priority sorting (Decisions #213-215)
 - Tasks promoted to partner-level entities with owner_participant_id FK (decisions 170-175)
@@ -35,7 +37,7 @@ A system where a PDM forwards an email and Roadrunner:
 ## What's Next
 
 ### Next Session
-- Classifier prompt revision (partner-level meeting routing)
+- Intake pipeline redesign implementation (decisions #223-232, intake-pipeline-redesign.md)
 
 ### Soon
 - Ring 3 pull sync planning (Partner Programs, Events, Co-Sell Goals, Partner Goals, Funding)
@@ -78,6 +80,7 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~schema_live.sql deprecated~~ ✅ (decision 209)
 - ~~Debug route cleanup~~ ✅ (/api/debug/classify-two-phase deleted)
 - ~~Contact registry migration complete~~ ✅ (decisions 210-220): semicolon parser fix, email normalization, classifier role detection, display hierarchy, ContactRow/ContactGroup shared components, contact editing removed, org_type inference, JSONB columns dropped (migration 064), ContextSidebar rewired, push.ts titles fixed
+- ~~entity_links → typed junction tables~~ ✅ (decisions 221-222): engagement_programs + engagement_events replace polymorphic entity_links. Zero polymorphic tables remain. Migration 065.
 
 ## Architecture Principles
 

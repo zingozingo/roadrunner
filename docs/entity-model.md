@@ -1,7 +1,7 @@
 # Roadrunner Entity Model
 
-> **Last updated**: 2026-03-16 (JSONB contact columns dropped, contact registry complete)
-> 18 active tables · 64 migrations · 6 Airtable-only tables (future)
+> **Last updated**: 2026-03-17 (entity_links replaced with engagement_programs + engagement_events)
+> 18 active tables · 65 migrations · 6 Airtable-only tables (future)
 
 ---
 
@@ -47,7 +47,8 @@ graph TB
     end
 
     subgraph JUNCTIONS["Connections (cross-cutting)"]
-        EL[Entity Links]
+        ELP[Engagement Programs]
+        ELE[Engagement Events]
         ER[Engagement Relationships]
     end
 
@@ -62,8 +63,10 @@ graph TB
 
     PARTNERS --- RING2
     PARTICIPANTS --- PP & MP & EP & RP
-    EL --- RING1
-    EL --- RING2
+    ELP --- RING1
+    ELE --- RING1
+    ELP --- RING2
+    ELE --- RING2
     RING3 --- PARTNERS
     RING3 --- RING1
 ```
@@ -356,7 +359,7 @@ erDiagram
 | Partner Stakeholders | multilineText | fldj6vaWwDKJy6aci | computed from engagement_participants (role=partner) |
 | Third Parties | multilineText | flduajBotnT6x5ZXD | computed from engagement_participants (role=third_party) |
 | AWS Relationships | linkedRecord → Relationships | fldhVQTAP2wucnzNC | pushed from engagement_relationships junction |
-| Event | linkedRecord → Events | fldscmkRoT65oa6Oy | pushed from entity_links (engagement→event) |
+| Event | linkedRecord → Events | fldscmkRoT65oa6Oy | pushed from engagement_events junction |
 | Meetings | linkedRecord → Meetings | fldqM0QO5VWjhmvw3 | computed (reverse link from Meetings.Engagement) |
 
 ---
@@ -530,7 +533,7 @@ Indexes: `idx_partner_context_partner` (partner_id), `idx_partner_context_source
 
 ## People & Connections (Cross-Cutting)
 
-The participant registry is the single source of truth for every person in the system. 4 dedicated join tables connect people to entities with FK CASCADE enforcement. Entity links and engagement relationships connect Activity to Catalog at the engagement level.
+The participant registry is the single source of truth for every person in the system. 4 dedicated join tables connect people to entities with FK CASCADE enforcement. Typed junction tables (engagement_programs, engagement_events, engagement_relationships) connect Activity to Catalog at the engagement level.
 
 ```mermaid
 erDiagram
@@ -542,9 +545,10 @@ erDiagram
     MEETINGS ||--o{ MEETING_PARTICIPANTS : "attendees"
     ENGAGEMENTS ||--o{ ENGAGEMENT_PARTICIPANTS : "stakeholders"
     RELATIONSHIPS ||--o{ RELATIONSHIP_PARTICIPANTS : "contacts"
-    ENGAGEMENTS ||--o{ ENTITY_LINKS : "source"
-    PROGRAMS ||--o{ ENTITY_LINKS : "target"
-    EVENTS ||--o{ ENTITY_LINKS : "target"
+    ENGAGEMENTS ||--o{ ENGAGEMENT_PROGRAMS : "works on"
+    PROGRAMS ||--o{ ENGAGEMENT_PROGRAMS : "linked from"
+    ENGAGEMENTS ||--o{ ENGAGEMENT_EVENTS : "targets"
+    EVENTS ||--o{ ENGAGEMENT_EVENTS : "linked from"
     ENGAGEMENTS ||--o{ ENGAGEMENT_RELATIONSHIPS : "junction"
     RELATIONSHIPS ||--o{ ENGAGEMENT_RELATIONSHIPS : "junction"
 
@@ -581,13 +585,17 @@ erDiagram
         uuid participant_id FK
         text role
     }
-    ENTITY_LINKS {
+    ENGAGEMENT_PROGRAMS {
         uuid id PK
-        text source_type
-        uuid source_id
-        text target_type
-        uuid target_id
-        text created_by
+        uuid engagement_id FK
+        uuid program_id FK
+        text context
+    }
+    ENGAGEMENT_EVENTS {
+        uuid id PK
+        uuid engagement_id FK
+        uuid event_id FK
+        text context
     }
     ENGAGEMENT_RELATIONSHIPS {
         uuid engagement_id PK
@@ -680,19 +688,37 @@ UNIQUE constraint: `(relationship_id, participant_id)`
 
 ---
 
-### ENTITY_LINKS (Roadrunner-only — polymorphic junction)
+### ENGAGEMENT_PROGRAMS (Roadrunner-only — typed junction)
+
+*New table added in migration 065 (Decision #221). Replaces entity_links for engagement→program connections.*
 
 | Field | SB Type | Owner | Notes |
 |-------|---------|-------|-------|
 | id | uuid PK | RR | — |
-| source_type | text NOT NULL CHECK (engagement, event, program) | RR | — |
-| source_id | uuid NOT NULL | RR | no FK constraint (polymorphic) |
-| target_type | text NOT NULL CHECK (engagement, event, program) | RR | — |
-| target_id | uuid NOT NULL | RR | no FK constraint (polymorphic) |
-| relationship | text NOT NULL | RR | e.g., "relates_to", "part_of" |
-| context | text | RR | — |
-| created_by | text NOT NULL CHECK (ai, user) | RR | — |
+| engagement_id | uuid NOT NULL FK → engagements (CASCADE) | RR | — |
+| program_id | uuid NOT NULL FK → programs (CASCADE) | RR | — |
+| context | text | RR | optional free-text context |
+| created_by | text NOT NULL DEFAULT 'ai' CHECK (ai, user) | RR | — |
 | created_at | timestamptz | RR | — |
+
+UNIQUE constraint: `(engagement_id, program_id)`
+
+---
+
+### ENGAGEMENT_EVENTS (Roadrunner-only — typed junction)
+
+*New table added in migration 065 (Decision #221). Replaces entity_links for engagement→event connections.*
+
+| Field | SB Type | Owner | Notes |
+|-------|---------|-------|-------|
+| id | uuid PK | RR | — |
+| engagement_id | uuid NOT NULL FK → engagements (CASCADE) | RR | — |
+| event_id | uuid NOT NULL FK → events (CASCADE) | RR | — |
+| context | text | RR | optional free-text context |
+| created_by | text NOT NULL DEFAULT 'ai' CHECK (ai, user) | RR | — |
+| created_at | timestamptz | RR | — |
+
+UNIQUE constraint: `(engagement_id, event_id)`
 
 ---
 
@@ -709,7 +735,7 @@ UNIQUE constraint: `(relationship_id, participant_id)`
 
 ## Ring 3: Posture (Airtable-Only — Future Sync)
 
-Where each partner stands — program achievements, event participation, revenue goals, and funding. AT-only today. These connect partners to catalog entities (Programs, Events) with per-partner status, unlike entity_links which connect engagements to catalog entities. When pulled into Roadrunner, these become the foundation for the slot registry and strategic AI context.
+Where each partner stands — program achievements, event participation, revenue goals, and funding. AT-only today. These connect partners to catalog entities (Programs, Events) with per-partner status, unlike engagement_programs/engagement_events which connect engagements to catalog entities. When pulled into Roadrunner, these become the foundation for the slot registry and strategic AI context.
 
 ```mermaid
 erDiagram
@@ -885,6 +911,24 @@ erDiagram
 
 UNIQUE index on `(participant_id, entity_type, entity_id)`
 
+---
+
+### ENTITY_LINKS (LEGACY — DROPPED)
+
+**DROPPED** in migration 065. Replaced by two typed junction tables: `engagement_programs` and `engagement_events` (Decisions #221-222). Was a polymorphic junction table (`source_type`, `source_id`, `target_type`, `target_id`) with no FK constraints. In practice only used for engagement→program and engagement→event links.
+
+| Field | SB Type | Owner | Notes |
+|-------|---------|-------|-------|
+| id | uuid PK | RR | — |
+| source_type | text NOT NULL CHECK (engagement, event, program) | RR | — |
+| source_id | uuid NOT NULL | RR | no FK constraint (polymorphic) |
+| target_type | text NOT NULL CHECK (engagement, event, program) | RR | — |
+| target_id | uuid NOT NULL | RR | no FK constraint (polymorphic) |
+| relationship | text NOT NULL | RR | dropped — not migrated (Decision #222) |
+| context | text | RR | migrated to new tables |
+| created_by | text NOT NULL CHECK (ai, user) | RR | migrated to new tables |
+| created_at | timestamptz | RR | — |
+
 > **Note:** The `notes` table was dropped in migration 061 (Decision #179). All note functionality flows through `meeting_notes`.
 
 ---
@@ -918,7 +962,10 @@ UNIQUE index on `(participant_id, entity_type, entity_id)`
 | relationship_participants | participant_id | participants | CASCADE | Both sides cascade |
 | engagement_relationships | engagement_id | engagements | CASCADE | Both sides cascade |
 | engagement_relationships | relationship_id | relationships | CASCADE | Both sides cascade |
-| entity_links | (polymorphic) | (no FK) | N/A | App-level cleanup required |
+| engagement_programs | engagement_id | engagements | CASCADE | Both sides cascade |
+| engagement_programs | program_id | programs | CASCADE | Both sides cascade |
+| engagement_events | engagement_id | engagements | CASCADE | Both sides cascade |
+| engagement_events | event_id | events | CASCADE | Both sides cascade |
 
 ---
 
@@ -933,7 +980,8 @@ UNIQUE index on `(participant_id, entity_type, entity_id)`
 | ~~Brain synthesis (AI Call 3)~~ | **Done** — brain-synthesizer.ts, Decision #191 | ✅ |
 | ~~Seed notes elimination~~ | **Done** — migration 063, Decision #195 | ✅ |
 | ~~Manual task creation~~ | **Done** — POST handler + inline form, Decision #196 | ✅ |
-| Classifier partner-level routing | Open | Soon |
+| Intake pipeline redesign (human-guided routing) | Planned (decisions #223-232) | Next |
+| entity_links → typed junctions | **Done** — migration 065, decisions #221-222 | ✅ |
 | Ring 3 pull sync (Partner Programs, Events, Co-Sell Goals, Partner Goals, Funding) | Not started | Later |
 | Slot registry v1 | Not started | Later |
 | Financial fields on partners table | Not started | Later |

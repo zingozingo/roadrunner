@@ -4558,3 +4558,183 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** Airtable stakeholder fields now show real titles.
 
 ---
+
+### Decision 221: entity_links replaced with engagement_programs + engagement_events
+
+**Date:** 2026-03-17
+**Status:** Implemented
+
+**Decision:** Replace the polymorphic entity_links table with two typed junction tables: engagement_programs and engagement_events, each with proper FK CASCADE and UNIQUE constraints.
+
+**Context:** entity_links used source_type/source_id/target_type/target_id with no FK constraints. In practice only used for engagement→program and engagement→event links. Last polymorphic table in the system.
+
+**Rationale:** Matches the pattern established by the contact registry migration. FK CASCADE eliminates orphan risk and removes manual cascade-delete code from catalog.ts and engagements.ts.
+
+**Impact:** Migration 065. 12 files rewired. entity-links.ts deleted, engagement-links.ts created with 8 typed functions. EntityLink.tsx component deleted. Zero polymorphic tables remain.
+
+---
+
+### Decision 222: "relationship" field not migrated from entity_links
+
+**Date:** 2026-03-17
+**Status:** Implemented
+
+**Decision:** The "relationship" text field (values like "implements", "targets") was intentionally dropped during the entity_links migration. Only "context" (nullable free-text) was preserved.
+
+**Context:** The relationship field was an artifact of the generic polymorphic design that tried to describe the nature of any-to-any links. With typed junction tables, the relationship is self-evident.
+
+**Rationale:** engagement_programs means "this engagement works on this program." No need for a label saying "implements." Reduces noise in the UI (the "implements" label on the Connections section is gone).
+
+**Impact:** Cleaner data model. Connections section shows type + name only.
+
+---
+
+### Decision 223: Kill Phase 1 AI routing — all items go to inbox
+
+**Date:** 2026-03-17
+**Status:** Planned
+
+**Decision:** Eliminate the Phase 1 AI classification that auto-routes emails to engagements. All incoming emails and ICS invites go to the inbox for human triage.
+
+**Context:** The AI routing was either too aggressive (wrong engagement matches like Jerry Pang WMP→KSA) or not aggressive enough (duplicate engagements for same Nozomi initiative). The PDM intentionally forwards emails — they already know where things go.
+
+**Rationale:** Human routing is more accurate and eliminates the entire category of mis-routing failures. Simpler codebase (no confidence scoring, no auto-route threshold, no Phase 1 prompt).
+
+**Impact:** phase1-prompt.ts to be deleted. Multiple functions in classifier.ts to be removed. Webhook stops triggering classification.
+
+---
+
+### Decision 224: Mechanical partner detection via domain matching
+
+**Date:** 2026-03-17
+**Status:** Planned
+
+**Decision:** Detect the partner from incoming emails using domain matching against the contact registry, not AI. Falls back to manual selection if no domain match.
+
+**Context:** Partner identification from email domains is mechanical and can be 100% accurate for known partners. getPartnerContactDomains() already exists.
+
+**Rationale:** No AI call needed. Faster, cheaper, more reliable. The contact registry already maps email domains to partners.
+
+**Impact:** New partner-detection.ts module. Webhook calls this instead of the classifier.
+
+---
+
+### Decision 225: Messages get partner_id column
+
+**Date:** 2026-03-17
+**Status:** Planned
+
+**Decision:** Add partner_id (FK to partners, ON DELETE SET NULL) to the messages table so the inbox can display partner association before an engagement is assigned.
+
+**Context:** Currently messages only associate to partners through engagement_id→engagements.partner_id. The new inbox needs to show the partner before routing.
+
+**Rationale:** Direct FK is cleaner than a join through engagements (which is NULL for unrouted messages).
+
+**Impact:** Migration 066. Index added for inbox query performance.
+
+---
+
+### Decision 226: approval_queue table dropped — inbox = unrouted messages
+
+**Date:** 2026-03-17
+**Status:** Planned
+
+**Decision:** Drop the approval_queue table. The inbox becomes a query on messages WHERE engagement_id IS NULL AND content_type IS NULL.
+
+**Context:** The approval_queue was a separate table with its own CRUD, joins, and resolution logic. With all items going to inbox, the message table itself IS the queue.
+
+**Rationale:** Eliminates a table, a join, and duplicate state. Messages leave the inbox when engagement_id is set (assigned/created) or content_type is set to 'noise' (discarded).
+
+**Impact:** Migration 066. inbox.ts rewritten with simpler queries. Sidebar badge uses direct message count.
+
+---
+
+### Decision 227: synthesizeIntoEngagement() = one core operation
+
+**Date:** 2026-03-17
+**Status:** Planned
+
+**Decision:** Rename runPhase2ForResolve() to synthesizeIntoEngagement(). This single function handles inbox assignment, new engagement creation, and engagement merge.
+
+**Context:** All three scenarios do the same thing: link entities to an engagement, run Phase 2 AI for deep analysis, persist results, push to Airtable.
+
+**Rationale:** One function, multiple entry points. Eliminates code duplication and ensures consistent behavior across all routing scenarios.
+
+**Impact:** classifier.ts stripped from 8 functions to 3. Core operation is reusable for future features.
+
+---
+
+### Decision 228: Phase 2 prompt refactored — no Phase 1 echo
+
+**Date:** 2026-03-17
+**Status:** Planned
+
+**Decision:** Remove "echo Phase 1" references from the Phase 2 system prompt. The AI receives the user's routing decision as fact, not a suggestion to echo.
+
+**Context:** Phase 2 currently tells the AI to "echo" Phase 1's engagement_match and content_type. With Phase 1 eliminated, these fields come from the user's choice.
+
+**Rationale:** Simpler prompt. The AI's job is analysis, not routing confirmation.
+
+**Impact:** Phase 2 system prompt and buildPhase1PassThrough() section builder updated.
+
+---
+
+### Decision 229: Engagement merge — permanent, same-partner only
+
+**Date:** 2026-03-17
+**Status:** Planned
+
+**Decision:** Engagement merge is a permanent operation that combines all child entities (messages, meetings, participants, programs, events) from source into target, re-synthesizes, and hard-deletes the source.
+
+**Context:** Duplicate engagements exist (e.g., two Nozomi EMEA cybersecurity engagements). Need a way to combine them.
+
+**Rationale:** Permanent merge is simpler than reversible merge. Same-partner guard prevents nonsensical cross-partner merges. Worst case: delete the merged engagement and redo.
+
+**Impact:** New merge API endpoint. New merge UI on engagement detail page.
+
+---
+
+### Decision 230: No noise auto-detection
+
+**Date:** 2026-03-17
+**Status:** Planned
+
+**Decision:** Do not auto-filter noise (auto-replies, OOO, newsletters). Everything the PDM forwards goes to the inbox.
+
+**Context:** The PDM intentionally forwards emails. Accidental junk will be rare. They can discard it manually.
+
+**Rationale:** Avoids false negatives where legitimate emails get auto-filtered. Simpler pipeline with no pre-screening step.
+
+**Impact:** Webhook does parse→store→detect partner→done. No AI at intake.
+
+---
+
+### Decision 231: Suggested title format for new engagements
+
+**Date:** 2026-03-17
+**Status:** Planned
+
+**Decision:** When creating a new engagement from an inbox item, suggest the title as "{Partner Name} - {cleaned subject}" where cleaned = strip RE:, FW:, [EXTERNAL] prefixes.
+
+**Context:** User needs a starting title when creating new engagements. Email subject is the natural source.
+
+**Rationale:** Matches the existing "{Partner} - {topic}" naming convention. User can always edit.
+
+**Impact:** Inbox UI pre-fills title field.
+
+---
+
+### Decision 232: phase1-prompt.ts deleted, utilities moved
+
+**Date:** 2026-03-17
+**Status:** Planned
+
+**Decision:** Delete phase1-prompt.ts entirely. Move reusable utilities before deletion: getMeetingsForMessages()→db/meetings.ts, buildMeetingHint()→prompt-builder.ts, truncateToWords()→format-utils.ts, isAwsDomain()→partner-detection.ts.
+
+**Context:** With Phase 1 eliminated, the file is dead except for a few utility functions used elsewhere.
+
+**Rationale:** Don't lose useful utilities. Move them to their natural homes based on what they do.
+
+**Impact:** 4 functions preserved in appropriate modules. Everything else in the file killed.
+
+---

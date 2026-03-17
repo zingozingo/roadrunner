@@ -1,6 +1,8 @@
 # Classification Pipeline
 
-> Last updated: 2026-03-14
+> Last updated: 2026-03-17
+
+> **⚠️ MAJOR REDESIGN IN PROGRESS** — The two-phase auto-classification pipeline described below is being replaced with a human-guided intake pipeline. See `intake-pipeline-redesign.md` for the new architecture. The Phase 2 analysis (deep synthesis) is being preserved; Phase 1 (AI routing) is being eliminated. Decisions #223-232 document the rationale.
 
 ## Overview
 
