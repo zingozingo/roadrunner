@@ -448,22 +448,6 @@ export interface UpdateTaskInput {
 }
 
 // ============================================================
-// Approval Queue types
-// ============================================================
-
-export interface ApprovalQueueItem {
-  id: string;
-  type: "engagement_assignment";
-  message_id: string | null;
-  engagement_id: string | null;
-  classification_result: ClassificationResult | null;
-  resolved: boolean;
-  resolved_at: string | null;
-  resolution: string | null;
-  created_at: string;
-}
-
-// ============================================================
 // Partner Context Entry (scratchpad / AI synthesis / seed dump)
 // ============================================================
 
