@@ -1,7 +1,7 @@
 # Roadrunner Entity Model
 
-> **Last updated**: 2026-03-15 (Post-brain-synthesis, seed elimination, manual tasks, AT sync fix)
-> 18 active tables · 63 migrations · 6 Airtable-only tables (future)
+> **Last updated**: 2026-03-16 (JSONB contact columns dropped, contact registry complete)
+> 18 active tables · 64 migrations · 6 Airtable-only tables (future)
 
 ---
 
@@ -129,13 +129,9 @@ erDiagram
 | deployed_on_aws | text | singleSelect (4 options) | AT | ← AT | fldNtBO1Wlh9mOL0c | partner detail |
 | prm_status | text | singleSelect (3 options) | AT | ← AT | fldDV1UhZjAuR1Xxl | partner detail |
 | crm_status | text | multilineText | AT | ← AT | fldPdisuSJruZqLbo | partner detail |
-| aws_team | jsonb (RoleContact[]) | singleLineText ×3 (PSA, AM, PMM) | AT | ← AT | fldp175r0XAz4Cwbj, fldLzr6Rn9hpciP70, fldgGnuwXCM7EWOVq | partner detail, notes context |
-| partner_contacts | jsonb (RoleContact[]) | singleLineText + multilineText (Alliance Lead, Contacts) | AT | ← AT | fldLbBuiYhisMSqJu, fldwnagXCUQ0QIHDg | partner detail, notes context |
 | airtable_record_id | text UNIQUE | — | RR | — | — | — |
 | created_at | timestamptz | — | RR | — | — | — |
 | updated_at | timestamptz | — | RR | — | — | — |
-
-> **WRITE-ONLY**: `aws_team` and `partner_contacts` JSONB columns are retained as dual-write artifacts (Decision #182). All reads flow through `partner_participants` join table. Ready for drop in future migration.
 
 **AT fields NOT in Supabase (planned for future sync):**
 
@@ -235,13 +231,10 @@ erDiagram
 | service | text | singleLineText | AT | ← AT | fldiieBBkkAFYDOJC | relationship detail |
 | relationship_type | text CHECK (4 options) | singleSelect (4 options) | AT | ← AT | fld2cjVCECNIPGw2d | relationship detail |
 | org_type | text CHECK (internal, third_party) | singleSelect (Internal, Third Party) | AT | ← AT | fldmShxggHOAuioR4 | relationship detail |
-| contacts | jsonb (RoleContact[]) | singleLineText + multilineText (Lead Contact, Team Contacts) | AT | ← AT | fldKELDdEYb8MsJCP, fld472yolP2ujyJ5w | relationship detail |
 | notes | text | multilineText | AT | ← AT | fldOcbNUrtfxjqiW5 | — |
 | airtable_record_id | text UNIQUE | — | RR | — | — | — |
 | created_at | timestamptz | — | RR | — | — | — |
 | updated_at | timestamptz | — | RR | — | — | — |
-
-> **WRITE-ONLY**: `contacts` JSONB column is retained as a dual-write artifact (Decision #182). All reads flow through `relationship_participants` join table. Ready for drop in future migration.
 
 **AT fields NOT in Supabase:**
 
@@ -389,7 +382,6 @@ erDiagram
 | location | text | singleLineText | RR | → AT | fldTyiMYT48aCHttx | meeting detail |
 | organizer_email | text | — | RR | — (internal) | — | — |
 | organizer_name | text | — | RR | — (internal) | — | — |
-| attendees | jsonb | — | RR | — (computed to stakeholder fields) | — | meeting detail |
 | ics_uid | text UNIQUE | singleLineText | RR | → AT | fldNb83l5XLtz8J9k | — |
 | sequence | integer | — | RR | — (internal) | — | — |
 | is_recurring | boolean | — | RR | — (internal) | — | — |
@@ -403,9 +395,9 @@ erDiagram
 
 | AT Field | AT Type | AT Field ID | Source |
 |----------|---------|-------------|--------|
-| AWS Stakeholders | multilineText | fldOVCmwhiisY8bDo | computed from attendees JSONB |
-| Partner Stakeholders | multilineText | fldJira79g9xWNTte | computed from attendees JSONB |
-| Third Parties | multilineText | fldhU8nE7uGE1agML | computed from attendees JSONB |
+| AWS Stakeholders | multilineText | fldOVCmwhiisY8bDo | computed from meeting_participants registry |
+| Partner Stakeholders | multilineText | fldJira79g9xWNTte | computed from meeting_participants registry |
+| Third Parties | multilineText | fldhU8nE7uGE1agML | computed from meeting_participants registry |
 | Event (from Engagement) | lookup | fldAP7a1eRiunKFta | AT lookup through Engagement link |
 | Program (from Engagement) | lookup | fldVsQxvytcpw0XmB | AT lookup through Engagement link |
 | AWS Relationships (from Engagement) | lookup | fldBFEFAWK2SXghpo | AT lookup through Engagement link |
@@ -936,7 +928,7 @@ UNIQUE index on `(participant_id, entity_type, entity_id)`
 |---|---|---|
 | Contact registry read+write rewire | **Complete** — 17/17 reads, all write paths, zero JSONB reads remaining | Done |
 | participant_links drop | **Done** — migration 062 | ✅ |
-| JSONB column drops (aws_team, partner_contacts, contacts) | Blocked by UI rewire | Next |
+| JSONB column drops (aws_team, partner_contacts, contacts, attendees) | **Done** — migration 064 (Decision #218) | ✅ |
 | ~~Manual meeting quick-capture~~ | **Done** — modal form on /meetings, Decision #189 | ✅ |
 | ~~Brain synthesis (AI Call 3)~~ | **Done** — brain-synthesizer.ts, Decision #191 | ✅ |
 | ~~Seed notes elimination~~ | **Done** — migration 063, Decision #195 | ✅ |

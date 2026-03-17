@@ -4393,3 +4393,168 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** One less file to maintain. Any future schema questions go to migrations.
 
 ---
+
+### Decision 210: Semicolon delimiter in contact parser
+
+**Date:** 2026-03-16
+**Status:** Implemented
+
+**Decision:** `parseContactList()` splits on `/[\n;]/` instead of just `\n`.
+
+**Context:** Airtable Contacts field uses semicolons to separate multiple people. Parser only split on newlines, silently dropping all contacts after the first.
+
+**Rationale:** Semicolons are the natural AT delimiter for inline lists. Splitting on both is safe — no valid contact string contains a bare semicolon.
+
+**Impact:** All multi-contact fields across 22 partners now parse correctly. KnowBe4 went from 2 to 4 visible contacts.
+
+---
+
+### Decision 211: Email normalization at registry entry point
+
+**Date:** 2026-03-16
+**Status:** Implemented
+
+**Decision:** `normalizeEmail()` strips trailing dots and whitespace before insertion into participants table.
+
+**Context:** Airtable data sometimes has typos like "harleya@knowbe4.com." (trailing dot). These created phantom entries that never matched lookups.
+
+**Rationale:** Clean at the gate, not at every read site. One function, one call site (`upsertContactToRegistry`).
+
+**Impact:** Prevents duplicate participant rows from common email typos.
+
+---
+
+### Decision 212: Underscore heuristic for classifier role detection
+
+**Date:** 2026-03-16
+**Status:** Implemented
+
+**Decision:** `isClassifierRole()` returns true if role contains underscore, plus explicit checks for "forwarder", "attendee", "organizer". Replaces `CLASSIFIER_ROLES` allowlist.
+
+**Context:** The allowlist missed "partner_contact" and "third_party", causing raw DB values to render in the UI. The classifier always uses snake_case; AT roles always use natural casing.
+
+**Rationale:** Heuristic catches all current and future classifier roles without maintenance. No false positives possible because AT field names never use underscores.
+
+**Impact:** Zero classifier role values ever render in the UI. Future-proof.
+
+---
+
+### Decision 213: Contact display hierarchy — named role → title → org_type label
+
+**Date:** 2026-03-16
+**Status:** Implemented
+
+**Decision:** `getDisplayRole(role, title, orgType)` implements a three-level fallback: (1) show AT-sourced role if it's a named role, (2) show participant title if no named role, (3) show clean org_type label ("AWS" / "Partner" / "Third Party") if nothing else.
+
+**Context:** Each page had its own ad-hoc display logic — some showed raw roles, some showed titles, some showed nothing.
+
+**Rationale:** One rule, centralized in `contact-display.ts`, applied everywhere via ContactRow. No contact ever shows blank or raw values.
+
+**Impact:** Consistent contact labels across every surface in the app.
+
+---
+
+### Decision 214: Role priority sort order
+
+**Date:** 2026-03-16
+**Status:** Implemented
+
+**Decision:** Alliance Lead=1, PSA=2, Account Manager=3, PMM=4, other named roles=50, Contact=99. `sortContactsByRole()` uses this order within each org_type group.
+
+**Context:** Alliance Lead was sometimes appearing below generic contacts. Sort order wasn't defined.
+
+**Rationale:** Reflects real-world importance hierarchy for a PDM. Extensible — new named roles get priority 50 by default.
+
+**Impact:** Most important contacts always appear first.
+
+---
+
+### Decision 215: Shared ContactRow + ContactGroup components
+
+**Date:** 2026-03-16
+**Status:** Implemented
+
+**Decision:** Created two shared components. ContactRow renders one contact (name + display label + title + email). ContactGroup handles org_type grouping with headers and role-priority sorting. Used by every contact surface.
+
+**Context:** Four surfaces had four different inline JSX patterns with different fields, styling, and logic. Partner detail showed role + email. Engagement showed title/role fallback. Meeting showed name + email only.
+
+**Rationale:** Approach A (shared component) over Approach B (shared logic, page-level layout) because the individual contact card should be pixel-identical everywhere. Pages handle grouping/arrangement.
+
+**Impact:** Every contact in the app renders identically. Single place to update styling or add fields.
+
+---
+
+### Decision 216: All contact editing removed from UI
+
+**Date:** 2026-03-16
+**Status:** Implemented
+
+**Decision:** Participants are read-only in Roadrunner. Removed "+ Add participant" from engagement detail, contacts textarea from relationship edit, attendees textarea from meeting edit. ParticipantList went from 297 lines to 36.
+
+**Context:** Engagement participant editing was disconnected from the canonical registry — changes didn't propagate to participants table or Airtable. Multiple editing surfaces created confusion about source of truth.
+
+**Rationale:** Contacts are managed in two places: Airtable (catalog contacts) and Supabase (classifier-created contacts). The UI displays; it doesn't edit. Eliminates disconnected write paths.
+
+**Impact:** Simpler UI, no confusing edit forms, clear source of truth.
+
+---
+
+### Decision 217: org_type inferred from email domain in classifier path
+
+**Date:** 2026-03-16
+**Status:** Implemented
+
+**Decision:** `upsertParticipants()` infers org_type when creating new participants: Amazon domains → "internal", known partner domains → "partner", else → "third_party". Does NOT overwrite existing org_type (richer wins).
+
+**Context:** Participants created purely by the classifier had org_type = null, causing ContactRow to show blank labels.
+
+**Rationale:** Email domain is a reliable signal. Amazon employees are always @amazon.*. Partner contacts use company domains. The inference is a fallback — AT sync sets accurate org_type that takes precedence.
+
+**Impact:** New classifier-created participants immediately show "AWS" / "Partner" / "Third Party" labels.
+
+---
+
+### Decision 218: JSONB contact columns dropped (migration 064)
+
+**Date:** 2026-03-16
+**Status:** Implemented
+
+**Decision:** Dropped `partners.aws_team`, `partners.partner_contacts`, `relationships.contacts`, `meetings.attendees`. Removed all writes from sync layer. Removed fields from TypeScript interfaces. Removed from API routes.
+
+**Context:** Contact registry (participants + 4 join tables) has been the sole read source since March 14. These columns were write-only artifacts.
+
+**Rationale:** Schema should reflect reality. No dual-write, no "maybe we'll need it." The registry is the single source of truth, enforced at the database level.
+
+**Impact:** Contact registry migration fully complete. Zero JSONB contact data anywhere in the system.
+
+---
+
+### Decision 219: ContextSidebar KEY CONTACTS uses ContactRow
+
+**Date:** 2026-03-16
+**Status:** Implemented
+
+**Decision:** Replaced the three static role-keyed string blocks ("Alliance Lead: Name <email> (Title)") with a loop over registry contacts rendered via ContactRow.
+
+**Context:** Last remaining contact surface not using the shared component. Used a completely different data pipeline and rendering pattern.
+
+**Rationale:** Zero exceptions to the shared rendering pattern. Consistent display everywhere.
+
+**Impact:** Every contact surface in the entire app uses ContactRow.
+
+---
+
+### Decision 220: push.ts uses participants.title for AT stakeholder strings
+
+**Date:** 2026-03-16
+**Status:** Implemented
+
+**Decision:** `fetchEngagementParticipants()` and `buildMeetingFields()` now select and use `participants.title` instead of hardcoding null.
+
+**Context:** Every engagement and meeting pushed to AT showed "(—)" for stakeholder titles because push.ts never fetched the title field.
+
+**Rationale:** The data existed in the participants table — it just wasn't being used.
+
+**Impact:** Airtable stakeholder fields now show real titles.
+
+---

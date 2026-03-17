@@ -211,6 +211,42 @@ Collapsible participant list with org breakdown summary. Wraps `ParticipantList`
 
 Vertical dot timeline rendering messages and meetings. No card wrapper (renders items directly). Used inside `CollapsibleEmails`.
 
+### ContactRow (`components/shared/ContactRow.tsx`)
+
+Renders a single contact: name + display label + title + email. Uses `getDisplayRole()` from `contact-display.ts` for the label (named role → title → org_type fallback).
+
+```typescript
+interface ContactRowProps {
+  name: string | null;
+  email: string | null;
+  title: string | null;
+  role: string | null;
+  org_type: string | null;
+}
+```
+
+Used by every contact surface in the app (partner detail, engagement detail, meeting detail, relationship detail, ContextSidebar).
+
+### ContactGroup (`components/shared/ContactGroup.tsx`)
+
+Groups contacts by org_type with section headers ("AWS", "Partner", "Third Party"). Sorts within each group by role priority (`sortContactsByRole`). Renders each contact via ContactRow.
+
+```typescript
+interface ContactGroupProps {
+  contacts: Array<{
+    name: string | null;
+    email: string | null;
+    title: string | null;
+    role: string | null;
+    org_type: string | null;
+  }>;
+}
+```
+
+### ParticipantList (`components/shared/ParticipantList.tsx`)
+
+Display-only participant list (36 lines). Wraps ContactGroup. No editing capability — contacts are read-only in Roadrunner (Decision #216).
+
 ### Notes Components (`components/notes/`)
 
 - **NoteWorkspace** — Full editing + review phases, auto-save, AI summarize
