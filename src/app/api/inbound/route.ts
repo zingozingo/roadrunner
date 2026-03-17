@@ -3,9 +3,9 @@ import crypto from "crypto";
 import { parseForwardedEmail, parseSenderField, stripExternalTag } from "@/lib/email-parser";
 import { storeMessages, createMeetingFromICS } from "@/lib/db";
 import { extractICSFromAttachments, parseICSContent } from "@/lib/ics-parser";
-import { processSingleMessage } from "@/lib/classifier";
+import { detectPartnerFromEmail } from "@/lib/partner-detection";
 import { stripPRVS, isUserEmail, USER_CONFIG } from "@/lib/user-config";
-import { buildNameResolutionMap, resolveNameByEmail, resolveOrgByDomain } from "@/lib/name-resolver";
+import { buildNameResolutionMap, resolveNameByEmail } from "@/lib/name-resolver";
 
 /**
  * Verify Mailgun webhook signature.
@@ -335,10 +335,36 @@ export async function POST(request: NextRequest) {
 
     console.log(`Supabase storage: stored ${stored.length} message(s), ids=[${storedIds.join(", ")}]`);
 
+    // --- Mechanical partner detection (no AI) ---
+    let detectedPartner: { partnerId: string; partnerName: string } | null = null;
+    try {
+      const representativeMsg = parsed[0];
+      detectedPartner = await detectPartnerFromEmail(
+        representativeMsg.sender_email ?? '',
+        representativeMsg.to_header ?? toHeader ?? null,
+        representativeMsg.cc_header ?? ccHeader ?? null,
+        representativeMsg.body_text ?? emailBody ?? null
+      );
+      if (detectedPartner) {
+        const { getSupabaseClient } = await import("@/lib/db");
+        const db = getSupabaseClient();
+        await db
+          .from("messages")
+          .update({ partner_id: detectedPartner.partnerId })
+          .in("id", storedIds);
+        console.log(`Partner detection: ${detectedPartner.partnerName} (${storedIds.length} messages)`);
+      } else {
+        console.log("Partner detection: no match (user will pick in inbox)");
+      }
+    } catch (partnerError) {
+      console.error("Partner detection failed (non-blocking):", partnerError);
+    }
+
     // --- ICS Meeting Creation (Phase 1) ---
     // Extract ICS from: body-calendar field → inline body-plain → file attachment.
     // Non-blocking: failures here never prevent email processing.
     let meetingCreated = false;
+    let meetingId: string | null = null;
     try {
       let icsContent: string | null = null;
       let icsSource = "";
@@ -375,7 +401,7 @@ export async function POST(request: NextRequest) {
         const parsedMeeting = parseICSContent(icsContent);
         if (parsedMeeting) {
           console.log(`[ICS] Parsed meeting: "${parsedMeeting.title}" on ${parsedMeeting.meeting_date} (source: ${icsSource})`);
-          const meetingId = await createMeetingFromICS(parsedMeeting, storedIds[0]);
+          meetingId = await createMeetingFromICS(parsedMeeting, storedIds[0]);
           meetingCreated = meetingId !== null;
           console.log(`[ICS] ${meetingCreated ? `Created meeting ${meetingId}` : "Deduped (already exists)"}`);
         } else {
@@ -386,26 +412,25 @@ export async function POST(request: NextRequest) {
       console.error("ICS extraction/parsing failed (non-blocking):", icsError);
     }
 
-    // Trigger classification — Claude responds in 2-3s, well within
-    // Vercel's serverless timeout.
-    // Pass the forwarder note from the first parsed message (if the email-parser detected one)
-    const forwarderNote = parsed[0]?.forwarder_note ?? null;
-    let classified = false;
-    try {
-      const result = await processSingleMessage(storedIds, forwarderNote, nameMap);
-      classified = result !== null;
-      console.log(`Classification: ${classified ? "success" : "no result"}`);
-    } catch (classifyError) {
-      // Classification failure shouldn't fail the webhook — messages are stored
-      // and can be batch-classified later via POST /api/classify
-      console.error("Post-ingest classification failed:", classifyError);
+    // If a meeting was created and we detected a partner, stamp partner_id on it
+    if (meetingCreated && meetingId && detectedPartner) {
+      try {
+        const { getSupabaseClient } = await import("@/lib/db");
+        const db = getSupabaseClient();
+        await db
+          .from("meetings")
+          .update({ partner_id: detectedPartner.partnerId })
+          .eq("id", meetingId);
+      } catch (err) {
+        console.error("Failed to set partner on meeting:", err);
+      }
     }
 
     return NextResponse.json({
       message: "ok",
       stored: stored.length,
-      classified,
       meetingCreated,
+      detectedPartner: detectedPartner?.partnerName ?? null,
       signatureValid,
       parseMethod,
     });
