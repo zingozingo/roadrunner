@@ -20,16 +20,36 @@ export interface InboxItem {
 
 export async function getInboxItems(): Promise<InboxItem[]> {
   const db = getSupabaseClient();
-  const { data, error } = await db
+
+  // Fetch unrouted messages
+  const { data: messages, error } = await db
     .from("messages")
-    .select("id, sender_name, sender_email, subject, body_text, forwarded_at, partner_id, content_type, forwarder_note, partners(name)")
+    .select("id, sender_name, sender_email, subject, body_text, forwarded_at, partner_id, content_type, forwarder_note")
     .is("engagement_id", null)
     .or("content_type.is.null,content_type.neq.noise")
     .order("forwarded_at", { ascending: false });
 
   if (error) throw new Error(`Failed to fetch inbox items: ${error.message}`);
+  if (!messages || messages.length === 0) return [];
 
-  return (data ?? []).map((row: any) => ({
+  // Batch-fetch partner names for detected partners
+  const partnerIds = [...new Set(
+    messages.map((m: any) => m.partner_id).filter(Boolean)
+  )];
+
+  const partnerMap = new Map<string, string>();
+  if (partnerIds.length > 0) {
+    const { data: partners } = await db
+      .from("partners")
+      .select("id, name")
+      .in("id", partnerIds);
+
+    for (const p of partners ?? []) {
+      partnerMap.set((p as any).id, (p as any).name);
+    }
+  }
+
+  return messages.map((row: any) => ({
     id: row.id,
     sender_name: row.sender_name,
     sender_email: row.sender_email,
@@ -37,7 +57,7 @@ export async function getInboxItems(): Promise<InboxItem[]> {
     body_text: row.body_text,
     forwarded_at: row.forwarded_at,
     partner_id: row.partner_id,
-    partner_name: row.partners?.name ?? null,
+    partner_name: row.partner_id ? (partnerMap.get(row.partner_id) ?? null) : null,
     content_type: row.content_type,
     forwarder_note: row.forwarder_note,
   }));
