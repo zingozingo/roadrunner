@@ -165,6 +165,7 @@ export async function createMeeting(data: {
   meeting_type?: string | null;
   notes?: string | null;
   source?: Meeting["source"];
+  is_recurring?: boolean;
 }): Promise<Meeting> {
   const db = getSupabaseClient();
 
@@ -183,6 +184,7 @@ export async function createMeeting(data: {
       meeting_type: data.meeting_type ?? null,
       notes: data.notes ?? null,
       source: data.source ?? "manual",
+      is_recurring: data.is_recurring ?? false,
     })
     .select()
     .single();
