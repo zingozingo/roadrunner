@@ -412,17 +412,46 @@ export async function POST(request: NextRequest) {
       console.error("ICS extraction/parsing failed (non-blocking):", icsError);
     }
 
-    // If a meeting was created and we detected a partner, stamp partner_id on it
-    if (meetingCreated && meetingId && detectedPartner) {
+    // If a meeting was created and we detected a partner from email headers, stamp it on the meeting.
+    // If email detection failed but the meeting detected a partner from ICS attendees, backfill it onto the messages.
+    if (meetingCreated && meetingId) {
       try {
         const { getSupabaseClient } = await import("@/lib/db");
         const db = getSupabaseClient();
-        await db
-          .from("meetings")
-          .update({ partner_id: detectedPartner.partnerId })
-          .eq("id", meetingId);
+
+        if (detectedPartner) {
+          // Email headers found the partner — stamp it on the meeting too
+          await db
+            .from("meetings")
+            .update({ partner_id: detectedPartner.partnerId })
+            .eq("id", meetingId);
+        } else {
+          // Email headers missed the partner — check if the meeting found one from ICS attendees
+          const { data: meeting } = await db
+            .from("meetings")
+            .select("partner_id")
+            .eq("id", meetingId)
+            .single();
+
+          if (meeting?.partner_id) {
+            await db
+              .from("messages")
+              .update({ partner_id: meeting.partner_id })
+              .in("id", storedIds);
+
+            // Look up partner name for logging
+            const { data: partner } = await db
+              .from("partners")
+              .select("name")
+              .eq("id", meeting.partner_id)
+              .single();
+
+            detectedPartner = { partnerId: meeting.partner_id, partnerName: partner?.name ?? "unknown" };
+            console.log(`Partner detection (ICS backfill): ${detectedPartner.partnerName} (${storedIds.length} messages)`);
+          }
+        }
       } catch (err) {
-        console.error("Failed to set partner on meeting:", err);
+        console.error("Failed to sync partner between meeting and messages:", err);
       }
     }
 
