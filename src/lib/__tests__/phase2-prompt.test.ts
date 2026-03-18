@@ -272,8 +272,8 @@ describe("PHASE2_SYSTEM_PROMPT", () => {
     expect(PHASE2_SYSTEM_PROMPT).toContain('"pillar"');
   });
 
-  it("instructs to echo Phase 1 fields", () => {
-    expect(PHASE2_SYSTEM_PROMPT).toContain("echo them back exactly as given");
+  it("instructs to return routing fields as-is", () => {
+    expect(PHASE2_SYSTEM_PROMPT).toContain("Return them as-is in your response");
   });
 
   it("supports up to 7 sentences for complex engagements", () => {
@@ -298,9 +298,9 @@ describe("buildPhase2Context — existing engagement", () => {
     expect(result).toContain("Forwarder Identity");
   });
 
-  it("includes Phase 1 pass-through section", () => {
+  it("includes routing decision section", () => {
     const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
-    expect(result).toContain("Phase 1 Classification");
+    expect(result).toContain("Routing Decision");
     expect(result).toContain('"engagement_email"');
     expect(result).toContain("eng-001");
     expect(result).toContain("0.95");
@@ -439,9 +439,9 @@ describe("buildPhase2Context — new engagement", () => {
     expect(result).toContain("Partner not in catalog");
   });
 
-  it("includes Phase 1 pass-through with is_new true", () => {
+  it("includes routing decision with is_new true", () => {
     const result = buildPhase2Context([NEW_MSG], PHASE1_NEW, null, CATALOGS, null);
-    expect(result).toContain("Phase 1 Classification");
+    expect(result).toContain("Routing Decision");
     expect(result).toContain('"is_new":true');
     expect(result).toContain("NewCorp - Cloud Migration");
   });

@@ -2,7 +2,7 @@
 
 > Last updated: 2026-03-17
 
-> **⚠️ PHASE 1 REMOVED (2026-03-17)** — The two-phase auto-classification pipeline described below is no longer active. Phase 1 (AI routing) has been deleted. The new pipeline is: webhook → mechanical partner detection (`partner-detection.ts`) → inbox triage (human routes) → single-phase AI synthesis (Phase 2 only, triggered by user action via `synthesizeIntoEngagement()`). See decisions #223-239 for rationale and implementation details. The Phase 2 documentation below remains accurate for the synthesis step.
+> **REWRITE NEEDED** — This document describes the old two-phase auto-classification pipeline which was replaced in March 2026 with human-guided intake routing. The current pipeline: email arrives → mechanical partner detection (`partner-detection.ts`) → inbox → human routes (assign/create/discard) → AI synthesizes via `synthesizeIntoEngagement()`. Phase 1 AI routing code (`phase1-prompt.ts`, `classifyPhase1`, `processUnclassifiedMessages`, `approval_queue` table) has been fully deleted. The Phase 2 section below remains accurate for the synthesis step. See decisions #221-239.
 
 ## Overview
 

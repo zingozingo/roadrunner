@@ -6,11 +6,11 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 66 migrations, 17 active tables (approval_queue dropped), 31 API routes, 18 UI pages, 424 passing tests (18 pending Phase D rewrite)
-- Human-guided intake pipeline: webhook → mechanical partner detection → inbox triage → single-phase AI synthesis (decisions #223-239)
-- Phase 1 AI routing eliminated. Phase 2 synthesis preserved, triggered by user routing decisions
+- 66 migrations, 17 active tables, 30 API routes, 18 UI pages, 427 passing tests (0 failures)
+- Human-guided intake pipeline fully operational: webhook → mechanical partner detection → inbox triage → single-phase AI synthesis (decisions #223-239)
+- Phase D cleanup complete: dead tests deleted, stale assertions fixed, dead types/routes removed
 - Entity model fully rewritten with ring architecture (Catalog → Activity → People → Posture) in docs/entity-model.md
-- Documentation consolidated: 5 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline, goal-state.md status, decisions.md through #239)
+- Documentation consolidated: 5 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline (rewrite pending), goal-state.md status, decisions.md through #239)
 - Dead weight cleaned: notes table dropped (migration 061), orphaned components removed (PillGrid, CalendarCard, TableList, SyncStatus), decisions.md merged from two files into one
 - Zero polymorphic tables: entity_links replaced with engagement_programs + engagement_events (migration 065, decisions #221-222)
 - Contact registry complete: 76 participants, 85 partner links, 4 dedicated join tables, sync layer auto-maintains registry — all reads and writes flow through registry, JSONB columns dropped (Decisions #182, #218)
@@ -37,17 +37,17 @@ A system where a PDM forwards an email and Roadrunner:
 ## What's Next
 
 ### Next Session
-- Phase D cleanup: rewrite 18 failing tests (classifier.test.ts, phase2-prompt.test.ts, resolve-route.test.ts)
-- Remove ApprovalQueueItem type from types.ts
-- Delete /api/classify stub route
+- Inbox badge fix (count endpoint)
+- Unknown partner flow (what happens when partner_id is null through the whole pipeline)
+- Real daily use testing — forward emails, verify full pipeline end-to-end
 
 ### Soon
 - Ring 3 pull sync planning (Partner Programs, Events, Co-Sell Goals, Partner Goals, Funding)
 - Partner Goals pull into brain synthesis context
+- CLASSIFICATION.md full rewrite to document current pipeline
 
 ### Later
 - Ring 3 pull sync implementation
-- Slot registry v1
 - Financial fields on partners table
 - Recurring meeting series engine
 - Pre-meeting briefing (AI-generated)
@@ -84,6 +84,7 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~Contact registry migration complete~~ ✅ (decisions 210-220): semicolon parser fix, email normalization, classifier role detection, display hierarchy, ContactRow/ContactGroup shared components, contact editing removed, org_type inference, JSONB columns dropped (migration 064), ContextSidebar rewired, push.ts titles fixed
 - ~~entity_links → typed junction tables~~ ✅ (decisions 221-222): engagement_programs + engagement_events replace polymorphic entity_links. Zero polymorphic tables remain. Migration 065.
 - ~~Intake pipeline redesign (Phases A-C)~~ ✅ (decisions 223-239): Phase 1 AI routing killed, mechanical partner detection, inbox triage UI (assign/create/discard), engagement merge with AT cleanup. approval_queue table dropped. Migration 066.
+- ~~Phase D cleanup~~ ✅: Deleted ghost test files (classifier.test.ts, resolve-route.test.ts — 15 dead tests), removed ApprovalQueueItem type, deleted /api/classify stub, fixed 3 stale phase2-prompt assertions. 427 passing, 0 failures.
 
 ## Architecture Principles
 

@@ -1,7 +1,7 @@
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → human-guided routing → AI synthesis → structured engagements → Airtable sync.
-> 66 migrations · 17 tables · 31 API routes · 18 UI pages · 424 passing tests (18 pending Phase D rewrite)
+> 66 migrations · 17 tables · 30 API routes · 18 UI pages · 427 passing tests
 
 ---
 
@@ -24,7 +24,7 @@ Roadrunner turns scattered partner email threads into structured, trackable enga
 | **Task** | An action item extracted from meeting notes or created manually. Belongs to a partner, optionally linked to a meeting note. |
 | **Participant** | A person in the system. The canonical person registry — every contact resolves here. |
 | **Partner Context** | PDM scratchpad notes about a partner. Wired into AI context pipeline for meeting note summarization. |
-| **Inbox** | Unrouted messages (engagement_id IS NULL). PDM triages via assign, create new, or discard. Replaced the old approval_queue table. |
+| **Inbox** | Unrouted messages (engagement_id IS NULL). PDM triages via assign, create new, or discard. |
 
 ---
 
@@ -48,31 +48,29 @@ Roadrunner turns scattered partner email threads into structured, trackable enga
 ```
 roadrunner/
 ├── docs/                          # Project documentation (3 files)
-│   ├── CLASSIFICATION.md          #   Two-phase AI pipeline & prompt architecture
+│   ├── CLASSIFICATION.md          #   AI synthesis pipeline documentation (rewrite pending)
 │   ├── entity-model.md            #   Canonical schema — ERD + field-level registry + AT field IDs
 │   └── goal-state.md              #   Living orientation doc — current state & next steps
-├── decisions.md                   # Append-only architectural decision log (220 entries)
+├── decisions.md                   # Append-only architectural decision log (239 entries)
 ├── src/
 │   ├── app/                       # Next.js App Router
-│   │   ├── api/                   #   API routes (30 routes, grouped by entity)
-│   │   │   ├── classify/          #     Classification endpoints + test routes
-│   │   │   ├── engagements/       #     CRUD + participants
+│   │   ├── api/                   #   API routes (30 route files, grouped by entity)
+│   │   │   ├── engagements/       #     CRUD + merge + participants
 │   │   │   ├── events/            #     CRUD
 │   │   │   ├── health/            #     Health check
 │   │   │   ├── inbound/           #     Mailgun webhook
-│   │   │   ├── inbox/             #     Approval queue count (sidebar badge)
+│   │   │   ├── inbox/             #     Inbox count (sidebar badge)
 │   │   │   ├── meetings/          #     CRUD
 │   │   │   ├── notes/             #     Notes CRUD + summarize + tasks + context
-│   │   │   ├── participant-links/ #     Delete link
 │   │   │   ├── participants/      #     Update participant
 │   │   │   ├── partners/          #     CRUD + partner context
 │   │   │   ├── programs/          #     CRUD
 │   │   │   ├── relationships/     #     CRUD
-│   │   │   ├── reviews/           #     Resolve approval
+│   │   │   ├── reviews/           #     Inbox resolve (assign/create/discard)
 │   │   │   └── sync/              #     Trigger Airtable sync
 │   │   ├── engagements/           #   Engagement list + detail pages
 │   │   ├── events/                #   Event list + detail pages
-│   │   ├── inbox/                 #   Approval review queue
+│   │   ├── inbox/                 #   Inbox triage UI
 │   │   ├── meetings/              #   Meeting list + detail pages (inline NoteWorkspace)
 │   │   ├── partners/              #   Partner list + detail pages
 │   │   ├── programs/              #   Program list + detail pages
@@ -82,7 +80,7 @@ roadrunner/
 │   │   └── page.tsx               #   Redirects to /partners
 │   ├── components/                # React components (31 across 7 groups)
 │   │   ├── actions/               #   Entity action buttons + MergeButton (6 files)
-│   │   ├── engagement/            #   Engagement-specific cards/forms (4 files)
+│   │   ├── engagement/            #   Engagement-specific cards (1 file: CurrentStateCard)
 │   │   ├── inbox/                 #   Inbox triage UI — InboxClient (1 file)
 │   │   ├── layout/                #   App structure — sidebar, headers (4 files)
 │   │   ├── notes/                 #   NoteWorkspace, ContextSidebar, PreviousNotes, TaskEditor, MeetingNotesSection
@@ -90,9 +88,9 @@ roadrunner/
 │   │   └── shared/                #   Reusable primitives — CompactRow, DetailHeader, badges (12 files)
 │   └── lib/                       # Core business logic
 │       ├── classifier.ts          #   Synthesis orchestrator (synthesizeIntoEngagement, persistClassificationResult)
-│       ├── claude.ts              #   Anthropic API client (Phase 2 synthesis)
+│       ├── claude.ts              #   Anthropic API client (synthesis calls)
 │       ├── partner-detection.ts   #   Mechanical partner detection via domain matching
-│       ├── phase2-prompt.ts       #   Phase 2 system prompt + context builders
+│       ├── phase2-prompt.ts       #   Synthesis system prompt + context builders
 │       ├── prompt-builder.ts      #   Shared section builders (events, programs, etc.)
 │       ├── email-parser.ts        #   Forwarded email chain parser (two-pass)
 │       ├── ics-parser.ts          #   ICS calendar event parser (RFC 5545)
@@ -101,7 +99,6 @@ roadrunner/
 │       ├── format-utils.ts        #   Display name formatting utilities
 │       ├── notes-summarizer.ts    #   AI meeting note summarizer (Claude API)
 │       ├── notes-context.ts       #   Partner context builder for notes
-│       ├── meeting-status-map.ts  #   Meeting status display mapping
 │       ├── contact-display.ts     #   Contact display formatting for UI
 │       ├── brain-synthesizer.ts   #   AI synthesis utilities
 │       ├── types.ts               #   All shared TypeScript interfaces
@@ -126,7 +123,7 @@ roadrunner/
 │       │   ├── push.ts            #     RR → AT activity sync
 │       │   ├── field-maps.ts      #     Airtable field ID constants
 │       │   └── utils.ts           #     Coercion helpers + validation
-│       └── __tests__/             #   424 passing tests across 15 test files (18 pending rewrite)
+│       └── __tests__/             #   427 passing tests across 13 test files
 ├── supabase/
 │   ├── migrations/                # 66 migration files (001-066)
 │   └── (authoritative schema lives in migrations/)
@@ -169,7 +166,7 @@ roadrunner/
    PDM chooses: Assign to existing engagement, Create new, or Discard
    ↓
 8. AI SYNTHESIS (classifier.ts → synthesizeIntoEngagement)
-   Phase 2 only: full thread history → deep analysis
+   Full thread history → deep analysis via Claude API
    Returns: current_state, participants, entity links, pillar, topic, goal
    ↓
 9. PERSIST (classifier.ts → persistClassificationResult)
@@ -226,7 +223,7 @@ These are **NON-NEGOTIABLE**. Every code change must respect these:
 
 **External Webhooks:** `/api/inbound` (Mailgun) and `/api/health` (monitoring) are called by external services, not the frontend.
 
-**Stubbed Routes:** `/api/classify` returns 410 Gone (batch classification removed). Dev test routes (`/api/classify/test`, `/api/classify/live-test`, `/api/classify/test-cleanup`) are available for classification pipeline testing.
+**No stubbed routes.** The old `/api/classify` 410 stub was removed in Phase D cleanup.
 
 ---
 
@@ -249,7 +246,7 @@ AIRTABLE_BASE_ID=appy9TT1LRJTAuQ4W
 ```bash
 npm install                        # Install dependencies
 npm run dev                        # Start Next.js dev server on :3000
-npx vitest run --reporter=verbose  # Run tests (424 passing, 18 pending Phase D rewrite)
+npx vitest run --reporter=verbose  # Run tests (427 passing, 0 failures)
 npx tsc --noEmit                   # TypeScript check (must pass with zero errors)
 ```
 
@@ -260,20 +257,18 @@ npx tsc --noEmit                   # TypeScript check (must pass with zero error
 | Test File | Tests | Covers |
 |-----------|-------|--------|
 | email-parser.test.ts | 123 | Email chain parsing, forwarded content extraction |
-| phase2-prompt.test.ts | 54 | Phase 2 prompt building, context sections (3 pending rewrite) |
-| phase1-prompt.test.ts | 45 | Phase 1 prompt building (deleted — tests pending removal) |
+| phase2-prompt.test.ts | 54 | Phase 2 prompt building, context sections |
+| contact-display.test.ts | 41 | Contact display formatting |
 | format-utils.test.ts | 39 | Display name formatting utilities |
 | ics-parser.test.ts | 31 | ICS calendar parsing (RFC 5545) |
 | name-resolver.test.ts | 28 | Contact name resolution from JSONB columns |
 | contact-parser.test.ts | 26 | Universal contact format parsing/rendering |
 | user-config.test.ts | 18 | User identity matching |
 | meeting-pipeline.test.ts | 13 | Meeting creation, ICS parsing, linking |
-| classifier.test.ts | 11 | Classification orchestration (11 pending rewrite — tests old pipeline) |
 | prompt-builder.test.ts | 11 | Shared context section builders |
+| partner-detection.test.ts | 25 | Mechanical partner detection via domain matching |
 | dedup.test.ts | 6 | Message fingerprint deduplication |
-| meeting-status-map.test.ts | 5 | Meeting status mapping |
-| contact-display.test.ts | 41 | Contact display formatting |
-| resolve-route.test.ts | 4 | Inbox resolve route logic (4 pending rewrite — tests old approval flow) |
+| meeting-status-map.test.ts | 5 | Meeting status mapping (mapMeetingStatus in sync/utils) |
 
 **DB mocking:** Supabase client is mocked via `vi.mock` with `vi.hoisted()` for mock variables — see existing tests for the pattern.
 
@@ -361,7 +356,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-066). New migratio
 |-----|---------|--------------|
 | `CLAUDE.md` | This file — project overview, architecture, development | Start of every session |
 | `docs/entity-model.md` | Complete schema — 19 tables, all FKs, AT field IDs, ring model | Schema/data work |
-| `docs/CLASSIFICATION.md` | AI synthesis pipeline (Phase 1 removed, Phase 2 active) | Prompt/AI work |
+| `docs/CLASSIFICATION.md` | AI synthesis pipeline (rewrite pending — Phase 2 docs still accurate) | Prompt/AI work |
 | `docs/goal-state.md` | Living status — current state + what's next | Session planning |
 | `decisions.md` | Append-only architectural decision log (239 entries) | When you need "why" |
 
