@@ -37,13 +37,19 @@ function groupByForwardedAt(items: InboxItem[]): InboxGroup[] {
     if (Math.abs(currTime - prevTime) <= 5000) {
       current.push(sorted[i]);
     } else {
-      groups.push({ key: current[0].id, items: current, primary: current[0] });
+      groups.push(makeGroup(current));
       current = [sorted[i]];
     }
   }
-  groups.push({ key: current[0].id, items: current, primary: current[0] });
+  groups.push(makeGroup(current));
 
   return groups;
+}
+
+/** Pick the best representative message for display: prefer one with sender info */
+function makeGroup(items: InboxItem[]): InboxGroup {
+  const primary = items.find((i) => i.sender_name || i.sender_email) ?? items[0];
+  return { key: items[0].id, items, primary };
 }
 
 export default function InboxClient({ items: initialItems }: Props) {
@@ -211,9 +217,11 @@ export default function InboxClient({ items: initialItems }: Props) {
                   <p className="text-sm font-medium text-foreground truncate">
                     {item.subject || "(no subject)"}
                   </p>
-                  <p className="text-xs text-muted mt-0.5">
-                    {item.sender_name || item.sender_email || "Unknown"}
-                  </p>
+                  {(item.sender_name || item.sender_email) && (
+                    <p className="text-xs text-muted mt-0.5">
+                      {item.sender_name || item.sender_email}
+                    </p>
+                  )}
                 </div>
 
                 {/* Actions — only when not expanded */}
