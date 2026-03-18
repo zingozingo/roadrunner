@@ -15,6 +15,7 @@ import { cleanMeetingTitle, formatFooterDate } from "@/lib/format-utils";
 import MeetingNotesSection from "@/components/notes/MeetingNotesSection";
 import ContactGroup from "@/components/shared/ContactGroup";
 import { USER_CONFIG } from "@/lib/user-config";
+import EngagementLinker from "@/components/shared/EngagementLinker";
 import type { DisplayContext } from "@/lib/types";
 
 // Status dot color map
@@ -194,13 +195,12 @@ export default async function MeetingDetailPage({
               </div>
               <div>
                 <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Engagement</span>
-                {engagement ? (
-                  <Link href={`/engagements/${engagement.id}`} className="text-sm font-medium text-accent hover:underline">
-                    {engagement.name}
-                  </Link>
-                ) : (
-                  <span className="text-sm text-muted">—</span>
-                )}
+                <EngagementLinker
+                  meetingId={id}
+                  partnerId={meeting.partner_id}
+                  initialEngagementId={meeting.engagement_id}
+                  initialEngagementName={engagement?.name ?? null}
+                />
               </div>
               {meeting.meeting_type && (
                 <div>

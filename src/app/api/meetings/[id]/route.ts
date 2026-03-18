@@ -103,6 +103,16 @@ export async function PUT(
 
     const updated = await updateMeeting(id, updates);
 
+    // Push to Airtable when engagement link changes
+    if (engagement_id !== undefined) {
+      try {
+        const { pushMeetingToAirtable } = await import("@/lib/sync");
+        await pushMeetingToAirtable(id);
+      } catch (err) {
+        console.error(`Airtable push failed for meeting ${id}:`, err);
+      }
+    }
+
     return NextResponse.json({ meeting: updated });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
