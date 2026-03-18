@@ -105,8 +105,10 @@ export {
 
 // Inbox (message-based)
 export {
+  INBOX_GROUP_WINDOW_MS,
   getInboxItems,
   getInboxCount,
+  getInboxGroupCount,
   discardInboxItem,
   getMessagesForInboxItem,
 } from "./inbox";

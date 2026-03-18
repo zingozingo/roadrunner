@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { getInboxCount } from "@/lib/db";
+import { getInboxGroupCount } from "@/lib/db";
 
 export async function GET() {
   try {
-    const count = await getInboxCount();
+    const count = await getInboxGroupCount();
     return NextResponse.json({ count });
   } catch (error) {
     console.error("Inbox count error:", error);

@@ -9,10 +9,7 @@ export default async function InboxPage() {
 
   return (
     <div className="p-6 lg:p-8">
-      <PageHeader
-        title="Inbox"
-        subtitle={`${items.length} unrouted message${items.length !== 1 ? "s" : ""}`}
-      />
+      <PageHeader title="Inbox" />
       <InboxClient items={items} />
     </div>
   );

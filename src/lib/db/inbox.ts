@@ -5,6 +5,9 @@ import type { Message } from "../types";
  * Inbox = unrouted messages (engagement_id IS NULL, not noise).
  */
 
+/** Messages forwarded within this window are treated as one logical inbox item. */
+export const INBOX_GROUP_WINDOW_MS = 5000;
+
 export interface InboxItem {
   id: string;
   sender_name: string | null;
@@ -75,6 +78,33 @@ export async function getInboxCount(): Promise<number> {
   return count ?? 0;
 }
 
+/**
+ * Count inbox items grouped by forwarded_at window.
+ * Matches the client-side grouping in InboxClient.tsx.
+ */
+export async function getInboxGroupCount(): Promise<number> {
+  const db = getSupabaseClient();
+  const { data, error } = await db
+    .from("messages")
+    .select("forwarded_at")
+    .is("engagement_id", null)
+    .or("content_type.is.null,content_type.neq.noise")
+    .order("forwarded_at", { ascending: false });
+
+  if (error) throw new Error(`Failed to fetch inbox timestamps: ${error.message}`);
+  if (!data || data.length === 0) return 0;
+
+  let groups = 1;
+  for (let i = 1; i < data.length; i++) {
+    const prevTime = new Date(data[i - 1].forwarded_at).getTime();
+    const currTime = new Date(data[i].forwarded_at).getTime();
+    if (Math.abs(currTime - prevTime) > INBOX_GROUP_WINDOW_MS) {
+      groups++;
+    }
+  }
+  return groups;
+}
+
 export async function discardInboxItem(messageId: string): Promise<void> {
   const db = getSupabaseClient();
 
@@ -105,10 +135,10 @@ export async function getMessagesForInboxItem(messageId: string): Promise<Messag
 
   if (targetError || !target) throw new Error(`Message ${messageId} not found`);
 
-  // Find grouped messages (same forwarded_at within 5 seconds)
+  // Find grouped messages (same forwarded_at within grouping window)
   const targetTime = new Date(target.forwarded_at).getTime();
-  const windowStart = new Date(targetTime - 5000).toISOString();
-  const windowEnd = new Date(targetTime + 5000).toISOString();
+  const windowStart = new Date(targetTime - INBOX_GROUP_WINDOW_MS).toISOString();
+  const windowEnd = new Date(targetTime + INBOX_GROUP_WINDOW_MS).toISOString();
 
   const { data: grouped, error: groupError } = await db
     .from("messages")

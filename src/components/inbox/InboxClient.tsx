@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import type { InboxItem } from "@/lib/db/inbox";
+import { INBOX_GROUP_WINDOW_MS, type InboxItem } from "@/lib/db/inbox";
 import EmptyState from "@/components/layout/EmptyState";
 
 interface Props {
@@ -34,7 +34,7 @@ function groupByForwardedAt(items: InboxItem[]): InboxGroup[] {
     const prevTime = new Date(sorted[i - 1].forwarded_at).getTime();
     const currTime = new Date(sorted[i].forwarded_at).getTime();
 
-    if (Math.abs(currTime - prevTime) <= 5000) {
+    if (Math.abs(currTime - prevTime) <= INBOX_GROUP_WINDOW_MS) {
       current.push(sorted[i]);
     } else {
       groups.push(makeGroup(current));
