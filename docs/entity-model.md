@@ -1,7 +1,7 @@
 # Roadrunner Entity Model
 
-> **Last updated**: 2026-03-17 (entity_links replaced with engagement_programs + engagement_events)
-> 18 active tables · 65 migrations · 6 Airtable-only tables (future)
+> **Last updated**: 2026-03-18 (approval_queue dropped — migration 066)
+> 17 active tables · 66 migrations · 6 Airtable-only tables (future)
 
 ---
 
@@ -34,7 +34,7 @@ graph TB
         MEETING_NOTES[Meeting Notes]
         TASKS[Tasks]
         MESSAGES[Messages]
-        APPROVAL_QUEUE[Approval Queue]
+
         PARTNER_CONTEXT[Partner Context]
     end
 
@@ -264,7 +264,7 @@ erDiagram
     ENGAGEMENTS ||--o{ MEETING_NOTES : "optional context (SET NULL)"
     MEETINGS ||--o| MEETING_NOTES : "1-to-1 (CASCADE)"
     MEETING_NOTES ||--o{ TASKS : "extracts (SET NULL)"
-    MESSAGES ||--o| APPROVAL_QUEUE : "may queue"
+
     MESSAGES ||--o| MEETINGS : "ICS source"
 
     PARTNERS {
@@ -496,23 +496,6 @@ Output format: one `Name <email> (Title)` per line (universal contact format).
 
 ---
 
-### APPROVAL_QUEUE (Roadrunner-only)
-
-| Field | SB Type | Owner | UI |
-|-------|---------|-------|-----|
-| id | uuid PK | RR | inbox |
-| type | text NOT NULL CHECK (engagement_assignment) | RR | inbox |
-| message_id | uuid FK → messages (SET NULL) | RR | inbox |
-| engagement_id | uuid FK → engagements (SET NULL) | RR | inbox |
-| classification_result | jsonb | RR | inbox |
-| resolved | boolean NOT NULL DEFAULT false | RR | inbox |
-| resolved_at | timestamptz | RR | — |
-| resolution | text | RR | — |
-| created_at | timestamptz | RR | — |
-
-Partial index: `idx_approval_queue_unresolved WHERE resolved = false`
-
----
 
 ### PARTNER_CONTEXT (Roadrunner-only)
 
@@ -950,8 +933,6 @@ UNIQUE index on `(participant_id, entity_type, entity_id)`
 | tasks | owner_participant_id | participants | SET NULL | Tasks survive contact cleanup |
 | messages | engagement_id | engagements | SET NULL | Messages survive engagement close |
 | partner_context | partner_id | partners | CASCADE | Context dies with partner |
-| approval_queue | message_id | messages | SET NULL | Queue survives message cleanup |
-| approval_queue | engagement_id | engagements | SET NULL | Queue survives engagement close |
 | partner_participants | partner_id | partners | CASCADE | Both sides cascade |
 | partner_participants | participant_id | participants | CASCADE | Both sides cascade |
 | meeting_participants | meeting_id | meetings | CASCADE | Both sides cascade |

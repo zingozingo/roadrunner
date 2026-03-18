@@ -2,7 +2,7 @@
 
 > Last updated: 2026-03-17
 
-> **REWRITE NEEDED** — This document describes the old two-phase auto-classification pipeline which was replaced in March 2026 with human-guided intake routing. The current pipeline: email arrives → mechanical partner detection (`partner-detection.ts`) → inbox → human routes (assign/create/discard) → AI synthesizes via `synthesizeIntoEngagement()`. Phase 1 AI routing code (`phase1-prompt.ts`, `classifyPhase1`, `processUnclassifiedMessages`, `approval_queue` table) has been fully deleted. The Phase 2 section below remains accurate for the synthesis step. See decisions #221-239.
+> **REWRITE NEEDED** — This document describes the old two-phase auto-classification pipeline which was replaced in March 2026 with human-guided intake routing. The current pipeline: email arrives → mechanical partner detection (`partner-detection.ts`) → ICS attendee partner backfill (decision #243) → inbox → human picks partner if unknown (POST `/api/inbox/set-partner`, decision #246) → human routes (assign/create/discard) → AI synthesizes via `synthesizeIntoEngagement()`. Phase 1 AI routing code has been fully deleted. All intake scenarios are now covered including unknown-partner items. The Phase 2 section below remains accurate for the synthesis step. See decisions #221-249.
 
 ## Overview
 

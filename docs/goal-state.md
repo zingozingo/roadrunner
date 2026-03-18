@@ -6,11 +6,11 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 66 migrations, 17 active tables, 30 API routes, 18 UI pages, 427 passing tests (0 failures)
-- Human-guided intake pipeline fully operational: webhook → mechanical partner detection → inbox triage → single-phase AI synthesis (decisions #223-239)
+- 66 migrations, 17 active tables, 31 API routes, 18 UI pages, 427 passing tests (0 failures)
+- Human-guided intake pipeline fully operational: webhook → mechanical partner detection → ICS partner backfill → inbox triage (with unknown partner picker) → single-phase AI synthesis (decisions #223-249)
 - Phase D cleanup complete: dead tests deleted, stale assertions fixed, dead types/routes removed
 - Entity model fully rewritten with ring architecture (Catalog → Activity → People → Posture) in docs/entity-model.md
-- Documentation consolidated: 5 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline (rewrite pending), goal-state.md status, decisions.md through #239)
+- Documentation consolidated: 5 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline (rewrite pending), goal-state.md status, decisions.md through #249)
 - Dead weight cleaned: notes table dropped (migration 061), orphaned components removed (PillGrid, CalendarCard, TableList, SyncStatus), decisions.md merged from two files into one
 - Zero polymorphic tables: entity_links replaced with engagement_programs + engagement_events (migration 065, decisions #221-222)
 - Contact registry complete: 76 participants, 85 partner links, 4 dedicated join tables, sync layer auto-maintains registry — all reads and writes flow through registry, JSONB columns dropped (Decisions #182, #218)
@@ -37,9 +37,9 @@ A system where a PDM forwards an email and Roadrunner:
 ## What's Next
 
 ### Next Session
-- Inbox badge fix (count endpoint)
-- Unknown partner flow (what happens when partner_id is null through the whole pipeline)
 - Real daily use testing — forward emails, verify full pipeline end-to-end
+- System prompt tuning — improve AI synthesis quality from real data patterns
+- Task UX improvements — inline editing, completion flow
 
 ### Soon
 - Ring 3 pull sync planning (Partner Programs, Events, Co-Sell Goals, Partner Goals, Funding)
@@ -83,8 +83,11 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~Debug route cleanup~~ ✅ (/api/debug/classify-two-phase deleted)
 - ~~Contact registry migration complete~~ ✅ (decisions 210-220): semicolon parser fix, email normalization, classifier role detection, display hierarchy, ContactRow/ContactGroup shared components, contact editing removed, org_type inference, JSONB columns dropped (migration 064), ContextSidebar rewired, push.ts titles fixed
 - ~~entity_links → typed junction tables~~ ✅ (decisions 221-222): engagement_programs + engagement_events replace polymorphic entity_links. Zero polymorphic tables remain. Migration 065.
-- ~~Intake pipeline redesign (Phases A-C)~~ ✅ (decisions 223-239): Phase 1 AI routing killed, mechanical partner detection, inbox triage UI (assign/create/discard), engagement merge with AT cleanup. approval_queue table dropped. Migration 066.
+- ~~Intake pipeline redesign (Phases A-D)~~ ✅ (decisions 223-249): Phase 1 AI routing killed, mechanical partner detection, inbox triage UI (assign/create/discard), engagement merge with AT cleanup, ICS partner backfill, inbox badge grouped count, unknown partner picker flow. approval_queue table dropped. Migration 066. All intake scenarios covered.
 - ~~Phase D cleanup~~ ✅: Deleted ghost test files (classifier.test.ts, resolve-route.test.ts — 15 dead tests), removed ApprovalQueueItem type, deleted /api/classify stub, fixed 3 stale phase2-prompt assertions. 427 passing, 0 failures.
+- ~~Inbox badge fix~~ ✅ (decision 244): Badge shows grouped count matching UI grouping
+- ~~Unknown partner flow~~ ✅ (decisions 246-248): POST /api/inbox/set-partner + partner picker UI, two-step flow (pick partner → then route)
+- ~~ICS partner backfill~~ ✅ (decision 243): Calendar-only forwards now propagate partner from meeting to messages
 
 ## Architecture Principles
 

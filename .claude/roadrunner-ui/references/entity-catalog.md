@@ -189,14 +189,17 @@ Partner name as `text-xs font-medium uppercase tracking-[0.08em] text-muted/70` 
 ## Inbox
 
 **Page:** `inbox/page.tsx` + `InboxClient.tsx`
-**Layout:** Single-column, section label "Unrouted Messages" with count
+**Layout:** Single-column, section label "Unrouted Messages" with grouped count
 
 - Section header: `text-xs font-semibold uppercase tracking-wider text-muted`
-- Count: plain text `text-muted/50`
-- Messages grouped by `forwarded_at` (5-second window) — displayed as single rows with count badge when >1
+- Count: grouped count (forwarded_at window groups, not raw messages) `text-muted/50`
+- Messages grouped by `forwarded_at` (5-second window, `INBOX_GROUP_WINDOW_MS`) — displayed as single rows with count badge when >1
+- Group primary selection: prefers messages with sender_name or sender_email populated (makeGroup helper)
+- Sender subtitle: conditionally rendered only when sender info exists — no "Unknown" fallback
 - Flat rows: `border-b border-border/20`, `hover:bg-surface/50`
-- Partner pills: `bg-accent/10 text-accent` for known, `bg-amber-500/10 text-amber-400` for "Unknown Partner"
-- 3 text-only action buttons per row: Assign (only when partner_id present), New, Discard
+- Partner pills: `bg-accent/10 text-accent` for known partners
+- Unknown partner flow (two-step): "Pick Partner" button (`bg-amber-500/10 text-amber-400`) → filterable dropdown (lazy-loaded, cached in useRef) → partner stamped via POST `/api/inbox/set-partner` → Assign/New buttons unlock
+- Assign and New buttons hidden when partner_id is null — only Discard available until partner picked
 - Assign panel: fetches partner's engagements, clickable entity rows to pick target
 - Create panel: pre-filled title (`"{Partner} - {cleaned subject}"`), underline input
 - EmptyState when inbox is empty

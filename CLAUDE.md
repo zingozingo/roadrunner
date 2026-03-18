@@ -1,7 +1,7 @@
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → human-guided routing → AI synthesis → structured engagements → Airtable sync.
-> 66 migrations · 17 tables · 30 API routes · 18 UI pages · 427 passing tests
+> 66 migrations · 17 tables · 31 API routes · 18 UI pages · 427 passing tests
 
 ---
 
@@ -51,15 +51,15 @@ roadrunner/
 │   ├── CLASSIFICATION.md          #   AI synthesis pipeline documentation (rewrite pending)
 │   ├── entity-model.md            #   Canonical schema — ERD + field-level registry + AT field IDs
 │   └── goal-state.md              #   Living orientation doc — current state & next steps
-├── decisions.md                   # Append-only architectural decision log (239 entries)
+├── decisions.md                   # Append-only architectural decision log (249 entries)
 ├── src/
 │   ├── app/                       # Next.js App Router
-│   │   ├── api/                   #   API routes (30 route files, grouped by entity)
+│   │   ├── api/                   #   API routes (31 route files, grouped by entity)
 │   │   │   ├── engagements/       #     CRUD + merge + participants
 │   │   │   ├── events/            #     CRUD
 │   │   │   ├── health/            #     Health check
 │   │   │   ├── inbound/           #     Mailgun webhook
-│   │   │   ├── inbox/             #     Inbox count (sidebar badge)
+│   │   │   ├── inbox/             #     Inbox grouped count + set-partner
 │   │   │   ├── meetings/          #     CRUD
 │   │   │   ├── notes/             #     Notes CRUD + summarize + tasks + context
 │   │   │   ├── participants/      #     Update participant
@@ -116,7 +116,7 @@ roadrunner/
 │       │   ├── relationships.ts   #     Relationships + junction queries
 │       │   ├── participants.ts    #     Participant upsert + registry joins
 │       │   ├── engagement-links.ts #     Engagement↔program/event junction queries
-│       │   ├── inbox.ts           #     Inbox queries (unrouted messages + partner lookup)
+│       │   ├── inbox.ts           #     Inbox queries, grouped count, set-partner, INBOX_GROUP_WINDOW_MS
 │       │   └── index.ts           #     Barrel re-exports
 │       ├── sync/                  #   Airtable sync engine
 │       │   ├── pull.ts            #     AT → RR catalog sync

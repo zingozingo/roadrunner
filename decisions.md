@@ -4843,3 +4843,153 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** /api/classify returns { error: "Batch classification has been removed..." }.
 
 ---
+
+### Decision 240: Ghost test deletion over rewrite
+
+**Date:** 2026-03-18
+**Status:** ✅ Implemented
+
+**Decision:** Tests for deleted Phase 1 pipeline code (classifier.test.ts 11 tests, resolve-route.test.ts 4 tests) deleted rather than rewritten.
+
+**Context:** Phase D cleanup — the code these tests covered no longer exists (classifyPhase1, processUnclassifiedMessages, applyClassificationResult, approval_queue).
+
+**Rationale:** Dead tests testing dead code have negative value. They bloat the suite, break on unrelated changes, and mislead about coverage. No rewrite needed because the new pipeline (mechanical partner detection + inbox triage + synthesizeIntoEngagement) has different boundaries that don't map 1:1.
+
+**Impact:** 15 tests deleted across 2 files. Test count stable at 427 because stale assertions in phase2-prompt.test.ts were fixed in the same cleanup.
+
+---
+
+### Decision 241: /api/classify deleted entirely
+
+**Date:** 2026-03-18
+**Status:** ✅ Implemented
+
+**Decision:** The 410 stub for /api/classify removed — route directory deleted entirely.
+
+**Context:** Decision #239 stubbed it at 410. Phase D cleanup confirmed no external callers (Mailgun webhook posts to /api/inbound, not /api/classify).
+
+**Rationale:** Stubs for dead routes add maintenance burden. No callers → no need for a graceful deprecation response.
+
+**Impact:** src/app/api/classify/ directory deleted.
+
+---
+
+### Decision 242: meeting-status-map.ts confirmed live
+
+**Date:** 2026-03-18
+**Status:** ✅ Confirmed
+
+**Decision:** meeting-status-map.test.ts is not orphaned — it tests mapMeetingStatus which lives in sync/utils.ts.
+
+**Context:** Phase D investigation flagged the test file as potentially orphaned because there's no meeting-status-map.ts source file. Diagnostic showed the test imports from ../sync/utils and passes.
+
+**Rationale:** Function was moved to sync/utils.ts in a prior refactor. Test file name is slightly misleading but the import path is correct and all 5 tests pass.
+
+**Impact:** No change — test kept as-is.
+
+---
+
+### Decision 243: ICS partner backfill to messages
+
+**Date:** 2026-03-18
+**Status:** ✅ Implemented
+
+**Decision:** After createMeetingFromICS() detects a partner via matchPartnerFromAttendees(), the meeting's partner_id is written back to stored messages if they lack one.
+
+**Context:** Calendar-only forwards (ICS invites with no partner email in headers) would arrive with partner_id=null on messages even though the meeting correctly identified the partner from attendee domains. This caused the inbox to show "Unknown Partner" for items that the system actually knew about.
+
+**Rationale:** Partner detection has two paths: email headers (partner-detection.ts) and ICS attendees (meetings.ts). When the email path fails but ICS succeeds, the result should flow back to messages so the inbox displays correctly and the resolve route's partner gate doesn't block routing.
+
+**Impact:** src/app/api/inbound/route.ts — new block after meeting creation that reads meeting.partner_id and stamps it on stored messages. Also updates detectedPartner variable so downstream logging is accurate.
+
+---
+
+### Decision 244: Inbox badge shows grouped count
+
+**Date:** 2026-03-18
+**Status:** ✅ Implemented
+
+**Decision:** Sidebar badge, /api/inbox/count endpoint, and inbox page all show grouped count (number of forwarding events) instead of raw message count.
+
+**Context:** A single email forward can produce multiple messages (e.g., 7 messages from one NinjaOne forward). Raw COUNT(*) showed 8 but the UI grouped them into 2 items, causing a confusing mismatch.
+
+**Rationale:** The badge should match what the user sees. The grouping logic (5-second forwarded_at window) already existed client-side in InboxClient.tsx. Added getInboxGroupCount() server-side using the shared INBOX_GROUP_WINDOW_MS constant.
+
+**Impact:** New getInboxGroupCount() in db/inbox.ts. Sidebar layout.tsx and /api/inbox/count both switched from getInboxCount to getInboxGroupCount. INBOX_GROUP_WINDOW_MS exported from db/inbox.ts and imported by InboxClient.tsx (single source of truth).
+
+---
+
+### Decision 245: Group primary prefers non-null sender
+
+**Date:** 2026-03-18
+**Status:** ✅ Implemented
+
+**Decision:** When selecting the representative message for an inbox group, prefer messages with sender_name or sender_email populated.
+
+**Context:** NinjaOne forward produced 7 messages with identical forwarded_at. 4 had null sender fields. Unstable sort meant a null-sender message could become the primary, displaying no sender info.
+
+**Rationale:** The primary message drives the display row. Showing "no sender" when 3 of 7 messages have sender info is a data presentation failure, not a data problem.
+
+**Impact:** New makeGroup() helper in InboxClient.tsx that picks the best representative. Sender subtitle line conditionally omitted when no sender info available (no misleading "Unknown" fallback).
+
+---
+
+### Decision 246: Dedicated POST /api/inbox/set-partner endpoint
+
+**Date:** 2026-03-18
+**Status:** ✅ Implemented
+
+**Decision:** Partner identification ("who is this?") separated from routing decision ("what to do?") via a dedicated endpoint.
+
+**Context:** Messages with unknown partners could only be discarded. The resolve route's partner_id gate (line 49) blocks create_new and assign_existing without a partner. Needed a way to stamp partner before routing.
+
+**Rationale:** Separation of concerns. Setting partner is a metadata correction, not a routing action. It should persist immediately (not wait for routing) and update all messages in the forwarded_at group plus any linked meetings with null partner.
+
+**Impact:** New POST /api/inbox/set-partner endpoint. New setPartnerForInboxGroup() in db/inbox.ts. Validates partner exists, stamps partner_id on grouped messages and orphaned meetings.
+
+---
+
+### Decision 247: Unknown partner UX — two-step flow
+
+**Date:** 2026-03-18
+**Status:** ✅ Implemented
+
+**Decision:** Unknown partner items show "Pick Partner" button → dropdown → then Assign/New/Discard unlock. Partner selection persists immediately to DB.
+
+**Context:** Without a partner, the resolve route blocks assign and create. Users need to identify the partner first, then route.
+
+**Rationale:** Two-step matches the data dependency: partner_id must exist before routing actions can proceed. Lazy-loading the partner list (cached in useRef) avoids upfront cost. Filter input handles the ~20 partner list efficiently.
+
+**Impact:** InboxClient.tsx — new "pick-partner" action mode, partner list with cache, filter input, confirmPickPartner() function. Assign and New buttons hidden until partner is set.
+
+---
+
+### Decision 248: Discard bypasses partner gate
+
+**Date:** 2026-03-18
+**Status:** ✅ Confirmed
+
+**Decision:** The resolve route's partner_id validation only blocks create_new and assign_existing. Discard short-circuits before the gate.
+
+**Context:** Investigation of resolve route showed discard returns at line 40, before the partner gate at line 49. This is correct — you should always be able to throw away junk regardless of partner state.
+
+**Rationale:** Discarding deletes messages. It doesn't create engagements or run AI synthesis, so partner context is irrelevant. Gating discard behind partner_id would force users to identify spam partners before deleting them.
+
+**Impact:** No code change — confirmed existing behavior is correct. UI shows Discard for all items regardless of partner state.
+
+---
+
+### Decision 249: Conditional sender line rendering
+
+**Date:** 2026-03-18
+**Status:** ✅ Implemented
+
+**Decision:** Sender subtitle line omitted entirely when no sender_name or sender_email available, rather than showing fallback text.
+
+**Context:** Earlier version showed "Unknown" as sender fallback. With the makeGroup() fix (decision #245), the primary usually has sender info. But when it genuinely doesn't, showing "Unknown" is misleading — it implies the system tried and failed, when really the forwarded email just didn't contain sender headers.
+
+**Rationale:** Absence of data should be absence of UI, not a placeholder. The subject line and partner pill provide enough context to triage without a sender line.
+
+**Impact:** InboxClient.tsx — sender subtitle conditionally rendered only when sender_name or sender_email exists.
+
+---
