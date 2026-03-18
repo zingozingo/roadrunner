@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { INBOX_GROUP_WINDOW_MS, type InboxItem } from "@/lib/db/inbox";
 import EmptyState from "@/components/layout/EmptyState";
 
@@ -9,6 +9,11 @@ interface Props {
 }
 
 interface EngagementOption {
+  id: string;
+  name: string;
+}
+
+interface PartnerOption {
   id: string;
   name: string;
 }
@@ -55,11 +60,17 @@ function makeGroup(items: InboxItem[]): InboxGroup {
 export default function InboxClient({ items: initialItems }: Props) {
   const [items, setItems] = useState(initialItems);
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
-  const [actionMode, setActionMode] = useState<"none" | "assign" | "create">("none");
+  const [actionMode, setActionMode] = useState<"none" | "assign" | "create" | "pick-partner">("none");
   const [engagements, setEngagements] = useState<EngagementOption[]>([]);
   const [newTitle, setNewTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingEngagements, setLoadingEngagements] = useState(false);
+
+  // Partner picker state — cached across interactions
+  const partnersCache = useRef<PartnerOption[] | null>(null);
+  const [partners, setPartners] = useState<PartnerOption[]>([]);
+  const [loadingPartners, setLoadingPartners] = useState(false);
+  const [partnerFilter, setPartnerFilter] = useState("");
 
   const groups = useMemo(() => groupByForwardedAt(items), [items]);
 
@@ -93,7 +104,7 @@ export default function InboxClient({ items: initialItems }: Props) {
 
   async function startAssign(group: InboxGroup) {
     const item = group.primary;
-    if (!item.partner_id) return; // guard — shouldn't be callable
+    if (!item.partner_id) return;
     setActiveGroup(group.key);
     setActionMode("assign");
     setLoadingEngagements(true);
@@ -118,11 +129,69 @@ export default function InboxClient({ items: initialItems }: Props) {
     setNewTitle(`${partnerPrefix}${cleanSubject(item.subject)}`);
   }
 
+  async function startPickPartner(group: InboxGroup) {
+    setActiveGroup(group.key);
+    setActionMode("pick-partner");
+    setPartnerFilter("");
+
+    // Use cache if available
+    if (partnersCache.current) {
+      setPartners(partnersCache.current);
+      return;
+    }
+
+    setLoadingPartners(true);
+    try {
+      const res = await fetch("/api/partners");
+      const data = await res.json();
+      const list: PartnerOption[] = (data.partners ?? data ?? [])
+        .map((p: any) => ({ id: p.id, name: p.name }))
+        .sort((a: PartnerOption, b: PartnerOption) => a.name.localeCompare(b.name));
+      partnersCache.current = list;
+      setPartners(list);
+    } catch (err) {
+      console.error("Failed to fetch partners:", err);
+    } finally {
+      setLoadingPartners(false);
+    }
+  }
+
+  async function confirmPickPartner(groupKey: string, partnerId: string, partnerName: string) {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/inbox/set-partner", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message_id: groupKey, partner_id: partnerId }),
+      });
+      if (res.ok) {
+        // Update local state — stamp partner on all items in this group
+        const group = groups.find((g) => g.key === groupKey);
+        if (group) {
+          const groupIds = new Set(group.items.map((i) => i.id));
+          setItems((prev) =>
+            prev.map((item) =>
+              groupIds.has(item.id)
+                ? { ...item, partner_id: partnerId, partner_name: partnerName }
+                : item
+            )
+          );
+        }
+        cancelAction();
+      }
+    } catch (err) {
+      console.error("Set partner failed:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function cancelAction() {
     setActiveGroup(null);
     setActionMode("none");
     setEngagements([]);
     setNewTitle("");
+    setPartnerFilter("");
   }
 
   async function confirmAssign(groupKey: string, engagementId: string) {
@@ -172,6 +241,10 @@ export default function InboxClient({ items: initialItems }: Props) {
     }
   }
 
+  const filteredPartners = partnerFilter
+    ? partners.filter((p) => p.name.toLowerCase().includes(partnerFilter.toLowerCase()))
+    : partners;
+
   return (
     <>
       <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
@@ -198,9 +271,13 @@ export default function InboxClient({ items: initialItems }: Props) {
                         {item.partner_name}
                       </span>
                     ) : (
-                      <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400 whitespace-nowrap">
-                        Unknown Partner
-                      </span>
+                      <button
+                        onClick={() => startPickPartner(group)}
+                        disabled={loading}
+                        className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400 whitespace-nowrap hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+                      >
+                        Pick Partner
+                      </button>
                     )}
                     {count > 1 && (
                       <span className="text-xs text-muted/50">{count} messages</span>
@@ -236,13 +313,15 @@ export default function InboxClient({ items: initialItems }: Props) {
                         Assign
                       </button>
                     ) : null}
-                    <button
-                      onClick={() => startCreate(group)}
-                      disabled={loading}
-                      className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
-                    >
-                      New
-                    </button>
+                    {item.partner_id ? (
+                      <button
+                        onClick={() => startCreate(group)}
+                        disabled={loading}
+                        className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
+                      >
+                        New
+                      </button>
+                    ) : null}
                     <button
                       onClick={() => handleDiscard(group.key)}
                       disabled={loading}
@@ -253,6 +332,52 @@ export default function InboxClient({ items: initialItems }: Props) {
                   </div>
                 )}
               </div>
+
+              {/* Partner picker panel */}
+              {activeGroup === group.key && actionMode === "pick-partner" && (
+                <div className="mt-3 pt-3 border-t border-border/20">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-muted">
+                      Select partner
+                    </span>
+                    <button
+                      onClick={cancelAction}
+                      className="text-xs text-muted hover:text-foreground transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  {loadingPartners ? (
+                    <p className="text-xs text-muted">Loading...</p>
+                  ) : (
+                    <>
+                      <input
+                        type="text"
+                        value={partnerFilter}
+                        onChange={(e) => setPartnerFilter(e.target.value)}
+                        placeholder="Filter partners..."
+                        className="w-full bg-transparent border-b border-border/30 text-sm text-foreground placeholder:text-muted/50 focus:border-accent focus:outline-none py-1 mb-2"
+                        autoFocus
+                      />
+                      <div className="max-h-48 overflow-y-auto">
+                        {filteredPartners.map((p) => (
+                          <button
+                            key={p.id}
+                            onClick={() => confirmPickPartner(group.key, p.id, p.name)}
+                            disabled={loading}
+                            className="w-full text-left flex items-baseline gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
+                          >
+                            <span className="text-sm font-medium text-foreground">{p.name}</span>
+                          </button>
+                        ))}
+                        {filteredPartners.length === 0 && (
+                          <p className="text-xs text-muted px-3 py-2">No matches</p>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* Assign panel */}
               {activeGroup === group.key && actionMode === "assign" && (
