@@ -109,6 +109,7 @@ export {
   getInboxItems,
   getInboxCount,
   getInboxGroupCount,
+  setPartnerForInboxGroup,
   discardInboxItem,
   getMessagesForInboxItem,
 } from "./inbox";

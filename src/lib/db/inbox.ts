@@ -123,6 +123,61 @@ export async function discardInboxItem(messageId: string): Promise<void> {
   if (error) throw new Error(`Failed to delete message: ${error.message}`);
 }
 
+/**
+ * Set partner_id on all inbox messages in the same forwarded_at group,
+ * plus any linked meetings that have no partner_id yet.
+ */
+export async function setPartnerForInboxGroup(
+  messageId: string,
+  partnerId: string
+): Promise<{ updatedMessages: number }> {
+  const db = getSupabaseClient();
+
+  // Get the target message
+  const { data: target, error: targetError } = await db
+    .from("messages")
+    .select("forwarded_at, engagement_id")
+    .eq("id", messageId)
+    .single();
+
+  if (targetError || !target) throw new Error(`Message ${messageId} not found`);
+  if (target.engagement_id) throw new Error("Message is already routed to an engagement");
+
+  // Find all messages in the same group
+  const targetTime = new Date(target.forwarded_at).getTime();
+  const windowStart = new Date(targetTime - INBOX_GROUP_WINDOW_MS).toISOString();
+  const windowEnd = new Date(targetTime + INBOX_GROUP_WINDOW_MS).toISOString();
+
+  const { data: grouped, error: groupError } = await db
+    .from("messages")
+    .select("id")
+    .is("engagement_id", null)
+    .gte("forwarded_at", windowStart)
+    .lte("forwarded_at", windowEnd);
+
+  if (groupError) throw new Error(`Failed to fetch grouped messages: ${groupError.message}`);
+
+  const messageIds = (grouped ?? []).map((m: any) => m.id);
+  if (messageIds.length === 0) return { updatedMessages: 0 };
+
+  // Stamp partner_id on all messages in group
+  const { error: updateError } = await db
+    .from("messages")
+    .update({ partner_id: partnerId })
+    .in("id", messageIds);
+
+  if (updateError) throw new Error(`Failed to update messages: ${updateError.message}`);
+
+  // Stamp partner_id on any linked meetings that have no partner yet
+  await db
+    .from("meetings")
+    .update({ partner_id: partnerId })
+    .in("message_id", messageIds)
+    .is("partner_id", null);
+
+  return { updatedMessages: messageIds.length };
+}
+
 export async function getMessagesForInboxItem(messageId: string): Promise<Message[]> {
   const db = getSupabaseClient();
 
