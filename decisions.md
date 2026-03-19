@@ -4993,3 +4993,48 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** InboxClient.tsx — sender subtitle conditionally rendered only when sender_name or sender_email exists.
 
 ---
+
+### Decision 250: EngagementLinker component for meeting-engagement linking
+
+**Date:** 2026-03-18
+**Status:** ✅ Implemented
+
+**Decision:** New shared component (src/components/shared/EngagementLinker.tsx) enables linking/unlinking meetings to engagements from the meeting detail page. Clickable "— Link" field, partner-filtered picker, "×" to unlink.
+
+**Context:** Meetings created from ICS forwards often land without engagement links. The only way to connect them was through the inbox routing flow. Needed a way to link/unlink from the meeting detail page itself.
+
+**Rationale:** PUT /api/meetings/[id] pushes to Airtable on engagement_id change, keeping AT in sync. Partner-filtered dropdown prevents cross-partner linking mistakes. Meetings appear in engagement timelines via existing MeetingCard rendering — the "missing meetings" issue was a data gap (no engagement_id), not a rendering bug.
+
+**Impact:** EngagementLinker.tsx added to shared/ components. Meeting detail page now shows linked engagement with unlink option, or a "Link" prompt with partner-scoped picker.
+
+---
+
+### Decision 251: is_recurring passthrough fix
+
+**Date:** 2026-03-18
+**Status:** ✅ Implemented
+
+**Decision:** createMeeting() in db/meetings.ts was silently dropping is_recurring before DB insert. Fixed: added to params and insert object, defaults to false.
+
+**Context:** The createMeetingFromICS path was never broken — it constructs its own insert object. But createMeeting() (used by manual creation and future code paths) stripped is_recurring from the params before inserting.
+
+**Rationale:** Silent data loss. The field existed in the DB schema and type definitions but never made it into the row. Prerequisite for future recurring meetings engine.
+
+**Impact:** db/meetings.ts — is_recurring added to createMeeting() params destructuring and insert object. Default: false.
+
+---
+
+### Decision 252: Meeting detail should show only linked engagement, not all partner engagements
+
+**Date:** 2026-03-18
+**Status:** ✅ Agreed
+
+**Decision:** The "ACTIVE ENGAGEMENTS" context section on meeting detail page is misleading — looks like those engagements are related to the meeting when they're not. The linked engagement is shown via EngagementLinker. Partner engagements belong on the partner detail page.
+
+**Context:** Meeting detail page showed all active engagements for the partner as a context section. With EngagementLinker now showing the actual linked engagement, this section creates confusion — users might think all listed engagements are connected to the meeting.
+
+**Rationale:** Absence of data should be absence of UI. The linked engagement (via EngagementLinker) is the accurate representation. Partner-level context belongs on the partner page.
+
+**Impact:** Removal planned for next session. No code change yet.
+
+---

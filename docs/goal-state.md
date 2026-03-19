@@ -7,10 +7,10 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 ## Current State
 
 - 66 migrations, 17 active tables, 31 API routes, 18 UI pages, 427 passing tests (0 failures)
-- Human-guided intake pipeline fully operational: webhook → mechanical partner detection → ICS partner backfill → inbox triage (with unknown partner picker) → single-phase AI synthesis (decisions #223-249)
+- Human-guided intake pipeline fully operational: webhook → mechanical partner detection → ICS partner backfill → inbox triage (with unknown partner picker) → single-phase AI synthesis (decisions #223-252)
 - Phase D cleanup complete: dead tests deleted, stale assertions fixed, dead types/routes removed
 - Entity model fully rewritten with ring architecture (Catalog → Activity → People → Posture) in docs/entity-model.md
-- Documentation consolidated: 5 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline (rewrite pending), goal-state.md status, decisions.md through #249)
+- Documentation consolidated: 5 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline (rewrite pending), goal-state.md status, decisions.md through #252)
 - Dead weight cleaned: notes table dropped (migration 061), orphaned components removed (PillGrid, CalendarCard, TableList, SyncStatus), decisions.md merged from two files into one
 - Zero polymorphic tables: entity_links replaced with engagement_programs + engagement_events (migration 065, decisions #221-222)
 - Contact registry complete: 76 participants, 85 partner links, 4 dedicated join tables, sync layer auto-maintains registry — all reads and writes flow through registry, JSONB columns dropped (Decisions #182, #218)
@@ -37,11 +37,13 @@ A system where a PDM forwards an email and Roadrunner:
 ## What's Next
 
 ### Next Session
+- Meetings motion — meeting types, recurring series, ICS subject-line parser fix (see meetings-motion-plan.md)
+- Remove ACTIVE ENGAGEMENTS section from meeting detail page (decision #252)
 - Real daily use testing — forward emails, verify full pipeline end-to-end
-- System prompt tuning — improve AI synthesis quality from real data patterns
-- Task UX improvements — inline editing, completion flow
 
 ### Soon
+- System prompt tuning — improve AI synthesis quality from real data patterns
+- Task UX improvements — inline editing, completion flow
 - Ring 3 pull sync planning (Partner Programs, Events, Co-Sell Goals, Partner Goals, Funding)
 - Partner Goals pull into brain synthesis context
 - CLASSIFICATION.md full rewrite to document current pipeline
@@ -49,7 +51,6 @@ A system where a PDM forwards an email and Roadrunner:
 ### Later
 - Ring 3 pull sync implementation
 - Financial fields on partners table
-- Recurring meeting series engine
 - Pre-meeting briefing (AI-generated)
 
 ### Completed
@@ -88,6 +89,8 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~Inbox badge fix~~ ✅ (decision 244): Badge shows grouped count matching UI grouping
 - ~~Unknown partner flow~~ ✅ (decisions 246-248): POST /api/inbox/set-partner + partner picker UI, two-step flow (pick partner → then route)
 - ~~ICS partner backfill~~ ✅ (decision 243): Calendar-only forwards now propagate partner from meeting to messages
+- ~~EngagementLinker~~ ✅ (decision 250): Meeting-engagement linking from meeting detail page, partner-filtered picker, AT sync on change
+- ~~is_recurring passthrough fix~~ ✅ (decision 251): createMeeting() now correctly passes is_recurring to DB insert
 
 ## Architecture Principles
 
