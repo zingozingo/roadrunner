@@ -2,8 +2,6 @@
 
 AI-powered email classification and partner engagement management system for AWS Partner Development Managers. Forward a partner email → Claude AI classifies it → structured engagements appear on a dashboard.
 
-Deployed at [roadrunner-fawn.vercel.app](https://roadrunner-fawn.vercel.app).
-
 ## Tech Stack
 
 | Layer | Technology |
