@@ -1,7 +1,7 @@
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → human-guided routing → AI synthesis → structured engagements → Airtable sync.
-> 66 migrations · 17 tables · 31 API routes · 18 UI pages · 427 passing tests
+> 67 migrations · 17 tables · 31 API routes · 18 UI pages · 449 passing tests
 
 ---
 
@@ -51,7 +51,7 @@ roadrunner/
 │   ├── CLASSIFICATION.md          #   AI synthesis pipeline documentation (rewrite pending)
 │   ├── entity-model.md            #   Canonical schema — ERD + field-level registry + AT field IDs
 │   └── goal-state.md              #   Living orientation doc — current state & next steps
-├── decisions.md                   # Append-only architectural decision log (252 entries)
+├── decisions.md                   # Append-only architectural decision log (259 entries)
 ├── src/
 │   ├── app/                       # Next.js App Router
 │   │   ├── api/                   #   API routes (31 route files, grouped by entity)
@@ -78,14 +78,14 @@ roadrunner/
 │   │   ├── tasks/                 #   Cross-partner task dashboard
 │   │   ├── layout.tsx             #   Root layout + sidebar
 │   │   └── page.tsx               #   Redirects to /partners
-│   ├── components/                # React components (32 across 7 groups)
+│   ├── components/                # React components (33 across 7 groups)
 │   │   ├── actions/               #   Entity action buttons + MergeButton (6 files)
 │   │   ├── engagement/            #   Engagement-specific cards (1 file: CurrentStateCard)
 │   │   ├── inbox/                 #   Inbox triage UI — InboxClient (1 file)
 │   │   ├── layout/                #   App structure — sidebar, headers (4 files)
 │   │   ├── notes/                 #   NoteWorkspace, ContextSidebar, PreviousNotes, TaskEditor, MeetingNotesSection
 │   │   ├── partners/              #   PartnerTasksSection, PartnerScratchpad
-│   │   └── shared/                #   Reusable primitives — CompactRow, DetailHeader, EngagementLinker, badges (13 files)
+│   │   └── shared/                #   Reusable primitives — CompactRow, DetailHeader, EngagementLinker, RecurrenceEditor, badges (14 files)
 │   └── lib/                       # Core business logic
 │       ├── classifier.ts          #   Synthesis orchestrator (synthesizeIntoEngagement, persistClassificationResult)
 │       ├── claude.ts              #   Anthropic API client (synthesis calls)
@@ -97,6 +97,7 @@ roadrunner/
 │       ├── name-resolver.ts       #   Contact name resolution from JSONB columns
 │       ├── contact-parser.ts      #   Universal "Name <email> (Title)" parser
 │       ├── format-utils.ts        #   Display name formatting utilities
+│       ├── meeting-recurrence.ts  #   Recurring meeting engine (spawn, overdue detection)
 │       ├── notes-summarizer.ts    #   AI meeting note summarizer (Claude API)
 │       ├── notes-context.ts       #   Partner context builder for notes
 │       ├── contact-display.ts     #   Contact display formatting for UI
@@ -123,9 +124,9 @@ roadrunner/
 │       │   ├── push.ts            #     RR → AT activity sync
 │       │   ├── field-maps.ts      #     Airtable field ID constants
 │       │   └── utils.ts           #     Coercion helpers + validation
-│       └── __tests__/             #   427 passing tests across 13 test files
+│       └── __tests__/             #   449 passing tests across 14 test files
 ├── supabase/
-│   ├── migrations/                # 66 migration files (001-066)
+│   ├── migrations/                # 67 migration files (001-067)
 │   └── (authoritative schema lives in migrations/)
 ├── scripts/
 │   ├── seed-data.ts               # CLI script to seed events/programs
@@ -246,7 +247,7 @@ AIRTABLE_BASE_ID=appy9TT1LRJTAuQ4W
 ```bash
 npm install                        # Install dependencies
 npm run dev                        # Start Next.js dev server on :3000
-npx vitest run --reporter=verbose  # Run tests (427 passing, 0 failures)
+npx vitest run --reporter=verbose  # Run tests (449 passing, 0 failures)
 npx tsc --noEmit                   # TypeScript check (must pass with zero errors)
 ```
 
@@ -256,17 +257,18 @@ npx tsc --noEmit                   # TypeScript check (must pass with zero error
 
 | Test File | Tests | Covers |
 |-----------|-------|--------|
-| email-parser.test.ts | 123 | Email chain parsing, forwarded content extraction |
+| email-parser.test.ts | 126 | Email chain parsing, forwarded content extraction, conference boilerplate splits |
 | phase2-prompt.test.ts | 54 | Phase 2 prompt building, context sections |
 | contact-display.test.ts | 41 | Contact display formatting |
 | format-utils.test.ts | 39 | Display name formatting utilities |
-| ics-parser.test.ts | 31 | ICS calendar parsing (RFC 5545) |
-| name-resolver.test.ts | 28 | Contact name resolution from JSONB columns |
-| contact-parser.test.ts | 26 | Universal contact format parsing/rendering |
+| contact-parser.test.ts | 34 | Universal contact format parsing/rendering |
+| ics-parser.test.ts | 32 | ICS calendar parsing (RFC 5545), multi-VEVENT guardrail |
+| name-resolver.test.ts | 27 | Contact name resolution from JSONB columns |
+| partner-detection.test.ts | 25 | Mechanical partner detection via domain matching |
+| meeting-recurrence.test.ts | 18 | Recurring meeting engine (calculateNextDate, overdue detection, spawn) |
 | user-config.test.ts | 18 | User identity matching |
 | meeting-pipeline.test.ts | 13 | Meeting creation, ICS parsing, linking |
 | prompt-builder.test.ts | 11 | Shared context section builders |
-| partner-detection.test.ts | 25 | Mechanical partner detection via domain matching |
 | dedup.test.ts | 6 | Message fingerprint deduplication |
 | meeting-status-map.test.ts | 5 | Meeting status mapping (mapMeetingStatus in sync/utils) |
 
@@ -276,7 +278,7 @@ npx tsc --noEmit                   # TypeScript check (must pass with zero error
 
 ### Migrations
 
-Sequential numbering in `supabase/migrations/` (currently 001-066). New migrations get the next number (067, 068, ...). Write idempotent SQL where possible.
+Sequential numbering in `supabase/migrations/` (currently 001-067). New migrations get the next number (068, 069, ...). Write idempotent SQL where possible.
 
 ### Key Conventions
 
@@ -329,7 +331,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-066). New migratio
 - **Airtable field IDs are opaque** — they change if you recreate a field. Always verify against live Airtable (via MCP on claude.ai) before assuming `field-maps.ts` is correct.
 - **Supabase PostgREST** returns `{ data, error }` — always check `error` before using `data`.
 - **ICS temporal gap** — ICS parsing creates meetings BEFORE classification. Meetings get linked to engagements AFTER Phase 2. The engagement gate in push.ts prevents orphan AT records. By design.
-- **Email parser complexity** — Two-pass parser handles Outlook and Gmail differently. 123 tests cover edge cases. Don't simplify without running the full suite.
+- **Email parser complexity** — Two-pass parser handles Outlook and Gmail differently. 126 tests cover edge cases. Don't simplify without running the full suite. Conference boilerplate is stripped BEFORE splitting (decision #258).
 - **Mock hoisting** — `vi.mock()` factories hoist above variable declarations. Use `vi.hoisted()` for mock variables.
 - **Fire-and-forget is forbidden** — Vercel serverless kills processes after HTTP response. Every async operation must be awaited.
 - **Engagement status differs** — Roadrunner uses `active/planned/blocked/completed/archived`, Airtable mapping is in `sync/utils.ts` (`STATUS_TO_AIRTABLE`).
@@ -344,7 +346,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-066). New migratio
 
 **Data layer:** `db/index.ts` → `db/engagements.ts` → `db/messages.ts` → `db/meetings.ts` → `db/meeting-notes.ts` → `db/participants.ts` → `db/partner-context.ts` → `db/catalog.ts` → `db/engagement-links.ts` → `db/relationships.ts` → `db/partners.ts` → `db/inbox.ts`
 
-**Email:** `email-parser.ts` → `ics-parser.ts` → `name-resolver.ts` → `contact-parser.ts` → `format-utils.ts`
+**Email:** `email-parser.ts` → `ics-parser.ts` → `name-resolver.ts` → `contact-parser.ts` → `format-utils.ts` · Recurrence: `meeting-recurrence.ts`
 
 **Entry points:** `/api/inbound` (Mailgun webhook), `/api/reviews/resolve` (inbox routing — assign/create/discard), `/api/engagements/merge` (engagement merge), `/api/sync` (catalog sync)
 
@@ -358,7 +360,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-066). New migratio
 | `docs/entity-model.md` | Complete schema — 19 tables, all FKs, AT field IDs, ring model | Schema/data work |
 | `docs/CLASSIFICATION.md` | AI synthesis pipeline (rewrite pending — Phase 2 docs still accurate) | Prompt/AI work |
 | `docs/goal-state.md` | Living status — current state + what's next | Session planning |
-| `decisions.md` | Append-only architectural decision log (252 entries) | When you need "why" |
+| `decisions.md` | Append-only architectural decision log (259 entries) | When you need "why" |
 
 ---
 
@@ -371,5 +373,5 @@ Sequential numbering in `supabase/migrations/` (currently 001-066). New migratio
 - Do NOT add new types outside of `types.ts`
 - Do NOT skip reading existing code before modifying — always read the file first
 - Do NOT push catalog data TO Airtable — sync is pull-only for catalogs
-- Do NOT simplify the email parser without running its 123-test suite
+- Do NOT simplify the email parser without running its 126-test suite
 - Do NOT band-aid problems — find root cause, fix properly, verify with tests

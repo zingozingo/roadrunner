@@ -5038,3 +5038,108 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** Removal planned for next session. No code change yet.
 
 ---
+
+### Decision 253: Meeting types describe interaction nature, not strategic pillar
+
+**Date:** 2026-03-18
+**Status:** ✅ Implemented
+
+**Decision:** Replaced 9 pillar-based meeting types with 10 interaction-based types: partner_cadence, sca_review, qbr, executive, event, internal, support, demo, enablement, ad_hoc. Old type values NULLed (clean slate), not mapped.
+
+**Context:** The old pillar-based types (security, migration, etc.) overlapped with engagement topics. A meeting about a security competency application is a "partner cadence" interaction, not a "security" meeting. Meeting type should describe the nature of the interaction, while the engagement owns the strategic context.
+
+**Rationale:** Independent categorization axes — meetings describe how you interact, engagements describe what you're working on. Clean slate avoids fragile mapping of old values that were rarely set.
+
+**Impact:** Migration 067: CHECK constraint updated, existing values NULLed. MeetingType union type updated. UI dropdowns updated in MeetingsClient and MeetingActions. Airtable field-maps MF.meetingType updated.
+
+---
+
+### Decision 254: Recurring meetings via series_id self-referential FK
+
+**Date:** 2026-03-18
+**Status:** ✅ Implemented
+
+**Decision:** Added recurrence_pattern (weekly/biweekly/monthly/quarterly), recurrence_end (optional DATE), and series_id (UUID FK → meetings.id) columns. The first meeting in a series sets series_id to its own ID; spawned occurrences inherit it. Partial unique index on (series_id, meeting_date) WHERE both are NOT NULL prevents race condition double-spawns.
+
+**Context:** Needed recurring meeting support without a separate series table. Meetings are already the natural unit — a recurring series is just linked meeting records.
+
+**Rationale:** Self-referential FK is simpler than a series table. The unique index is the concurrency guard — if two requests try to spawn the same next occurrence, one gets a unique constraint violation and gracefully no-ops. No locking required.
+
+**Impact:** Migration 067: 3 new columns + partial unique index. meeting-recurrence.ts: calculateNextDate(), getOverdueRecurringMeetings(), spawnNextOccurrence(). 18 new tests.
+
+---
+
+### Decision 255: Auto-spawn on page load, not cron
+
+**Date:** 2026-03-18
+**Status:** ✅ Implemented
+
+**Decision:** Recurring meeting spawn check runs in GET /api/meetings and /meetings page server component. Best-effort: failures logged but never block page load. Advances past today if multiple occurrences missed (no back-dated spawning).
+
+**Context:** Single-user app on Vercel serverless — no cron infrastructure. Spawn needs to happen when the user looks at the data, not on a schedule.
+
+**Rationale:** No infrastructure dependency. The user only cares about upcoming meetings when viewing the meetings page. If they haven't visited in 3 weeks, calculateNextDate() loops forward past today in one step — no back-dated meetings cluttering the list.
+
+**Impact:** meetings/page.tsx and api/meetings/route.ts: spawn block before data fetch. meeting-recurrence.ts: calculateNextDate() loop-forward logic.
+
+---
+
+### Decision 256: Source 'auto' for spawned meetings
+
+**Date:** 2026-03-18
+**Status:** ✅ Implemented
+
+**Decision:** Added 'auto' to the meetings.source CHECK constraint alongside manual, ics_parsed, body_parsed. Spawned recurring meetings use source='auto' to distinguish their origin.
+
+**Context:** Needed to distinguish how meetings were created (manual entry, ICS parsing, email body parsing, auto-spawn) without gating any capabilities on source.
+
+**Rationale:** Provenance tracking, not capability gating. All meetings are equal after creation — source just tells you where it came from.
+
+**Impact:** Migration 067: CHECK constraint updated. spawnNextOccurrence() sets source='auto'. UI displays "Auto" alongside "ICS Parsed" and "Manual".
+
+---
+
+### Decision 257: Synthesis auto-fires on meeting-engagement link
+
+**Date:** 2026-03-18
+**Status:** ✅ Implemented
+
+**Decision:** PUT /api/meetings/[id] with a truthy engagement_id triggers pushEngagementToAirtable() in addition to the existing pushMeetingToAirtable(). Only fires on link (truthy engagement_id), not on unlink or unrelated field updates.
+
+**Context:** When a meeting is linked to an engagement, the engagement's activity summary in Airtable should reflect the new meeting. Without this, the PDM would need to manually trigger a sync or wait for the next email forward.
+
+**Rationale:** The resolve route already does both pushes. Meeting-to-engagement linking via PUT should be equivalent — same data change, same downstream effect.
+
+**Impact:** api/meetings/[id]/route.ts: added conditional pushEngagementToAirtable() call after existing pushMeetingToAirtable().
+
+---
+
+### Decision 258: Conference boilerplate stripped before email thread splitting
+
+**Date:** 2026-03-18
+**Status:** ✅ Implemented
+
+**Decision:** stripConferenceBoilerplate() is now called on the raw email body after CRLF normalization but before Pass 1/2 splitting in parseForwardedEmail(). Additionally, orphaned underscore-only lines (_{20,}) are removed after boilerplate stripping. The existing call in cleanMessageBody() is retained as a safety net.
+
+**Context:** Teams meeting invites embed decorative underscore separator lines (________________) around join blocks. During Pass 2, GENERIC_SEPARATOR_RE matched these _{20,} patterns as message boundaries, splitting the conference content into phantom messages with no sender.
+
+**Rationale:** Strip the boilerplate that contains the problematic separators BEFORE the splitting logic encounters them. The underscore-only line cleanup is safe because FORWARDED_BLOCK_RE treats the _{3,} prefix as optional — Outlook headers are still detected without their preceding underscore lines.
+
+**Impact:** email-parser.ts: 2 lines added in parseForwardedEmail(). 3 new tests (Teams phantom, Zoom phantom, conference-only body preservation). 126 email-parser tests total.
+
+---
+
+### Decision 259: ICS parser single-VEVENT behavior confirmed and tested
+
+**Date:** 2026-03-18
+**Status:** ✅ Confirmed
+
+**Decision:** The ICS parser breaks after the first VEVENT block — one email forward always creates one meeting. RRULE is detected to set is_recurring=true but never expanded. Recurrence control is via the UI (RecurrenceEditor), not ICS data.
+
+**Context:** Recurring series ICS files may contain multiple VEVENT blocks (master event + individual occurrences with RECURRENCE-ID). Parsing all would create duplicate/conflicting meeting records. The user controls recurrence via the meeting detail page.
+
+**Rationale:** One forward = one meeting is a core invariant. RRULE detection flags the meeting as recurring so the user can enable recurrence tracking, but the system never auto-generates occurrences from ICS data.
+
+**Impact:** ics-parser.ts: design intent comment added above break statement. 1 new test (multi-VEVENT with RRULE + RECURRENCE-ID). 32 ics-parser tests total. No behavioral change — documenting existing guardrail.
+
+---
