@@ -115,6 +115,17 @@ export async function PUT(
       } catch (err) {
         console.error(`Airtable push failed for meeting ${id}:`, err);
       }
+
+      // Re-synthesize engagement activity summary when linked (not unlinked)
+      if (engagement_id) {
+        try {
+          const { pushEngagementToAirtable } = await import("@/lib/sync");
+          await pushEngagementToAirtable(engagement_id);
+          console.log(`Engagement activity summary refreshed for ${engagement_id} after meeting link`);
+        } catch (err) {
+          console.error(`Engagement sync failed for ${engagement_id}:`, err);
+        }
+      }
     }
 
     return NextResponse.json({ meeting: updated });
