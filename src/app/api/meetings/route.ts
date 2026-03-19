@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMeetingsWithEngagements, createMeeting } from "@/lib/db";
+import { getOverdueRecurringMeetings, spawnNextOccurrence } from "@/lib/meeting-recurrence";
 
 const VALID_STATUSES = new Set([
   "scheduled",
@@ -10,6 +11,14 @@ const VALID_STATUSES = new Set([
 
 export async function GET() {
   try {
+    // Best-effort: spawn next occurrences for overdue recurring meetings
+    try {
+      const overdue = await getOverdueRecurringMeetings();
+      await Promise.all(overdue.map((m) => spawnNextOccurrence(m)));
+    } catch (err) {
+      console.error("Auto-spawn recurring meetings failed:", err);
+    }
+
     const meetings = await getMeetingsWithEngagements();
     return NextResponse.json({ meetings });
   } catch (error) {
