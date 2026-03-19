@@ -2,12 +2,6 @@ import type { DisplayContext } from "@/lib/types";
 import ContactRow from "@/components/shared/ContactRow";
 import { isNamedRole } from "@/lib/contact-display";
 
-const PILLAR_COLORS: Record<string, string> = {
-  "Co-Sell": "bg-blue-500/15 text-blue-400",
-  "Co-Market": "bg-purple-500/15 text-purple-400",
-  "Co-Build": "bg-emerald-500/15 text-emerald-400",
-};
-
 function relativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const seconds = Math.floor(diff / 1000);
@@ -22,7 +16,7 @@ function relativeTime(dateStr: string): string {
 }
 
 export default function ContextSidebar({ context }: { context: DisplayContext }) {
-  const { profile, contacts, activeEngagements, openTasks, openTaskCount, scratchpadEntries } = context;
+  const { profile, contacts, openTasks, openTaskCount, scratchpadEntries } = context;
 
   return (
     <div className="space-y-4">
@@ -91,27 +85,6 @@ export default function ContextSidebar({ context }: { context: DisplayContext })
             {scratchpadEntries.length > 5 && (
               <p className="text-[10px] text-muted">(+{scratchpadEntries.length - 5} more)</p>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Active Engagements */}
-      {activeEngagements.length > 0 && (
-        <div className="rounded-xl border border-border bg-surface p-4">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">
-            Active Engagements ({activeEngagements.length})
-          </h3>
-          <div className="space-y-1.5">
-            {activeEngagements.map((e) => (
-              <div key={e.id} className="flex items-center gap-2">
-                <span className="truncate text-xs text-foreground/80">{e.name}</span>
-                {e.pillar && (
-                  <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${PILLAR_COLORS[e.pillar] ?? "bg-zinc-500/15 text-zinc-400"}`}>
-                    {e.pillar}
-                  </span>
-                )}
-              </div>
-            ))}
           </div>
         </div>
       )}
