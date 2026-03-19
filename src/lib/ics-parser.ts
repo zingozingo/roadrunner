@@ -250,7 +250,13 @@ export function parseICSContent(icsContent: string): ParsedMeeting | null {
         continue;
       }
       if (line.trim() === "END:VEVENT") {
-        break; // first event only
+        // DESIGN: One forward = one meeting, always.
+        // Recurring series ICS may contain multiple VEVENT blocks (the master
+        // event plus individual occurrences with RECURRENCE-ID). We only parse
+        // the first VEVENT. RRULE is detected to set is_recurring = true, but
+        // Roadrunner never auto-expands recurrence from ICS — the user decides
+        // whether to enable recurrence via the meeting detail page.
+        break;
       }
       if (inEvent) {
         eventLines.push(line);

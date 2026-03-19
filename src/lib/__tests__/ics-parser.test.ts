@@ -485,6 +485,59 @@ describe("parseICSContent", () => {
 });
 
 // ============================================================
+// Multi-VEVENT guardrail (one forward = one meeting)
+// ============================================================
+
+describe("parseICSContent — multi-VEVENT guardrail", () => {
+  it("returns exactly one meeting from ICS with multiple VEVENT blocks", () => {
+    // Simulate a recurring series ICS: master event + one occurrence override
+    const ics = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Test//Test//EN",
+      "BEGIN:VEVENT",
+      "UID:series-master@example.com",
+      "SUMMARY:Weekly Partner Sync",
+      "DTSTART:20260310T100000Z",
+      "DTEND:20260310T103000Z",
+      "LOCATION:Chime",
+      "RRULE:FREQ=WEEKLY;BYDAY=TU",
+      "ORGANIZER;CN=Jane Smith:mailto:jane@partner.com",
+      "ATTENDEE;CN=Steven Romero:mailto:steven@amazon.com",
+      "END:VEVENT",
+      "BEGIN:VEVENT",
+      "UID:series-master@example.com",
+      "RECURRENCE-ID:20260317T100000Z",
+      "SUMMARY:Weekly Partner Sync (Rescheduled)",
+      "DTSTART:20260318T140000Z",
+      "DTEND:20260318T143000Z",
+      "LOCATION:Zoom",
+      "ORGANIZER;CN=Jane Smith:mailto:jane@partner.com",
+      "ATTENDEE;CN=Steven Romero:mailto:steven@amazon.com",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n");
+
+    const result = parseICSContent(ics);
+
+    // Returns exactly one meeting
+    expect(result).not.toBeNull();
+
+    // Uses data from the FIRST VEVENT only
+    expect(result!.title).toBe("Weekly Partner Sync");
+    expect(result!.meeting_date).toBe("2026-03-10");
+    expect(result!.location).toBe("Chime");
+
+    // RRULE detected → is_recurring true
+    expect(result!.is_recurring).toBe(true);
+
+    // Second VEVENT's data is NOT used
+    expect(result!.title).not.toBe("Weekly Partner Sync (Rescheduled)");
+    expect(result!.location).not.toBe("Zoom");
+  });
+});
+
+// ============================================================
 // extractICSFromAttachments
 // ============================================================
 
