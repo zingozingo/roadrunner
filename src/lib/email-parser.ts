@@ -761,6 +761,15 @@ export function parseForwardedEmail(
   // use \n anchors and `.` (which doesn't match \r in Node.js).
   rawBody = rawBody.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
+  // Strip conference boilerplate (Teams/Zoom/Webex join blocks) before splitting
+  // to prevent their separator lines (_{20,}) from being matched as message
+  // boundaries by GENERIC_SEPARATOR_RE in Pass 2.
+  rawBody = stripConferenceBoilerplate(rawBody);
+  // After boilerplate stripping, Teams' decorative underscore separators remain
+  // as orphaned lines. Remove them so they don't trigger GENERIC_SEPARATOR_RE.
+  // Safe because FORWARDED_BLOCK_RE treats _{3,} prefix as optional.
+  rawBody = rawBody.replace(/^_{20,}\s*$/gm, "");
+
   // ========== Pass 1: Primary split ==========
   const headers = findHeaderBlocks(rawBody);
   let pass1Messages: ParsedMessage[];

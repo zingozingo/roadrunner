@@ -1432,3 +1432,124 @@ Dial by your location:
     expect(result.length).toBeLessThan(20);
   });
 });
+
+describe("Conference boilerplate in thread splits", () => {
+  it("Teams meeting block in forwarded thread does not create phantom messages", () => {
+    const email = `FYI — sharing the invite for Thursday.
+
+________________________________
+From: Alice Chen <alice@partnerco.com>
+Sent: Monday, March 16, 2026 10:00 AM
+To: Bob Lee <bob@aws.example.com>
+Subject: Partner Sync — Thursday
+
+Hi Bob,
+
+Let's review the integration roadmap on Thursday.
+
+________________________________________________________________________________
+
+Join Microsoft Teams Meeting
+
+https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc123%40thread.v2/0?context=%7B%22Tid%22%3A%22tenant-id%22%7D
+
+Meeting ID: 234 567 890#
+
+Phone: +1 202-555-0199,,234567890#
+
+________________________________________________________________________________
+
+Looking forward to it.
+
+Alice`;
+
+    const messages = parseForwardedEmail(email, {
+      sender: "forwarder@aws.example.com",
+      subject: "Fwd: Partner Sync — Thursday",
+    });
+
+    // Should NOT produce a phantom message from the Teams block
+    const phantoms = messages.filter(
+      (m) => !m.sender_email && !m.sender_name
+    );
+    expect(phantoms).toHaveLength(0);
+
+    // The real message from Alice should be extracted
+    const alice = messages.find((m) => m.sender_email === "alice@partnerco.com");
+    expect(alice).toBeDefined();
+    expect(alice!.body_text).toContain("integration roadmap");
+  });
+
+  it("Zoom meeting block in forwarded thread does not create phantom messages", () => {
+    const email = `Forwarding the invite.
+
+________________________________
+From: Carlos Ruiz <carlos@partnerco.com>
+Sent: Tuesday, March 17, 2026 3:00 PM
+To: Dana Wright <dana@aws.example.com>
+Subject: QBR Prep Call
+
+Dana,
+
+Here are the details for our prep call.
+
+Join Zoom Meeting
+https://zoom.us/j/98765432101?pwd=ZmFrZVBhc3N3b3Jk
+
+Meeting ID: 987 6543 2101
+Passcode: qbr2026
+
+One tap mobile:
++12025550199,,98765432101# US
+
+Dial by your location:
++1 202 555 0199 US
+
+Thanks,
+Carlos`;
+
+    const messages = parseForwardedEmail(email, {
+      sender: "forwarder@aws.example.com",
+      subject: "Fwd: QBR Prep Call",
+    });
+
+    const phantoms = messages.filter(
+      (m) => !m.sender_email && !m.sender_name
+    );
+    expect(phantoms).toHaveLength(0);
+
+    const carlos = messages.find((m) => m.sender_email === "carlos@partnerco.com");
+    expect(carlos).toBeDefined();
+    expect(carlos!.body_text).toContain("prep call");
+  });
+
+  it("conference boilerplate that IS the entire message body is preserved minimally", () => {
+    const email = `________________________________
+From: Alice Chen <alice@partnerco.com>
+Sent: Monday, March 16, 2026 10:00 AM
+To: Bob Lee <bob@aws.example.com>
+Subject: Teams Meeting Invite
+
+________________________________________________________________________________
+
+Join Microsoft Teams Meeting
+
+https://teams.microsoft.com/l/meetup-join/19%3ameeting_xyz789%40thread.v2/0?context=%7B%22Tid%22%3A%22tenant-id%22%7D
+
+Meeting ID: 345 678 901#
+
+Phone: +1 202-555-0199,,345678901#
+
+________________________________________________________________________________`;
+
+    const messages = parseForwardedEmail(email, {
+      sender: "forwarder@aws.example.com",
+      subject: "Fwd: Teams Meeting Invite",
+    });
+
+    // Should still produce at least 1 message (from Alice), not zero
+    expect(messages.length).toBeGreaterThanOrEqual(1);
+    const alice = messages.find((m) => m.sender_email === "alice@partnerco.com");
+    expect(alice).toBeDefined();
+  });
+});
