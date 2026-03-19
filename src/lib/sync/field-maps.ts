@@ -100,6 +100,20 @@ export const MF = {
   notes: "fldzGUipu36EA9rax",
 } as const;
 
+// ── Meeting type display names (snake_case → Airtable display) ──
+export const MEETING_TYPE_DISPLAY: Record<string, string> = {
+  partner_cadence: "Partner Cadence",
+  sca_review: "SCA Review",
+  qbr: "QBR",
+  executive: "Executive",
+  event: "Event",
+  internal: "Internal",
+  support: "Support",
+  demo: "Demo",
+  enablement: "Enablement",
+  ad_hoc: "Ad Hoc",
+};
+
 // ── Notes constants ─────────────────────────────────────────
 export const NOTES_MARKER = "=== Roadrunner Activity Summary ===";
 export const NOTES_FOOTER = "(Auto-synced from Roadrunner)";

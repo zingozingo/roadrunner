@@ -112,6 +112,12 @@ export interface MeetingAttendee {
 
 export type MeetingStatus = "scheduled" | "completed" | "cancelled" | "did_not_occur";
 
+export type MeetingType =
+  | "partner_cadence" | "sca_review" | "qbr" | "executive"
+  | "event" | "internal" | "support" | "demo" | "enablement" | "ad_hoc";
+
+export type RecurrencePattern = "weekly" | "biweekly" | "monthly" | "quarterly";
+
 export interface Meeting {
   id: string;
   title: string;
@@ -128,8 +134,11 @@ export interface Meeting {
   ics_uid: string | null;
   sequence: number | null;
   is_recurring: boolean;
-  source: "manual" | "ics_parsed";
-  meeting_type: string | null;
+  source: "manual" | "ics_parsed" | "body_parsed" | "auto";
+  meeting_type: MeetingType | null;
+  recurrence_pattern: RecurrencePattern | null;
+  recurrence_end: string | null;
+  series_id: string | null;
   notes: string | null;
   airtable_record_id: string | null;
   created_at: string;

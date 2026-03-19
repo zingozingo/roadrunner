@@ -12,15 +12,16 @@ import { cleanMeetingTitle } from "@/lib/format-utils";
 type MeetingWithNames = Meeting & { engagement_name: string | null; partner_name: string | null };
 
 const MEETING_TYPE_OPTIONS = [
-  { label: "Partner Cadence Call", value: "Partner Cadence Call" },
-  { label: "Co-Build Cadence", value: "Co-Build Cadence" },
-  { label: "Co-Market Cadence", value: "Co-Market Cadence" },
-  { label: "Co-Sell Cadence", value: "Co-Sell Cadence" },
-  { label: "Co-Sell Strategy", value: "Co-Sell Strategy" },
-  { label: "SCA Review", value: "SCA Review" },
-  { label: "QBR", value: "QBR" },
-  { label: "Product Team Sync", value: "Product Team Sync" },
-  { label: "Executive Meeting", value: "Executive Meeting" },
+  { label: "Partner Cadence", value: "partner_cadence" },
+  { label: "SCA Review", value: "sca_review" },
+  { label: "QBR", value: "qbr" },
+  { label: "Executive", value: "executive" },
+  { label: "Event", value: "event" },
+  { label: "Internal", value: "internal" },
+  { label: "Support", value: "support" },
+  { label: "Demo", value: "demo" },
+  { label: "Enablement", value: "enablement" },
+  { label: "Ad Hoc", value: "ad_hoc" },
 ];
 
 interface MeetingsClientProps {

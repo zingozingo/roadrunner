@@ -15,7 +15,7 @@ import { getSupabaseClient } from "../db";
 import { isUserEmail } from "../user-config";
 import {
   ENGAGEMENTS_TABLE, MEETINGS_TABLE,
-  ENF, MF,
+  ENF, MF, MEETING_TYPE_DISPLAY,
 } from "./field-maps";
 import { NOTES_MARKER, NOTES_FOOTER } from "./field-maps";
 import { hasChanges, STATUS_TO_AIRTABLE } from "./utils";
@@ -614,7 +614,10 @@ function buildMeetingFields(
   if (meeting.location) fields[MF.location] = meeting.location;
   if (meeting.source) fields[MF.source] = meeting.source;
   if (meeting.ics_uid) fields[MF.icsUid] = meeting.ics_uid;
-  if (meeting.meeting_type) fields[MF.meetingType] = meeting.meeting_type;
+  if (meeting.meeting_type) {
+    const mt = meeting.meeting_type as string;
+    fields[MF.meetingType] = MEETING_TYPE_DISPLAY[mt] || mt;
+  }
   if (meeting.notes) fields[MF.notes] = meeting.notes;
 
   // Engagement is THE link — Partner, Program, Event, AWS Relationships
