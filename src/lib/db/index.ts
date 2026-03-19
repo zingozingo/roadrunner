@@ -30,6 +30,7 @@ export {
   getMeetingsWithEngagements,
   getUpcomingMeetings,
   getMeeting,
+  getSeriesSiblings,
   getMeetingsByEngagement,
   createMeeting,
   updateMeeting,

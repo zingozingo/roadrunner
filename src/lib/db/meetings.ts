@@ -140,6 +140,17 @@ export async function getMeeting(id: string): Promise<Meeting | null> {
   return data as Meeting | null;
 }
 
+export async function getSeriesSiblings(seriesId: string): Promise<Pick<Meeting, "id" | "meeting_date">[]> {
+  const { data, error } = await getSupabaseClient()
+    .from("meetings")
+    .select("id, meeting_date")
+    .eq("series_id", seriesId)
+    .order("meeting_date", { ascending: true, nullsFirst: false });
+
+  if (error) throw new Error(`Failed to fetch series siblings: ${error.message}`);
+  return (data ?? []) as Pick<Meeting, "id" | "meeting_date">[];
+}
+
 export async function getMeetingsByEngagement(engagementId: string): Promise<Meeting[]> {
   const { data, error } = await getSupabaseClient()
     .from("meetings")
@@ -223,6 +234,10 @@ export async function updateMeeting(
     organizer_email?: string | null;
     meeting_type?: string | null;
     notes?: string | null;
+    is_recurring?: boolean;
+    recurrence_pattern?: string | null;
+    recurrence_end?: string | null;
+    series_id?: string | null;
   }
 ): Promise<Meeting> {
   const { data, error } = await getSupabaseClient()

@@ -9,6 +9,7 @@ import {
   getPartner,
   getMeetingNoteByMeetingId,
   getContactsByMeeting,
+  getSeriesSiblings,
 } from "@/lib/db";
 import { buildPartnerContext, formatContextForDisplay } from "@/lib/notes-context";
 import { cleanMeetingTitle, formatFooterDate } from "@/lib/format-utils";
@@ -16,6 +17,7 @@ import MeetingNotesSection from "@/components/notes/MeetingNotesSection";
 import ContactGroup from "@/components/shared/ContactGroup";
 import { USER_CONFIG } from "@/lib/user-config";
 import EngagementLinker from "@/components/shared/EngagementLinker";
+import RecurrenceEditor from "@/components/shared/RecurrenceEditor";
 import type { DisplayContext } from "@/lib/types";
 
 // Status dot color map
@@ -55,11 +57,12 @@ export default async function MeetingDetailPage({
   const meeting = await getMeeting(id);
   if (!meeting) notFound();
 
-  const [engagement, partner, existingNote, meetingContacts] = await Promise.all([
+  const [engagement, partner, existingNote, meetingContacts, seriesSiblings] = await Promise.all([
     meeting.engagement_id ? getEngagementById(meeting.engagement_id) : null,
     meeting.partner_id ? getPartner(meeting.partner_id) : null,
     getMeetingNoteByMeetingId(id),
     getContactsByMeeting(id),
+    meeting.series_id ? getSeriesSiblings(meeting.series_id) : [],
   ]);
 
   // Build partner context for notes workspace (only if partner exists)
@@ -105,6 +108,34 @@ export default async function MeetingDetailPage({
           <MeetingActions meeting={meeting} partnerName={partner?.name ?? null} />
         </div>
       </div>
+
+      {/* ═══ SERIES NAVIGATION ═══ */}
+      {seriesSiblings.length > 1 && (() => {
+        const idx = seriesSiblings.findIndex((s) => s.id === id);
+        const prev = idx > 0 ? seriesSiblings[idx - 1] : null;
+        const next = idx < seriesSiblings.length - 1 ? seriesSiblings[idx + 1] : null;
+        return (
+          <div className="mb-6 flex items-center gap-4 rounded-lg border border-border/20 bg-surface/50 px-4 py-2">
+            {prev ? (
+              <Link href={`/meetings/${prev.id}`} className="text-xs text-muted hover:text-accent transition-colors">
+                &larr; Previous
+              </Link>
+            ) : (
+              <span className="text-xs text-muted/30">&larr; Previous</span>
+            )}
+            <span className="flex-1 text-center text-xs text-muted">
+              Occurrence {idx + 1} of {seriesSiblings.length}
+            </span>
+            {next ? (
+              <Link href={`/meetings/${next.id}`} className="text-xs text-muted hover:text-accent transition-colors">
+                Next &rarr;
+              </Link>
+            ) : (
+              <span className="text-xs text-muted/30">Next &rarr;</span>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ═══ TWO-COLUMN LAYOUT ═══ */}
       <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8">
@@ -208,6 +239,15 @@ export default async function MeetingDetailPage({
                   <span className="text-sm text-foreground capitalize">{meeting.meeting_type}</span>
                 </div>
               )}
+              <div>
+                <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Recurrence</span>
+                <RecurrenceEditor
+                  meetingId={id}
+                  initialPattern={meeting.recurrence_pattern}
+                  initialEnd={meeting.recurrence_end}
+                  initialSeriesId={meeting.series_id}
+                />
+              </div>
               <div>
                 <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Source</span>
                 <span className="text-sm text-foreground">

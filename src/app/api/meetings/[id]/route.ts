@@ -52,7 +52,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { title, engagement_id, partner_name, status, meeting_date, start_time, end_time, location, notes } = body;
+    const { title, engagement_id, partner_name, status, meeting_date, start_time, end_time, location, notes, is_recurring, recurrence_pattern, recurrence_end, series_id } = body;
 
     if (title !== undefined && (typeof title !== "string" || !title.trim())) {
       return NextResponse.json(
@@ -100,6 +100,10 @@ export async function PUT(
     if (end_time !== undefined) updates.end_time = end_time?.trim() || null;
     if (location !== undefined) updates.location = location?.trim() || null;
     if (notes !== undefined) updates.notes = notes?.trim() || null;
+    if (is_recurring !== undefined) updates.is_recurring = !!is_recurring;
+    if (recurrence_pattern !== undefined) updates.recurrence_pattern = recurrence_pattern || null;
+    if (recurrence_end !== undefined) updates.recurrence_end = recurrence_end || null;
+    if (series_id !== undefined) updates.series_id = series_id || null;
 
     const updated = await updateMeeting(id, updates);
 
