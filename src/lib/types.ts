@@ -23,6 +23,7 @@ export interface Engagement {
   name: string;
   status: "active" | "planned" | "blocked" | "completed" | "archived";
   current_state: string | null;
+  condensed: string | null;
   topic: string | null;
   partner_id: string | null;
   pillar: Pillar | null;
@@ -385,6 +386,7 @@ export interface MeetingNote {
   date_range_end: string | null;
   raw_notes: string;
   ai_summary: string | null;
+  condensed: string | null;
   ai_tasks: unknown | null;
   context_snapshot: unknown | null;
   status: "draft" | "complete";
