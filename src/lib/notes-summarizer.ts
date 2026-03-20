@@ -24,6 +24,7 @@ export async function summarizeNotes(input: {
   noteType?: "meeting";
   meetingTitle?: string;
   meetingDate?: string;
+  existingTasks?: { description: string; owner: string; owner_name: string | null }[];
 }): Promise<NoteSummaryResult> {
   const client = getClient();
   const systemPrompt = buildSystemPrompt(input.noteType ?? "meeting");
@@ -52,21 +53,41 @@ const NOTE_TYPE_MODIFIER = {
   meeting: "These are notes from a single meeting session. Summarize what was discussed in this meeting.",
 } as const;
 
-const SYSTEM_PROMPT = `You are a note analyst for an AWS Partner Development Manager (PDM) named Steven. Your job is to produce a concise summary and extract every action item from raw notes.
+const SYSTEM_PROMPT = `You are a note analyst for an AWS Partner Development Manager (PDM) named Steven. Your job is to produce a structured summary, a condensed digest, and extract every action item from raw notes.
 
-The PARTNER CONTEXT section in the user message contains the partner's profile, known contacts, active engagements, recent meetings, previous note summaries, and open tasks. Use this context to enrich your output — but never add information that isn't present or directly implied in the notes.
+The PARTNER CONTEXT section in the user message contains a condensed partner profile, known contacts, PDM scratchpad notes, and previous meeting digests scoped to the relevant engagement (or recent partner meetings if standalone). Use this context to enrich your output — but never add information that isn't present or directly implied in the notes.
 
 <<NOTE_TYPE>>
 
 SUMMARY RULES:
-- Write concise prose. Use paragraph breaks to separate different topics or time periods.
-- Use bullet points (plain dash) ONLY when listing 3+ specific items (e.g., multiple deliverables, multiple people mentioned). Otherwise use prose.
-- Do NOT use markdown headers (##), bold markers (**), or section labels. Just clear sentences and paragraphs.
-- When the notes reference something present in the partner context (marketplace listings, architecture, deployment status, pricing model, CRM integration, etc.), naturally weave that known context into the summary. For example: "discussed ramping marketplace presence (currently listed as AMI with Per-Seat/BYOL pricing)".
-- Capture what was said, decided, or committed — not just topic labels.
-- Keep it proportional — a 5-minute call summary should be 2-3 short paragraphs, not a page.
+- Produce a STRUCTURED summary with these sections, using plain text labels on their own line (not markdown headers):
+
+  Discussion
+  [What was discussed. Prose paragraphs. Capture substance — what was said, explained, proposed — not just topic labels.]
+
+  Decisions
+  [Commitments, agreements, or conclusions reached. If none, write "No decisions reached." Don't fabricate.]
+
+  Key Context
+  [Important background info, signals, or relationship dynamics mentioned. Things that matter for understanding this engagement but aren't decisions or action items. If nothing notable, omit this section entirely.]
+
+- Importance weighting: Topics and people mentioned repeatedly should be featured more prominently than one-time mentions. Recent context matters more than old. Respect the user's emphasis — "critical", "urgent", "important" are intentional signals.
+- Proportionality: A 5-minute call gets 2-3 short paragraphs total. A 60-minute deep dive can be longer. Match the depth.
+- When the notes reference something present in the partner context (marketplace listings, architecture, deployment status, pricing model, CRM integration, etc.), naturally weave that known context into the summary.
 - Do NOT speculate about implications, strategic signals, or partner motivations.
 - Do NOT add information not stated or directly implied in the notes.
+- Tasks are extracted separately below. The Discussion and Key Context sections should reference decisions and context, but should NOT re-list action items that appear in the tasks array. If a task was discussed, mention the context around it, not the task itself.
+
+CONDENSED DIGEST RULES:
+- Produce a condensed digest: 3-5 bullet points using category tags.
+- Format (each bullet on its own line, starting with the tag):
+  - Discussed: [key topic and what was said about it]
+  - Decided: [commitment or agreement reached]
+  - Context: [important background info or signal]
+  - Next: [what happens next or what to watch for]
+  - Blocker: [if any — omit if none]
+- This is NOT a copy of tasks. "Next" means the expected next development, not an assigned action item.
+- 3-5 bullets max. No prose. Every bullet starts with a category tag.
 
 TASK EXTRACTION RULES:
 - Before creating each task, apply this test: Could someone check this off as DONE in a single action or short effort? If not, it's a goal — do not create a task.
@@ -92,12 +113,13 @@ TASK EXTRACTION RULES:
   3. If a name is mentioned but does NOT match any known contact, still capture the name in owner_name and classify owner as best you can from context.
   4. If no owner is identifiable, default owner to "me" with owner_name null.
 - Set due_date (YYYY-MM-DD) only if explicitly stated in the notes. Do not infer dates.
+- If EXISTING TASKS are listed in the user message, do NOT re-extract those same tasks. Only extract NEW tasks from the notes.
 
 OUTPUT: Respond with ONLY a JSON object. No markdown fences, no preamble, no explanation.
 {
-  "summary": "plain text string — no markdown headers",
-  "tasks": [{"description": "...", "owner": "me|partner|internal", "owner_name": "...|null", "due_date": "YYYY-MM-DD|null"}],
-  "flags": []
+  "summary": "structured text with Discussion/Decisions/Key Context sections",
+  "condensed": "3-5 categorized bullet lines",
+  "tasks": [{"description": "...", "owner": "me|partner|internal|third_party", "owner_name": "...|null", "due_date": "YYYY-MM-DD|null"}]
 }`;
 
 function buildSystemPrompt(noteType: "meeting"): string {
@@ -110,6 +132,7 @@ function buildUserMessage(input: {
   noteType?: "meeting";
   meetingTitle?: string;
   meetingDate?: string;
+  existingTasks?: { description: string; owner: string; owner_name: string | null }[];
 }): string {
   const sections: string[] = [];
 
@@ -124,10 +147,18 @@ function buildUserMessage(input: {
     sections.push("=== MEETING INFO ===\n" + meta.join("\n"));
   }
 
+  // Existing tasks (so AI knows what not to re-extract)
+  if (input.existingTasks && input.existingTasks.length > 0) {
+    const taskLines = input.existingTasks.map((t) => {
+      const owner = t.owner_name ? `${t.owner_name} (${t.owner})` : t.owner;
+      return `- [${owner}] ${t.description}`;
+    });
+    sections.push("=== EXISTING TASKS FOR THIS MEETING ===\n" + taskLines.join("\n"));
+  }
+
   // Raw notes (with truncation if needed)
   const truncated = truncateIfNeeded(input.rawNotes);
-  const label = "RAW MEETING NOTES";
-  sections.push(`=== ${label} ===\n` + truncated);
+  sections.push("=== RAW MEETING NOTES ===\n" + truncated);
 
   return sections.join("\n\n");
 }
@@ -143,6 +174,7 @@ function parseResponse(raw: string): NoteSummaryResult {
     const parsed = JSON.parse(cleaned);
     return {
       summary: typeof parsed.summary === "string" ? parsed.summary : raw,
+      condensed: typeof parsed.condensed === "string" ? parsed.condensed : null,
       tasks: Array.isArray(parsed.tasks)
         ? parsed.tasks.map((t: Record<string, unknown>) => ({
             description: String(t.description ?? ""),
@@ -157,6 +189,7 @@ function parseResponse(raw: string): NoteSummaryResult {
     console.error("Failed to parse note summarization response as JSON, using raw text as summary");
     return {
       summary: raw,
+      condensed: null,
       tasks: [],
     };
   }

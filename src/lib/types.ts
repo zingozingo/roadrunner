@@ -598,6 +598,7 @@ export interface DisplayContext {
 
 export interface NoteSummaryResult {
   summary: string;
+  condensed: string | null;
   tasks: Array<{
     description: string;
     owner: "me" | "internal" | "partner" | "third_party";
