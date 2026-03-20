@@ -20,12 +20,11 @@ export async function buildPartnerContext(
 ): Promise<PartnerContext> {
   const db = getSupabaseClient();
 
-  // Parallel fetch: partner, engagements, meetings, notes, tasks, scratchpad
+  // Parallel fetch: partner, engagements, meetings, tasks, scratchpad
   const [
     { data: partnerData, error: partnerErr },
     { data: engData, error: engErr },
     { data: mtgData, error: mtgErr },
-    noteSummaries,
     openTasks,
     scratchpadContext,
   ] = await Promise.all([
@@ -42,7 +41,6 @@ export async function buildPartnerContext(
       .eq("partner_id", partnerId)
       .order("meeting_date", { ascending: false, nullsFirst: false })
       .limit(5),
-    getRecentNoteSummaries(partnerId, 5),
     getTasksByPartner(partnerId, { status: "open" }),
     getPartnerContext(partnerId),
   ]);
@@ -270,6 +268,110 @@ export function formatContextForDisplay(context: PartnerContext): DisplayContext
     })),
     scratchpadEntries: context.scratchpadEntries,
   };
+}
+
+// ============================================================
+// Scoped context builder for meeting note summarization (Call 2)
+// ============================================================
+
+/**
+ * Build a focused context string for meeting note summarization.
+ * Unlike buildPartnerContext (used by Call 3), this is scoped:
+ * - Condensed partner profile (3 fields)
+ * - Key contacts
+ * - PDM scratchpad notes
+ * - Previous meeting digests scoped to the same engagement (condensed only)
+ */
+export async function buildMeetingNoteContext(
+  partnerId: string,
+  engagementId: string | null
+): Promise<string> {
+  const db = getSupabaseClient();
+
+  // Parallel fetch: partner profile, contacts, scratchpad, previous condensed notes
+  const [
+    { data: partnerData, error: partnerErr },
+    registryContacts,
+    scratchpadEntries,
+  ] = await Promise.all([
+    db.from("partners").select("name, segment, what_they_do").eq("id", partnerId).single(),
+    getContactsByPartner(partnerId),
+    getPartnerContext(partnerId),
+  ]);
+
+  if (partnerErr) throw new Error(`Failed to fetch partner: ${partnerErr.message}`);
+  const partner = partnerData as { name: string; segment: string | null; what_they_do: string | null };
+
+  const sections: string[] = [];
+
+  // 1. Partner profile (condensed)
+  const profileLines = [`Partner: ${partner.name}`];
+  if (partner.segment) profileLines.push(`Segment: ${partner.segment}`);
+  if (partner.what_they_do) profileLines.push(`What They Do: ${partner.what_they_do}`);
+  sections.push(profileLines.join("\n"));
+
+  // 2. Key contacts
+  const contacts = buildContactsFromRegistry(registryContacts);
+  const contactLines: string[] = [];
+  if (contacts.alliance_lead) contactLines.push(`Alliance Lead: ${contacts.alliance_lead}`);
+  if (contacts.account_manager) contactLines.push(`Account Manager: ${contacts.account_manager}`);
+  if (contacts.psa) contactLines.push(`PSA: ${contacts.psa}`);
+  if (contacts.other_contacts.length > 0) contactLines.push(`Other: ${contacts.other_contacts.join("; ")}`);
+  if (contactLines.length > 0) sections.push("KEY CONTACTS\n" + contactLines.join("\n"));
+
+  // 3. Scratchpad (PDM notes)
+  const contextEntries = scratchpadEntries.filter(
+    (e) => e.source === "scratchpad" || e.source === "seed_dump"
+  );
+  if (contextEntries.length > 0) {
+    const ctxLines = contextEntries.map((e) => `- ${e.content}`);
+    sections.push("PARTNER CONTEXT (PDM NOTES)\n" + ctxLines.join("\n"));
+  }
+
+  // 4. Previous meeting context (condensed digests only)
+  if (engagementId) {
+    // Scoped: only meetings linked to this engagement
+    const { data: notes } = await db
+      .from("meeting_notes")
+      .select("title, meeting_date, condensed, meeting_id, meetings!inner(engagement_id)")
+      .eq("partner_id", partnerId)
+      .not("condensed", "is", null)
+      .order("meeting_date", { ascending: false, nullsFirst: false })
+      .limit(20); // Over-fetch then filter by engagement
+
+    const scoped = ((notes ?? []) as unknown as { title: string | null; meeting_date: string | null; condensed: string; meetings: { engagement_id: string | null } }[])
+      .filter((n) => n.meetings?.engagement_id === engagementId)
+      .slice(0, 5);
+
+    if (scoped.length > 0) {
+      const noteLines = scoped.map((n) => {
+        const label = `[${n.meeting_date ?? "no date"}]`;
+        const title = n.title ? ` ${n.title}` : "";
+        return `${label}${title}\n${n.condensed}`;
+      });
+      sections.push("PREVIOUS MEETINGS (SAME ENGAGEMENT)\n" + noteLines.join("\n\n"));
+    }
+  } else {
+    // Unscoped fallback: recent partner meetings
+    const { data: notes } = await db
+      .from("meeting_notes")
+      .select("title, meeting_date, condensed")
+      .eq("partner_id", partnerId)
+      .not("condensed", "is", null)
+      .order("meeting_date", { ascending: false, nullsFirst: false })
+      .limit(3);
+
+    if (notes && notes.length > 0) {
+      const noteLines = (notes as { title: string | null; meeting_date: string | null; condensed: string }[]).map((n) => {
+        const label = `[${n.meeting_date ?? "no date"}]`;
+        const title = n.title ? ` ${n.title}` : "";
+        return `${label}${title}\n${n.condensed}`;
+      });
+      sections.push("RECENT PARTNER MEETINGS\n" + noteLines.join("\n\n"));
+    }
+  }
+
+  return sections.join("\n\n---\n\n");
 }
 
 // ============================================================
