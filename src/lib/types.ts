@@ -430,6 +430,7 @@ export interface UpdateMeetingNoteInput {
   title?: string | null;
   raw_notes?: string;
   ai_summary?: string | null;
+  condensed?: string | null;
   ai_tasks?: unknown | null;
   context_snapshot?: unknown | null;
   status?: "draft" | "complete";

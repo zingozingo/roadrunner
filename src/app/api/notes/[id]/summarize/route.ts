@@ -5,7 +5,8 @@ import {
   deleteAiTasksForNote,
   createTask,
 } from "@/lib/db";
-import { buildPartnerContext, formatContextForPrompt } from "@/lib/notes-context";
+import { getSupabaseClient } from "@/lib/db/client";
+import { buildMeetingNoteContext } from "@/lib/notes-context";
 import { summarizeNotes } from "@/lib/notes-summarizer";
 import type { Task } from "@/lib/types";
 
@@ -21,24 +22,41 @@ export async function POST(
       return NextResponse.json({ error: "Note not found" }, { status: 404 });
     }
 
-    // Build partner context
-    const context = await buildPartnerContext(note.partner_id);
-    const formattedContext = formatContextForPrompt(context);
+    // Resolve engagement_id: note direct FK → meeting FK → null
+    let engagementId: string | null = note.engagement_id ?? null;
+    if (!engagementId && note.meeting_id) {
+      const db = getSupabaseClient();
+      const { data: meeting } = await db
+        .from("meetings")
+        .select("engagement_id")
+        .eq("id", note.meeting_id)
+        .single();
+      engagementId = (meeting as { engagement_id: string | null } | null)?.engagement_id ?? null;
+    }
 
-    // Call AI summarizer
+    // Build scoped context for this meeting note
+    const formattedContext = await buildMeetingNoteContext(note.partner_id, engagementId);
+
+    // Call AI summarizer with existing tasks for non-redundancy
     const result = await summarizeNotes({
       rawNotes: note.raw_notes,
       partnerContext: formattedContext,
       noteType: note.note_type,
       meetingTitle: note.title ?? undefined,
       meetingDate: note.meeting_date ?? undefined,
+      existingTasks: note.tasks?.map((t) => ({
+        description: t.description,
+        owner: t.owner,
+        owner_name: t.owner_name,
+      })),
     });
 
     // Save AI results to the note record
     await updateMeetingNote(id, {
       ai_summary: result.summary,
       ai_tasks: result.tasks,
-      context_snapshot: context,
+      condensed: result.condensed ?? null,
+      context_snapshot: null,
       status: "complete",
     });
 
