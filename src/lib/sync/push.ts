@@ -178,7 +178,6 @@ function buildEngagementFields(
 
   if (engagement.pillar) fields[ENF.pillar] = engagement.pillar;
   if (engagement.topic) fields[ENF.topic] = engagement.topic;
-  if (engagement.goal) fields[ENF.goal] = engagement.goal;
 
   const partnerId = engagement.partner_id as string | null;
   if (partnerId) {

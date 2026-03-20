@@ -42,8 +42,7 @@ export default function EngagementsClient({ engagements }: EngagementsClientProp
         const matchesPartner = eng.partner_name?.toLowerCase().includes(q);
         const matchesPillar = eng.pillar?.toLowerCase().includes(q);
         const matchesTopic = eng.topic?.toLowerCase().includes(q);
-        const matchesGoal = eng.goal?.toLowerCase().includes(q);
-        if (!matchesName && !matchesPartner && !matchesPillar && !matchesTopic && !matchesGoal) return false;
+        if (!matchesName && !matchesPartner && !matchesPillar && !matchesTopic) return false;
       }
       if (activeFilter && eng.status !== activeFilter) return false;
       return true;

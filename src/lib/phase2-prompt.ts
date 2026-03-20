@@ -30,12 +30,11 @@ export const PHASE2_SYSTEM_PROMPT = `You are Relay Analyst, an AI that analyzes 
 
 Analyze the NEW email (clearly marked below) in the context of the engagement's history. Produce:
 1. A topic (3-8 word description of what this engagement is about)
-2. A goal (1 sentence describing what success looks like)
-3. An engagement_name computed as "{Partner Name} - {topic}"
-4. An updated current_state summary
-5. A participant list extracted from the NEW email
-6. Matched events, programs, and AWS relationships
-7. A pillar classification
+2. An engagement_name computed as "{Partner Name} - {topic}"
+3. An updated current_state summary
+4. A participant list extracted from the NEW email
+5. Matched events, programs, and AWS relationships
+6. A pillar classification
 
 ## Thread Awareness
 
@@ -51,12 +50,6 @@ The source emails below are the COMPLETE conversation history for this engagemen
 A 3-8 word description of what this engagement is about. Stable across emails — only changes if the engagement fundamentally pivots. Examples: "FedRAMP Certification", "Marketplace Listing Optimization", "Security Competency Technical Validation".
 
 If the engagement already has a topic, return it EXACTLY as-is unless the engagement has fundamentally changed direction. Do not rephrase for stylistic variety.
-
-## goal Instructions
-
-One sentence describing what success looks like for this engagement. Stable — set on creation, rarely updated. Example: "CyberShield achieves AWS Security Competency and lists on Marketplace."
-
-If the engagement already has a goal, return it EXACTLY as-is unless the engagement's objective has fundamentally changed. Do not rephrase for stylistic variety.
 
 ## engagement_name Instructions
 
@@ -151,7 +144,6 @@ The content_type and engagement_match fields are provided in the "Routing Decisi
     "partner_id": "from routing decision"
   },
   "topic": "3-8 word description of engagement subject",
-  "goal": "One sentence describing what success looks like",
   "engagement_name": "{Partner Name} - {topic}",
   "current_state": "3-8 sentence point-in-time snapshot or null if noise",
   "participants": [
@@ -305,7 +297,6 @@ export function parsePhase2Response(raw: string): CombinedClassificationResult {
 
   // Default new structured fields
   if (parsed.topic === undefined) parsed.topic = null;
-  if (parsed.goal === undefined) parsed.goal = null;
   if (parsed.engagement_name === undefined) parsed.engagement_name = null;
 
   return parsed as CombinedClassificationResult;
@@ -345,7 +336,6 @@ function buildEngagementContext(history: {
   }
 
   lines.push(`**Topic:** ${eng.topic || "Not yet set"}`);
-  lines.push(`**Goal:** ${eng.goal || "Not yet set"}`);
   lines.push(`**Status:** ${eng.status}`);
   if (eng.pillar) lines.push(`**Pillar:** ${eng.pillar}`);
   lines.push(`**Created:** ${eng.created_at.split("T")[0]}`);

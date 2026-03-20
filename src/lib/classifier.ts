@@ -240,7 +240,6 @@ export async function persistClassificationResult(
 
     // Structured fields — always update if present (both new and existing)
     if (combined.topic) updates.topic = combined.topic;
-    if (combined.goal) updates.goal = combined.goal;
     if (combined.engagement_name) updates.name = combined.engagement_name;
 
     if (!isNewEngagement) {

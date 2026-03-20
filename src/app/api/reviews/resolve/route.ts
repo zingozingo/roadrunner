@@ -70,7 +70,6 @@ export async function POST(request: NextRequest) {
         partner_name: partnerName,
         current_state: null,
         topic: null,
-        goal: null,
       });
 
       // Run AI synthesis

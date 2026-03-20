@@ -79,7 +79,6 @@ export const ENF = {
   partnerStakeholders: "fldj6vaWwDKJy6aci",
   thirdParties: "flduajBotnT6x5ZXD",
   topic: "fldDRMrtkVHOdDYVy",
-  goal: "fld1yU46baF052MHd",
 } as const;
 
 export const MF = {

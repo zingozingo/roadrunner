@@ -108,13 +108,6 @@ export default async function EngagementDetailPage({
         {/* ─── LEFT COLUMN: What's happening ─── */}
         <div className="space-y-10">
 
-          {/* Goal callout */}
-          {engagement.goal && (
-            <div className="border-l-2 border-accent/40 pl-4 py-2 text-sm text-foreground/80 italic leading-relaxed">
-              {engagement.goal}
-            </div>
-          )}
-
           {/* Activity Summary (current_state) */}
           {engagement.current_state && (
             <section>

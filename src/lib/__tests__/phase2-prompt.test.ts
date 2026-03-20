@@ -51,7 +51,6 @@ const ENGAGEMENT: Engagement & { partner_name: string | null } = {
   status: "active",
   current_state: "CyberShield is pursuing AWS Security Competency. Alice submitted the initial application last week. Steven connected them with the security team for technical review.",
   topic: "Security Competency Technical Validation",
-  goal: "CyberShield achieves AWS Security Competency and lists on Marketplace.",
   partner_name: "CyberShield",
   partner_id: "partner-001",
   pillar: "Co-Build",
@@ -385,20 +384,18 @@ describe("buildPhase2Context — existing engagement", () => {
     expect(result).toContain("Urgent review");
   });
 
-  it("includes topic and goal in engagement context when they exist", () => {
+  it("includes topic in engagement context when it exists", () => {
     const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
     expect(result).toContain("**Topic:** Security Competency Technical Validation");
-    expect(result).toContain("**Goal:** CyberShield achieves AWS Security Competency and lists on Marketplace.");
   });
 
-  it("shows 'Not yet set' when topic and goal are null", () => {
+  it("shows 'Not yet set' when topic is null", () => {
     const historyNullSlots = {
       ...HISTORY,
-      engagement: { ...ENGAGEMENT, topic: null, goal: null },
+      engagement: { ...ENGAGEMENT, topic: null },
     };
     const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, historyNullSlots, CATALOGS, PARTNER);
     expect(result).toContain("**Topic:** Not yet set");
-    expect(result).toContain("**Goal:** Not yet set");
   });
 
   it("includes pillar in engagement context when set", () => {
@@ -548,7 +545,7 @@ describe("parsePhase2Response", () => {
     expect(result.engagement_match.partner_id).toBe("partner-001");
   });
 
-  it("extracts topic, goal, engagement_name from response", () => {
+  it("extracts topic and engagement_name from response", () => {
     const jsonWithSlots = JSON.stringify({
       content_type: "engagement_email",
       engagement_match: {
@@ -560,7 +557,6 @@ describe("parsePhase2Response", () => {
         partner_id: "partner-001",
       },
       topic: "Security Competency Technical Validation",
-      goal: "CyberShield achieves AWS Security Competency and lists on Marketplace.",
       engagement_name: "CyberShield - Security Competency Technical Validation",
       current_state: "Alice sent the architecture diagram.",
       participants: [],
@@ -571,11 +567,10 @@ describe("parsePhase2Response", () => {
     });
     const result = parsePhase2Response(jsonWithSlots);
     expect(result.topic).toBe("Security Competency Technical Validation");
-    expect(result.goal).toBe("CyberShield achieves AWS Security Competency and lists on Marketplace.");
     expect(result.engagement_name).toBe("CyberShield - Security Competency Technical Validation");
   });
 
-  it("defaults topic, goal, engagement_name to null when missing", () => {
+  it("defaults topic and engagement_name to null when missing", () => {
     const minimal = JSON.stringify({
       content_type: "engagement_email",
       engagement_match: {
@@ -589,7 +584,6 @@ describe("parsePhase2Response", () => {
     });
     const result = parsePhase2Response(minimal);
     expect(result.topic).toBeNull();
-    expect(result.goal).toBeNull();
     expect(result.engagement_name).toBeNull();
   });
 });
@@ -616,21 +610,18 @@ describe("PHASE2_SYSTEM_PROMPT — date discipline", () => {
     expect(PHASE2_SYSTEM_PROMPT).toContain("present progressive");
   });
 
-  it("contains topic, goal, and engagement_name instructions", () => {
+  it("contains topic and engagement_name instructions", () => {
     expect(PHASE2_SYSTEM_PROMPT).toContain("## topic Instructions");
-    expect(PHASE2_SYSTEM_PROMPT).toContain("## goal Instructions");
     expect(PHASE2_SYSTEM_PROMPT).toContain("## engagement_name Instructions");
   });
 
-  it("response format includes topic, goal, engagement_name fields", () => {
+  it("response format includes topic and engagement_name fields", () => {
     expect(PHASE2_SYSTEM_PROMPT).toContain('"topic"');
-    expect(PHASE2_SYSTEM_PROMPT).toContain('"goal"');
     expect(PHASE2_SYSTEM_PROMPT).toContain('"engagement_name"');
   });
 
-  it("contains stability rules for topic and goal", () => {
+  it("contains stability rule for topic", () => {
     expect(PHASE2_SYSTEM_PROMPT).toContain("return it EXACTLY as-is unless the engagement has fundamentally changed direction");
-    expect(PHASE2_SYSTEM_PROMPT).toContain("return it EXACTLY as-is unless the engagement's objective has fundamentally changed");
     expect(PHASE2_SYSTEM_PROMPT).toContain("Do not rephrase for stylistic variety");
   });
 });

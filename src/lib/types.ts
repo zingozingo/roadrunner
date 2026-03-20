@@ -24,7 +24,6 @@ export interface Engagement {
   status: "active" | "planned" | "blocked" | "completed" | "archived";
   current_state: string | null;
   topic: string | null;
-  goal: string | null;
   partner_id: string | null;
   pillar: Pillar | null;
   program_id: string | null;
@@ -351,7 +350,6 @@ export interface CombinedClassificationResult {
   }[];
   current_state: string | null;
   topic: string | null;
-  goal: string | null;
   engagement_name: string | null;
   pillar: Pillar | null;
 }

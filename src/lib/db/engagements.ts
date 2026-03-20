@@ -138,7 +138,6 @@ export async function createEngagement(data: {
   partner_id?: string | null;
   current_state?: string | null;
   topic?: string | null;
-  goal?: string | null;
   pillar?: Pillar | null;
 }): Promise<Engagement> {
   const db = getSupabaseClient();
@@ -163,7 +162,6 @@ export async function createEngagement(data: {
       partner_id: partnerId,
       current_state: data.current_state ?? null,
       topic: data.topic ?? null,
-      goal: data.goal ?? null,
       status: "active",
       pillar: data.pillar ?? null,
     })
