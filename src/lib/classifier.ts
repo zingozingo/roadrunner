@@ -6,9 +6,6 @@ import {
   getPartner,
   upsertParticipants,
   backfillMessageSenderNames,
-  linkEngagementRelationship,
-  linkEngagementToProgram,
-  linkEngagementToEvent,
   getContactsByPartner,
   getPartnerScratchpad,
   getCondensedDigestsByEngagement,
@@ -140,14 +137,12 @@ function groupByForwardedAt(messages: Message[]): Message[][] {
 
 /**
  * Persist classification results to the database.
- * Called from both the auto-assign path and the manual resolve path.
  *
  * Operations:
  * 1. Update messages with classification data and engagement assignment
- * 2. Update engagement state (current_state) — skip for new engagements (already set at creation)
- * 3. Create entity links (engagement↔event, engagement↔program) by ID
- * 4. Create engagement↔relationship links from matched_relationships
- * 5. Upsert participants and link to engagement
+ * 2. Update engagement state (current_state, pillar, condensed, topic, name)
+ * 3. Upsert participants and link to engagement
+ * 4. Backfill message sender_names from participant registry
  *
  * Idempotent — safe to call multiple times with the same data.
  */
@@ -176,14 +171,13 @@ export async function persistClassificationResult(
     const combined = result as CombinedClassificationResult;
     const updates: Record<string, unknown> = {};
 
-    // Structured fields — always update if present (both new and existing)
+    // All fields write for both new and existing engagements
     if (combined.topic) updates.topic = combined.topic;
     if (combined.engagement_name) updates.name = combined.engagement_name;
-
-    if (!isNewEngagement) {
-      // current_state and pillar only update for existing engagements (new ones set at creation)
-      if (result.current_state) updates.current_state = result.current_state;
-      if (combined.pillar) updates.pillar = combined.pillar;
+    if (result.current_state) updates.current_state = result.current_state;
+    if (combined.pillar) updates.pillar = combined.pillar;
+    if (combined.condensed !== undefined && combined.condensed !== null) {
+      updates.condensed = combined.condensed;
     }
 
     if (Object.keys(updates).length > 0) {
@@ -191,38 +185,12 @@ export async function persistClassificationResult(
     }
   }
 
-  // 3. Create engagement↔event and engagement↔program links
-  for (const event of result.matched_events) {
-    try {
-      await linkEngagementToEvent(engagementId, event.id);
-    } catch (err) {
-      console.error(`Failed to link engagement to event "${event.name}":`, err);
-    }
-  }
-
-  for (const program of result.matched_programs) {
-    try {
-      await linkEngagementToProgram(engagementId, program.id);
-    } catch (err) {
-      console.error(`Failed to link engagement to program "${program.name}":`, err);
-    }
-  }
-
-  // 4. Create engagement↔relationship links from matched_relationships
-  for (const rel of result.matched_relationships ?? []) {
-    try {
-      await linkEngagementRelationship(engagementId, rel.id);
-    } catch (err) {
-      console.error(`Failed to link engagement to relationship "${rel.name}":`, err);
-    }
-  }
-
-  // 5. Upsert participants and link to engagement
+  // 3. Upsert participants and link to engagement
   if (result.participants.length > 0) {
     await upsertParticipants(result.participants, engagementId);
   }
 
-  // 6. Backfill message sender_names with richer participant names
+  // 4. Backfill message sender_names with richer participant names
   const backfilled = await backfillMessageSenderNames(engagementId);
   if (backfilled > 0) {
     console.log(`[BACKFILL] Updated ${backfilled} message sender name(s) for engagement ${engagementId}`);
