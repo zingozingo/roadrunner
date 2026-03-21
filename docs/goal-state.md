@@ -6,13 +6,13 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 69 migrations, 17 active tables, 31 API routes, 18 UI pages, 449 passing tests (0 failures)
+- 69 migrations, 17 active tables, 31 API routes, 18 UI pages, 437 passing tests (0 failures), tsc --noEmit passes clean
 - Human-guided intake pipeline fully operational: webhook → mechanical partner detection → ICS partner backfill → inbox triage (with unknown partner picker) → single-phase AI synthesis (decisions #223-252)
 - Meetings Motion complete (decisions #253-259): 10 interaction-based meeting types, recurring meeting engine with auto-spawn, series tracking via self-referential FK, RecurrenceEditor UI, synthesis-on-link, conference boilerplate pre-split fix, ICS multi-VEVENT guardrail confirmed
 - AI Brain Overhaul Phases 1-3 complete (decisions #260-269): goal field eliminated (migration 069), condensed columns on engagements + meeting_notes (migration 068), meeting summarization restructured with scoped context builder, structured output (Discussion/Decisions/Key Context), condensed 3-5 bullet digest, non-redundancy with tasks
 - Phase D cleanup complete: dead tests deleted, stale assertions fixed, dead types/routes removed
 - Entity model fully rewritten with ring architecture (Catalog → Activity → People → Posture) in docs/entity-model.md
-- Documentation consolidated: 5 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline (rewrite pending), goal-state.md status, decisions.md through #269)
+- Documentation consolidated: 6 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline (rewrite pending), ai-call-map.md AI call reference, goal-state.md status, decisions.md through #275)
 - Dead weight cleaned: notes table dropped (migration 061), orphaned components removed (PillGrid, CalendarCard, TableList, SyncStatus), decisions.md merged from two files into one
 - Zero polymorphic tables: entity_links replaced with engagement_programs + engagement_events (migration 065, decisions #221-222)
 - Contact registry complete: 76 participants, 85 partner links, 4 dedicated join tables, sync layer auto-maintains registry — all reads and writes flow through registry, JSONB columns dropped (Decisions #182, #218)
@@ -20,7 +20,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 - Tasks promoted to partner-level entities with owner_participant_id FK (decisions 170-175)
 - Relationships universally renamed from aws_relationships (decision 173)
 - Meeting notes: 3-phase workspace, AI summarizer with structured output + condensed digest, task extraction, engagement-scoped context (decisions 101-119, 156-167, 265-266)
-- Brain synthesis (AI Call 3): partner-level 60-second briefing from all data sources, manual trigger, stored as partner_context source='ai_synthesis' (decisions 191-193)
+- Brain synthesis (AI Call 3): structured 4-section executive briefing (Relationship Overview, Activity Patterns, What Needs Attention, Momentum Assessment), dedicated buildBrainContext reads condensed digests, max_tokens 2,000, manual trigger, stored as partner_context source='ai_synthesis' (decisions 191-193, 274-275)
 - Seed notes eliminated: note_type CHECK narrowed to 'meeting', historical context lives in scratchpad (decision 195)
 - Manual meeting quick-capture: modal form on /meetings page with partner dropdown, auto-title, meeting type (decision 189)
 - Manual task creation: inline form on partner detail, POST /api/notes/tasks, no meeting note required (decision 196)
@@ -39,11 +39,10 @@ A system where a PDM forwards an email and Roadrunner:
 ## What's Next
 
 ### Next Session
-- AI Brain Overhaul Phase 4 — engagement synthesis rewrite: remove entity matching from prompt, remove full message history, evolve current_state from anchor + new message only, produce condensed digest
-- Phase 5 — brain synthesizer rewrite: consume condensed meeting digests and engagement digests instead of full summaries
+- AI Brain Overhaul Phase 6 — UI alignment: update engagement detail to show condensed digest, update partner detail brain display for structured 4-section output
+- Phase 7 — backfill + re-synthesis: backfill condensed for existing engagements/meetings, re-synthesize partner brains with new pipeline
 
 ### Soon
-- AI Brain Overhaul Phases 6-7 — dead code cleanup, backfill condensed for existing data, pillar persistence fix
 - Real daily use testing — forward emails, verify full pipeline end-to-end
 - Task UX improvements — inline editing, completion flow
 - Ring 3 pull sync planning (Partner Programs, Events, Co-Sell Goals, Partner Goals, Funding)
@@ -94,6 +93,9 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~is_recurring passthrough fix~~ ✅ (decision 251): createMeeting() now correctly passes is_recurring to DB insert
 - ~~Meetings Motion~~ ✅ (decisions 253-259): 10 interaction-based meeting types (migration 067), recurring meeting engine (auto-spawn on page load, series_id self-ref FK, unique index prevents race conditions), RecurrenceEditor UI, series navigation on detail page, synthesis-on-link (PUT triggers engagement activity refresh), conference boilerplate pre-split fix (Teams/Zoom/Webex phantom messages eliminated), ICS multi-VEVENT guardrail confirmed + tested
 - ~~AI Brain Overhaul Phases 1-3~~ ✅ (decisions 260-269): AI call map diagnostic, goal field eliminated (migration 069), condensed columns added (migration 068), meeting summarization restructured with engagement-scoped context, structured output (Discussion/Decisions/Key Context), condensed 3-5 bullet digest, non-redundancy with tasks, flags removed, context_snapshot nulled
+- ~~AI Brain Overhaul Phase 4~~ ✅ (decisions 270-273): Engagement synthesis rewritten to evolve-the-anchor model — ~83% token reduction (~18,550→~3,075), full message history removed, entity matching removed, condensed output added, pillar persistence bug fixed, buildPhase2Context modernized to options object, 7 orphaned functions removed
+- ~~AI Brain Overhaul Phase 5~~ ✅ (decisions 274-275): Partner brain rewritten — structured 4-section executive briefing, dedicated buildBrainContext, condensed digest inputs from pyramid below, standalone meeting digests, scratchpad filtered (no ai_synthesis feedback loop), max_tokens 500→2,000, activity pattern signals
+- ~~TypeScript clean build~~ ✅: All 12 pre-existing tsc errors fixed across 3 test files (mock shapes, dead field assertions, generic syntax)
 
 ## Architecture Principles
 

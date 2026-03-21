@@ -1,7 +1,7 @@
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → human-guided routing → AI synthesis → structured engagements → Airtable sync.
-> 69 migrations · 17 tables · 31 API routes · 18 UI pages · 449 passing tests
+> 69 migrations · 17 tables · 31 API routes · 18 UI pages · 437 passing tests
 
 ---
 
@@ -51,7 +51,7 @@ roadrunner/
 │   ├── CLASSIFICATION.md          #   AI synthesis pipeline documentation (rewrite pending)
 │   ├── entity-model.md            #   Canonical schema — ERD + field-level registry + AT field IDs
 │   └── goal-state.md              #   Living orientation doc — current state & next steps
-├── decisions.md                   # Append-only architectural decision log (269 entries)
+├── decisions.md                   # Append-only architectural decision log (275 entries)
 ├── src/
 │   ├── app/                       # Next.js App Router
 │   │   ├── api/                   #   API routes (31 route files, grouped by entity)
@@ -91,7 +91,7 @@ roadrunner/
 │       ├── claude.ts              #   Anthropic API client (synthesis calls)
 │       ├── partner-detection.ts   #   Mechanical partner detection via domain matching
 │       ├── phase2-prompt.ts       #   Synthesis system prompt + context builders
-│       ├── prompt-builder.ts      #   Shared section builders (events, programs, etc.)
+│       ├── prompt-builder.ts      #   Forwarder section builder (buildForwarderSection only)
 │       ├── email-parser.ts        #   Forwarded email chain parser (two-pass)
 │       ├── ics-parser.ts          #   ICS calendar event parser (RFC 5545)
 │       ├── name-resolver.ts       #   Contact name resolution from JSONB columns
@@ -99,9 +99,9 @@ roadrunner/
 │       ├── format-utils.ts        #   Display name formatting utilities
 │       ├── meeting-recurrence.ts  #   Recurring meeting engine (spawn, overdue detection)
 │       ├── notes-summarizer.ts    #   AI meeting note summarizer (Claude API)
-│       ├── notes-context.ts       #   Partner context builder for notes
+│       ├── notes-context.ts       #   Context builders (buildPartnerContext, buildMeetingNoteContext, buildBrainContext)
 │       ├── contact-display.ts     #   Contact display formatting for UI
-│       ├── brain-synthesizer.ts   #   AI synthesis utilities
+│       ├── brain-synthesizer.ts   #   AI partner brain synthesis (structured executive briefing)
 │       ├── types.ts               #   All shared TypeScript interfaces
 │       ├── user-config.ts         #   Canonical user identity config
 │       ├── airtable.ts            #   Airtable REST API client
@@ -258,7 +258,7 @@ npx tsc --noEmit                   # TypeScript check (must pass with zero error
 | Test File | Tests | Covers |
 |-----------|-------|--------|
 | email-parser.test.ts | 126 | Email chain parsing, forwarded content extraction, conference boilerplate splits |
-| phase2-prompt.test.ts | 54 | Phase 2 prompt building, context sections |
+| phase2-prompt.test.ts | 50 | Phase 2 prompt building, context sections, scratchpad/digests |
 | contact-display.test.ts | 41 | Contact display formatting |
 | format-utils.test.ts | 39 | Display name formatting utilities |
 | contact-parser.test.ts | 34 | Universal contact format parsing/rendering |
@@ -268,7 +268,7 @@ npx tsc --noEmit                   # TypeScript check (must pass with zero error
 | meeting-recurrence.test.ts | 18 | Recurring meeting engine (calculateNextDate, overdue detection, spawn) |
 | user-config.test.ts | 18 | User identity matching |
 | meeting-pipeline.test.ts | 13 | Meeting creation, ICS parsing, linking |
-| prompt-builder.test.ts | 11 | Shared context section builders |
+| prompt-builder.test.ts | 3 | Forwarder section builder (buildForwarderSection) |
 | dedup.test.ts | 6 | Message fingerprint deduplication |
 | meeting-status-map.test.ts | 5 | Meeting status mapping (mapMeetingStatus in sync/utils) |
 
@@ -340,7 +340,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-069). New migratio
 
 ## File Quick Reference
 
-**Classification:** `classifier.ts` → `phase2-prompt.ts` → `prompt-builder.ts` → `claude.ts` · Partner detection: `partner-detection.ts`
+**Classification:** `classifier.ts` → `phase2-prompt.ts` → `claude.ts` · Partner detection: `partner-detection.ts` · Brain: `brain-synthesizer.ts` → `notes-context.ts` (buildBrainContext)
 
 **Sync:** `sync/pull.ts` / `sync/push.ts` → `sync/field-maps.ts` → `sync/utils.ts`
 
@@ -360,7 +360,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-069). New migratio
 | `docs/entity-model.md` | Complete schema — 19 tables, all FKs, AT field IDs, ring model | Schema/data work |
 | `docs/CLASSIFICATION.md` | AI synthesis pipeline (rewrite pending — Phase 2 docs still accurate) | Prompt/AI work |
 | `docs/goal-state.md` | Living status — current state + what's next | Session planning |
-| `decisions.md` | Append-only architectural decision log (269 entries) | When you need "why" |
+| `decisions.md` | Append-only architectural decision log (275 entries) | When you need "why" |
 
 ---
 
