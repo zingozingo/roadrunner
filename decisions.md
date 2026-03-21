@@ -5293,3 +5293,93 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** context_snapshot set to null in summarize route. Column remains in schema — could be repurposed later if needed for audit trail.
 
 ---
+
+### Decision 270: Engagement synthesis rewritten — evolve-the-anchor model
+
+**Date:** 2026-03-21
+**Status:** ✅ Implemented
+
+**Decision:** Engagement synthesis now reads previous current_state + new email only, instead of full message history + catalogs.
+
+**Context:** Call 1 was consuming ~18,550 tokens per synthesis — 40% from full message history (all messages + meetings), 35% from unfiltered catalogs (64 programs, all events, all relationships). Token cost grew linearly with email count. The current_state summary already captured the cumulative narrative.
+
+**Rationale:** The current_state IS the summary. Sending all raw messages alongside it was redundant — the AI was re-reading content it had already synthesized. Catalogs were sent for entity matching (Decision #260 removed that). The new model: AI receives the previous current_state as an "anchor" and evolves it with the new email, producing an updated current_state + condensed key-facts digest.
+
+**Impact:** ~83% token reduction (~18,550 → ~3,075). Scales flat regardless of email count. phase2-prompt.ts PHASE2_SYSTEM_PROMPT fully rewritten. classifier.ts synthesizeIntoEngagement stripped to 6-item Promise.all. Output now includes condensed field.
+
+---
+
+### Decision 271: Synthesis-on-link deferred (Option C)
+
+**Date:** 2026-03-21
+**Status:** ✅ Decided (deferred)
+
+**Decision:** When a meeting is linked to an engagement, AI re-synthesis does NOT fire immediately.
+
+**Context:** Three options were considered: (A) trigger synthesis immediately on meeting link, (B) batch re-synthesis on a schedule, (C) defer — the meeting's condensed digest is naturally picked up on the next email routing to that engagement.
+
+**Rationale:** Option C avoids synthetic trigger paths and keeps one code path for all synthesis. The PDM routes emails frequently enough that meeting context flows in naturally. Adding a synthetic trigger would create a second synthesis entry point with different error handling and no natural message to anchor the update.
+
+**Impact:** No code change. Revisit if PDM workflow reveals need for immediate-update on meeting link.
+
+---
+
+### Decision 272: buildPhase2Context signature modernized — options object
+
+**Date:** 2026-03-21
+**Status:** ✅ Implemented
+
+**Decision:** buildPhase2Context converted from 13 positional parameters to a typed options object.
+
+**Context:** The function had accumulated 13 positional parameters over multiple phases. Adding scratchpadEntries and condensedMeetingDigests would have made it 15. Positional parameters at this count are error-prone and hard to read.
+
+**Rationale:** Options object pattern makes parameter intent clear, allows easy addition/removal, and makes optional parameters natural (no null padding).
+
+**Impact:** phase2-prompt.ts signature rewritten. classifier.ts call site updated. phase2-prompt.test.ts: 28 test calls converted. 8 tests for eliminated sections removed, 4 new tests added (scratchpad, digests). Eliminated parameters: catalogs, existingLinks, relationshipContacts, history.messages, history.meetings. Added: scratchpadEntries, condensedMeetingDigests.
+
+---
+
+### Decision 273: Dead code removed — 7 orphaned functions
+
+**Date:** 2026-03-21
+**Status:** ✅ Implemented
+
+**Decision:** Removed 7 functions orphaned by Phase 4 changes.
+
+**Context:** Phase 4 removed entity matching and full message history from synthesis. Several functions that built those context sections were left orphaned with no callers.
+
+**Rationale:** Dead code removal to keep codebase clean and prevent confusion.
+
+**Impact:** Removed from phase2-prompt.ts: buildEngagementHistory, buildLinkedMeetings, buildExistingEntityLinks. Removed from prompt-builder.ts: buildEventsSection, buildProgramsSection, buildRelationshipsSection, buildEmailSection. 8 dead tests removed from prompt-builder.test.ts.
+
+---
+
+### Decision 274: Partner brain rewritten — structured 4-section executive briefing
+
+**Date:** 2026-03-21
+**Status:** ✅ Implemented
+
+**Decision:** Partner brain output changed from a flat 2-4 sentence paragraph to a structured 4-section executive briefing.
+
+**Context:** The original brain produced a "60-second briefing" — 2-4 sentences at max_tokens 500. With 8+ engagements and rich scratchpad content, this was too compressed to be useful. The briefing rehashed data visible on the page (contacts, engagement list) instead of synthesizing patterns.
+
+**Rationale:** The brain should tell the PDM what the page CANNOT — relationship dynamics, activity patterns, attention items, momentum. The 4 sections (Relationship Overview, Activity Patterns, What Needs Attention, Momentum Assessment) each serve a distinct purpose. max_tokens increased to 2,000 to give room for meaningful coverage.
+
+**Impact:** brain-synthesizer.ts BRAIN_SYSTEM_PROMPT fully rewritten. max_tokens 500 → 2,000. User message updated from "60-second briefing" to "structured executive briefing."
+
+---
+
+### Decision 275: Brain context decoupled — dedicated buildBrainContext
+
+**Date:** 2026-03-21
+**Status:** ✅ Implemented
+
+**Decision:** Partner brain synthesis uses dedicated buildBrainContext instead of shared buildPartnerContext + formatContextForPrompt.
+
+**Context:** buildPartnerContext was originally shared between Call 2 (meeting notes) and Call 3 (brain). Phase 3 gave Call 2 its own builder (buildMeetingNoteContext). Call 3 was still using the shared builder, which fed raw prose note summaries, all scratchpad sources (including ai_synthesis feeding back into itself), and no activity pattern signals.
+
+**Rationale:** Each AI call needs a context builder tailored to its purpose. The brain needs condensed digests (not raw prose), filtered scratchpad (no self-referential feedback), standalone meeting digests, and computed activity patterns. A dedicated builder makes these guarantees explicit.
+
+**Impact:** New buildBrainContext in notes-context.ts. New getStandaloneCondensedDigests in db/meeting-notes.ts. brain-synthesizer.ts import changed from buildPartnerContext+formatContextForPrompt to buildBrainContext. buildPartnerContext remains for formatContextForDisplay (UI).
+
+---
