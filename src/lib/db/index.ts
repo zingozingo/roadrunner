@@ -132,6 +132,7 @@ export {
   getTasksByPartner,
   getOpenTasks,
   getRecentNoteSummaries,
+  getCondensedDigestsByEngagement,
 } from "./meeting-notes";
 
 // Partner Context (Scratchpad)
@@ -139,4 +140,5 @@ export {
   getPartnerContext,
   addPartnerContext,
   deletePartnerContext,
+  getPartnerScratchpad,
 } from "./partner-context";

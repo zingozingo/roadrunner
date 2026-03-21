@@ -557,3 +557,32 @@ function buildMatchedPartnerSection(
   lines.push("");
   return lines.join("\n");
 }
+
+function buildScratchpadSection(
+  entries: { content: string; created_at: string }[]
+): string {
+  if (entries.length === 0) return "";
+
+  const lines = ["## Scratchpad Notes (PDM tribal knowledge)\n"];
+  for (const entry of entries) {
+    const date = entry.created_at.split("T")[0];
+    lines.push(`- [${date}] ${entry.content}`);
+  }
+  lines.push("");
+  return lines.join("\n");
+}
+
+function buildCondensedDigestsSection(
+  digests: { title: string; meeting_date: string | null; condensed: string }[]
+): string {
+  if (digests.length === 0) return "";
+
+  const lines = ["## Meeting Digests (linked to this engagement)\n"];
+  for (const d of digests) {
+    const date = d.meeting_date || "date unknown";
+    lines.push(`### ${d.title} (${date})`);
+    lines.push(d.condensed);
+    lines.push("");
+  }
+  return lines.join("\n");
+}

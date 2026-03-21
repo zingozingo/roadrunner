@@ -458,3 +458,34 @@ export async function getRecentNoteSummaries(
     ({ title, meeting_date, ai_summary }) => ({ title, meeting_date, ai_summary })
   );
 }
+
+/**
+ * Get condensed meeting digests for meetings linked to a specific engagement.
+ * Returns only notes with non-null condensed field.
+ * Used by engagement synthesis (Call 1) to include meeting outcomes in context.
+ */
+export async function getCondensedDigestsByEngagement(
+  engagementId: string
+): Promise<{ title: string; meeting_date: string | null; condensed: string }[]> {
+  const db = getSupabaseClient();
+
+  // meeting_notes has meeting_id; meetings has engagement_id
+  // Inner join: only notes whose linked meeting belongs to this engagement
+  const { data: notes, error } = await db
+    .from("meeting_notes")
+    .select("title, meeting_date, condensed, meetings!inner(engagement_id)")
+    .eq("meetings.engagement_id", engagementId)
+    .not("condensed", "is", null)
+    .order("meeting_date", { ascending: false });
+
+  if (error) {
+    console.error("[getCondensedDigestsByEngagement] Error:", error);
+    return [];
+  }
+
+  return (notes ?? []).map((n: { title: string; meeting_date: string | null; condensed: string }) => ({
+    title: n.title,
+    meeting_date: n.meeting_date,
+    condensed: n.condensed,
+  }));
+}

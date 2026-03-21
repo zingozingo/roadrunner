@@ -44,3 +44,27 @@ export async function deletePartnerContext(id: string): Promise<void> {
   if (error)
     throw new Error(`Failed to delete partner context: ${error.message}`);
 }
+
+/**
+ * Get only scratchpad entries for a partner (excludes ai_synthesis and seed_dump).
+ * Used by engagement synthesis (Call 1) for tribal knowledge context.
+ */
+export async function getPartnerScratchpad(
+  partnerId: string
+): Promise<{ content: string; created_at: string }[]> {
+  const db = getSupabaseClient();
+
+  const { data, error } = await db
+    .from("partner_context")
+    .select("content, created_at")
+    .eq("partner_id", partnerId)
+    .eq("source", "scratchpad")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("[getPartnerScratchpad] Error:", error);
+    return [];
+  }
+
+  return data ?? [];
+}
