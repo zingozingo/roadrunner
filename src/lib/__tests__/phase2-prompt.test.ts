@@ -235,10 +235,10 @@ const CATALOGS = {
 // ============================================================
 
 describe("PHASE2_SYSTEM_PROMPT", () => {
-  it("contains thread awareness instructions", () => {
-    expect(PHASE2_SYSTEM_PROMPT).toContain("Thread Awareness");
-    expect(PHASE2_SYSTEM_PROMPT).toContain(">>> NEW EMAIL — CLASSIFY THIS <<<");
-    expect(PHASE2_SYSTEM_PROMPT).toContain("CONTEXT ONLY");
+  it("contains context description and condensed instructions", () => {
+    expect(PHASE2_SYSTEM_PROMPT).toContain("Context You Receive");
+    expect(PHASE2_SYSTEM_PROMPT).toContain("condensed Instructions");
+    expect(PHASE2_SYSTEM_PROMPT).toContain("Importance Weighting");
   });
 
   it("contains temporal awareness instructions", () => {
@@ -268,9 +268,7 @@ describe("PHASE2_SYSTEM_PROMPT", () => {
     expect(PHASE2_SYSTEM_PROMPT).toContain("engagement_match");
     expect(PHASE2_SYSTEM_PROMPT).toContain("current_state");
     expect(PHASE2_SYSTEM_PROMPT).toContain("participants");
-    expect(PHASE2_SYSTEM_PROMPT).toContain("matched_events");
-    expect(PHASE2_SYSTEM_PROMPT).toContain("matched_programs");
-    expect(PHASE2_SYSTEM_PROMPT).toContain("matched_relationships");
+    expect(PHASE2_SYSTEM_PROMPT).toContain("condensed");
     expect(PHASE2_SYSTEM_PROMPT).toContain('"pillar"');
   });
 
