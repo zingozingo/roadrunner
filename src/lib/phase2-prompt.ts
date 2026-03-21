@@ -3,18 +3,12 @@ import type {
   Engagement,
   Meeting,
   Participant,
-  Event,
-  Program,
-  Relationship,
   Partner,
   Phase1Result,
   CombinedClassificationResult,
 } from "./types";
 import {
   buildForwarderSection,
-  buildEventsSection,
-  buildProgramsSection,
-  buildRelationshipsSection,
 } from "./prompt-builder";
 import type { NameResolutionMap } from "./name-resolver";
 import { resolveNameByEmail } from "./name-resolver";
@@ -199,38 +193,26 @@ function bestSenderName(
 }
 
 /**
- * Build the full Phase 2 user message with engagement history,
- * new email(s), matched partner, and reference catalogs.
- *
- * @param nameResolutionMap - Optional map for resolving sender names from DB.
- *   When provided, history and new email From lines use the best available name.
+ * Build the engagement synthesis user message.
+ * Lean model: engagement anchor + new email + lightweight context.
+ * No full message history, no catalog data, no entity links.
  */
-export function buildPhase2Context(
-  newMessages: Message[],
-  phase1Result: Phase1Result,
+export function buildPhase2Context(opts: {
+  newMessages: Message[];
+  phase1Result: Phase1Result;
   history: {
     engagement: Engagement & { partner_name?: string | null };
-    messages: Message[];
-    meetings: Meeting[];
     participants: (Participant & { role: string | null })[];
-  } | null,
-  catalogs: {
-    events: Event[];
-    programs: Program[];
-    relationships: Relationship[];
-  },
-  matchedPartner: Partner | null,
-  forwarderNote?: string | null,
-  nameResolutionMap?: NameResolutionMap | null,
-  newMeetings?: (Meeting & { partner_name?: string | null })[] | null,
-  existingLinks?: {
-    entityLinks: { type: string; name: string; relationship: string }[];
-    awsRelationships: { name: string; relationship: string }[];
-  } | null,
-  partnerContacts?: { name: string | null; email: string; title: string | null; org_type: string | null; role: string | null }[] | null,
-  relationshipContacts?: Map<string, { name: string | null; email: string; role: string | null }[]> | null,
-  meetingContacts?: Map<string, { name: string | null; email: string }[]> | null
-): string {
+  } | null;
+  matchedPartner: Partner | null;
+  forwarderNote?: string | null;
+  nameResolutionMap?: NameResolutionMap | null;
+  newMeetings?: (Meeting & { partner_name?: string | null })[] | null;
+  partnerContacts?: { name: string | null; email: string; title: string | null; org_type: string | null; role: string | null }[] | null;
+  meetingContacts?: Map<string, { name: string | null; email: string }[]> | null;
+  scratchpadEntries?: { content: string; created_at: string }[] | null;
+  condensedMeetingDigests?: { title: string; meeting_date: string | null; condensed: string }[] | null;
+}): string {
   const parts: string[] = [];
 
   // Section 0: Current date anchor
@@ -238,48 +220,37 @@ export function buildPhase2Context(
   parts.push(`## Current Date\n${today}\n\nUse this as your temporal anchor. Do not speculate about future dates.\n`);
 
   // Section 1: Forwarder identity
-  parts.push(buildForwarderSection(forwarderNote));
+  parts.push(buildForwarderSection(opts.forwarderNote));
 
   // Section 2: Routing decision (user-provided)
-  parts.push(buildRoutingContext(phase1Result));
+  parts.push(buildRoutingContext(opts.phase1Result));
 
-  // Section 3 & 4: Engagement context + history (existing engagements only)
-  if (history) {
-    parts.push(buildEngagementContext(history));
-    parts.push(buildExistingParticipants(history.participants));
-    parts.push(buildExistingEntityLinks(existingLinks));
-    parts.push(buildEngagementHistory(history.messages, nameResolutionMap));
-    parts.push(buildLinkedMeetings(history.meetings, meetingContacts ?? null));
+  // Section 3: Engagement context + existing participants (existing engagements only)
+  if (opts.history) {
+    parts.push(buildEngagementContext(opts.history));
+    parts.push(buildExistingParticipants(opts.history.participants));
   }
 
-  // Section 5: New email(s)
-  parts.push(buildNewEmailSection(newMessages, nameResolutionMap));
+  // Section 4: New email(s)
+  parts.push(buildNewEmailSection(opts.newMessages, opts.nameResolutionMap));
 
-  // Section 5b: Structured meeting data for the incoming message
-  if (newMeetings && newMeetings.length > 0) {
-    parts.push(buildNewMeetingData(newMeetings, meetingContacts ?? null));
+  // Section 5: Structured meeting data for ICS path
+  if (opts.newMeetings && opts.newMeetings.length > 0) {
+    parts.push(buildNewMeetingData(opts.newMeetings, opts.meetingContacts ?? null));
   }
 
   // Section 6: Matched partner
-  parts.push(buildMatchedPartnerSection(matchedPartner, partnerContacts ?? null));
+  parts.push(buildMatchedPartnerSection(opts.matchedPartner, opts.partnerContacts ?? null));
 
-  // Section 7: Reference catalogs (events filtered to relevant time window)
-  const now = new Date();
-  const past30 = new Date(now);
-  past30.setDate(past30.getDate() - 30);
-  const future6m = new Date(now);
-  future6m.setMonth(future6m.getMonth() + 6);
+  // Section 7: Scratchpad (PDM tribal knowledge)
+  if (opts.scratchpadEntries && opts.scratchpadEntries.length > 0) {
+    parts.push(buildScratchpadSection(opts.scratchpadEntries));
+  }
 
-  const filteredEvents = catalogs.events.filter(evt => {
-    if (!evt.start_date) return true; // Include events with no date (TBD)
-    const eventDate = new Date(evt.start_date);
-    return eventDate >= past30 && eventDate <= future6m;
-  });
-
-  parts.push("## Reference Data\n");
-  parts.push(buildEventsSection(filteredEvents));
-  parts.push(buildProgramsSection(catalogs.programs));
-  parts.push(buildRelationshipsSection(catalogs.relationships, relationshipContacts ?? null));
+  // Section 8: Condensed meeting digests
+  if (opts.condensedMeetingDigests && opts.condensedMeetingDigests.length > 0) {
+    parts.push(buildCondensedDigestsSection(opts.condensedMeetingDigests));
+  }
 
   return parts.join("\n");
 }
@@ -329,8 +300,6 @@ function buildRoutingContext(phase1Result: Phase1Result): string {
 
 function buildEngagementContext(history: {
   engagement: Engagement & { partner_name?: string | null };
-  messages: Message[];
-  meetings: Meeting[];
   participants: (Participant & { role: string | null })[];
 }): string {
   const eng = history.engagement;
@@ -350,7 +319,6 @@ function buildEngagementContext(history: {
   if (eng.pillar) lines.push(`**Pillar:** ${eng.pillar}`);
   lines.push(`**Created:** ${eng.created_at.split("T")[0]}`);
   lines.push(`**Last activity:** ${eng.updated_at.split("T")[0]}`);
-  lines.push(`**Message count:** ${history.messages.length}`);
   lines.push("");
 
   // Current state as anchor

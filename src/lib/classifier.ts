@@ -115,20 +115,22 @@ export async function synthesizeIntoEngagement(
     meetingContactEntries.filter(([, contacts]) => contacts.length > 0)
   );
 
-  const phase2Context = buildPhase2Context(
-    messages,
+  const phase2Context = buildPhase2Context({
+    newMessages: messages,
     phase1Result,
-    history,
-    { events, programs, relationships },
+    history: history ? {
+      engagement: history.engagement,
+      participants: history.participants,
+    } : null,
     matchedPartner,
     forwarderNote,
-    nameMap,
-    null, // newMeetings — not available in resolve path
-    existingLinks,
+    nameResolutionMap: nameMap,
+    newMeetings: null,
     partnerContacts,
-    relationshipContactsMap,
-    meetingContactsMap
-  );
+    meetingContacts: null,
+    scratchpadEntries: null,
+    condensedMeetingDigests: null,
+  });
 
   return await classifyPhase2(phase2Context);
 }

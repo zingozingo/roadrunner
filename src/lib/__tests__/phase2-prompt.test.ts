@@ -4,9 +4,6 @@ import type {
   Engagement,
   Meeting,
   Participant,
-  Event,
-  Program,
-  Relationship,
   Partner,
   Phase1Result,
 } from "../types";
@@ -24,6 +21,7 @@ function makeMessage(overrides: Partial<Message> = {}): Message {
   return {
     id: "msg-001",
     engagement_id: null,
+    partner_id: null as string | null,
     sender_name: "Alice Chen",
     sender_email: "alice@cybershield.com",
     sent_at: "2026-02-20T15:30:00Z",
@@ -50,6 +48,7 @@ const ENGAGEMENT: Engagement & { partner_name: string | null } = {
   name: "CyberShield - Security Review",
   status: "active",
   current_state: "CyberShield is pursuing AWS Security Competency. Alice submitted the initial application last week. Steven connected them with the security team for technical review.",
+  condensed: null,
   topic: "Security Competency Technical Validation",
   partner_name: "CyberShield",
   partner_id: "partner-001",
@@ -60,28 +59,6 @@ const ENGAGEMENT: Engagement & { partner_name: string | null } = {
   updated_at: "2026-02-18T00:00:00Z",
   closed_at: null,
 };
-
-const HISTORY_MSG_1: Message = makeMessage({
-  id: "hist-001",
-  engagement_id: "eng-001",
-  sender_name: "Steven Romero",
-  sender_email: "sterme@amazon.com",
-  sent_at: "2026-01-20T10:00:00Z",
-  subject: "CyberShield Security Review",
-  body_text: "Hi Alice, let's kick off the security review process.",
-  to_header: "alice@cybershield.com",
-});
-
-const HISTORY_MSG_2: Message = makeMessage({
-  id: "hist-002",
-  engagement_id: "eng-001",
-  sender_name: "Alice Chen",
-  sender_email: "alice@cybershield.com",
-  sent_at: "2026-02-10T14:00:00Z",
-  subject: "Re: CyberShield Security Review",
-  body_text: "Thanks Steven, we submitted the initial application.",
-  to_header: "sterme@amazon.com",
-});
 
 const NEW_MSG: Message = makeMessage({
   id: "new-001",
@@ -147,52 +124,6 @@ const PARTNER: Partner = {
   updated_at: "2026-01-01T00:00:00Z",
 };
 
-const EVENT: Event = {
-  id: "evt-001",
-  name: "re:Inforce 2026",
-  type: "conference",
-  start_date: "2026-06-16",
-  end_date: "2026-06-18",
-  host: "AWS",
-  location: "Philadelphia",
-  description: "AWS security conference",
-  source: "seed",
-  verified: true,
-  sponsor_option: false,
-  partner_day: false,
-  partner_day_date: null,
-  airtable_record_id: null,
-  geo: null,
-  created_at: "2026-01-01T00:00:00Z",
-};
-
-const PROGRAM: Program = {
-  id: "prog-001",
-  name: "Security Competency",
-  type: "Competency",
-  description: "AWS Security Partner validation",
-  requirements: null,
-  what_it_unlocks: null,
-  notes: null,
-  lifecycle_type: "indefinite",
-  lifecycle_duration: null,
-  airtable_record_id: null,
-  created_at: "2026-01-01T00:00:00Z",
-};
-
-const RELATIONSHIP: Relationship = {
-  id: "rel-001",
-  name: "Security Team - ISV",
-  org: "AWS Security",
-  service: null,
-  org_type: "internal",
-  relationship_type: "Product Team",
-  notes: null,
-  airtable_record_id: null,
-  created_at: "2026-01-01T00:00:00Z",
-  updated_at: "2026-01-01T00:00:00Z",
-};
-
 const PHASE1_EXISTING: Phase1Result = {
   content_type: "engagement_email",
   engagement_match: {
@@ -219,15 +150,7 @@ const PHASE1_NEW: Phase1Result = {
 
 const HISTORY = {
   engagement: ENGAGEMENT,
-  messages: [HISTORY_MSG_1, HISTORY_MSG_2],
-  meetings: [MEETING],
   participants: [PARTICIPANT],
-};
-
-const CATALOGS = {
-  events: [EVENT],
-  programs: [PROGRAM],
-  relationships: [RELATIONSHIP],
 };
 
 // ============================================================
@@ -292,14 +215,14 @@ describe("PHASE2_SYSTEM_PROMPT", () => {
 
 describe("buildPhase2Context — existing engagement", () => {
   it("includes forwarder section", () => {
-    const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
+    const result = buildPhase2Context({ newMessages: [NEW_MSG], phase1Result: PHASE1_EXISTING, history: HISTORY, matchedPartner: PARTNER });
     expect(result).toContain("Steven Romero");
     expect(result).toContain("sterme@amazon.com");
     expect(result).toContain("Forwarder Identity");
   });
 
   it("includes routing decision section", () => {
-    const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
+    const result = buildPhase2Context({ newMessages: [NEW_MSG], phase1Result: PHASE1_EXISTING, history: HISTORY, matchedPartner: PARTNER });
     expect(result).toContain("Routing Decision");
     expect(result).toContain('"engagement_email"');
     expect(result).toContain("eng-001");
@@ -307,7 +230,7 @@ describe("buildPhase2Context — existing engagement", () => {
   });
 
   it("includes engagement context with name, partner, current_state anchor", () => {
-    const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
+    const result = buildPhase2Context({ newMessages: [NEW_MSG], phase1Result: PHASE1_EXISTING, history: HISTORY, matchedPartner: PARTNER });
     expect(result).toContain("## Engagement Context");
     expect(result).toContain("CyberShield - Security Review");
     expect(result).toContain("**Partner:** CyberShield");
@@ -315,32 +238,8 @@ describe("buildPhase2Context — existing engagement", () => {
     expect(result).toContain("pursuing AWS Security Competency");
   });
 
-  it("includes history messages in chronological order with HISTORY label", () => {
-    const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
-    expect(result).toContain("Message 1 of 2 — HISTORY");
-    expect(result).toContain("Message 2 of 2 — HISTORY");
-    // Verify chronological order — msg 1 before msg 2 in history section
-    const historySection = result.substring(result.indexOf("## Engagement History"));
-    const idx1 = historySection.indexOf("kick off the security review");
-    const idx2 = historySection.indexOf("submitted the initial application");
-    expect(idx1).toBeGreaterThan(-1);
-    expect(idx2).toBeGreaterThan(-1);
-    expect(idx1).toBeLessThan(idx2);
-  });
-
-  it("includes linked meetings with attendee details", () => {
-    const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
-    expect(result).toContain("Linked Meetings");
-    expect(result).toContain("CyberShield Security Review Call");
-    expect(result).toContain("2026-03-05");
-    expect(result).toContain("scheduled");
-    expect(result).toContain("Organizer: sterme@amazon.com");
-    expect(result).toContain("Steven Romero <sterme@amazon.com>");
-    expect(result).toContain("Alice Chen <alice@cybershield.com>");
-  });
-
   it("marks new email with >>> NEW EMAIL — CLASSIFY THIS <<<", () => {
-    const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
+    const result = buildPhase2Context({ newMessages: [NEW_MSG], phase1Result: PHASE1_EXISTING, history: HISTORY, matchedPartner: PARTNER });
     expect(result).toContain(">>> NEW EMAIL — CLASSIFY THIS <<<");
     expect(result).toContain("Architecture Diagram");
     expect(result).toContain("attached is the architecture diagram");
@@ -350,10 +249,10 @@ describe("buildPhase2Context — existing engagement", () => {
     const registryContacts = [
       { name: "Alice Chen", email: "alice@cybershield.com", title: "CTO", org_type: "partner", role: "Alliance Lead" },
     ];
-    const result = buildPhase2Context(
-      [NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER,
-      null, null, null, null, registryContacts
-    );
+    const result = buildPhase2Context({
+      newMessages: [NEW_MSG], phase1Result: PHASE1_EXISTING, history: HISTORY, matchedPartner: PARTNER,
+      partnerContacts: registryContacts,
+    });
     expect(result).toContain("## Matched Partner");
     expect(result).toContain("CyberShield");
     expect(result).toContain("security");
@@ -363,27 +262,14 @@ describe("buildPhase2Context — existing engagement", () => {
     expect(result).toContain("Cloud-native endpoint security platform");
   });
 
-  it("includes event/program/relationship catalogs", () => {
-    const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
-    expect(result).toContain("re:Inforce 2026");
-    expect(result).toContain("Security Competency");
-    expect(result).toContain("Security Team - ISV");
-  });
-
-  it("does NOT include engagement index or compact partner catalog", () => {
-    const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
-    expect(result).not.toContain("## Engagement Index");
-    expect(result).not.toContain("## Partner Catalog");
-  });
-
   it("includes forwarder note when provided", () => {
-    const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER, "Urgent review");
+    const result = buildPhase2Context({ newMessages: [NEW_MSG], phase1Result: PHASE1_EXISTING, history: HISTORY, matchedPartner: PARTNER, forwarderNote: "Urgent review" });
     expect(result).toContain("Forwarder Note:");
     expect(result).toContain("Urgent review");
   });
 
   it("includes topic in engagement context when it exists", () => {
-    const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
+    const result = buildPhase2Context({ newMessages: [NEW_MSG], phase1Result: PHASE1_EXISTING, history: HISTORY, matchedPartner: PARTNER });
     expect(result).toContain("**Topic:** Security Competency Technical Validation");
   });
 
@@ -392,12 +278,12 @@ describe("buildPhase2Context — existing engagement", () => {
       ...HISTORY,
       engagement: { ...ENGAGEMENT, topic: null },
     };
-    const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, historyNullSlots, CATALOGS, PARTNER);
+    const result = buildPhase2Context({ newMessages: [NEW_MSG], phase1Result: PHASE1_EXISTING, history: historyNullSlots, matchedPartner: PARTNER });
     expect(result).toContain("**Topic:** Not yet set");
   });
 
   it("includes pillar in engagement context when set", () => {
-    const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
+    const result = buildPhase2Context({ newMessages: [NEW_MSG], phase1Result: PHASE1_EXISTING, history: HISTORY, matchedPartner: PARTNER });
     expect(result).toContain("**Pillar:** Co-Build");
   });
 });
@@ -408,37 +294,30 @@ describe("buildPhase2Context — existing engagement", () => {
 
 describe("buildPhase2Context — new engagement", () => {
   it("skips engagement context section", () => {
-    const result = buildPhase2Context([NEW_MSG], PHASE1_NEW, null, CATALOGS, null);
+    const result = buildPhase2Context({ newMessages: [NEW_MSG], phase1Result: PHASE1_NEW, history: null, matchedPartner: null });
     expect(result).not.toContain("## Engagement Context");
     expect(result).not.toContain("Current state (anchor");
   });
 
   it("skips history section", () => {
-    const result = buildPhase2Context([NEW_MSG], PHASE1_NEW, null, CATALOGS, null);
+    const result = buildPhase2Context({ newMessages: [NEW_MSG], phase1Result: PHASE1_NEW, history: null, matchedPartner: null });
     expect(result).not.toContain("## Engagement History");
     expect(result).not.toContain("HISTORY");
   });
 
   it("still includes new email with marker", () => {
-    const result = buildPhase2Context([NEW_MSG], PHASE1_NEW, null, CATALOGS, null);
+    const result = buildPhase2Context({ newMessages: [NEW_MSG], phase1Result: PHASE1_NEW, history: null, matchedPartner: null });
     expect(result).toContain(">>> NEW EMAIL — CLASSIFY THIS <<<");
     expect(result).toContain("attached is the architecture diagram");
   });
 
-  it("still includes catalogs", () => {
-    const result = buildPhase2Context([NEW_MSG], PHASE1_NEW, null, CATALOGS, null);
-    expect(result).toContain("re:Inforce 2026");
-    expect(result).toContain("Security Competency");
-    expect(result).toContain("Security Team - ISV");
-  });
-
   it("shows 'Partner not in catalog' when no matched partner", () => {
-    const result = buildPhase2Context([NEW_MSG], PHASE1_NEW, null, CATALOGS, null);
+    const result = buildPhase2Context({ newMessages: [NEW_MSG], phase1Result: PHASE1_NEW, history: null, matchedPartner: null });
     expect(result).toContain("Partner not in catalog");
   });
 
   it("includes routing decision with is_new true", () => {
-    const result = buildPhase2Context([NEW_MSG], PHASE1_NEW, null, CATALOGS, null);
+    const result = buildPhase2Context({ newMessages: [NEW_MSG], phase1Result: PHASE1_NEW, history: null, matchedPartner: null });
     expect(result).toContain("Routing Decision");
     expect(result).toContain('"is_new":true');
     expect(result).toContain("NewCorp - Cloud Migration");
@@ -457,7 +336,7 @@ describe("buildPhase2Context — multiple new messages", () => {
       sender_email: "bob@cybershield.com",
       body_text: "Adding context from my side.",
     });
-    const result = buildPhase2Context([NEW_MSG, msg2], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
+    const result = buildPhase2Context({ newMessages: [NEW_MSG, msg2], phase1Result: PHASE1_EXISTING, history: HISTORY, matchedPartner: PARTNER });
     const markers = result.match(/>>> NEW EMAIL — CLASSIFY THIS <<</g);
     expect(markers).toHaveLength(2);
   });
@@ -630,7 +509,7 @@ describe("PHASE2_SYSTEM_PROMPT — date discipline", () => {
 
 describe("buildPhase2Context — current date injection", () => {
   it("includes Current Date section with today's date", () => {
-    const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
+    const result = buildPhase2Context({ newMessages: [NEW_MSG], phase1Result: PHASE1_EXISTING, history: HISTORY, matchedPartner: PARTNER });
     const today = new Date().toISOString().split("T")[0];
     expect(result).toContain("## Current Date");
     expect(result).toContain(today);
@@ -638,7 +517,7 @@ describe("buildPhase2Context — current date injection", () => {
   });
 
   it("includes date section before other sections", () => {
-    const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
+    const result = buildPhase2Context({ newMessages: [NEW_MSG], phase1Result: PHASE1_EXISTING, history: HISTORY, matchedPartner: PARTNER });
     const dateIdx = result.indexOf("## Current Date");
     const forwarderIdx = result.indexOf("## Forwarder Identity");
     expect(dateIdx).toBeGreaterThan(-1);
@@ -662,25 +541,6 @@ describe("buildPhase2Context — name resolution", () => {
     ]),
   };
 
-  it("uses resolved name from map for history messages with null sender_name", () => {
-    const historyWithNull = {
-      ...HISTORY,
-      messages: [
-        makeMessage({
-          id: "hist-alias",
-          engagement_id: "eng-001",
-          sender_name: null,
-          sender_email: "crisresl@amazon.com",
-          body_text: "I'll review the security docs.",
-        }),
-      ],
-    };
-    const result = buildPhase2Context(
-      [NEW_MSG], PHASE1_EXISTING, historyWithNull, CATALOGS, PARTNER, null, NAME_MAP
-    );
-    expect(result).toContain("Cristian Restrepo Lopez <crisresl@amazon.com>");
-  });
-
   it("uses resolved name from map for new email with null sender_name", () => {
     const newMsg = makeMessage({
       id: "new-alias",
@@ -688,29 +548,11 @@ describe("buildPhase2Context — name resolution", () => {
       sender_email: "crisresl@amazon.com",
       body_text: "Here's the updated architecture.",
     });
-    const result = buildPhase2Context(
-      [newMsg], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER, null, NAME_MAP
-    );
+    const result = buildPhase2Context({
+      newMessages: [newMsg], phase1Result: PHASE1_EXISTING, history: HISTORY, matchedPartner: PARTNER,
+      nameResolutionMap: NAME_MAP,
+    });
     expect(result).toContain("Cristian Restrepo Lopez <crisresl@amazon.com>");
-  });
-
-  it("falls back to sender_name when map has no match", () => {
-    const historyWithName = {
-      ...HISTORY,
-      messages: [
-        makeMessage({
-          id: "hist-named",
-          engagement_id: "eng-001",
-          sender_name: "Bob Smith",
-          sender_email: "bob@unknown.com",
-          body_text: "Following up.",
-        }),
-      ],
-    };
-    const result = buildPhase2Context(
-      [NEW_MSG], PHASE1_EXISTING, historyWithName, CATALOGS, PARTNER, null, NAME_MAP
-    );
-    expect(result).toContain("Bob Smith <bob@unknown.com>");
   });
 
   it("uses displayName fallback when both sender_name and map resolution are null", () => {
@@ -720,23 +562,23 @@ describe("buildPhase2Context — name resolution", () => {
       sender_email: "jane.doe@unknown.com",
       body_text: "Test message.",
     });
-    const result = buildPhase2Context(
-      [msgNoName], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER, null, NAME_MAP
-    );
+    const result = buildPhase2Context({
+      newMessages: [msgNoName], phase1Result: PHASE1_EXISTING, history: HISTORY, matchedPartner: PARTNER,
+      nameResolutionMap: NAME_MAP,
+    });
     // displayName formats "jane.doe@unknown.com" → "Jane Doe"
     expect(result).toContain("Jane Doe <jane.doe@unknown.com>");
   });
 
   it("works without a resolution map (backward compatible)", () => {
-    const result = buildPhase2Context([NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER);
+    const result = buildPhase2Context({ newMessages: [NEW_MSG], phase1Result: PHASE1_EXISTING, history: HISTORY, matchedPartner: PARTNER });
     // Should use sender_name directly
     expect(result).toContain("Alice Chen <alice@cybershield.com>");
-    expect(result).toContain("Steven Romero <sterme@amazon.com>");
   });
 });
 
 // ============================================================
-// Incoming meeting data in Phase 2
+// Incoming meeting data
 // ============================================================
 
 describe("buildPhase2Context — incoming meeting data", () => {
@@ -775,10 +617,10 @@ describe("buildPhase2Context — incoming meeting data", () => {
         { name: "Bob Smith", email: "bob@cybershield.com" },
       ]],
     ]);
-    const result = buildPhase2Context(
-      [NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER,
-      null, null, [NEW_MEETING], null, null, null, meetingContacts
-    );
+    const result = buildPhase2Context({
+      newMessages: [NEW_MSG], phase1Result: PHASE1_EXISTING, history: HISTORY, matchedPartner: PARTNER,
+      newMeetings: [NEW_MEETING], meetingContacts,
+    });
     expect(result).toContain("Incoming Meeting Data");
     expect(result).toContain("Partner Kickoff Call");
     expect(result).toContain("**Organizer:** alice@cybershield.com");
@@ -789,27 +631,62 @@ describe("buildPhase2Context — incoming meeting data", () => {
   });
 
   it("omits incoming meeting section when no meetings", () => {
-    const result = buildPhase2Context(
-      [NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER,
-      null, null, null
-    );
+    const result = buildPhase2Context({
+      newMessages: [NEW_MSG], phase1Result: PHASE1_EXISTING, history: HISTORY, matchedPartner: PARTNER,
+    });
     expect(result).not.toContain("Incoming Meeting Data");
   });
 
   it("omits incoming meeting section when empty array", () => {
-    const result = buildPhase2Context(
-      [NEW_MSG], PHASE1_EXISTING, HISTORY, CATALOGS, PARTNER,
-      null, null, []
-    );
+    const result = buildPhase2Context({
+      newMessages: [NEW_MSG], phase1Result: PHASE1_EXISTING, history: HISTORY, matchedPartner: PARTNER,
+      newMeetings: [],
+    });
     expect(result).not.toContain("Incoming Meeting Data");
   });
+});
 
-  it("includes linked meetings with recurring flag", () => {
-    const recurringMeeting = { ...MEETING, is_recurring: true };
-    const historyWithRecurring = { ...HISTORY, meetings: [recurringMeeting] };
-    const result = buildPhase2Context(
-      [NEW_MSG], PHASE1_EXISTING, historyWithRecurring, CATALOGS, PARTNER
-    );
-    expect(result).toContain("recurring");
+// ============================================================
+// Tests: Scratchpad and condensed digest sections
+// ============================================================
+
+describe("buildPhase2Context — scratchpad and digests", () => {
+  it("includes scratchpad section when entries provided", () => {
+    const result = buildPhase2Context({
+      newMessages: [NEW_MSG], phase1Result: PHASE1_EXISTING, history: HISTORY, matchedPartner: PARTNER,
+      scratchpadEntries: [
+        { content: "Alice is the key decision maker", created_at: "2026-02-10T00:00:00Z" },
+        { content: "Partner prefers async communication", created_at: "2026-01-15T00:00:00Z" },
+      ],
+    });
+    expect(result).toContain("## Scratchpad Notes (PDM tribal knowledge)");
+    expect(result).toContain("[2026-02-10] Alice is the key decision maker");
+    expect(result).toContain("[2026-01-15] Partner prefers async communication");
+  });
+
+  it("omits scratchpad section when no entries", () => {
+    const result = buildPhase2Context({
+      newMessages: [NEW_MSG], phase1Result: PHASE1_EXISTING, history: HISTORY, matchedPartner: PARTNER,
+    });
+    expect(result).not.toContain("Scratchpad");
+  });
+
+  it("includes condensed meeting digests when provided", () => {
+    const result = buildPhase2Context({
+      newMessages: [NEW_MSG], phase1Result: PHASE1_EXISTING, history: HISTORY, matchedPartner: PARTNER,
+      condensedMeetingDigests: [
+        { title: "Security Review Call", meeting_date: "2026-02-15", condensed: "Topic: Security validation\nStatus: active\nKey developments:\n- Architecture review in progress" },
+      ],
+    });
+    expect(result).toContain("## Meeting Digests (linked to this engagement)");
+    expect(result).toContain("### Security Review Call (2026-02-15)");
+    expect(result).toContain("Architecture review in progress");
+  });
+
+  it("omits condensed digests section when no digests", () => {
+    const result = buildPhase2Context({
+      newMessages: [NEW_MSG], phase1Result: PHASE1_EXISTING, history: HISTORY, matchedPartner: PARTNER,
+    });
+    expect(result).not.toContain("Meeting Digests");
   });
 });
