@@ -2,22 +2,16 @@ import { classifyPhase2 } from "./claude";
 import { buildPhase2Context } from "./phase2-prompt";
 import {
   getSupabaseClient,
-  getActiveEvents,
-  getActivePrograms,
-  getRelationships,
   getEngagementHistory,
   getPartner,
   upsertParticipants,
   backfillMessageSenderNames,
   linkEngagementRelationship,
-  getEngagementPrograms,
-  getEngagementEvents,
   linkEngagementToProgram,
   linkEngagementToEvent,
-  getRelationshipsByEngagement,
   getContactsByPartner,
-  getContactsByRelationship,
-  getContactsByMeeting,
+  getPartnerScratchpad,
+  getCondensedDigestsByEngagement,
 } from "./db";
 import {
   ClassificationResult,
@@ -45,75 +39,19 @@ export async function synthesizeIntoEngagement(
   const partnerId = phase1Result.engagement_match.partner_id;
   const isNew = phase1Result.engagement_match.is_new;
 
-  const [history, matchedPartner, events, programs, relationships, nameMap, linkedPrograms, linkedEvents, engagementRels, partnerContacts] =
+  const [history, matchedPartner, nameMap, partnerContacts, scratchpadEntries, condensedDigests] =
     await Promise.all([
       engagementId && !isNew
         ? getEngagementHistory(engagementId)
         : Promise.resolve(null),
       partnerId ? getPartner(partnerId) : Promise.resolve(null),
-      getActiveEvents(),
-      getActivePrograms(),
-      getRelationships(),
       buildNameResolutionMap(),
+      partnerId ? getContactsByPartner(partnerId) : Promise.resolve([]),
+      partnerId ? getPartnerScratchpad(partnerId) : Promise.resolve([]),
       engagementId && !isNew
-        ? getEngagementPrograms(engagementId)
-        : Promise.resolve([]),
-      engagementId && !isNew
-        ? getEngagementEvents(engagementId)
-        : Promise.resolve([]),
-      engagementId && !isNew
-        ? getRelationshipsByEngagement(engagementId)
-        : Promise.resolve([]),
-      partnerId
-        ? getContactsByPartner(partnerId)
+        ? getCondensedDigestsByEngagement(engagementId)
         : Promise.resolve([]),
     ]);
-
-  // Build existing entity links for Phase 2 context (names come from join)
-  const existingEntityLinks = [
-    ...linkedPrograms.map(lp => ({
-      type: "program" as const,
-      name: lp.program_name ?? lp.program_id,
-      relationship: lp.context || "linked",
-    })),
-    ...linkedEvents.map(le => ({
-      type: "event" as const,
-      name: le.event_name ?? le.event_id,
-      relationship: le.context || "linked",
-    })),
-  ];
-
-  const existingRelationships = engagementRels.map(r => ({
-    name: r.name,
-    relationship: "linked",
-  }));
-
-  const existingLinks = (existingEntityLinks.length > 0 || existingRelationships.length > 0)
-    ? { entityLinks: existingEntityLinks, awsRelationships: existingRelationships }
-    : null;
-
-  // Bulk-fetch relationship contacts for prompt rendering
-  const relationshipContactEntries = await Promise.all(
-    relationships.map(async (r) => {
-      const contacts = await getContactsByRelationship(r.id);
-      return [r.id, contacts] as const;
-    })
-  );
-  const relationshipContactsMap = new Map(
-    relationshipContactEntries.filter(([, contacts]) => contacts.length > 0)
-  );
-
-  // Bulk-fetch meeting contacts for history meetings
-  const historyMeetingIds = (history?.meetings ?? []).map((m) => m.id);
-  const meetingContactEntries = await Promise.all(
-    historyMeetingIds.map(async (mid) => {
-      const contacts = await getContactsByMeeting(mid);
-      return [mid, contacts.map((c) => ({ name: c.name, email: c.email }))] as const;
-    })
-  );
-  const meetingContactsMap = new Map(
-    meetingContactEntries.filter(([, contacts]) => contacts.length > 0)
-  );
 
   const phase2Context = buildPhase2Context({
     newMessages: messages,
@@ -125,11 +63,9 @@ export async function synthesizeIntoEngagement(
     matchedPartner,
     forwarderNote,
     nameResolutionMap: nameMap,
-    newMeetings: null,
     partnerContacts,
-    meetingContacts: null,
-    scratchpadEntries: null,
-    condensedMeetingDigests: null,
+    scratchpadEntries,
+    condensedMeetingDigests: condensedDigests,
   });
 
   return await classifyPhase2(phase2Context);
