@@ -333,68 +333,6 @@ function buildEngagementContext(history: {
   return lines.join("\n");
 }
 
-function buildEngagementHistory(
-  messages: Message[],
-  nameMap?: NameResolutionMap | null
-): string {
-  if (messages.length === 0) return "";
-
-  const total = messages.length;
-  const lines = [
-    `## Engagement History (${total} message${total === 1 ? "" : "s"}, oldest first)\n`,
-  ];
-
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i];
-    lines.push(`### Message ${i + 1} of ${total} — HISTORY`);
-    if (msg.sender_email) {
-      const name = bestSenderName(msg, nameMap);
-      lines.push(`**From:** ${name} <${msg.sender_email}>`);
-    }
-    if (msg.to_header) lines.push(`**To:** ${msg.to_header}`);
-    if (msg.cc_header) lines.push(`**CC:** ${msg.cc_header}`);
-    if (msg.subject) lines.push(`**Subject:** ${msg.subject}`);
-    if (msg.sent_at) lines.push(`**Date:** ${msg.sent_at}`);
-    lines.push(`\n${msg.body_text || msg.body_raw || "(empty body)"}\n`);
-  }
-
-  return lines.join("\n");
-}
-
-function buildLinkedMeetings(
-  meetings: Meeting[],
-  meetingContactsMap?: Map<string, { name: string | null; email: string }[]> | null
-): string {
-  if (meetings.length === 0) return "";
-
-  const lines = ["### Linked Meetings"];
-  for (const m of meetings) {
-    const datePart = m.meeting_date || "date TBD";
-    const timePart =
-      m.start_time && m.end_time
-        ? `, ${m.start_time}–${m.end_time}`
-        : "";
-    const recurPart = m.is_recurring ? ", recurring" : "";
-    lines.push(
-      `- "${m.title}" — ${datePart}${timePart}, ${m.status}${recurPart}`
-    );
-    if (m.organizer_email) {
-      lines.push(`  Organizer: ${m.organizer_email}`);
-    }
-
-    // Render attendees from registry
-    const registryContacts = meetingContactsMap?.get(m.id);
-    if (registryContacts && registryContacts.length > 0) {
-      const formatted = registryContacts.map((c) =>
-        c.name ? `${c.name} <${c.email}>` : c.email
-      );
-      lines.push(`  Attendees: ${formatted.join(", ")}`);
-    }
-  }
-  lines.push("");
-  return lines.join("\n");
-}
-
 function buildExistingParticipants(
   participants: (Participant & { role: string | null })[]
 ): string {
@@ -407,36 +345,6 @@ function buildExistingParticipants(
     const role = p.role ? ` — ${p.role}` : "";
     lines.push(`- ${p.name || "Unknown"}${email}${org}${role}`);
   }
-  lines.push("");
-  return lines.join("\n");
-}
-
-function buildExistingEntityLinks(
-  links?: {
-    entityLinks: { type: string; name: string; relationship: string }[];
-    awsRelationships: { name: string; relationship: string }[];
-  } | null
-): string {
-  if (!links) return "";
-
-  const { entityLinks, awsRelationships } = links;
-  if (entityLinks.length === 0 && awsRelationships.length === 0) return "";
-
-  const lines = ["### Existing Entity Links (already linked — preserve these)\n"];
-
-  const programs = entityLinks.filter(l => l.type === "program");
-  const events = entityLinks.filter(l => l.type === "event");
-
-  if (programs.length > 0) {
-    lines.push(`**Programs:** ${programs.map(p => `${p.name} (${p.relationship})`).join(", ")}`);
-  }
-  if (events.length > 0) {
-    lines.push(`**Events:** ${events.map(e => `${e.name} (${e.relationship})`).join(", ")}`);
-  }
-  if (awsRelationships.length > 0) {
-    lines.push(`**AWS Relationships:** ${awsRelationships.map(r => r.name).join(", ")}`);
-  }
-
   lines.push("");
   return lines.join("\n");
 }
