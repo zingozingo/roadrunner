@@ -361,9 +361,6 @@ describe("parsePhase2Response", () => {
     participants: [
       { name: "Alice Chen", email: "alice@cybershield.com", organization: "CyberShield", role: "partner_contact" },
     ],
-    matched_events: [],
-    matched_programs: [{ id: "prog-001", name: "Security Competency", relationship: "qualifies_for" }],
-    matched_relationships: [],
     pillar: "Co-Build",
   });
 
@@ -373,7 +370,6 @@ describe("parsePhase2Response", () => {
     expect(result.engagement_match.id).toBe("eng-001");
     expect(result.current_state).toBe("Alice sent the architecture diagram.");
     expect(result.participants).toHaveLength(1);
-    expect(result.matched_programs).toHaveLength(1);
     expect(result.pillar).toBe("Co-Build");
   });
 
@@ -407,9 +403,6 @@ describe("parsePhase2Response", () => {
       current_state: "Some state.",
     });
     const result = parsePhase2Response(minimal);
-    expect(result.matched_events).toEqual([]);
-    expect(result.matched_programs).toEqual([]);
-    expect(result.matched_relationships).toEqual([]);
     expect(result.participants).toEqual([]);
     expect(result.pillar).toBeNull();
   });

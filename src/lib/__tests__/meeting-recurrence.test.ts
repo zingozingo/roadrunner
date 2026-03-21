@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { Meeting } from "../types";
 
 // ── Mock setup ──────────────────────────────────────────────
@@ -214,7 +214,7 @@ describe("spawnNextOccurrence", () => {
           }),
         })),
       })),
-    });
+    } as any);
 
     expect(await spawnNextOccurrence(meeting)).toBeNull();
   });
@@ -230,7 +230,7 @@ describe("spawnNextOccurrence", () => {
           single: vi.fn().mockResolvedValue({ data: newMeeting, error: null }),
         })),
       })),
-    });
+    } as any);
 
     // Mock participant query
     mockFrom.mockReturnValueOnce({
@@ -240,12 +240,12 @@ describe("spawnNextOccurrence", () => {
           error: null,
         }),
       })),
-    });
+    } as any);
 
     // Mock participant insert
     mockFrom.mockReturnValueOnce({
       insert: vi.fn().mockResolvedValue({ error: null }),
-    });
+    } as any);
 
     const result = await spawnNextOccurrence(meeting);
 

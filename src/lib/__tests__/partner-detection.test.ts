@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockGetPartnerContactDomains = vi.hoisted(() =>
-  vi.fn<[], Promise<Map<string, { partnerId: string; partnerName: string }>>>()
+  vi.fn<() => Promise<Map<string, { partnerId: string; partnerName: string }>>>()
 );
 
 vi.mock("../db", () => ({
