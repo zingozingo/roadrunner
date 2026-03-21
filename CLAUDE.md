@@ -1,7 +1,7 @@
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → human-guided routing → AI synthesis → structured engagements → Airtable sync.
-> 67 migrations · 17 tables · 31 API routes · 18 UI pages · 449 passing tests
+> 69 migrations · 17 tables · 31 API routes · 18 UI pages · 449 passing tests
 
 ---
 
@@ -51,7 +51,7 @@ roadrunner/
 │   ├── CLASSIFICATION.md          #   AI synthesis pipeline documentation (rewrite pending)
 │   ├── entity-model.md            #   Canonical schema — ERD + field-level registry + AT field IDs
 │   └── goal-state.md              #   Living orientation doc — current state & next steps
-├── decisions.md                   # Append-only architectural decision log (259 entries)
+├── decisions.md                   # Append-only architectural decision log (269 entries)
 ├── src/
 │   ├── app/                       # Next.js App Router
 │   │   ├── api/                   #   API routes (31 route files, grouped by entity)
@@ -126,7 +126,7 @@ roadrunner/
 │       │   └── utils.ts           #     Coercion helpers + validation
 │       └── __tests__/             #   449 passing tests across 14 test files
 ├── supabase/
-│   ├── migrations/                # 67 migration files (001-067)
+│   ├── migrations/                # 69 migration files (001-069)
 │   └── (authoritative schema lives in migrations/)
 ├── scripts/
 │   ├── seed-data.ts               # CLI script to seed events/programs
@@ -278,7 +278,7 @@ npx tsc --noEmit                   # TypeScript check (must pass with zero error
 
 ### Migrations
 
-Sequential numbering in `supabase/migrations/` (currently 001-067). New migrations get the next number (068, 069, ...). Write idempotent SQL where possible.
+Sequential numbering in `supabase/migrations/` (currently 001-069). New migrations get the next number (070, 071, ...). Write idempotent SQL where possible.
 
 ### Key Conventions
 
@@ -360,7 +360,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-067). New migratio
 | `docs/entity-model.md` | Complete schema — 19 tables, all FKs, AT field IDs, ring model | Schema/data work |
 | `docs/CLASSIFICATION.md` | AI synthesis pipeline (rewrite pending — Phase 2 docs still accurate) | Prompt/AI work |
 | `docs/goal-state.md` | Living status — current state + what's next | Session planning |
-| `decisions.md` | Append-only architectural decision log (259 entries) | When you need "why" |
+| `decisions.md` | Append-only architectural decision log (269 entries) | When you need "why" |
 
 ---
 

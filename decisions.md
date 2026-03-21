@@ -5143,3 +5143,153 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** ics-parser.ts: design intent comment added above break statement. 1 new test (multi-VEVENT with RRULE + RECURRENCE-ID). 32 ics-parser tests total. No behavioral change — documenting existing guardrail.
 
 ---
+
+### Decision 260: Entity matching removed from AI — manual linking only
+
+**Date:** 2026-03-21
+**Status:** Agreed (removal planned for Phase 4)
+
+**Decision:** Programs (64), events (41), and relationships (7) will no longer be sent to the engagement synthesis prompt for AI matching. Entity linking becomes manual-only via the existing UI (EngagementLinker, junction table management).
+
+**Context:** The full program/event/relationship catalogs consumed ~6,545 tokens (35% of Call 1 input). Entity matching was error-prone — required self-audit reasoning fields and still produced weak matches. Most emails match zero events and zero or one programs.
+
+**Rationale:** The human knows which program, event, or relationship an engagement relates to. Manual linking through existing UI is more accurate and eliminates the most expensive, least reliable part of the AI call. Existing junction table links are preserved.
+
+**Impact:** Call 1 prompt shrinks ~83%. buildEventsSection, buildProgramsSection, buildRelationshipsSection in prompt-builder.ts become dead code for AI calls. matched_events, matched_programs, matched_relationships removed from AI output spec in Phase 4.
+
+---
+
+### Decision 261: Full message history removed from engagement synthesis
+
+**Date:** 2026-03-21
+**Status:** Agreed (removal planned for Phase 4)
+
+**Decision:** Call 1 (engagement synthesis) will no longer send every historical email body. Only the previous current_state anchor + the new message(s) are needed.
+
+**Context:** History messages were 40% of Call 1 tokens (~7,500 for a 24-message engagement). The prompt already uses an "evolve the anchor" pattern — the AI updates the existing current_state summary rather than re-reading the entire thread.
+
+**Rationale:** The current_state IS the compressed history. Sending raw emails alongside it is redundant. The new message provides the delta to incorporate.
+
+**Impact:** Call 1 input drops from ~18,550 to ~3,075 tokens. Scales flat regardless of engagement size (no more linear growth with message count).
+
+---
+
+### Decision 262: Relationships table earmarked for future reinvention
+
+**Date:** 2026-03-21
+**Status:** Agreed
+
+**Decision:** No new features for the relationships table. Future investment goes into participant registry filtering and organization.
+
+**Context:** The current named-relationship model doesn't scale — the PDM has too many AWS relationships to document individually. Participants are already the atomic unit of people tracking via the contact registry.
+
+**Rationale:** Invest in better participant organization and filtering for non-partner, non-AWS contacts rather than deeper relationship table features.
+
+**Impact:** Relationships table remains as-is. No new relationship features planned.
+
+---
+
+### Decision 263: Goal field eliminated from system
+
+**Date:** 2026-03-21
+**Status:** ✅ Implemented
+
+**Decision:** The engagement `goal` field is removed from all code paths and the database column dropped.
+
+**Context:** AI-generated goals were too assumptive — strategic judgment belongs to the PDM, not AI. The field was 100% AI-populated but often produced generic statements. Ring 3 Partner Goals (table already exists, decision #199) will handle long-term goal tracking at the partner level.
+
+**Rationale:** Topic + current_state are sufficient for engagement context. Goals are strategic planning, not activity-level data.
+
+**Impact:** Removed from 10 files (26 references): types.ts, db/engagements.ts, resolve/route.ts, classifier.ts, field-maps.ts, push.ts, [id]/page.tsx, EngagementsClient.tsx, phase2-prompt.ts, phase2-prompt.test.ts. Column dropped in migration 069. Airtable field fld1yU46baF052MHd no longer pushed.
+
+---
+
+### Decision 264: Two-version pyramid — full + condensed outputs per AI entity
+
+**Date:** 2026-03-21
+**Status:** ✅ Implemented (schema + meeting notes)
+
+**Decision:** Every AI-produced summary has two versions: full structured output (for human display) and condensed digest (for upstream AI consumption). Meeting notes produce both; engagement condensed planned for Phase 4.
+
+**Context:** No condensed representations existed. Brain synthesizer fed full prose summaries, blowing context windows at scale. Couldn't distinguish importance across 20+ meetings.
+
+**Rationale:** Each AI level compresses before feeding up. Humans see rich structured output; upstream AI calls see efficient condensed digests. Scales to 50+ meetings per partner.
+
+**Impact:** `condensed` TEXT columns added to meeting_notes and engagements (migration 068). Meeting summarization now produces condensed digest alongside structured summary. Types updated across Engagement, MeetingNote, UpdateMeetingNoteInput, NoteSummaryResult.
+
+---
+
+### Decision 265: Meeting note context scoped by engagement
+
+**Date:** 2026-03-21
+**Status:** ✅ Implemented
+
+**Decision:** Meeting note summarization uses engagement-scoped context instead of all-partner context.
+
+**Context:** buildPartnerContext() sent ALL active engagements, ALL recent note summaries, and ALL open tasks to the meeting summarization prompt. An SCA review meeting got context about unrelated co-marketing engagements.
+
+**Rationale:** Meeting summaries should only see context from the same engagement (or last 3 partner meetings if standalone). Reduces noise, improves summary relevance, cuts token cost.
+
+**Impact:** New buildMeetingNoteContext(partnerId, engagementId) in notes-context.ts. Returns: condensed partner profile (3 fields), key contacts, scratchpad, and previous condensed meeting digests scoped to same engagement. Summarize route resolves engagement_id via note → meeting → engagement chain. Dead getRecentNoteSummaries() call removed from buildPartnerContext Promise.all.
+
+---
+
+### Decision 266: Meeting summary output restructured with sections + condensed digest
+
+**Date:** 2026-03-21
+**Status:** ✅ Implemented
+
+**Decision:** Meeting note summarization produces structured sections (Discussion/Decisions/Key Context) plus a condensed 3-5 bullet digest with category tags (Discussed/Decided/Context/Next/Blocker).
+
+**Context:** Previous output was an unstructured prose blob. Hard to scan. Tasks duplicated between summary text and extracted task array.
+
+**Rationale:** Structured sections are scannable by humans. Condensed digest feeds upstream AI calls efficiently. Non-redundancy rule prevents task duplication between summary and task extraction. Importance weighting by frequency, recency, and user emphasis signals.
+
+**Impact:** Rewrote SYSTEM_PROMPT in notes-summarizer.ts. JSON output now includes `condensed` field. Added existingTasks parameter to prevent re-extraction. Summarize route persists condensed to meeting_notes.condensed column.
+
+---
+
+### Decision 267: Pillar persistence bug identified — write for both new and existing engagements
+
+**Date:** 2026-03-21
+**Status:** Identified (fix planned for Phase 4)
+
+**Decision:** persistClassificationResult should write pillar for both new and existing engagements.
+
+**Context:** The current code only writes pillar for existing engagements (guarded by `!isNewEngagement`). Approximately 12 engagements have no pillar set because they were created as new during classification.
+
+**Rationale:** Pillar should always be persisted when the AI returns one. The guard was overly conservative — it was meant to prevent overwriting on existing engagements but actually prevented writing on new ones.
+
+**Impact:** Fix in Phase 4 classifier rewrite. Backfill in Phase 7 for existing engagements missing pillars.
+
+---
+
+### Decision 268: flags array removed from NoteSummaryResult
+
+**Date:** 2026-03-21
+**Status:** ✅ Implemented
+
+**Decision:** The `flags` array is removed from the meeting note summarization output.
+
+**Context:** The flags array was defined in the prompt output spec as `"flags": []` but was always returned empty. It was not present on the NoteSummaryResult TypeScript type and was not referenced by any code path.
+
+**Rationale:** Dead code removal. The field served no purpose and added noise to the AI output spec.
+
+**Impact:** Removed from notes-summarizer.ts output spec and prompt. No type change needed (was never on the type).
+
+---
+
+### Decision 269: context_snapshot nulled on summarize route
+
+**Date:** 2026-03-21
+**Status:** ✅ Implemented
+
+**Decision:** The summarize route sets context_snapshot to null instead of saving the full PartnerContext JSON blob.
+
+**Context:** The route previously saved the entire PartnerContext object (partner profile, all contacts, all engagements, all meetings, all tasks) as a JSON blob in meeting_notes.context_snapshot on every summarization. This data was never read back by any code path.
+
+**Rationale:** Debugging artifact that added storage cost with no consumer. The new scoped context builder returns a formatted string, not a structured object, making the old snapshot pattern incompatible anyway.
+
+**Impact:** context_snapshot set to null in summarize route. Column remains in schema — could be repurposed later if needed for audit trail.
+
+---
