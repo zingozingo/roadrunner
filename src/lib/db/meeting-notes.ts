@@ -489,3 +489,38 @@ export async function getCondensedDigestsByEngagement(
     condensed: n.condensed,
   }));
 }
+
+/**
+ * Get condensed meeting digests for standalone meetings (no engagement link).
+ * These are meetings like partner cadences and unlinked executive meetings
+ * that feed directly into partner brain synthesis (Call 3), not through
+ * the engagement layer.
+ */
+export async function getStandaloneCondensedDigests(
+  partnerId: string
+): Promise<{ title: string; meeting_date: string | null; condensed: string }[]> {
+  const db = getSupabaseClient();
+
+  // meeting_notes has meeting_id; we need notes where the linked meeting
+  // has NO engagement_id (standalone). Join through meetings table.
+  const { data: notes, error } = await db
+    .from("meeting_notes")
+    .select("title, meeting_date, condensed, meetings!inner(engagement_id)")
+    .eq("partner_id", partnerId)
+    .not("condensed", "is", null)
+    .order("meeting_date", { ascending: false });
+
+  if (error) {
+    console.error("[getStandaloneCondensedDigests] Error:", error);
+    return [];
+  }
+
+  // Filter to standalone meetings (no engagement link)
+  return ((notes ?? []) as unknown as { title: string; meeting_date: string | null; condensed: string; meetings: { engagement_id: string | null } }[])
+    .filter((n) => !n.meetings?.engagement_id)
+    .map(n => ({
+      title: n.title,
+      meeting_date: n.meeting_date,
+      condensed: n.condensed,
+    }));
+}

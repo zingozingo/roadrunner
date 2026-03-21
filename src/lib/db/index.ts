@@ -133,6 +133,7 @@ export {
   getOpenTasks,
   getRecentNoteSummaries,
   getCondensedDigestsByEngagement,
+  getStandaloneCondensedDigests,
 } from "./meeting-notes";
 
 // Partner Context (Scratchpad)
