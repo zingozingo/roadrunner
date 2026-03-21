@@ -1,6 +1,6 @@
 import { getSupabaseClient } from "./db/client";
-import { getRecentNoteSummaries, getTasksByPartner } from "./db/meeting-notes";
-import { getPartnerContext } from "./db/partner-context";
+import { getRecentNoteSummaries, getTasksByPartner, getStandaloneCondensedDigests } from "./db/meeting-notes";
+import { getPartnerContext, getPartnerScratchpad } from "./db/partner-context";
 import { getContactsByPartner } from "./db/participants";
 import type {
   Partner,
@@ -369,6 +369,178 @@ export async function buildMeetingNoteContext(
       });
       sections.push("RECENT PARTNER MEETINGS\n" + noteLines.join("\n\n"));
     }
+  }
+
+  return sections.join("\n\n---\n\n");
+}
+
+// ============================================================
+// Dedicated context builder for partner brain synthesis (Call 3)
+// ============================================================
+
+/**
+ * Build context for partner brain synthesis (Call 3).
+ * Dedicated builder — separate from buildPartnerContext (legacy) and
+ * buildMeetingNoteContext (Call 2).
+ *
+ * Reads condensed digests from the pyramid below, not raw prose.
+ * Scratchpad is filtered to source='scratchpad' only (no ai_synthesis feedback loop).
+ * Activity patterns are computed for the AI to synthesize.
+ */
+export async function buildBrainContext(partnerId: string): Promise<string> {
+  const db = getSupabaseClient();
+
+  // Parallel fetch everything the brain needs
+  const [
+    { data: partnerData, error: partnerErr },
+    { data: engData, error: engErr },
+    registryContacts,
+    scratchpadEntries,
+    standaloneMeetingDigests,
+    openTasks,
+    { data: meetingCountData },
+  ] = await Promise.all([
+    db.from("partners").select("*").eq("id", partnerId).single(),
+    db.from("engagements")
+      .select("id, name, pillar, status, topic, condensed, updated_at")
+      .eq("partner_id", partnerId)
+      .eq("status", "active")
+      .order("updated_at", { ascending: false }),
+    getContactsByPartner(partnerId),
+    getPartnerScratchpad(partnerId),
+    getStandaloneCondensedDigests(partnerId),
+    getTasksByPartner(partnerId, { status: "open" }),
+    db.from("meetings")
+      .select("id, meeting_date")
+      .eq("partner_id", partnerId)
+      .order("meeting_date", { ascending: false })
+      .limit(50),
+  ]);
+
+  if (partnerErr) throw new Error(`Failed to fetch partner: ${partnerErr.message}`);
+  if (engErr) throw new Error(`Failed to fetch engagements: ${engErr.message}`);
+
+  const partner = partnerData as Partner;
+  const engagements = (engData ?? []) as (Engagement & { condensed: string | null })[];
+  const meetings = (meetingCountData ?? []) as { id: string; meeting_date: string | null }[];
+
+  const sections: string[] = [];
+
+  // 1. Partner profile (full — brain is where this gets synthesized into insight)
+  const profileLines = [`## Partner Profile\n`, `**Name:** ${partner.name}`];
+  if (partner.segment) profileLines.push(`**Segment:** ${partner.segment}`);
+  if (partner.what_they_do) profileLines.push(`**What They Do:** ${partner.what_they_do}`);
+  if (partner.aws_stickiness) profileLines.push(`**AWS Stickiness:** ${partner.aws_stickiness}`);
+  if (partner.key_aws_services && partner.key_aws_services.length > 0) {
+    profileLines.push(`**Key AWS Services:** ${partner.key_aws_services.join(", ")}`);
+  }
+  if (partner.architecture) profileLines.push(`**Architecture:** ${partner.architecture}`);
+  if (partner.deployed_on_aws) profileLines.push(`**Deployed on AWS:** ${partner.deployed_on_aws}`);
+  if (partner.isva_status) profileLines.push(`**ISVa Status:** ${partner.isva_status}`);
+  if (partner.prm_status) profileLines.push(`**PRM Status:** ${partner.prm_status}`);
+  if (partner.crm_status) profileLines.push(`**CRM Status:** ${partner.crm_status}`);
+  sections.push(profileLines.join("\n"));
+
+  // 2. Key contacts
+  const contacts = buildContactsFromRegistry(registryContacts);
+  const contactLines: string[] = ["## Key Contacts\n"];
+  if (contacts.alliance_lead) contactLines.push(`Alliance Lead: ${contacts.alliance_lead}`);
+  if (contacts.account_manager) contactLines.push(`Account Manager: ${contacts.account_manager}`);
+  if (contacts.psa) contactLines.push(`PSA: ${contacts.psa}`);
+  if (contacts.other_contacts.length > 0) {
+    contactLines.push(`Other: ${contacts.other_contacts.slice(0, 5).join("; ")}`);
+  }
+  if (contactLines.length > 1) sections.push(contactLines.join("\n"));
+
+  // 3. Scratchpad — tribal knowledge (PRIMARY value for brain)
+  if (scratchpadEntries.length > 0) {
+    const lines = ["## PDM Scratchpad (Tribal Knowledge)\n"];
+    for (const entry of scratchpadEntries) {
+      const date = entry.created_at.split("T")[0];
+      lines.push(`- [${date}] ${entry.content}`);
+    }
+    sections.push(lines.join("\n"));
+  }
+
+  // 4. Engagement digests (condensed only — not full current_state)
+  if (engagements.length > 0) {
+    const lines = ["## Active Engagements\n"];
+    for (const eng of engagements) {
+      const pillarTag = eng.pillar ? ` (${eng.pillar})` : "";
+      const lastActivity = eng.updated_at ? eng.updated_at.split("T")[0] : "unknown";
+      lines.push(`### ${eng.name}${pillarTag}`);
+      lines.push(`Last activity: ${lastActivity}`);
+      if (eng.condensed) {
+        lines.push(eng.condensed);
+      } else if (eng.topic) {
+        lines.push(`Topic: ${eng.topic}`);
+        lines.push("(No condensed digest available yet)");
+      }
+      lines.push("");
+    }
+    sections.push(lines.join("\n"));
+  }
+
+  // 5. Standalone meeting digests (not linked to any engagement)
+  if (standaloneMeetingDigests.length > 0) {
+    const lines = ["## Standalone Meeting Digests (Cross-Engagement)\n"];
+    for (const d of standaloneMeetingDigests) {
+      const date = d.meeting_date || "date unknown";
+      lines.push(`### ${d.title} (${date})`);
+      lines.push(d.condensed);
+      lines.push("");
+    }
+    sections.push(lines.join("\n"));
+  }
+
+  // 6. Open tasks (titles + owners only)
+  if (openTasks.length > 0) {
+    const lines = ["## Open Tasks\n"];
+    for (const t of openTasks) {
+      const owner = t.owner_name ? `${t.owner_name} (${t.owner})` : t.owner;
+      const due = t.due_date ? ` — due ${t.due_date}` : "";
+      lines.push(`- [${owner}${due}] ${t.description}`);
+    }
+    sections.push(lines.join("\n"));
+  }
+
+  // 7. Activity pattern signals (computed for the AI to interpret)
+  {
+    const lines = ["## Activity Patterns\n"];
+
+    // Pillar distribution
+    const pillarCounts: Record<string, number> = {};
+    for (const eng of engagements) {
+      const p = eng.pillar || "Unclassified";
+      pillarCounts[p] = (pillarCounts[p] || 0) + 1;
+    }
+    const pillarSummary = Object.entries(pillarCounts)
+      .map(([p, c]) => `${p}: ${c}`)
+      .join(", ");
+    lines.push(`**Engagement count:** ${engagements.length} active`);
+    lines.push(`**Pillar distribution:** ${pillarSummary}`);
+
+    // Meeting frequency
+    const meetingCount = meetings.length;
+    const recentMeetings = meetings.filter(m => {
+      if (!m.meeting_date) return false;
+      const d = new Date(m.meeting_date);
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      return d >= thirtyDaysAgo;
+    });
+    lines.push(`**Total meetings tracked:** ${meetingCount}`);
+    lines.push(`**Meetings in last 30 days:** ${recentMeetings.length}`);
+
+    // Last engagement activity
+    if (engagements.length > 0 && engagements[0].updated_at) {
+      lines.push(`**Most recent engagement activity:** ${engagements[0].updated_at.split("T")[0]}`);
+    }
+
+    // Standalone meeting count
+    lines.push(`**Standalone meeting digests available:** ${standaloneMeetingDigests.length}`);
+
+    sections.push(lines.join("\n"));
   }
 
   return sections.join("\n\n---\n\n");
