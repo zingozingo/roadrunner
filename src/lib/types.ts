@@ -267,24 +267,6 @@ export interface ClassificationResult {
     partner_name: string | null;
     partner_id?: string | null;
   };
-  /** Events matched by ID from context. Claude never creates events. */
-  matched_events: {
-    id: string;
-    name: string;
-    relationship: string;
-  }[];
-  /** Programs matched by ID from context. Claude never creates programs. */
-  matched_programs: {
-    id: string;
-    name: string;
-    relationship: string;
-  }[];
-  /** AWS relationships matched by ID from context. Claude never creates relationships. */
-  matched_relationships: {
-    id: string;
-    name: string;
-    relationship: string;
-  }[];
   participants: {
     name: string;
     email: string | null;
@@ -311,7 +293,7 @@ export interface Phase1Result {
   };
 }
 
-/** Phase 2 (Analyze) output — deep analysis with full engagement context */
+/** Phase 2 (Analyze) output — deep analysis with engagement context */
 export interface Phase2Result {
   current_state: string | null;
   participants: {
@@ -320,9 +302,6 @@ export interface Phase2Result {
     organization: string | null;
     role: string | null;
   }[];
-  matched_events: { id: string; name: string; relationship: string }[];
-  matched_programs: { id: string; name: string; relationship: string }[];
-  matched_relationships: { id: string; name: string; relationship: string }[];
   pillar: Pillar | null;
 }
 
@@ -340,9 +319,6 @@ export interface CombinedClassificationResult {
     partner_name: string | null;
     partner_id?: string | null;
   };
-  matched_events: { id: string; name: string; relationship: string }[];
-  matched_programs: { id: string; name: string; relationship: string }[];
-  matched_relationships: { id: string; name: string; relationship: string }[];
   participants: {
     name: string;
     email: string | null;
@@ -350,6 +326,7 @@ export interface CombinedClassificationResult {
     role: string | null;
   }[];
   current_state: string | null;
+  condensed: string | null;
   topic: string | null;
   engagement_name: string | null;
   pillar: Pillar | null;

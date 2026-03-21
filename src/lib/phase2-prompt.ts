@@ -268,7 +268,7 @@ export function parsePhase2Response(raw: string): CombinedClassificationResult {
 
   const parsed = JSON.parse(cleaned);
 
-  // Default arrays if Claude omits them
+  // Backward compat: historical classification_result JSONB may contain these fields
   if (!parsed.matched_events) parsed.matched_events = [];
   if (!parsed.matched_programs) parsed.matched_programs = [];
   if (!parsed.matched_relationships) parsed.matched_relationships = [];
