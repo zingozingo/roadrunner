@@ -37,12 +37,11 @@ import { summarizeNotes } from "@/lib/notes-summarizer";
 async function main() {
   const db = getSupabaseClient();
 
-  // Find all notes with ai_summary but no condensed digest
+  // Final run: re-summarize ALL notes that have been summarized before
   const { data: notes, error } = await db
     .from("meeting_notes")
     .select("id, title, partner_id")
     .not("ai_summary", "is", null)
-    .is("condensed", null)
     .order("meeting_date", { ascending: true });
 
   if (error) {

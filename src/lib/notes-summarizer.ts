@@ -90,21 +90,30 @@ CONDENSED DIGEST RULES:
 - 3-5 bullets max. No prose. Every bullet starts with a category tag.
 
 TASK EXTRACTION RULES:
-- Before creating each task, apply this test: Could someone check this off as DONE in a single action or short effort? If not, it's a goal — do not create a task.
-- NOT a task (these are goals/directions — never create tasks for these):
-  - "We want to help them target FSI accounts this year" (strategic goal — belongs in partner planning)
-  - "They're pursuing competency certifications but haven't decided which ones" (status update, no action)
-  - "Marketplace presence needs to improve" (aspiration, no specific next step)
-  - "The partnership is progressing well" (general sentiment, not actionable)
-- YES, a task (these have a clear done state — create tasks for these):
-  - "I need to send them the Co-Sell training deck" (specific deliverable from me)
-  - "They need to complete their partner migration portal before July 31" (partner action with explicit deadline — extract with due_date)
-  - "Need to swap out Victoria for Jackie as preferred contact in Salesforce" (specific system update)
-  - "Get SCA signature from Slade" (specific document action, named person)
-  - "Chris confirmed they'll submit the architecture diagram by next week" (partner commitment with timeframe)
-  - "I'm preparing the slide deck for the enablement call on Thursday" (specific deliverable for specific event)
+- The key question for every potential task: "Does this describe something that STILL NEEDS TO HAPPEN?" If yes → extract it. If it describes something that already happened → do not extract.
+- Bias: When in doubt, DO extract. Missing a real task is worse than including a borderline one. The user will remove false positives — they cannot recover tasks you silently dropped.
+- FORWARD-POINTING = extract as task. These describe future obligations:
+  - First person: "I need to", "I have to", "I should", "I'll", "Let me", "I'm going to", "I want to [specific action]"
+  - Second/third person: "They need to", "He/she needs to", "Partner needs to", "We need to"
+  - Imperative: "Get X", "Send X", "Follow up on", "Schedule", "Set up", "Check with", "Coordinate", "Prepare", "Submit", "Complete", "Review"
+  - Commitments: "X confirmed they'll do Y", "X promised to", "X will send", "X is going to"
+  - Compound sentences: When a sentence mixes past and future ("CJ nominated them for X, Slade wanted to check in for an update"), extract only the forward-pointing part ("Check in on X update").
+- BACKWARD-POINTING = do NOT extract. These describe things that already happened:
+  - "CJ nominated KnowBe4 for Security Hub" — observation of past event
+  - "The partnership is progressing well" — sentiment
+  - "We discussed potential expansion into EMEA" — recap of discussion
+  - "They achieved ISVa approval last month" — completed event
+  - "We want to help them target FSI accounts this year" — strategic aspiration with no concrete next step
+- YES, extract these (real examples):
+  - "I need to get Slade's availability for SCA kickoff call" → task, owner: me
+  - "i need to fix mpopp issue with ChuQi and Brian" → task, owner: me
+  - "update alliance lead – knowbe4 needs to do this" → task, owner: partner
+  - "They will send us the architecture diagram next week" → task, owner: partner
+  - "Need to follow up with Stefan on MDF numbers" → task, owner: me
+  - "Get the Co-Sell deck to Jackie before Friday" → task, owner: me, with due_date
+  - "Need to swap out Victoria for Jackie as preferred contact in Salesforce" → task, owner: me
+  - "Chris confirmed they'll submit the architecture diagram by next week" → task, owner: partner
 - When the notes mention an explicit deadline or date for an action ("before July 31", "by next Friday", "due March 15"), ALWAYS extract it as a task with the due_date. A deadline implies a specific commitment — never treat it as just context.
-- When in doubt, do NOT create the task. It is better to under-extract than to pollute the task list with vague goals. The user can always add tasks manually.
 - For each task, identify the owner using this process:
   1. Check the KNOWN CONTACTS list in the partner context. If a name in the notes matches a known contact (e.g., "Jackie" matches "Jackie Funk" listed as Alliance Lead), set owner_name to their full name and owner to the appropriate category:
      - Partner-side contacts (Alliance Lead, partner team) → "partner"

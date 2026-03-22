@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getMeetingNote,
   updateMeetingNote,
-  deleteAiTasksForNote,
   createTask,
 } from "@/lib/db";
 import { getSupabaseClient } from "@/lib/db/client";
@@ -37,6 +36,10 @@ export async function POST(
     // Build scoped context for this meeting note
     const formattedContext = await buildMeetingNoteContext(note.partner_id, engagementId);
 
+    // Collect ALL existing tasks for this note (ai_extracted + manual).
+    // The prompt deduplicates against these — AI returns only genuinely new tasks.
+    const existingTasks = note.tasks ?? [];
+
     // Call AI summarizer with existing tasks for non-redundancy
     const result = await summarizeNotes({
       rawNotes: note.raw_notes,
@@ -44,26 +47,31 @@ export async function POST(
       noteType: note.note_type,
       meetingTitle: note.title ?? undefined,
       meetingDate: note.meeting_date ?? undefined,
-      existingTasks: note.tasks?.map((t) => ({
+      existingTasks: existingTasks.map((t) => ({
         description: t.description,
         owner: t.owner,
         owner_name: t.owner_name,
       })),
     });
 
-    // Save AI results to the note record
+    // Save AI prose to the note record (summary + condensed overwrite is fine).
+    // ai_tasks JSONB = existing tasks + new tasks (complete picture for display).
+    const existingTaskJsonb = existingTasks.map((t) => ({
+      description: t.description,
+      owner: t.owner,
+      owner_name: t.owner_name,
+      due_date: t.due_date,
+    }));
     await updateMeetingNote(id, {
       ai_summary: result.summary,
-      ai_tasks: result.tasks,
+      ai_tasks: [...existingTaskJsonb, ...result.tasks],
       condensed: result.condensed ?? null,
       context_snapshot: null,
       status: "complete",
     });
 
-    // Materialize AI tasks as first-class task rows.
-    // Delete previous AI tasks first (safe for re-summarization — manual tasks preserved).
-    await deleteAiTasksForNote(id);
-
+    // Materialize ONLY new tasks as first-class task rows.
+    // Existing tasks (both ai_extracted and manual) are never deleted.
     const createdTasks: Task[] = [];
     for (const task of result.tasks) {
       const created = await createTask({
@@ -78,7 +86,11 @@ export async function POST(
       createdTasks.push(created);
     }
 
-    return NextResponse.json({ ...result, tasks: createdTasks });
+    return NextResponse.json({
+      ...result,
+      tasks: createdTasks,
+      existing_task_count: existingTasks.length,
+    });
   } catch (error) {
     console.error("POST /api/notes/[id]/summarize error:", error);
     return NextResponse.json(
