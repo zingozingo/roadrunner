@@ -383,7 +383,7 @@ export async function getTasksByPartner(
 }
 
 export async function getOpenTasks(): Promise<
-  (Task & { partner_name: string; note_title: string })[]
+  (Task & { partner_name: string | null; note_title: string | null; meeting_id: string | null; meeting_title: string | null })[]
 > {
   const db = getSupabaseClient();
 
@@ -411,24 +411,43 @@ export async function getOpenTasks(): Promise<
     }
   }
 
-  // Resolve note titles
+  // Resolve note titles + meeting_ids from meeting_notes
   const noteIds = [...new Set(typedTasks.map((t) => t.meeting_note_id).filter((id): id is string => id !== null))];
-  const noteTitles = new Map<string, string>();
+  const noteInfo = new Map<string, { title: string | null; meeting_id: string | null }>();
   if (noteIds.length > 0) {
     const { data: notes } = await db
       .from("meeting_notes")
-      .select("id, title")
+      .select("id, title, meeting_id")
       .in("id", noteIds);
-    for (const n of (notes ?? []) as { id: string; title: string | null }[]) {
-      noteTitles.set(n.id, n.title ?? "Untitled");
+    for (const n of (notes ?? []) as { id: string; title: string | null; meeting_id: string | null }[]) {
+      noteInfo.set(n.id, { title: n.title, meeting_id: n.meeting_id });
     }
   }
 
-  return typedTasks.map((t) => ({
-    ...t,
-    partner_name: partnerNames.get(t.partner_id) ?? "Unknown",
-    note_title: (t.meeting_note_id ? noteTitles.get(t.meeting_note_id) : null) ?? "Untitled",
-  }));
+  // Resolve meeting titles from meetings table
+  const meetingIds = [...new Set([...noteInfo.values()].map((n) => n.meeting_id).filter((id): id is string => id !== null))];
+  const meetingTitles = new Map<string, string>();
+  if (meetingIds.length > 0) {
+    const { data: meetings } = await db
+      .from("meetings")
+      .select("id, title")
+      .in("id", meetingIds);
+    for (const m of (meetings ?? []) as { id: string; title: string | null }[]) {
+      meetingTitles.set(m.id, m.title ?? "Untitled Meeting");
+    }
+  }
+
+  return typedTasks.map((t) => {
+    const note = t.meeting_note_id ? noteInfo.get(t.meeting_note_id) : null;
+    const meetingId = note?.meeting_id ?? null;
+    return {
+      ...t,
+      partner_name: partnerNames.get(t.partner_id) ?? null,
+      note_title: note?.title ?? null,
+      meeting_id: meetingId,
+      meeting_title: meetingId ? meetingTitles.get(meetingId) ?? null : null,
+    };
+  });
 }
 
 // ============================================================

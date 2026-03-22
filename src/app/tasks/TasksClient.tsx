@@ -7,7 +7,7 @@ import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
 import { Task } from "@/lib/types";
 
-type TaskWithContext = Task & { partner_name: string | null; note_title: string | null };
+type TaskWithContext = Task & { partner_name: string | null; note_title: string | null; meeting_id: string | null; meeting_title: string | null };
 
 const OWNER_FILTER_OPTIONS = [
   { label: "Me", value: "me" },
@@ -35,6 +35,9 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
 
   // Form state
   const [formPartnerId, setFormPartnerId] = useState("");
@@ -42,8 +45,65 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
   const [formOwner, setFormOwner] = useState("me");
   const [formDueDate, setFormDueDate] = useState("");
 
+  const openCount = useMemo(() => tasks.filter((t) => t.status === "open").length, [tasks]);
+
+  async function handleToggleStatus(taskId: string, currentStatus: string) {
+    const newStatus = currentStatus === "open" ? "done" : "open";
+    // Optimistic update
+    setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: newStatus as Task["status"] } : t));
+    try {
+      const res = await fetch(`/api/notes/tasks/${taskId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) throw new Error("Failed to update task status");
+    } catch {
+      // Revert on error
+      setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: currentStatus as Task["status"] } : t));
+    }
+  }
+
+  async function handleDelete(task: TaskWithContext) {
+    if (!window.confirm(`Delete task: "${task.description}"?`)) return;
+    // Optimistic removal
+    setTasks((prev) => prev.filter((t) => t.id !== task.id));
+    try {
+      const res = await fetch(`/api/notes/tasks/${task.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete task");
+    } catch {
+      // Revert on error
+      setTasks((prev) => [...prev, task]);
+    }
+  }
+
+  function startEditing(task: TaskWithContext) {
+    setEditingTaskId(task.id);
+    setEditingText(task.description);
+  }
+
+  async function saveEdit(taskId: string, originalDescription: string) {
+    const trimmed = editingText.trim();
+    setEditingTaskId(null);
+    if (!trimmed || trimmed === originalDescription) return;
+    // Optimistic update
+    setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, description: trimmed } : t));
+    try {
+      const res = await fetch(`/api/notes/tasks/${taskId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: trimmed }),
+      });
+      if (!res.ok) throw new Error("Failed to update task");
+    } catch {
+      setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, description: originalDescription } : t));
+    }
+  }
+
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
+      // Hide completed unless showCompleted is on
+      if (task.status !== "open" && !showCompleted) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const matchesDesc = task.description.toLowerCase().includes(q);
@@ -55,7 +115,7 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
       if (activeFilter && task.owner !== activeFilter) return false;
       return true;
     });
-  }, [tasks, searchQuery, activeFilter]);
+  }, [tasks, searchQuery, activeFilter, showCompleted]);
 
   const partnerGroups = useMemo(() => {
     const groupMap = new Map<string, TaskWithContext[]>();
@@ -73,9 +133,13 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
       return a.localeCompare(b);
     });
 
-    // Within each group: due_date tasks first (ascending), then no due_date
+    // Within each group: open tasks first, then completed. Within each: due_date ascending, then no due_date.
     for (const [, groupTasks] of entries) {
       groupTasks.sort((a, b) => {
+        // Completed tasks sink to bottom
+        if (a.status === "open" && b.status !== "open") return -1;
+        if (a.status !== "open" && b.status === "open") return 1;
+        // Then by due_date
         if (a.due_date && b.due_date) return a.due_date.localeCompare(b.due_date);
         if (a.due_date && !b.due_date) return -1;
         if (!a.due_date && b.due_date) return 1;
@@ -143,10 +207,20 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
   return (
     <div className="p-6 lg:p-8">
       <div className="mb-6 flex items-start justify-between gap-4">
-        <PageHeader
-          title="Tasks"
-          subtitle={`${tasks.length} open task${tasks.length !== 1 ? "s" : ""}`}
-        />
+        <div>
+          <PageHeader
+            title="Tasks"
+            subtitle={`${openCount} open task${openCount !== 1 ? "s" : ""}${tasks.length - openCount > 0 ? ` · ${tasks.length - openCount} done` : ""}`}
+          />
+          {tasks.length - openCount > 0 && (
+            <button
+              onClick={() => setShowCompleted((v) => !v)}
+              className="mt-1 text-xs text-muted hover:text-foreground transition-colors"
+            >
+              {showCompleted ? "Hide completed" : "Show completed"}
+            </button>
+          )}
+        </div>
         <button
           onClick={() => { resetForm(); setShowForm(true); }}
           className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover transition-colors"
@@ -268,19 +342,58 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
                     <span className="ml-1.5 font-normal text-muted/50">{groupTasks.length}</span>
                   </h2>
                   {groupTasks.map((task) => {
-                    const href = task.meeting_note_id
-                      ? `/notes/${task.meeting_note_id}`
-                      : `/partners/${task.partner_id}`;
+                    const isDone = task.status !== "open";
 
                     return (
-                      <Link
+                      <div
                         key={task.id}
-                        href={href}
-                        className="flex items-baseline gap-4 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
+                        className={`flex items-center gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50${isDone ? " opacity-50" : ""}`}
                       >
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                          {task.description}
-                        </span>
+                        <button
+                          onClick={() => handleToggleStatus(task.id, task.status)}
+                          className={`flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded border transition-colors ${
+                            isDone
+                              ? "border-accent bg-accent text-white"
+                              : "border-border hover:border-accent"
+                          }`}
+                          aria-label={isDone ? "Reopen task" : "Complete task"}
+                        >
+                          {isDone && (
+                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          {editingTaskId === task.id ? (
+                            <input
+                              autoFocus
+                              value={editingText}
+                              onChange={(e) => setEditingText(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") saveEdit(task.id, task.description);
+                                if (e.key === "Escape") setEditingTaskId(null);
+                              }}
+                              onBlur={() => saveEdit(task.id, task.description)}
+                              className="w-full rounded border border-accent bg-background px-2 py-0.5 text-sm font-medium text-foreground outline-none"
+                            />
+                          ) : (
+                            <span
+                              onClick={() => startEditing(task)}
+                              className={`block truncate text-sm font-medium cursor-text ${isDone ? "text-muted line-through" : "text-foreground"}`}
+                            >
+                              {task.description}
+                            </span>
+                          )}
+                          {task.meeting_id && task.meeting_title && (
+                            <Link
+                              href={`/meetings/${task.meeting_id}`}
+                              className="block truncate text-xs text-muted/60 hover:text-accent transition-colors"
+                            >
+                              from: {task.meeting_title}
+                            </Link>
+                          )}
+                        </div>
                         <span className="w-16 shrink-0 text-right text-xs text-muted">
                           {task.due_date
                             ? new Date(task.due_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
@@ -294,7 +407,16 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
                         }`}>
                           {task.owner === "me" ? "Me" : task.owner === "partner" ? "Partner" : task.owner === "third_party" ? "3rd Party" : "Internal"}
                         </span>
-                      </Link>
+                        <button
+                          onClick={() => handleDelete(task)}
+                          className="shrink-0 p-1 text-muted/30 hover:text-red-400 transition-colors"
+                          aria-label="Delete task"
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
                     );
                   })}
                 </section>
