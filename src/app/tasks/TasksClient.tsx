@@ -7,7 +7,7 @@ import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
 import { Task } from "@/lib/types";
 
-type TaskWithContext = Task & { partner_name: string | null; note_title: string | null; meeting_id: string | null; meeting_title: string | null };
+type TaskWithContext = Task & { partner_name: string | null; note_title: string | null; meeting_id: string | null; meeting_title: string | null; engagement_name: string | null };
 
 const OWNER_FILTER_OPTIONS = [
   { label: "Me", value: "me" },
@@ -38,12 +38,18 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
   const [showCompleted, setShowCompleted] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
+  const [linkingTaskId, setLinkingTaskId] = useState<string | null>(null);
+  const [linkingEngagements, setLinkingEngagements] = useState<{ id: string; name: string }[]>([]);
+  const [linkingLoading, setLinkingLoading] = useState(false);
 
   // Form state
   const [formPartnerId, setFormPartnerId] = useState("");
   const [formDescription, setFormDescription] = useState("");
   const [formOwner, setFormOwner] = useState("me");
   const [formDueDate, setFormDueDate] = useState("");
+  const [formEngagementId, setFormEngagementId] = useState("");
+  const [formEngagements, setFormEngagements] = useState<{ id: string; name: string }[]>([]);
+  const [formEngagementsLoading, setFormEngagementsLoading] = useState(false);
 
   const openCount = useMemo(() => tasks.filter((t) => t.status === "open").length, [tasks]);
 
@@ -97,6 +103,38 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
       if (!res.ok) throw new Error("Failed to update task");
     } catch {
       setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, description: originalDescription } : t));
+    }
+  }
+
+  async function openEngagementLinker(task: TaskWithContext) {
+    setLinkingTaskId(task.id);
+    setLinkingLoading(true);
+    try {
+      const res = await fetch(`/api/engagements?partner_id=${task.partner_id}`);
+      if (!res.ok) throw new Error("Failed to fetch engagements");
+      const { engagements } = await res.json();
+      setLinkingEngagements(engagements.map((e: { id: string; name: string }) => ({ id: e.id, name: e.name })));
+    } catch {
+      setLinkingEngagements([]);
+    } finally {
+      setLinkingLoading(false);
+    }
+  }
+
+  async function handleLinkEngagement(taskId: string, engagementId: string | null, engagementName: string | null) {
+    const prev = tasks.find((t) => t.id === taskId);
+    setLinkingTaskId(null);
+    // Optimistic update
+    setTasks((ts) => ts.map((t) => t.id === taskId ? { ...t, engagement_id: engagementId, engagement_name: engagementName } : t));
+    try {
+      const res = await fetch(`/api/notes/tasks/${taskId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ engagement_id: engagementId }),
+      });
+      if (!res.ok) throw new Error("Failed to update engagement link");
+    } catch {
+      if (prev) setTasks((ts) => ts.map((t) => t.id === taskId ? { ...t, engagement_id: prev.engagement_id, engagement_name: prev.engagement_name } : t));
     }
   }
 
@@ -155,7 +193,25 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
     setFormDescription("");
     setFormOwner("me");
     setFormDueDate("");
+    setFormEngagementId("");
+    setFormEngagements([]);
     setFormError(null);
+  }
+
+  async function handleFormPartnerChange(partnerId: string) {
+    setFormPartnerId(partnerId);
+    setFormEngagementId("");
+    setFormEngagements([]);
+    if (!partnerId) return;
+    setFormEngagementsLoading(true);
+    try {
+      const res = await fetch(`/api/engagements?partner_id=${partnerId}`);
+      if (!res.ok) return;
+      const { engagements } = await res.json();
+      setFormEngagements(engagements.map((e: { id: string; name: string }) => ({ id: e.id, name: e.name })));
+    } catch { /* ignore */ } finally {
+      setFormEngagementsLoading(false);
+    }
   }
 
   async function handleCreate() {
@@ -176,6 +232,7 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
           description: formDescription.trim(),
           owner: formOwner,
           due_date: formDueDate || null,
+          engagement_id: formEngagementId || null,
         }),
       });
 
@@ -186,10 +243,11 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
 
       const { task: newTask } = await res.json();
       const partnerName = partners.find((p) => p.id === formPartnerId)?.name ?? null;
+      const engName = formEngagements.find((e) => e.id === formEngagementId)?.name ?? null;
 
       setTasks((prev) => [
         ...prev,
-        { ...newTask, partner_name: partnerName, note_title: null } as TaskWithContext,
+        { ...newTask, partner_name: partnerName, note_title: null, meeting_id: null, meeting_title: null, engagement_name: engName } as TaskWithContext,
       ]);
 
       resetForm();
@@ -240,7 +298,7 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
                 <label className={labelClass}>Partner *</label>
                 <select
                   value={formPartnerId}
-                  onChange={(e) => setFormPartnerId(e.target.value)}
+                  onChange={(e) => handleFormPartnerChange(e.target.value)}
                   className={inputClass}
                 >
                   <option value="">Select a partner...</option>
@@ -260,6 +318,23 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
                   className={inputClass}
                 />
               </div>
+
+              {formPartnerId && (
+                <div>
+                  <label className={labelClass}>Engagement</label>
+                  <select
+                    value={formEngagementId}
+                    onChange={(e) => setFormEngagementId(e.target.value)}
+                    disabled={formEngagementsLoading}
+                    className={inputClass}
+                  >
+                    <option value="">{formEngagementsLoading ? "Loading..." : "None"}</option>
+                    {formEngagements.map((e) => (
+                      <option key={e.id} value={e.id}>{e.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -385,13 +460,81 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
                               {task.description}
                             </span>
                           )}
-                          {task.meeting_id && task.meeting_title && (
-                            <Link
-                              href={`/meetings/${task.meeting_id}`}
-                              className="block truncate text-xs text-muted/60 hover:text-accent transition-colors"
-                            >
-                              from: {task.meeting_title}
-                            </Link>
+                          <div className="flex items-center gap-2 empty:hidden">
+                            {task.meeting_id && task.meeting_title && (
+                              <Link
+                                href={`/meetings/${task.meeting_id}`}
+                                className="truncate text-xs text-muted/60 hover:text-accent transition-colors"
+                              >
+                                from: {task.meeting_title}
+                              </Link>
+                            )}
+                            {task.meeting_id && task.meeting_title && task.engagement_id && (
+                              <span className="text-xs text-muted/30">·</span>
+                            )}
+                            {task.engagement_id && task.engagement_name ? (
+                              <span className="flex items-center gap-1">
+                                <Link
+                                  href={`/engagements/${task.engagement_id}`}
+                                  className="truncate text-xs text-muted/60 hover:text-accent transition-colors"
+                                >
+                                  eng: {task.engagement_name}
+                                </Link>
+                                <button
+                                  onClick={() => openEngagementLinker(task)}
+                                  className="text-muted/30 hover:text-foreground transition-colors"
+                                  aria-label="Change engagement"
+                                >
+                                  <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                  </svg>
+                                </button>
+                              </span>
+                            ) : !task.engagement_id && (
+                              <button
+                                onClick={() => openEngagementLinker(task)}
+                                className="text-xs text-muted/40 hover:text-accent transition-colors"
+                              >
+                                + link eng
+                              </button>
+                            )}
+                          </div>
+                          {linkingTaskId === task.id && (
+                            <div className="mt-1 rounded border border-border bg-background p-1.5">
+                              {linkingLoading ? (
+                                <span className="text-xs text-muted">Loading...</span>
+                              ) : linkingEngagements.length === 0 ? (
+                                <span className="text-xs text-muted">No engagements for this partner</span>
+                              ) : (
+                                <div className="space-y-0.5">
+                                  {task.engagement_id && (
+                                    <button
+                                      onClick={() => handleLinkEngagement(task.id, null, null)}
+                                      className="block w-full rounded px-2 py-1 text-left text-xs text-red-400 hover:bg-surface"
+                                    >
+                                      Unlink
+                                    </button>
+                                  )}
+                                  {linkingEngagements.map((eng) => (
+                                    <button
+                                      key={eng.id}
+                                      onClick={() => handleLinkEngagement(task.id, eng.id, eng.name)}
+                                      className={`block w-full rounded px-2 py-1 text-left text-xs hover:bg-surface transition-colors ${
+                                        eng.id === task.engagement_id ? "text-accent font-medium" : "text-foreground"
+                                      }`}
+                                    >
+                                      {eng.name}
+                                    </button>
+                                  ))}
+                                  <button
+                                    onClick={() => setLinkingTaskId(null)}
+                                    className="block w-full rounded px-2 py-1 text-left text-xs text-muted hover:bg-surface"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           )}
                         </div>
                         <span className="w-16 shrink-0 text-right text-xs text-muted">

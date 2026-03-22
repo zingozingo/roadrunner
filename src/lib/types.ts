@@ -434,6 +434,7 @@ export interface UpdateTaskInput {
   owner_participant_id?: string | null;
   status?: "open" | "done" | "cancelled";
   due_date?: string | null;
+  engagement_id?: string | null;
 }
 
 // ============================================================

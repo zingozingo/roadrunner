@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { partner_id, description, owner, owner_name, due_date } = body;
+    const { partner_id, description, owner, owner_name, due_date, engagement_id } = body;
 
     if (!partner_id || typeof partner_id !== "string") {
       return NextResponse.json(
@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
         owner,
         owner_name: owner_name?.trim() || null,
         due_date: due_date || null,
+        engagement_id: engagement_id || null,
         status: "open",
         origin: "manual",
         meeting_note_id: null,

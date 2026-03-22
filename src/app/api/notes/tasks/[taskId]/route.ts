@@ -15,6 +15,7 @@ export async function PUT(
       owner_name: body.owner_name,
       status: body.status,
       due_date: body.due_date,
+      engagement_id: body.engagement_id,
     });
 
     return NextResponse.json({ task });

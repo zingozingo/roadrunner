@@ -384,7 +384,7 @@ export async function getTasksByPartner(
 }
 
 export async function getOpenTasks(): Promise<
-  (Task & { partner_name: string | null; note_title: string | null; meeting_id: string | null; meeting_title: string | null })[]
+  (Task & { partner_name: string | null; note_title: string | null; meeting_id: string | null; meeting_title: string | null; engagement_name: string | null })[]
 > {
   const db = getSupabaseClient();
 
@@ -438,6 +438,19 @@ export async function getOpenTasks(): Promise<
     }
   }
 
+  // Resolve engagement names
+  const engagementIds = [...new Set(typedTasks.map((t) => t.engagement_id).filter((id): id is string => id !== null))];
+  const engagementNames = new Map<string, string>();
+  if (engagementIds.length > 0) {
+    const { data: engagements } = await db
+      .from("engagements")
+      .select("id, name")
+      .in("id", engagementIds);
+    for (const e of (engagements ?? []) as { id: string; name: string | null }[]) {
+      engagementNames.set(e.id, e.name ?? "Untitled Engagement");
+    }
+  }
+
   return typedTasks.map((t) => {
     const note = t.meeting_note_id ? noteInfo.get(t.meeting_note_id) : null;
     const meetingId = note?.meeting_id ?? null;
@@ -447,6 +460,7 @@ export async function getOpenTasks(): Promise<
       note_title: note?.title ?? null,
       meeting_id: meetingId,
       meeting_title: meetingId ? meetingTitles.get(meetingId) ?? null : null,
+      engagement_name: t.engagement_id ? engagementNames.get(t.engagement_id) ?? null : null,
     };
   });
 }
