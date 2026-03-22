@@ -375,6 +375,7 @@ export interface Task {
   id: string;
   meeting_note_id: string | null;
   partner_id: string;
+  engagement_id: string | null;
   description: string;
   owner: "me" | "internal" | "partner" | "third_party";
   owner_name: string | null;
@@ -417,6 +418,7 @@ export interface UpdateMeetingNoteInput {
 export interface CreateTaskInput {
   meeting_note_id: string;
   partner_id: string;
+  engagement_id?: string | null;
   description: string;
   owner: "me" | "internal" | "partner" | "third_party";
   owner_name?: string | null;

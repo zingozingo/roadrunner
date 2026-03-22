@@ -77,6 +77,7 @@ export async function POST(
       const created = await createTask({
         meeting_note_id: id,
         partner_id: note.partner_id,
+        engagement_id: engagementId,
         description: task.description,
         owner: task.owner,
         owner_name: task.owner_name,

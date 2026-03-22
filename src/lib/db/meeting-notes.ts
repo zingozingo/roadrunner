@@ -315,6 +315,7 @@ export async function createTask(
     .insert({
       meeting_note_id: input.meeting_note_id,
       partner_id: input.partner_id,
+      engagement_id: input.engagement_id ?? null,
       description: input.description,
       owner: input.owner,
       owner_name: input.owner_name ?? null,
