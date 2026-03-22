@@ -1,5 +1,5 @@
 import { getSupabaseClient } from "./db/client";
-import { getRecentNoteSummaries, getTasksByPartner, getStandaloneCondensedDigests } from "./db/meeting-notes";
+import { getTasksByPartner, getStandaloneCondensedDigests } from "./db/meeting-notes";
 import { getPartnerContext, getPartnerScratchpad } from "./db/partner-context";
 import { getContactsByPartner } from "./db/participants";
 import type {
@@ -12,7 +12,8 @@ import type {
 } from "./types";
 
 // ============================================================
-// Context assembly
+// Context assembly (UI-only — used by formatContextForDisplay,
+// NOT consumed by any AI call)
 // ============================================================
 
 export async function buildPartnerContext(
@@ -134,7 +135,8 @@ export async function buildPartnerContext(
 }
 
 // ============================================================
-// Format for AI prompt
+// Format for prompt (UI-only — used by formatContextForDisplay,
+// NOT consumed by any AI call)
 // ============================================================
 
 export function formatContextForPrompt(context: PartnerContext): string {
@@ -275,8 +277,8 @@ export function formatContextForDisplay(context: PartnerContext): DisplayContext
 // ============================================================
 
 /**
- * Build a focused context string for meeting note summarization.
- * Unlike buildPartnerContext (used by Call 3), this is scoped:
+ * Build a focused context string for meeting note summarization (Call 2).
+ * Scoped to the specific engagement (or recent partner meetings if standalone):
  * - Condensed partner profile (3 fields)
  * - Key contacts
  * - PDM scratchpad notes

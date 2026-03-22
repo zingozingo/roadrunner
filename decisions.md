@@ -5383,3 +5383,123 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** New buildBrainContext in notes-context.ts. New getStandaloneCondensedDigests in db/meeting-notes.ts. brain-synthesizer.ts import changed from buildPartnerContext+formatContextForPrompt to buildBrainContext. buildPartnerContext remains for formatContextForDisplay (UI).
 
 ---
+
+### #276 — Phase 7 backfill complete: all 3 pyramid layers populated
+
+**Date:** 2026-03-22
+**Status:** ✅ Implemented
+
+**Decision:** Ran backfill scripts to populate all three pyramid layers with real data.
+
+**Context:** The two-version pyramid (raw → condensed → brain) was implemented but only had data flowing through new notes/engagements. Historical data needed backfilling.
+
+**Rationale:** 17 meeting notes re-summarized with structured output + condensed digests. 26 engagements re-synthesized with current_state + condensed + pillar. 22 partner brains re-synthesized with structured 4-section executive briefings.
+
+**Impact:** Full two-version pyramid now has real data flowing through all levels.
+
+---
+
+### #277 — Task extraction prompt rewritten: aggressive forward/backward test
+
+**Date:** 2026-03-22
+**Status:** ✅ Implemented
+
+**Decision:** Rewrote task extraction prompt from conservative ("When in doubt, do NOT create") to aggressive ("When in doubt, DO extract").
+
+**Context:** Old prompt produced only 5 tasks across all meeting notes. Real meetings contain many implicit obligations that were being filtered out.
+
+**Rationale:** Replaced "single action checkoff" test with forward/backward temporal test. Added obligation language patterns (first person, imperative, commitments). Added compound sentence rule for mixed observation/action sentences.
+
+**Impact:** 31 tasks extracted vs old prompt's 5 (6x improvement). Task extraction catches real obligations, user trims false positives.
+
+---
+
+### #278 — Re-summarize route made additive: never deletes existing tasks
+
+**Date:** 2026-03-22
+**Status:** ✅ Implemented
+
+**Decision:** Removed deleteAiTasksForNote call from summarize route. AI receives all existing tasks for deduplication, returns only NEW tasks.
+
+**Context:** Re-summarizing would wipe all existing tasks (including manually created ones) and replace them with a fresh AI extraction. This made re-summarize destructive.
+
+**Rationale:** ai_tasks JSONB updated to include existing + new (complete picture). Summary text refreshes, tasks are sacred.
+
+**Impact:** Re-summarizing is always safe — summary text refreshes, tasks accumulate additively.
+
+---
+
+### #279 — Tasks page upgraded to command center
+
+**Date:** 2026-03-22
+**Status:** ✅ Implemented
+
+**Decision:** Added full task management capabilities to the tasks page: checkbox complete/reopen, delete with confirmation, inline description edit, meeting link display.
+
+**Context:** Tasks were previously view-only on the tasks page. Users had to navigate to individual meeting notes to manage them.
+
+**Rationale:** Tasks page is the only place to manage tasks (complete, delete, edit). Meeting detail and partner detail show tasks read-only.
+
+**Impact:** Tasks are fully manageable without navigating to individual meetings.
+
+---
+
+### #280 — engagement_id added to tasks (migration 070)
+
+**Date:** 2026-03-22
+**Status:** ✅ Implemented
+
+**Decision:** Added nullable FK engagement_id to tasks table, ON DELETE SET NULL, indexed.
+
+**Context:** Tasks had partner context but no workstream/engagement context. Knowing which engagement a task belongs to helps organize and prioritize.
+
+**Rationale:** Organizational context (which workstream), not ownership — tasks are still partner-level.
+
+**Impact:** Tasks can be organized by engagement/workstream.
+
+---
+
+### #281 — Task engagement auto-populate from meeting chain
+
+**Date:** 2026-03-22
+**Status:** ✅ Implemented
+
+**Decision:** AI-extracted tasks inherit engagement_id through the chain: task → meeting_note → meeting → engagement. Manual tasks get optional engagement picker in create modal. Tasks page has inline engagement linker.
+
+**Context:** With engagement_id on tasks, the next question was how to populate it. The meeting chain provides a natural inheritance path.
+
+**Rationale:** Engagement context flows automatically for AI-extracted tasks. Manual tasks and orphans can be linked via inline picker.
+
+**Impact:** Engagement context flows automatically to tasks without user intervention.
+
+---
+
+### #282 — Airtable push of backfilled data deferred
+
+**Date:** 2026-03-22
+**Status:** ✅ Implemented
+
+**Decision:** Backfill scripts skipped Airtable push intentionally. Normal push fires on create/update through UI — AT catches up organically.
+
+**Context:** Running bulk AT pushes for 65+ records risked rate limits and partial failures.
+
+**Rationale:** condensed field is internal to Roadrunner, never pushed to AT. Engagement current_state and brain will push on next organic edit/update.
+
+**Impact:** No bulk push risk, organic sync catches up naturally.
+
+---
+
+### #283 — Housekeeping: stale comments and dead code cleaned
+
+**Date:** 2026-03-22
+**Status:** ✅ Implemented
+
+**Decision:** Cleaned up stale comments and dead code accumulated during Phase 7 development.
+
+**Context:** Rapid development left behind unused imports, stale comments, and dead test fixtures.
+
+**Rationale:** Removed unused getRecentNoteSummaries import from notes-context.ts. Fixed stale "Call 3" comment on buildMeetingNoteContext. Added UI-only documentation on buildPartnerContext/formatContextForPrompt. Removed 26-line unused MEETING fixture from phase2-prompt.test.ts.
+
+**Impact:** Clean codebase, accurate comments.
+
+---

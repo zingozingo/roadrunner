@@ -71,33 +71,6 @@ const NEW_MSG: Message = makeMessage({
   cc_header: "bob@cybershield.com",
 });
 
-const MEETING: Meeting = {
-  id: "mtg-001",
-  title: "CyberShield Security Review Call",
-  engagement_id: "eng-001",
-  partner_id: "partner-001",
-  message_id: null,
-  status: "scheduled",
-  meeting_date: "2026-03-05",
-  start_time: "10:00",
-  end_time: "11:00",
-  location: "Chime",
-  organizer_email: "sterme@amazon.com",
-  organizer_name: "Steven Romero",
-  ics_uid: null,
-  sequence: null,
-  is_recurring: false,
-  source: "manual",
-  meeting_type: null,
-  recurrence_pattern: null,
-  recurrence_end: null,
-  series_id: null,
-  notes: null,
-  airtable_record_id: null,
-  created_at: "2026-02-15T00:00:00Z",
-  updated_at: "2026-02-15T00:00:00Z",
-};
-
 const PARTICIPANT: Participant & { role: string | null } = {
   id: "part-001",
   email: "alice@cybershield.com",

@@ -1,7 +1,7 @@
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → human-guided routing → AI synthesis → structured engagements → Airtable sync.
-> 69 migrations · 17 tables · 31 API routes · 18 UI pages · 437 passing tests
+> 70 migrations · 18 tables · 31 API routes · 18 UI pages · 437 passing tests
 
 ---
 
@@ -278,7 +278,7 @@ npx tsc --noEmit                   # TypeScript check (must pass with zero error
 
 ### Migrations
 
-Sequential numbering in `supabase/migrations/` (currently 001-069). New migrations get the next number (070, 071, ...). Write idempotent SQL where possible.
+Sequential numbering in `supabase/migrations/` (currently 001-070). New migrations get the next number (071, 072, ...). Write idempotent SQL where possible.
 
 ### Key Conventions
 
@@ -360,7 +360,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-069). New migratio
 | `docs/entity-model.md` | Complete schema — 19 tables, all FKs, AT field IDs, ring model | Schema/data work |
 | `docs/CLASSIFICATION.md` | AI synthesis pipeline (rewrite pending — Phase 2 docs still accurate) | Prompt/AI work |
 | `docs/goal-state.md` | Living status — current state + what's next | Session planning |
-| `decisions.md` | Append-only architectural decision log (275 entries) | When you need "why" |
+| `decisions.md` | Append-only architectural decision log (283 entries) | When you need "why" |
 
 ---
 
