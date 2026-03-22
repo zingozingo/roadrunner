@@ -15,6 +15,13 @@ function relativeTime(dateStr: string): string {
   return `${Math.floor(days / 30)}mo ago`;
 }
 
+const OWNER_BADGE_STYLES: Record<string, { className: string; label: string }> = {
+  me: { className: "bg-accent/10 text-accent", label: "Me" },
+  partner: { className: "bg-emerald-500/10 text-emerald-400", label: "Partner" },
+  internal: { className: "bg-amber-500/10 text-amber-400", label: "Internal" },
+  third_party: { className: "bg-purple-500/10 text-purple-400", label: "3rd Party" },
+};
+
 export default function ContextSidebar({ context }: { context: DisplayContext }) {
   const { profile, contacts, openTasks, openTaskCount, scratchpadEntries } = context;
 
@@ -99,7 +106,12 @@ export default function ContextSidebar({ context }: { context: DisplayContext })
             {openTasks.map((t, i) => (
               <div key={i} className="flex items-start gap-1.5 text-xs">
                 <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-amber-400" />
-                <span className="text-foreground/80">{t.description}</span>
+                <span className="flex-1 text-foreground/80">{t.description}</span>
+                {t.owner && (
+                  <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${OWNER_BADGE_STYLES[t.owner]?.className ?? "bg-muted/10 text-muted"}`}>
+                    {OWNER_BADGE_STYLES[t.owner]?.label ?? t.owner}
+                  </span>
+                )}
               </div>
             ))}
           </div>

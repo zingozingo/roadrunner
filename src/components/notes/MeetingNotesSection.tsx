@@ -73,7 +73,7 @@ export default function MeetingNotesSection({
         initialRawNotes={existingNote.raw_notes || ""}
         initialSummary={existingNote.ai_summary || ""}
         initialTasks={existingNote.tasks}
-        initialPhase={existingNote.status === "complete" ? "review" : "editing"}
+        initialPhase={existingNote.status === "complete" ? "saved" : "editing"}
       />
     );
   }

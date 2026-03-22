@@ -1,11 +1,26 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import type { DisplayContext, MeetingNoteWithTasks, Task, NoteSummaryResult } from "@/lib/types";
 import ContextSidebar from "./ContextSidebar";
 import PreviousNotes from "./PreviousNotes";
 import TaskEditor from "./TaskEditor";
 
-type Phase = "editing" | "review";
+type Phase = "editing" | "review" | "saved";
+
+const OWNER_BADGE_STYLES: Record<string, { className: string; label: string }> = {
+  me: { className: "bg-accent/10 text-accent", label: "Me" },
+  partner: { className: "bg-emerald-500/10 text-emerald-400", label: "Partner" },
+  internal: { className: "bg-amber-500/10 text-amber-400", label: "Internal" },
+  third_party: { className: "bg-purple-500/10 text-purple-400", label: "3rd Party" },
+};
+
+const OWNER_GROUP_ORDER = ["me", "internal", "partner", "third_party"] as const;
+
+const OWNER_GROUP_LABELS: Record<string, string> = {
+  me: "My Tasks",
+  partner: "Partner Tasks",
+  internal: "Internal",
+  third_party: "Third Party",
+};
 
 interface NoteWorkspaceProps {
   noteId: string;
@@ -34,7 +49,6 @@ export default function NoteWorkspace({
   initialPhase,
   meetingId,
 }: NoteWorkspaceProps) {
-  const router = useRouter();
   const [phase, setPhase] = useState<Phase>(initialPhase ?? "editing");
   const [rawNotes, setRawNotes] = useState(initialRawNotes ?? "");
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
@@ -137,7 +151,7 @@ export default function NoteWorkspace({
   }
 
   async function handleReSummarize() {
-    if (!confirm("This will overwrite the current summary and tasks. Continue?")) return;
+    if (!confirm("This will regenerate the summary and may add new tasks. Continue?")) return;
     await handleSummarize();
   }
 
@@ -167,7 +181,7 @@ export default function NoteWorkspace({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "complete" }),
     });
-    router.push(meetingId ? `/meetings/${meetingId}` : `/notes/${noteId}`);
+    setPhase("saved");
   }
 
   const dateDisplay = meetingDate
@@ -191,7 +205,7 @@ export default function NoteWorkspace({
         {/* Previous context */}
         <PreviousNotes notes={context.previousNotes} />
 
-        {phase === "editing" ? (
+        {phase === "editing" && (
           <>
             {/* Main textarea */}
             <div className="relative">
@@ -246,9 +260,11 @@ export default function NoteWorkspace({
               )}
             </div>
           </>
-        ) : (
+        )}
+
+        {phase === "review" && (
           <>
-            {/* Review phase — stacked layout */}
+            {/* Review phase — extraction moment, tasks are interactive */}
             <div className="space-y-4">
               {/* Raw Notes — collapsible */}
               <div className="rounded-xl border border-border bg-surface p-4">
@@ -271,30 +287,21 @@ export default function NoteWorkspace({
                 )}
               </div>
 
-              {/* Summary — always visible */}
+              {/* Summary — editable */}
               <div className="rounded-xl border border-border bg-surface p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">Summary</h2>
-                  <div className="flex items-center gap-2">
-                    {!editingSummary && (
-                      <button
-                        onClick={() => {
-                          setSummaryDraft(summary);
-                          setEditingSummary(true);
-                        }}
-                        className="text-xs text-accent hover:underline"
-                      >
-                        Edit
-                      </button>
-                    )}
+                  {!editingSummary && (
                     <button
-                      onClick={handleReSummarize}
-                      disabled={summarizing}
-                      className="rounded-lg border border-border bg-background px-3 py-1 text-xs text-muted hover:text-foreground disabled:opacity-50"
+                      onClick={() => {
+                        setSummaryDraft(summary);
+                        setEditingSummary(true);
+                      }}
+                      className="text-xs text-accent hover:underline"
                     >
-                      {summarizing ? "Summarizing..." : "Re-summarize"}
+                      Edit
                     </button>
-                  </div>
+                  )}
                 </div>
 
                 {editingSummary ? (
@@ -321,7 +328,7 @@ export default function NoteWorkspace({
                 )}
               </div>
 
-              {/* Tasks — always visible */}
+              {/* Tasks — interactive (this is the extraction moment) */}
               <div className="rounded-xl border border-border bg-surface p-4">
                 <TaskEditor
                   tasks={tasks}
@@ -346,9 +353,73 @@ export default function NoteWorkspace({
               >
                 Back to Editing
               </button>
-              {saveStatus === "saved" && (
-                <span className="ml-auto text-xs text-emerald-400">Saved</span>
+            </div>
+          </>
+        )}
+
+        {phase === "saved" && (
+          <>
+            {/* Saved phase — resting state, everything read-only */}
+            <div className="space-y-4">
+              {/* Summary — read-only */}
+              <div className="rounded-xl border border-border bg-surface p-4">
+                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">Summary</h2>
+                <div className="prose prose-sm prose-invert max-w-none text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">
+                  {summary}
+                </div>
+              </div>
+
+              {/* Tasks — read-only list */}
+              {tasks.length > 0 && (
+                <div className="rounded-xl border border-border bg-surface p-4">
+                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
+                    Action Items
+                    <span className="ml-1.5 font-normal text-muted/50">{tasks.filter((t) => t.status === "open").length} open</span>
+                  </h3>
+                  <div className="space-y-3">
+                    {OWNER_GROUP_ORDER.map((ownerKey) => {
+                      const group = tasks.filter((t) => t.owner === ownerKey);
+                      if (group.length === 0) return null;
+                      return (
+                        <div key={ownerKey}>
+                          <h4 className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted/50">
+                            {OWNER_GROUP_LABELS[ownerKey]}
+                          </h4>
+                          <div className="space-y-1">
+                            {group.map((t) => (
+                              <div key={t.id} className="flex items-center gap-2 px-2 py-1">
+                                <span className={`text-sm ${t.status === "done" ? "text-muted line-through" : "text-foreground"}`}>
+                                  {t.description}
+                                </span>
+                                <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${OWNER_BADGE_STYLES[t.owner]?.className ?? ""}`}>
+                                  {OWNER_BADGE_STYLES[t.owner]?.label ?? t.owner}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
+            </div>
+
+            {/* Bottom action bar */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setPhase("editing")}
+                className="rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground transition-colors hover:border-muted"
+              >
+                Edit Notes
+              </button>
+              <button
+                onClick={handleReSummarize}
+                disabled={summarizing}
+                className="rounded-lg border border-border bg-background px-4 py-2 text-sm text-muted hover:text-foreground transition-colors disabled:opacity-50"
+              >
+                {summarizing ? "Summarizing..." : "Re-summarize"}
+              </button>
             </div>
           </>
         )}
