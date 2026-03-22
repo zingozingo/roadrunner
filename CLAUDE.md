@@ -51,7 +51,7 @@ roadrunner/
 │   ├── CLASSIFICATION.md          #   AI synthesis pipeline documentation (rewrite pending)
 │   ├── entity-model.md            #   Canonical schema — ERD + field-level registry + AT field IDs
 │   └── goal-state.md              #   Living orientation doc — current state & next steps
-├── decisions.md                   # Append-only architectural decision log (275 entries)
+├── decisions.md                   # Append-only architectural decision log (283 entries)
 ├── src/
 │   ├── app/                       # Next.js App Router
 │   │   ├── api/                   #   API routes (31 route files, grouped by entity)
@@ -124,13 +124,16 @@ roadrunner/
 │       │   ├── push.ts            #     RR → AT activity sync
 │       │   ├── field-maps.ts      #     Airtable field ID constants
 │       │   └── utils.ts           #     Coercion helpers + validation
-│       └── __tests__/             #   449 passing tests across 14 test files
+│       └── __tests__/             #   437 passing tests across 14 test files
 ├── supabase/
-│   ├── migrations/                # 69 migration files (001-069)
+│   ├── migrations/                # 70 migration files (001-070)
 │   └── (authoritative schema lives in migrations/)
 ├── scripts/
 │   ├── seed-data.ts               # CLI script to seed events/programs
-│   └── hydrate-contact-registry.ts # Backfill contact registry join tables
+│   ├── hydrate-contact-registry.ts # Backfill contact registry join tables
+│   ├── backfill-notes.ts          # One-time: re-summarize all meeting notes
+│   ├── backfill-engagements.ts    # One-time: re-synthesize all engagements
+│   └── backfill-brains.ts         # One-time: re-synthesize all partner brains
 └── data/
     ├── seed-events.json           # Event catalog seed data
     └── seed-programs-v2.json      # Program catalog seed data
@@ -192,7 +195,7 @@ roadrunner/
 
 ## Data Ownership
 
-Airtable owns **catalog** (Ring 1: Partners, Programs, Events, Relationships). Roadrunner owns **activity** (Ring 2: Engagements, Meetings, Notes, Tasks, Messages, Participants, Partner Context). Airtable-only tables (Ring 3: Partner Programs, Partner Events, Plans, Funding) will be pulled in later. See `docs/entity-model.md` for the complete schema with all 19 tables, FK cascade behaviors, and Airtable field IDs.
+Airtable owns **catalog** (Ring 1: Partners, Programs, Events, Relationships). Roadrunner owns **activity** (Ring 2: Engagements, Meetings, Notes, Tasks, Messages, Participants, Partner Context). Airtable-only tables (Ring 3: Partner Programs, Partner Events, Plans, Funding) will be pulled in later. See `docs/entity-model.md` for the complete schema with all 18 tables, FK cascade behaviors, and Airtable field IDs.
 
 ---
 
@@ -247,7 +250,7 @@ AIRTABLE_BASE_ID=appy9TT1LRJTAuQ4W
 ```bash
 npm install                        # Install dependencies
 npm run dev                        # Start Next.js dev server on :3000
-npx vitest run --reporter=verbose  # Run tests (449 passing, 0 failures)
+npx vitest run --reporter=verbose  # Run tests (437 passing, 0 failures)
 npx tsc --noEmit                   # TypeScript check (must pass with zero errors)
 ```
 
@@ -357,7 +360,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-070). New migratio
 | Doc | Purpose | When to Read |
 |-----|---------|--------------|
 | `CLAUDE.md` | This file — project overview, architecture, development | Start of every session |
-| `docs/entity-model.md` | Complete schema — 19 tables, all FKs, AT field IDs, ring model | Schema/data work |
+| `docs/entity-model.md` | Complete schema — 18 tables, all FKs, AT field IDs, ring model | Schema/data work |
 | `docs/CLASSIFICATION.md` | AI synthesis pipeline (rewrite pending — Phase 2 docs still accurate) | Prompt/AI work |
 | `docs/goal-state.md` | Living status — current state + what's next | Session planning |
 | `decisions.md` | Append-only architectural decision log (283 entries) | When you need "why" |

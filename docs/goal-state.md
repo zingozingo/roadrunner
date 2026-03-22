@@ -6,18 +6,18 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 69 migrations, 17 active tables, 31 API routes, 18 UI pages, 437 passing tests (0 failures), tsc --noEmit passes clean
+- 70 migrations, 18 active tables, 31 API routes, 18 UI pages, 437 passing tests (0 failures), tsc --noEmit passes clean
 - Human-guided intake pipeline fully operational: webhook → mechanical partner detection → ICS partner backfill → inbox triage (with unknown partner picker) → single-phase AI synthesis (decisions #223-252)
 - Meetings Motion complete (decisions #253-259): 10 interaction-based meeting types, recurring meeting engine with auto-spawn, series tracking via self-referential FK, RecurrenceEditor UI, synthesis-on-link, conference boilerplate pre-split fix, ICS multi-VEVENT guardrail confirmed
 - AI Brain Overhaul Phases 1-3 complete (decisions #260-269): goal field eliminated (migration 069), condensed columns on engagements + meeting_notes (migration 068), meeting summarization restructured with scoped context builder, structured output (Discussion/Decisions/Key Context), condensed 3-5 bullet digest, non-redundancy with tasks
 - Phase D cleanup complete: dead tests deleted, stale assertions fixed, dead types/routes removed
 - Entity model fully rewritten with ring architecture (Catalog → Activity → People → Posture) in docs/entity-model.md
-- Documentation consolidated: 6 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline (rewrite pending), ai-call-map.md AI call reference, goal-state.md status, decisions.md through #275)
+- Documentation consolidated: 6 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline (rewrite pending), ai-call-map.md AI call reference, goal-state.md status, decisions.md through #283)
 - Dead weight cleaned: notes table dropped (migration 061), orphaned components removed (PillGrid, CalendarCard, TableList, SyncStatus), decisions.md merged from two files into one
 - Zero polymorphic tables: entity_links replaced with engagement_programs + engagement_events (migration 065, decisions #221-222)
 - Contact registry complete: 76 participants, 85 partner links, 4 dedicated join tables, sync layer auto-maintains registry — all reads and writes flow through registry, JSONB columns dropped (Decisions #182, #218)
 - Shared contact rendering: ContactRow + ContactGroup components used by every contact surface, with centralized display hierarchy and role-priority sorting (Decisions #213-215)
-- Tasks promoted to partner-level entities with owner_participant_id FK (decisions 170-175)
+- Tasks promoted to partner-level entities with owner_participant_id FK + engagement_id FK (decisions 170-175, 280-281). Tasks page is full command center: checkbox complete/reopen, delete with confirmation, inline description edit, meeting link, engagement linker (decision 279). AI-extracted tasks inherit engagement_id from meeting→engagement chain. Re-summarize is additive — never deletes existing tasks (decision 278). Task extraction prompt rewritten with aggressive forward/backward test (6x improvement, decision 277).
 - Relationships universally renamed from aws_relationships (decision 173)
 - Meeting notes: 3-phase workspace, AI summarizer with structured output + condensed digest, task extraction, engagement-scoped context (decisions 101-119, 156-167, 265-266)
 - Brain synthesis (AI Call 3): structured 4-section executive briefing (Relationship Overview, Activity Patterns, What Needs Attention, Momentum Assessment), dedicated buildBrainContext reads condensed digests, max_tokens 2,000, manual trigger, stored as partner_context source='ai_synthesis' (decisions 191-193, 274-275)
@@ -40,11 +40,9 @@ A system where a PDM forwards an email and Roadrunner:
 
 ### Next Session
 - AI Brain Overhaul Phase 6 — UI alignment: update engagement detail to show condensed digest, update partner detail brain display for structured 4-section output
-- Phase 7 — backfill + re-synthesis: backfill condensed for existing engagements/meetings, re-synthesize partner brains with new pipeline
 
 ### Soon
 - Real daily use testing — forward emails, verify full pipeline end-to-end
-- Task UX improvements — inline editing, completion flow
 - Ring 3 pull sync planning (Partner Programs, Events, Co-Sell Goals, Partner Goals, Funding)
 - CLASSIFICATION.md full rewrite to document current pipeline
 
@@ -96,6 +94,11 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~AI Brain Overhaul Phase 4~~ ✅ (decisions 270-273): Engagement synthesis rewritten to evolve-the-anchor model — ~83% token reduction (~18,550→~3,075), full message history removed, entity matching removed, condensed output added, pillar persistence bug fixed, buildPhase2Context modernized to options object, 7 orphaned functions removed
 - ~~AI Brain Overhaul Phase 5~~ ✅ (decisions 274-275): Partner brain rewritten — structured 4-section executive briefing, dedicated buildBrainContext, condensed digest inputs from pyramid below, standalone meeting digests, scratchpad filtered (no ai_synthesis feedback loop), max_tokens 500→2,000, activity pattern signals
 - ~~TypeScript clean build~~ ✅: All 12 pre-existing tsc errors fixed across 3 test files (mock shapes, dead field assertions, generic syntax)
+- ~~AI Brain Overhaul Phase 7 — backfill~~ ✅ (decision 276): 17 notes re-summarized, 26 engagements re-synthesized, 22 partner brains re-synthesized. All 3 pyramid layers populated with real data. AT push deferred (decision 282).
+- ~~Task extraction prompt rewrite~~ ✅ (decision 277): Aggressive forward/backward test, obligation language patterns, compound sentence rule. 31 tasks extracted (6x improvement).
+- ~~Re-summarize made additive~~ ✅ (decision 278): Never deletes existing tasks. AI deduplicates against existing. Summary text refreshes, tasks accumulate.
+- ~~Tasks page command center~~ ✅ (decisions 279-281): Checkbox complete/reopen, delete with confirmation, inline description edit, meeting link display, engagement linker. engagement_id FK added (migration 070), auto-populated from meeting→engagement chain.
+- ~~Session housekeeping~~ ✅ (decision 283): Dead code, stale comments, unused test fixtures cleaned
 
 ## Architecture Principles
 

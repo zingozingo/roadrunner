@@ -5,7 +5,7 @@ description: UI design system and component patterns for Roadrunner (Relay), an 
 
 # Roadrunner UI Design System
 
-> **Last updated:** 2026-03-15. Reflects decisions through #199. UI overhaul complete: two-column detail pages, collapsible list groups, sidebar zone labels, three-tier partner detail.
+> **Last updated:** 2026-03-22. Reflects decisions through #283. UI overhaul complete: two-column detail pages, collapsible list groups, sidebar zone labels, three-tier partner detail. Tasks page is full command center (decisions 279-281).
 
 Roadrunner (also called Relay) is an AI-powered email classification and partner engagement management system for AWS PDMs. This skill defines the UI layout system, component patterns, and visual conventions.
 
@@ -321,7 +321,7 @@ Three components support `compact?: boolean` (default false). When true, suppres
 - **MeetingNotesSection** — Client bridge for meeting detail (3-state: no note, creating, existing)
 - **ContextSidebar** — Partner context during note-taking
 - **PreviousNotes** — Collapsible previous note summaries
-- **TaskEditor** — Task management (grouped by owner, add/toggle/delete)
+- **TaskEditor** — Task management in NoteWorkspace (grouped by owner, add/toggle/delete). Tasks page (/tasks) is the full command center: checkbox complete/reopen, delete with confirmation, inline description edit, meeting link, inline engagement linker (set/change/unlink)
 
 ### Partner Components (`src/components/partners/`)
 

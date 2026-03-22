@@ -451,18 +451,19 @@ Output format: one `Name <email> (Title)` per line (universal contact format).
 
 ### TASKS (Roadrunner-only)
 
-*Renamed from `note_tasks` in migration 059. Promoted to partner-level entity. `owner_participant_id` FK added in migration 059. (Decisions #170-172, #174-175)*
+*Renamed from `note_tasks` in migration 059. Promoted to partner-level entity. `owner_participant_id` FK added in migration 059. `engagement_id` FK added in migration 070. (Decisions #170-172, #174-175, #280-281)*
 
 | Field | SB Type | Owner | UI |
 |-------|---------|-------|-----|
 | id | uuid PK | RR | notes detail, partner detail, /tasks |
 | meeting_note_id | uuid FK → meeting_notes (SET NULL) | RR | notes detail |
 | partner_id | uuid NOT NULL FK → partners (CASCADE) | RR | partner detail, /tasks |
-| description | text NOT NULL | RR | notes detail |
+| engagement_id | uuid FK → engagements (SET NULL) | RR | /tasks (engagement linker) |
+| description | text NOT NULL | RR | notes detail, /tasks (inline edit) |
 | owner | text NOT NULL CHECK (me, internal, partner, third_party) | RR | notes detail |
 | owner_name | text | RR | notes detail |
 | owner_participant_id | uuid FK → participants (SET NULL) | RR | — |
-| status | text NOT NULL CHECK (open, done, cancelled) | RR | notes detail |
+| status | text NOT NULL CHECK (open, done, cancelled) | RR | /tasks (checkbox) |
 | due_date | date | RR | notes detail |
 | origin | text NOT NULL CHECK (ai_extracted, manual) | RR | notes detail |
 | created_at | timestamptz | RR | — |
@@ -929,6 +930,7 @@ UNIQUE index on `(participant_id, entity_type, entity_id)`
 | meeting_notes | partner_id | partners | CASCADE | Partner is gravity |
 | meeting_notes | engagement_id | engagements | SET NULL | Notes survive engagement close |
 | tasks | partner_id | partners | CASCADE | Partner is gravity |
+| tasks | engagement_id | engagements | SET NULL | Tasks survive engagement close |
 | tasks | meeting_note_id | meeting_notes | SET NULL | Tasks survive note deletion |
 | tasks | owner_participant_id | participants | SET NULL | Tasks survive contact cleanup |
 | messages | engagement_id | engagements | SET NULL | Messages survive engagement close |
