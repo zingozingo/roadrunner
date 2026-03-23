@@ -12,14 +12,14 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 - AI Brain Overhaul Phases 1-3 complete (decisions #260-269): goal field eliminated (migration 069), condensed columns on engagements + meeting_notes (migration 068), meeting summarization restructured with scoped context builder, structured output (Discussion/Decisions/Key Context), condensed 3-5 bullet digest, non-redundancy with tasks
 - Phase D cleanup complete: dead tests deleted, stale assertions fixed, dead types/routes removed
 - Entity model fully rewritten with ring architecture (Catalog → Activity → People → Posture) in docs/entity-model.md
-- Documentation consolidated: 6 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline (rewrite pending), ai-call-map.md AI call reference, goal-state.md status, decisions.md through #283)
+- Documentation consolidated: 6 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline (rewrite pending), ai-call-map.md AI call reference, goal-state.md status, decisions.md through #286)
 - Dead weight cleaned: notes table dropped (migration 061), orphaned components removed (PillGrid, CalendarCard, TableList, SyncStatus), decisions.md merged from two files into one
 - Zero polymorphic tables: entity_links replaced with engagement_programs + engagement_events (migration 065, decisions #221-222)
 - Contact registry complete: 76 participants, 85 partner links, 4 dedicated join tables, sync layer auto-maintains registry — all reads and writes flow through registry, JSONB columns dropped (Decisions #182, #218)
 - Shared contact rendering: ContactRow + ContactGroup components used by every contact surface, with centralized display hierarchy and role-priority sorting (Decisions #213-215)
 - Tasks promoted to partner-level entities with owner_participant_id FK + engagement_id FK (decisions 170-175, 280-281). Tasks page is full command center: checkbox complete/reopen, delete with confirmation, inline description edit, meeting link, engagement linker (decision 279). AI-extracted tasks inherit engagement_id from meeting→engagement chain. Re-summarize is additive — never deletes existing tasks (decision 278). Task extraction prompt rewritten with aggressive forward/backward test (6x improvement, decision 277).
 - Relationships universally renamed from aws_relationships (decision 173)
-- Meeting notes: 3-phase workspace, AI summarizer with structured output + condensed digest, task extraction, engagement-scoped context (decisions 101-119, 156-167, 265-266)
+- Meeting notes: 3-mode workspace (editing → review → saved), AI summarizer with structured output + condensed digest, task extraction, engagement-scoped context, Previous Context scoped to same engagement with self-exclusion (decisions 101-119, 156-167, 265-266, 284-286)
 - Brain synthesis (AI Call 3): structured 4-section executive briefing (Relationship Overview, Activity Patterns, What Needs Attention, Momentum Assessment), dedicated buildBrainContext reads condensed digests, max_tokens 2,000, manual trigger, stored as partner_context source='ai_synthesis' (decisions 191-193, 274-275)
 - Seed notes eliminated: note_type CHECK narrowed to 'meeting', historical context lives in scratchpad (decision 195)
 - Manual meeting quick-capture: modal form on /meetings page with partner dropdown, auto-title, meeting type (decision 189)
@@ -99,6 +99,9 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~Re-summarize made additive~~ ✅ (decision 278): Never deletes existing tasks. AI deduplicates against existing. Summary text refreshes, tasks accumulate.
 - ~~Tasks page command center~~ ✅ (decisions 279-281): Checkbox complete/reopen, delete with confirmation, inline description edit, meeting link display, engagement linker. engagement_id FK added (migration 070), auto-populated from meeting→engagement chain.
 - ~~Session housekeeping~~ ✅ (decision 283): Dead code, stale comments, unused test fixtures cleaned
+- ~~Meeting notes 3-mode refactor~~ ✅ (decision 284): editing → review → saved. Save transitions without page reload, Save Draft removed (auto-save), Cancel button for return-from-saved
+- ~~Tasks unified to sidebar~~ ✅ (decision 285): Single task display on meeting detail. Sidebar owns tasks with owner badges and "this meeting" highlight. Left column owns summary only
+- ~~Previous Context scoping~~ ✅ (decision 286): Same-engagement scope when linked, partner-wide when standalone, current meeting always excluded
 
 ## Architecture Principles
 

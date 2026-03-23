@@ -5,7 +5,7 @@ description: UI design system and component patterns for Roadrunner (Relay), an 
 
 # Roadrunner UI Design System
 
-> **Last updated:** 2026-03-22. Reflects decisions through #283. UI overhaul complete: two-column detail pages, collapsible list groups, sidebar zone labels, three-tier partner detail. Tasks page is full command center (decisions 279-281).
+> **Last updated:** 2026-03-22. Reflects decisions through #286. UI overhaul complete: two-column detail pages, collapsible list groups, sidebar zone labels, three-tier partner detail. Tasks page is full command center (decisions 279-281). Meeting notes refactored to three-mode flow with unified sidebar tasks (decisions 284-286).
 
 Roadrunner (also called Relay) is an AI-powered email classification and partner engagement management system for AWS PDMs. This skill defines the UI layout system, component patterns, and visual conventions.
 
@@ -317,11 +317,11 @@ Three components support `compact?: boolean` (default false). When true, suppres
 
 ### Notes Components (`src/components/notes/`)
 
-- **NoteWorkspace** — Full editing + review phases, auto-save, AI summarize
-- **MeetingNotesSection** — Client bridge for meeting detail (3-state: no note, creating, existing)
-- **ContextSidebar** — Partner context during note-taking
-- **PreviousNotes** — Collapsible previous note summaries
-- **TaskEditor** — Task management in NoteWorkspace (grouped by owner, add/toggle/delete). Tasks page (/tasks) is the full command center: checkbox complete/reopen, delete with confirmation, inline description edit, meeting link, inline engagement linker (set/change/unlink)
+- **NoteWorkspace** — Three-mode workspace (editing → review → saved). Mode 1: raw notes + Summarize + Cancel. Mode 2: interactive TaskEditor + Save. Mode 3: read-only summary + Edit Notes + Re-summarize. Auto-save, no Save Draft button.
+- **MeetingNotesSection** — Client bridge for meeting detail (3-state: no note, creating, existing). Passes `initialPhase: "saved"` for completed notes.
+- **ContextSidebar** — Partner context during note-taking. Open Tasks section shows owner badges and highlights tasks from current meeting (`currentNoteId` prop). Previous notes scoped to same engagement with self-exclusion (query in server component).
+- **PreviousNotes** — Collapsible previous note summaries (engagement-scoped, excludes current meeting)
+- **TaskEditor** — Task management in NoteWorkspace review mode only (grouped by owner, add/toggle/delete). Tasks page (/tasks) is the full command center: checkbox complete/reopen, delete with confirmation, inline description edit, meeting link, inline engagement linker (set/change/unlink)
 
 ### Partner Components (`src/components/partners/`)
 

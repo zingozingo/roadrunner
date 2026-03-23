@@ -5503,3 +5503,48 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** Clean codebase, accurate comments.
 
 ---
+
+### #284 — Meeting notes refactored to three-mode flow (editing → review → saved)
+
+**Date:** 2026-03-22
+**Status:** ✅ Implemented
+
+**Decision:** Replaced two-phase NoteWorkspace (editing/review) with three-mode system: editing → review → saved. Mode 1 (editing): raw notes textarea + Summarize button + Cancel (when returning from a completed note). Mode 2 (review): interactive TaskEditor for the extraction moment + Save + Back to Editing. Mode 3 (saved): read-only summary, Edit Notes + Re-summarize buttons, no Save button.
+
+**Context:** After saving, the page reloaded back into review mode with Save/Back to Editing still visible, making it feel like the user was perpetually mid-edit. There was no visual distinction between "I just summarized and need to review" and "this meeting is done."
+
+**Rationale:** Save now transitions to Mode 3 via state change (no full page reload). Save Draft button removed — auto-save handles it. Cancel button appears in editing mode only when returning from a completed note (summary exists). MeetingNotesSection passes `initialPhase: "saved"` for completed notes instead of `"review"`.
+
+**Impact:** Clear mode states eliminate the perpetually-mid-edit confusion. Three distinct visual states match the user's mental model: writing, reviewing AI output, done.
+
+---
+
+### #285 — Tasks unified to sidebar on meeting detail (single source of truth)
+
+**Date:** 2026-03-22
+**Status:** ✅ Implemented
+
+**Decision:** Removed the read-only task list from Mode 3 (saved) left column. Tasks now live exclusively in the ContextSidebar. Tasks from the current meeting are highlighted with a left-border accent (`border-l-2 border-accent/40`). All tasks show color-coded owner badges matching the tasks page palette (Me=accent, Partner=emerald, Internal=amber, Third Party=purple).
+
+**Context:** Meeting detail had two task displays — ACTION ITEMS in the left column and OPEN TASKS in the right sidebar — showing overlapping but different data. The left showed this note's tasks, the sidebar showed the partner's open tasks. Redundant and confusing.
+
+**Rationale:** One task display per page. Sidebar already shows partner-wide context; adding `currentNoteId` prop lets it highlight which tasks came from this meeting. `meeting_note_id` threaded through `PartnerContext` and `DisplayContext` types for the matching. Mode 2 (review) keeps TaskEditor in left column for the interactive extraction moment.
+
+**Impact:** No redundancy. Single source of truth for tasks. Clear read-only vs editable distinction.
+
+---
+
+### #286 — Previous Context scoped to same-engagement + self-exclusion
+
+**Date:** 2026-03-22
+**Status:** ✅ Implemented
+
+**Decision:** Previous Context on meeting detail now scopes to same engagement and excludes the current meeting. Engagement-linked meetings show notes from the same `engagement_id`. Standalone meetings show partner-wide notes. Current meeting always excluded via `.neq("meeting_id", id)`.
+
+**Context:** `buildPartnerContext` queried all completed notes for the partner with no engagement filter and no self-exclusion. A meeting linked to Engagement A would show notes from Engagements B and C, plus its own note in its own Previous Context list.
+
+**Rationale:** Scoped query runs in the server component after `formatContextForDisplay`, overriding `partnerContext.previousNotes`. Uses `meeting_notes.engagement_id` directly (no join needed — column exists on the table). `buildPartnerContext` left unchanged since it's used by other consumers (ContextSidebar, AI context pipeline). UI display now matches what the AI reads via `buildMeetingNoteContext`.
+
+**Impact:** Previous Context shows relevant history from the same workstream, not noise from unrelated engagements.
+
+---
