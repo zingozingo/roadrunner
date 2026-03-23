@@ -503,6 +503,7 @@ export interface PartnerContext {
     owner_name: string | null;
     status: string;
     due_date: string | null;
+    meeting_note_id: string | null;
   }>;
   scratchpadEntries: Array<{
     content: string;
@@ -559,6 +560,7 @@ export interface DisplayContext {
     description: string;
     owner: string;
     owner_name: string | null;
+    meeting_note_id: string | null;
   }>;
   previousNotes: Array<{
     title: string | null;

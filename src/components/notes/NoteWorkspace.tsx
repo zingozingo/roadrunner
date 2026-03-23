@@ -6,22 +6,6 @@ import TaskEditor from "./TaskEditor";
 
 type Phase = "editing" | "review" | "saved";
 
-const OWNER_BADGE_STYLES: Record<string, { className: string; label: string }> = {
-  me: { className: "bg-accent/10 text-accent", label: "Me" },
-  partner: { className: "bg-emerald-500/10 text-emerald-400", label: "Partner" },
-  internal: { className: "bg-amber-500/10 text-amber-400", label: "Internal" },
-  third_party: { className: "bg-purple-500/10 text-purple-400", label: "3rd Party" },
-};
-
-const OWNER_GROUP_ORDER = ["me", "internal", "partner", "third_party"] as const;
-
-const OWNER_GROUP_LABELS: Record<string, string> = {
-  me: "My Tasks",
-  partner: "Partner Tasks",
-  internal: "Internal",
-  third_party: "Third Party",
-};
-
 interface NoteWorkspaceProps {
   noteId: string;
   partnerName: string;
@@ -249,12 +233,17 @@ export default function NoteWorkspace({
                   "Summarize with AI"
                 )}
               </button>
-              <button
-                onClick={() => saveDraft(rawNotes)}
-                className="rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground transition-colors hover:border-muted"
-              >
-                Save Draft
-              </button>
+              {summary && (
+                <button
+                  onClick={async () => {
+                    await saveDraft(rawNotes);
+                    setPhase("saved");
+                  }}
+                  className="text-sm text-muted hover:text-foreground transition-colors"
+                >
+                  Cancel
+                </button>
+              )}
               {summarizeError && (
                 <span className="text-xs text-red-400">{summarizeError}</span>
               )}
@@ -359,8 +348,29 @@ export default function NoteWorkspace({
 
         {phase === "saved" && (
           <>
-            {/* Saved phase — resting state, everything read-only */}
+            {/* Saved phase — resting state, summary only (tasks live in sidebar) */}
             <div className="space-y-4">
+              {/* Raw Notes — collapsible */}
+              <div className="rounded-xl border border-border bg-surface p-4">
+                <button
+                  onClick={() => setShowRawNotes(!showRawNotes)}
+                  className="flex w-full items-center justify-between"
+                >
+                  <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">Raw Notes</h2>
+                  <svg
+                    width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5"
+                    className={`text-muted transition-transform ${showRawNotes ? "rotate-180" : ""}`}
+                  >
+                    <path d="M3 5l4 4 4-4" />
+                  </svg>
+                </button>
+                {showRawNotes && (
+                  <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap text-sm text-foreground/80 leading-relaxed">
+                    {rawNotes}
+                  </pre>
+                )}
+              </div>
+
               {/* Summary — read-only */}
               <div className="rounded-xl border border-border bg-surface p-4">
                 <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">Summary</h2>
@@ -368,41 +378,6 @@ export default function NoteWorkspace({
                   {summary}
                 </div>
               </div>
-
-              {/* Tasks — read-only list */}
-              {tasks.length > 0 && (
-                <div className="rounded-xl border border-border bg-surface p-4">
-                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
-                    Action Items
-                    <span className="ml-1.5 font-normal text-muted/50">{tasks.filter((t) => t.status === "open").length} open</span>
-                  </h3>
-                  <div className="space-y-3">
-                    {OWNER_GROUP_ORDER.map((ownerKey) => {
-                      const group = tasks.filter((t) => t.owner === ownerKey);
-                      if (group.length === 0) return null;
-                      return (
-                        <div key={ownerKey}>
-                          <h4 className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted/50">
-                            {OWNER_GROUP_LABELS[ownerKey]}
-                          </h4>
-                          <div className="space-y-1">
-                            {group.map((t) => (
-                              <div key={t.id} className="flex items-center gap-2 px-2 py-1">
-                                <span className={`text-sm ${t.status === "done" ? "text-muted line-through" : "text-foreground"}`}>
-                                  {t.description}
-                                </span>
-                                <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${OWNER_BADGE_STYLES[t.owner]?.className ?? ""}`}>
-                                  {OWNER_BADGE_STYLES[t.owner]?.label ?? t.owner}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Bottom action bar */}
@@ -427,7 +402,7 @@ export default function NoteWorkspace({
 
       {/* Right column — context sidebar */}
       <div className="lg:sticky lg:top-6 lg:self-start">
-        <ContextSidebar context={context} />
+        <ContextSidebar context={context} currentNoteId={noteId} />
       </div>
     </div>
   );

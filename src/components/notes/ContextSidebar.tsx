@@ -22,7 +22,7 @@ const OWNER_BADGE_STYLES: Record<string, { className: string; label: string }> =
   third_party: { className: "bg-purple-500/10 text-purple-400", label: "3rd Party" },
 };
 
-export default function ContextSidebar({ context }: { context: DisplayContext }) {
+export default function ContextSidebar({ context, currentNoteId }: { context: DisplayContext; currentNoteId?: string }) {
   const { profile, contacts, openTasks, openTaskCount, scratchpadEntries } = context;
 
   return (
@@ -103,17 +103,20 @@ export default function ContextSidebar({ context }: { context: DisplayContext })
             Open Tasks ({openTaskCount})
           </h3>
           <div className="space-y-1">
-            {openTasks.map((t, i) => (
-              <div key={i} className="flex items-start gap-1.5 text-xs">
-                <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-amber-400" />
-                <span className="flex-1 text-foreground/80">{t.description}</span>
-                {t.owner && (
-                  <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${OWNER_BADGE_STYLES[t.owner]?.className ?? "bg-muted/10 text-muted"}`}>
-                    {OWNER_BADGE_STYLES[t.owner]?.label ?? t.owner}
-                  </span>
-                )}
-              </div>
-            ))}
+            {openTasks.map((t, i) => {
+              const isThisMeeting = currentNoteId && t.meeting_note_id === currentNoteId;
+              return (
+                <div key={i} className={`flex items-start gap-1.5 text-xs ${isThisMeeting ? "border-l-2 border-accent/40 pl-1.5" : ""}`}>
+                  <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-amber-400" />
+                  <span className="flex-1 text-foreground/80">{t.description}</span>
+                  {t.owner && (
+                    <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${OWNER_BADGE_STYLES[t.owner]?.className ?? "bg-muted/10 text-muted"}`}>
+                      {OWNER_BADGE_STYLES[t.owner]?.label ?? t.owner}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

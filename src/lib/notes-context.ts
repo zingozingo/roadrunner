@@ -118,6 +118,7 @@ export async function buildPartnerContext(
       owner_name: t.owner_name,
       status: t.status,
       due_date: t.due_date,
+      meeting_note_id: t.meeting_note_id,
     })),
     scratchpadEntries: scratchpadContext.map((e) => ({
       content: e.content,
@@ -261,6 +262,7 @@ export function formatContextForDisplay(context: PartnerContext): DisplayContext
       description: t.description,
       owner: t.owner,
       owner_name: t.owner_name,
+      meeting_note_id: t.meeting_note_id ?? null,
     })),
     previousNotes: context.previousNotes.map((n) => ({
       title: n.title,
