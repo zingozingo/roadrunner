@@ -11,6 +11,7 @@ import {
   getContactsByMeeting,
   getSeriesSiblings,
 } from "@/lib/db";
+import { getSupabaseClient } from "@/lib/db/client";
 import { buildPartnerContext, formatContextForDisplay } from "@/lib/notes-context";
 import { cleanMeetingTitle, formatFooterDate } from "@/lib/format-utils";
 import MeetingNotesSection from "@/components/notes/MeetingNotesSection";
@@ -71,6 +72,32 @@ export default async function MeetingDetailPage({
     try {
       const rawContext = await buildPartnerContext(partner.id);
       partnerContext = formatContextForDisplay(rawContext);
+
+      // Override previousNotes with scoped query:
+      // - Engagement-scoped if meeting is linked, partner-wide if standalone
+      // - Always excludes current meeting's note
+      const db = getSupabaseClient();
+      let notesQuery = db
+        .from("meeting_notes")
+        .select("title, meeting_date, ai_summary, note_type")
+        .eq("partner_id", partner.id)
+        .eq("status", "complete")
+        .not("ai_summary", "is", null)
+        .neq("meeting_id", id)
+        .order("meeting_date", { ascending: false, nullsFirst: false })
+        .limit(5);
+
+      if (meeting.engagement_id) {
+        notesQuery = notesQuery.eq("engagement_id", meeting.engagement_id);
+      }
+
+      const { data: scopedNotes } = await notesQuery;
+      partnerContext.previousNotes = (scopedNotes ?? []).map((n) => ({
+        title: n.title,
+        meeting_date: n.meeting_date,
+        ai_summary: n.ai_summary,
+        note_type: n.note_type,
+      }));
     } catch (err) {
       console.error(`Failed to build partner context for meeting ${id}:`, err);
     }
