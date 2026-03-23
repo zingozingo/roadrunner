@@ -134,11 +134,6 @@ export default function NoteWorkspace({
     }
   }
 
-  async function handleReSummarize() {
-    if (!confirm("This will regenerate the summary and may add new tasks. Continue?")) return;
-    await handleSummarize();
-  }
-
   async function refreshNote() {
     const res = await fetch(`/api/notes/${noteId}`);
     if (res.ok) {
@@ -387,13 +382,6 @@ export default function NoteWorkspace({
                 className="rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground transition-colors hover:border-muted"
               >
                 Edit Notes
-              </button>
-              <button
-                onClick={handleReSummarize}
-                disabled={summarizing}
-                className="rounded-lg border border-border bg-background px-4 py-2 text-sm text-muted hover:text-foreground transition-colors disabled:opacity-50"
-              >
-                {summarizing ? "Summarizing..." : "Re-summarize"}
               </button>
             </div>
           </>
