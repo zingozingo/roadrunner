@@ -5534,17 +5534,47 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 
 ---
 
-### #286 — Previous Context scoped to same-engagement + self-exclusion
+### #286 — Previous Context: three-tier scoping cascade
 
 **Date:** 2026-03-22
 **Status:** ✅ Implemented
 
-**Decision:** Previous Context on meeting detail now scopes to same engagement and excludes the current meeting. Engagement-linked meetings show notes from the same `engagement_id`. Standalone meetings show partner-wide notes. Current meeting always excluded via `.neq("meeting_id", id)`.
+**Decision:** Previous Context on meeting detail uses a three-tier cascade: Tier 1 (engagement-linked) shows notes from same engagement via `meetings!inner(engagement_id)` join. Tier 2 (recurring standalone with series_id) shows notes from same series via `meetings!inner(series_id)` join. Tier 3 (truly standalone) shows no previous context. Self-exclusion via `.neq("meeting_id", id)` on all tiers.
 
-**Context:** `buildPartnerContext` queried all completed notes for the partner with no engagement filter and no self-exclusion. A meeting linked to Engagement A would show notes from Engagements B and C, plus its own note in its own Previous Context list.
+**Context:** Originally partner-wide with no scoping. First fix (two-tier) added engagement scoping but standalone meetings still saw all partner notes — a ProsperOps Partner Sync would see unrelated Optimize to Innovate notes. Tier 1 also used `meeting_notes.engagement_id` directly, which is often null.
 
-**Rationale:** Scoped query runs in the server component after `formatContextForDisplay`, overriding `partnerContext.previousNotes`. Uses `meeting_notes.engagement_id` directly (no join needed — column exists on the table). `buildPartnerContext` left unchanged since it's used by other consumers (ContextSidebar, AI context pipeline). UI display now matches what the AI reads via `buildMeetingNoteContext`.
+**Rationale:** Three-tier cascade in the server component after `formatContextForDisplay`. Tiers 1 and 2 join through `meetings` table for reliable FK access. Tier 3 returns empty array — a one-off unlinked meeting has no meaningful prior context, and showing random partner notes is worse than showing nothing. `buildPartnerContext` left unchanged.
 
-**Impact:** Previous Context shows relevant history from the same workstream, not noise from unrelated engagements.
+**Impact:** Previous Context shows only relevant history: same workstream, same recurring series, or nothing.
+
+---
+
+### #287 — Re-summarize button removed from Mode 3 (saved)
+
+**Date:** 2026-03-22
+**Status:** ✅ Implemented
+
+**Decision:** Mode 3 (saved) now has only one button: "Edit Notes." Re-summarize button and dead `handleReSummarize` function removed.
+
+**Context:** Re-summarize from Mode 3 was redundant — you can't edit notes from saved mode, so re-summarizing without editing first produces the same output. The intended flow is Edit Notes → Summarize → Save.
+
+**Rationale:** One clear path through the three modes. The user edits, then summarizes, then saves. No shortcuts that skip editing.
+
+**Impact:** Simpler flow, no redundant actions in the saved state.
+
+---
+
+### #288 — Task extraction prompt: forward/backward temporal test
+
+**Date:** 2026-03-22
+**Status:** ✅ Implemented (decision 277, documented here for completeness)
+
+**Decision:** Task extraction prompt rewritten with aggressive forward/backward temporal test. Replaced "single action checkoff" filter with "does this still need to happen?" Flipped extraction bias to "when in doubt, DO extract." Added obligation language patterns (need to, should, will, agreed to, committed to) and compound sentence rule (split compound sentences, extract each obligation separately).
+
+**Context:** Old prompt extracted only 5 tasks from 17 meeting notes. The "single action checkoff" test was too conservative — it filtered out recurring obligations, ongoing commitments, and multi-step work items that are real tasks.
+
+**Rationale:** Better to extract too many and let the user trim false positives than to miss real obligations. The forward/backward test ("Was this a future obligation when written? Has it likely been completed since?") is more accurate than the binary checkoff test.
+
+**Impact:** 31 tasks extracted (6x improvement). Catches real obligations like "schedule follow-up," "send proposal," "prepare demo."
 
 ---

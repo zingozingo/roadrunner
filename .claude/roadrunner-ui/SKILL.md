@@ -5,7 +5,7 @@ description: UI design system and component patterns for Roadrunner (Relay), an 
 
 # Roadrunner UI Design System
 
-> **Last updated:** 2026-03-22. Reflects decisions through #286. UI overhaul complete: two-column detail pages, collapsible list groups, sidebar zone labels, three-tier partner detail. Tasks page is full command center (decisions 279-281). Meeting notes refactored to three-mode flow with unified sidebar tasks (decisions 284-286).
+> **Last updated:** 2026-03-22. Reflects decisions through #288. UI overhaul complete: two-column detail pages, collapsible list groups, sidebar zone labels, three-tier partner detail. Tasks page is full command center (decisions 279-281). Meeting notes: three-mode flow, unified sidebar tasks, three-tier Previous Context cascade (decisions 284-288).
 
 Roadrunner (also called Relay) is an AI-powered email classification and partner engagement management system for AWS PDMs. This skill defines the UI layout system, component patterns, and visual conventions.
 
