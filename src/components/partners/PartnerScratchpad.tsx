@@ -129,7 +129,7 @@ export default function PartnerScratchpad({
                   <div className="flex items-center gap-2 text-xs text-muted">
                     <span>{relativeTime(entry.created_at)}</span>
                     {isSeed && (
-                      <span className="rounded-full bg-purple-500/15 px-1.5 py-0.5 text-[10px] font-medium text-purple-400">
+                      <span className="rounded-full bg-purple-500/10 px-1.5 py-0.5 text-[10px] font-medium text-purple-400">
                         SEED
                       </span>
                     )}
