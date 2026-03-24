@@ -239,7 +239,7 @@ export default function Sidebar({
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 z-40 h-full w-64 border-r border-border/15 bg-surface transition-transform lg:static lg:translate-x-0 ${
+        className={`fixed top-0 left-0 z-40 h-full w-64 transition-transform lg:static lg:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
