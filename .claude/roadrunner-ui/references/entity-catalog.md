@@ -28,33 +28,32 @@ Flat rows grouped by segment. Groups default open.
 
 ### Detail Page (`partners/[id]/page.tsx`)
 
-**Job:** Everything about one partner — the portal you explore.
+**Job:** Everything about one partner — the portal you explore. Core content fits on one screen.
+
+**Layout:** Full-width + slide-over panels. No permanent right column.
 
 **Identity Bar:**
 - Title: `partner.name` (`text-2xl`)
 - Badges: Segment pill
-- Right-aligned: SPMS ID (muted text)
+- Right-aligned: SPMS ID (muted) + Reference tabs: "Profile" | "Status" | "People"
 
-**Left Column (dynamic):**
+**Main Content (full-width, above-the-fold target):**
 
 | Section | Content | Progressive Disclosure |
 |---|---|---|
-| Brain Synthesis | 4 sections parsed from `##` headers. AI visual treatment (left-border accent). "Re-synthesize" secondary button. "Last synthesized" timestamp. | Always visible, not collapsible |
-| Scratchpad | Compact entries, inline input at bottom. No card wrapper. | Always visible |
-| Engagements | Condensed cards: name (linked) + pillar badge + status dot + condensed digest preview (2-3 lines). Fall back to topic if no condensed. | First 5, "Show all N →" if more |
-| Open Tasks | Flat rows: description + owner badge. | First 5, "View all tasks →" links to `/tasks?partner=X` |
-| Recent Meetings | Rows: date + title (linked) + condensed digest snippet (first line). | First 5, "View all →" |
+| Brain Highlight | "What Needs Attention" prominent (amber accent). Other 3 brain sections as accordion. "Re-synthesize" + timestamp. | Attention always visible. Others collapsed. |
+| Scratchpad | Notepad container (`bg-surface/50 rounded-lg p-4 border border-border/20`). Input at bottom. Hover-delete entries. | First 3, "Show all N" if more |
+| Engagements | Rows: name (linked) + pillar badge. Condensed one-liner below. Smart status (dots only for non-active). | 7 or fewer: all. 8+: first 5 + expander |
+| Open Tasks | Rows: description + owner badge. "Me" in foreground, others muted. | Top 5, "View all tasks →" |
+| Recent Meetings | Rows: date + title (linked) + condensed one-liner. No status dots. | Top 5, "View all →" |
 
-**Right Column (stable):**
+**Slide-Over Panel (tabbed):**
 
-| Section | Content |
+| Tab | Content |
 |---|---|
-| Solution Profile | "What They Do" (prose) + "AWS Stickiness" (prose, section label) + Key AWS Services (pill tags) |
-| Deployment & Pricing | 2-column grid: Architecture pill, Listing Types pills, Pricing Model pills |
-| Operational Status | Sub-label/value pairs: ISVa Status, Deployed on AWS, CRM Status, PRM Status. **Expandable container for Ring 3:** program enrollments, funding wallets, goal progress will be added here. |
-| People | ContactGroup: Partner Team, AWS Team. Each: name + role + title + email via ContactRow. |
-
-**Right Column Sections do NOT collapse.** Stable reference is always visible.
+| Profile | "What They Do" + "AWS Stickiness" + Key AWS Services + Deployment grid |
+| Status | ISVa, Deployed on AWS, CRM, PRM + Relationships. {/* Ring 3 future */} |
+| People | ContactGroup: Partner Team, AWS Team |
 
 ---
 

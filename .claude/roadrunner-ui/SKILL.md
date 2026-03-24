@@ -75,14 +75,25 @@ Zone spacing: `mt-6` between tiers.
 
 ### Principles
 
-- **Two-column detail pages**: left = dynamic content (activity, AI, lists), right = stable reference (profile, status, people, metadata)
-- **Single-column list pages**: full width, filter bar at top, grouped content below
-- **No three-column layouts.** The meeting detail middle-column pattern is eliminated.
-- **No staggered card grids.** No floating boxes at different heights.
-- **Left column is the star.** It gets the majority of width and contains the content you're there to interact with.
-- **Right column is orientation.** It answers "what is this thing?" so you can focus on the left column's "what's happening with it?"
+- **Above-the-fold target.** The core content a user needs should be visible without scrolling. If a page requires 3 scrolls, it has too much surface content — push reference data behind a click.
+- **Full-width + slide-over panels** for detail pages with heavy reference data (partner detail). The main content gets the full page width. Reference data (profile, status, people) opens in a slide-over panel triggered by tab buttons. This reclaims width for dynamic content.
+- **Two-column detail pages** for pages with lighter reference needs (engagement detail, meeting detail). Left = dynamic content, right = slim metadata/context.
+- **Single-column list pages**: full width, filter bar at top, grouped content below.
+- **No three-column layouts.** No staggered card grids. No floating boxes.
+- **Information has weight.** Not all content gets equal visual treatment. Urgent items (what needs attention, my tasks) get prominence. Stable reference data goes behind a click. Recent activity outweighs old activity.
 
-### Two-Column Grid
+### Full-Width + Slide-Over (Partner Detail Pattern)
+
+The partner page is the most information-dense page in the app. Instead of a permanent right column that pushes dynamic content into a narrow left column, the partner page uses the full width for dynamic content and puts reference data in slide-over panels.
+
+**Slide-over panels:** Triggered by tab buttons near the identity bar. Slides in from the right, ~450px wide, over the main content. Click outside or X to close. Contains reference data: Solution Profile, Operational Status, People.
+
+This pattern:
+- Keeps the main surface focused on brain + engagements + tasks + meetings
+- Scales when Ring 3 data arrives (more panel content, not more page cramming)
+- Works at any screen width (panels are overlay, not layout-dependent)
+
+### Two-Column Grid (Engagement/Meeting Detail Pattern)
 
 ```
 grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8 lg:gap-12
@@ -92,35 +103,29 @@ Right column: `lg:border-l lg:border-border/20 lg:pl-8`
 
 Below `lg` breakpoint: columns stack vertically, right column appears below left.
 
+Used for engagement detail and meeting detail where the right column is slim metadata (partner link, dates, participants), not heavy reference data.
+
 ### Page Shell
 
 Every page follows this outer structure:
 ```
 <div className="mx-auto max-w-7xl p-6 lg:p-8">
   {/* Identity bar */}
-  {/* Content (single or two-column) */}
+  {/* Content */}
 </div>
 ```
 
-`max-w-7xl` ensures readability on ultra-wide monitors. Content breathes on 30" screens without stretching to absurd line lengths.
+`max-w-7xl` ensures readability on ultra-wide monitors.
 
 ---
 
 ## 4. Container Types
 
-Three container types. Every UI element maps to one of these. No exceptions.
+Four container types. Every UI element maps to one of these.
 
 ### Section
 
 A labeled group of related content. Optionally collapsible.
-
-```
-┌─ SECTION LABEL (count) ─────────────────────┐
-│                                              │
-│  Content: rows, prose, sub-components        │
-│                                              │
-└──────────────────────────────────────────────┘
-```
 
 - Header: section label style (see Typography)
 - Count shown as plain text after label, not a badge
@@ -133,33 +138,43 @@ A labeled group of related content. Optionally collapsible.
 
 A single item in a list. Clickable when linking to a detail page.
 
-```
-[Name/Description]                    [metadata] [badge] [dot]
-```
-
 - Name: `flex-1 truncate` — takes available space
-- Metadata, badges, status indicators: `shrink-0` right-aligned
-- Padding: `px-3 py-3` (slightly more generous than before for readability)
+- Metadata, badges: `shrink-0` right-aligned
+- Padding: `px-3 py-3`
 - Border: `border-b border-border/20`
 - Hover: `hover:bg-surface/50 transition-colors`
-- `items-center` when badges/dots present; `items-baseline` for text-only rows
+- `items-center` when badges present; `items-baseline` for text-only rows
 
 ### Detail Panel
 
 Full-width content block for prose, AI summaries, or structured text.
 
-```
-┌──────────────────────────────────────────────┐
-│  Prose content, AI-generated summaries,      │
-│  structured text with sections.              │
-│  Leading-relaxed for readability.            │
-└──────────────────────────────────────────────┘
-```
-
 - Text: body prose style (see Typography)
 - `leading-relaxed` for multi-paragraph content
 - AI-generated content gets a visual marker (see AI Content Rendering)
-- No card wrapper (`rounded-xl border bg-surface`) on detail pages
+- No card wrapper on detail pages
+
+### Slide-Over Panel
+
+Right-side overlay for reference data. Triggered by a button, dismissible.
+
+- Width: `w-[450px] max-w-[90vw]` — fixed width, respects small screens
+- Position: fixed right, full height, over main content with backdrop
+- Background: `bg-surface` with `border-l border-border/30`
+- Backdrop: `bg-black/40` click-to-dismiss
+- Close button: top-right X
+- Content: standard Section containers inside the panel, scrollable
+- Animation: slide in from right (`translate-x` transition)
+- Multiple tabs can share one panel (tab buttons switch content, panel stays open)
+
+### Notepad (Scratchpad variant)
+
+Visually distinct from standard sections. For user-entered context notes.
+
+- Background: `bg-surface/50 rounded-lg p-4`
+- Subtle border: `border border-border/20`
+- Input at bottom, entries above
+- Feels like a sticky note zone — visually separate from AI content and data lists
 
 ---
 
@@ -371,9 +386,18 @@ Refer to `references/design-tokens.md` for the complete color catalog including 
 
 ## 10. Status Indicators
 
-### Dots — for binary/lifecycle status
+### Smart Status — Show Signals, Not Noise
 
-Small colored circles. Used in rows and identity bars to show where something stands.
+Status indicators should communicate, not decorate. A green dot on every row when all items are active communicates nothing — it's visual clutter.
+
+**Rules:**
+- **Only show status dots when they're informative.** If an engagement is blocked or stale, show the dot. If all engagements on a partner page are active, omit the dots entirely.
+- **Exception:** On list pages (engagements list, meetings list), always show status dots — you're comparing across partners where status varies.
+- **On detail pages:** Show status in the identity bar (the entity's own status). Omit from child rows unless status is non-default (blocked, cancelled, archived).
+
+### Dots — for lifecycle status
+
+Small colored circles. Used sparingly per the smart status rule above.
 
 | Context | Size | Classes |
 |---|---|---|
@@ -480,43 +504,60 @@ Each page has one job. The spec defines that job, the layout, and the content st
 
 ### Partner Detail (Primary — Center of Gravity)
 
-**Job:** Everything about one partner — the portal you explore.
+**Job:** Everything about one partner — the portal you explore. Core content fits on one screen.
 
-**Layout:** Two-column.
+**Layout:** Full-width + slide-over panels. No permanent right column.
 
 **Identity Bar:**
 - Partner name (`text-2xl`)
 - Segment badge
 - SPMS ID (right-aligned, muted)
+- Reference panel tabs: compact buttons — "Profile" | "Status" | "People" — that open the slide-over panel to the corresponding section. Styled as subtle secondary buttons in a row, right side of identity bar area.
 
-**Left Column (dynamic — changes with activity):**
+**Main Content (full-width, above-the-fold target):**
 
-1. **Brain Synthesis** — 4 sections parsed from `##` headers, each rendered as a Section with AI visual treatment. "Re-synthesize" as secondary button. "Last synthesized" timestamp. If no synthesis exists, show prompt to synthesize.
+1. **Brain Highlight** — "What Needs Attention" section displayed prominently with a warm accent treatment (`border-l-2 border-amber-400/40 pl-4` — amber distinguishes urgency from the standard indigo AI accent). The other three brain sections (Relationship Overview, Activity Patterns, Momentum Assessment) collapse into an accordion below — each as a one-line summary that expands on click. "Re-synthesize" secondary button + "Last synthesized" timestamp at bottom of brain area.
 
-2. **Scratchpad** — Compact inline entries. Input at bottom ("Add context about this partner..."). Entries show on hover-delete. No card wrapper.
+   If no brain synthesis exists: show empty state prompt — "No synthesis yet. Add scratchpad context and click Re-synthesize."
 
-3. **Engagements** — Section with count. Each engagement as a condensed card showing:
-   - Engagement name (linked)
-   - Pillar badge
-   - Status dot
-   - Condensed digest preview (topic, status, what's next — 2-3 lines)
-   - If no condensed, fall back to topic field
-   
-   Progressive disclosure: first 5, "Show all N →" if more.
+   **Why this structure:** The brain's job is to tell you what the page can't. "What Needs Attention" is the most actionable section — it surfaces gaps, risks, and deadlines. The other three provide context when you want it, but they don't need to consume vertical space by default.
 
-4. **Open Tasks** — Section with count. Flat rows: description + owner badge. Top 5, "View all tasks →" links to `/tasks` filtered to this partner.
+2. **Scratchpad** — Notepad container (see Container Types). Visually distinct zone: `bg-surface/50 rounded-lg p-4 border border-border/20`. Input at bottom. Compact entries with hover-delete. Shows first 3, "Show all N" if more. Feels like a sticky note area — the place for tribal knowledge.
 
-5. **Recent Meetings** — Section with count. Rows: date + title (linked) + condensed digest preview (first line or two). Top 5, "View all meetings →" links to `/meetings` filtered to this partner.
+3. **Engagements** — Section with count. Compact rows:
+   - Engagement name (linked) + pillar badge (right-aligned)
+   - Below name: condensed one-liner (first meaningful line from condensed digest, or topic as fallback). `text-sm text-muted`.
+   - **Smart status:** Only show status dot if status is NOT active (blocked = amber, stale = gray). All-active = no dots = clean rows.
+   - Progressive disclosure: 7 or fewer → show all. 8+ → first 5 + "Show all N →" expander.
 
-**Right Column (stable — changes slowly):**
+4. **Open Tasks** — Section with count. Tight flat rows:
+   - Description + owner badge
+   - **"Me" tasks visually emphasized:** normal foreground text. Partner/internal tasks in muted text — they're tracked, not actionable by you.
+   - Top 5, "View all tasks →" links to `/tasks` filtered to this partner.
 
-1. **Solution Profile** — "What They Do" (prose) + "AWS Stickiness" (prose, accent-labeled) + Key AWS Services (pill tags). This is the technical identity.
+5. **Recent Meetings** — Section with count. Compact rows:
+   - Date + title (linked, cleaned) + condensed one-liner below
+   - Top 5, "View all →" link.
+   - No note status dots (they add clutter here — the meeting detail page shows note status).
 
-2. **Deployment & Pricing** — Compact grid: Architecture, Listing Types, Pricing Model. Each as sub-label + value/pills.
+**Slide-Over Panel (triggered by identity bar tabs):**
 
-3. **Operational Status** — ISVa Status, Deployed on AWS, CRM Status, PRM Status. Each as sub-label + value. **This section is the future home of Ring 3 data:** program enrollment counts, funding wallet balances, goal progress. Design it as an expandable container that accommodates growth.
+The panel is a single component with tabbed content. Clicking "Profile" opens the panel to the Profile tab. Clicking "Status" opens to the Status tab. If the panel is already open, clicking a different tab switches content without closing/reopening.
 
-4. **People** — Grouped by org type: Partner Team, AWS Team. Each contact: name + role + title + email. Uses ContactGroup component.
+**Tab 1 — Profile:**
+- "What They Do" (prose)
+- "AWS Stickiness" (prose, accent label)
+- Key AWS Services (pill tags)
+- Deployment grid: Architecture, Listing Types, Pricing Model
+
+**Tab 2 — Status:**
+- Operational status: ISVa, Deployed on AWS, CRM, PRM (sub-label/value pairs)
+- Relationships (linked rows)
+- {/* Ring 3 future: program enrollments, funding wallets, goal progress */}
+
+**Tab 3 — People:**
+- ContactGroup: Partner Team, AWS Team
+- Each contact: name + role + title + email
 
 ---
 
@@ -709,6 +750,19 @@ Top of every detail page. Title + badges + actions.
 - Actions right-aligned via `ml-auto`
 - Bottom border: `border-b border-border/30`
 - Bottom margin: `mb-6`
+- On partner detail: includes reference panel tab buttons (Profile | Status | People) in the actions area
+
+### SlideOverPanel (shared component)
+
+Right-side overlay panel for reference data.
+
+- Triggered by button click, rendered via portal or fixed positioning
+- `fixed inset-y-0 right-0 w-[450px] max-w-[90vw] bg-surface border-l border-border/30 z-50`
+- Backdrop: `fixed inset-0 bg-black/40 z-40` — click to dismiss
+- Close button: `absolute top-4 right-4`
+- Content: scrollable `overflow-y-auto p-6`, uses standard Section containers
+- Tabs: rendered inside panel header, switch content without closing panel
+- Animation: `transition-transform duration-200` slide from right
 
 ### FilterBar (shared component)
 
@@ -765,34 +819,41 @@ All in `src/lib/format-utils.ts`:
 ## 15. Design Principles (Summary)
 
 1. **Partner is gravity.** Everything orbits the partner.
-2. **Condensed first, full on demand.** The two-version pyramid is a UX model, not just AI architecture.
-3. **Show enough to decide without drilling in.** Every row and card carries enough context.
-4. **One page, one job.** Don't replicate data across pages.
-5. **Default to the most actionable view.** Tasks → Me. Meetings → Upcoming. Lists → expanded.
-6. **AI content is structured and visually distinct.** Parse sections. Render with left-border accent. Never show raw markdown.
-7. **Three container types.** Section, Row, Detail Panel. Everything fits in one.
-8. **Left column dynamic, right column stable.** On every two-column page.
-9. **Progressive disclosure scales with data.** Show first N, expand for more.
-10. **Responsive by reduction.** Stack columns, don't rearrange. Condensed helps at every width.
-11. **Fewer patterns, used consistently.** Two button styles, three container types, one hover state.
-12. **Build for the future without building the future.** Right column Operational Status section accommodates Ring 3. People page placeholder exists. Pulse is specced but not built.
+2. **Above the fold.** Core content visible without scrolling. Reference data behind a click.
+3. **Condensed first, full on demand.** The two-version pyramid is a UX model, not just AI architecture.
+4. **Show enough to decide without drilling in.** Every row carries enough context to act or skip.
+5. **Information has weight.** Urgent > routine. Your tasks > partner tasks. Recent > old. The UI reflects this through size, position, and emphasis.
+6. **Smart status — signals, not noise.** Status indicators only appear when they communicate something. All-active = no dots.
+7. **One page, one job.** Don't replicate data across pages. Partner profile stays on partner page, not on meeting page.
+8. **Default to the most actionable view.** Tasks → Me. Meetings → Upcoming. Brain → What Needs Attention.
+9. **AI content is structured and visually distinct.** Parse sections. Render with accent borders. Never show raw markdown.
+10. **Four container types.** Section, Row, Detail Panel, Slide-Over Panel. Everything fits in one.
+11. **Slide-over for reference, main surface for action.** Dense reference data opens in panels. The main page stays focused.
+12. **Progressive disclosure scales with data.** Show first N, expand for more. Works at 4 items and 40.
+13. **Responsive by reduction.** Stack, collapse, condense. No horizontal scrolling.
+14. **Fewer patterns, used consistently.** Limited button styles, container types, hover states. Consistency > creativity.
+15. **Visual variety for content types.** Scratchpad feels different from brain which feels different from engagement rows. Monotony creates walls of text. Subtle visual distinction creates scannable pages.
+16. **Build for the future without building the future.** Slide-over Status tab accommodates Ring 3. People page placeholder exists. Pulse is specced but not built.
 
 ---
 
 ## 16. What NOT to Do
 
-- ❌ `rounded-xl border border-border bg-surface p-4` wrapper cards on detail pages
+- ❌ `rounded-xl border border-border bg-surface p-4` wrapper cards on detail pages (except Notepad)
 - ❌ Three-column layouts or staggered card grids
-- ❌ Collapsed-on-load for primary content (lists that should be visible)
+- ❌ Permanent right columns crammed with reference data on information-dense pages — use slide-over panels
+- ❌ Collapsed-on-load for primary content
 - ❌ Badge pills for counts — use plain text
 - ❌ Raw markdown tokens (`##`, `**`, `-`) shown to users
 - ❌ Duplicate data across pages (partner profile on meeting detail)
+- ❌ Status dots on every row when all items share the same status — that's noise
+- ❌ Equal visual weight for unequal content — urgent items need emphasis
 - ❌ Entity-type navigation as primary workflow ("go to engagements" instead of "go to Spacelift")
-- ❌ Status text badges where a dot suffices
 - ❌ Hard-coded section counts or fixed layouts that break when data grows
 - ❌ Horizontal scrolling on any viewport
 - ❌ Multiple primary action buttons on one page
-- ❌ Prose walls as the only way to consume AI content — always parse into sections
+- ❌ Prose walls as the only way to consume AI content — parse into sections
+- ❌ Monotonous same-styled sections stacked vertically — use visual variety (Notepad, AI accent, plain rows)
 
 ---
 
@@ -802,15 +863,15 @@ These items are not built yet but the UI is designed to accommodate them:
 
 | Future Feature | Where It Slots In |
 |---|---|
-| **Ring 3 data** (programs, goals, funding) | Partner detail → Right column → Operational Status section expands |
+| **Ring 3 data** (programs, goals, funding) | Partner detail → Slide-over panel → Status tab expands with new sub-sections |
 | **People layer** | Replaces Relationships in Reference tier. Follows list page pattern with search + filters |
 | **Pulse page** | Primary nav. Aggregates inbox count + tasks + upcoming meetings + staleness signals |
-| **Financial fields on partners** | Partner detail → Right column → Operational Status section |
+| **Financial fields on partners** | Partner detail → Slide-over panel → Status tab |
 | **Pre-meeting briefing** | Meeting detail → Left column, above NoteWorkspace |
 | **Auto-brain refresh** | Backend only — no UI change needed; brain section already renders latest |
 | **Engagement-linked meetings on engagement detail** | Engagement detail → Left column → Connected Meetings section (spec ready) |
 
-The right column Operational Status section is intentionally designed as an expandable container. When Ring 3 data arrives, it gains sub-sections for program enrollments, funding wallets, and goal progress — all using the same Section container type and sub-label typography already defined.
+The slide-over panel Status tab is intentionally designed as an expandable container. When Ring 3 data arrives, it gains sub-sections for program enrollments, funding wallets, and goal progress — all using the same Section container type and sub-label typography already defined. The panel pattern means this growth doesn't affect the main page layout at all.
 
 ---
 
