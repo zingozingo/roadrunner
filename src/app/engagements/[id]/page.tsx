@@ -15,8 +15,9 @@ import {
   getRelationshipsByEngagement,
   getPartner,
 } from "@/lib/db";
+import { getSupabaseClient } from "@/lib/db/client";
 import { getEngagementPrograms, getEngagementEvents } from "@/lib/db/engagement-links";
-import { formatFooterDate } from "@/lib/format-utils";
+import { cleanMeetingTitle, formatFooterDate } from "@/lib/format-utils";
 import type { TimelineItem } from "@/lib/types";
 
 // Status dot color map
@@ -50,6 +51,23 @@ export default async function EngagementDetailPage({
 
   const partnerName = partner?.name ?? null;
 
+  // Fetch condensed digests for connected meetings
+  const meetingIds = meetings.map((m) => m.id);
+  const condensedByMeetingId = new Map<string, string>();
+  if (meetingIds.length > 0) {
+    const db = getSupabaseClient();
+    const { data: noteRows } = await db
+      .from("meeting_notes")
+      .select("meeting_id, condensed")
+      .in("meeting_id", meetingIds)
+      .not("condensed", "is", null);
+    for (const row of noteRows ?? []) {
+      if (row.meeting_id && row.condensed) {
+        condensedByMeetingId.set(row.meeting_id, row.condensed);
+      }
+    }
+  }
+
   // Build unified timeline: messages + meetings sorted by date desc.
   const meetingSourceMessageIds = new Set(
     meetings.filter((m) => m.message_id).map((m) => m.message_id!)
@@ -74,8 +92,13 @@ export default async function EngagementDetailPage({
 
   const dotColor = statusDotColor[engagement.status] ?? "bg-zinc-500";
 
+  // Connected meetings sorted by date desc (exclude meetings already in timeline as messages)
+  const connectedMeetings = meetings
+    .filter((m) => m.meeting_date)
+    .sort((a, b) => new Date(b.meeting_date + "T00:00:00").getTime() - new Date(a.meeting_date + "T00:00:00").getTime());
+
   return (
-    <div className="p-6 lg:p-8">
+    <div className="mx-auto max-w-7xl p-6 lg:p-8">
       <Link
         href="/engagements"
         className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
@@ -88,7 +111,7 @@ export default async function EngagementDetailPage({
 
       {/* ═══ IDENTITY BAR ═══ */}
       <div className="flex items-center gap-3 pb-4 mb-6 border-b border-border/30">
-        <h1 className="text-xl font-semibold text-foreground">{engagement.name}</h1>
+        <h1 className="text-2xl font-semibold text-foreground">{engagement.name}</h1>
         <span className={`h-2 w-2 shrink-0 rounded-full ${dotColor}`} title={engagement.status} />
         <div className="ml-auto flex items-center gap-2">
           {engagement.partner_id && (
@@ -103,19 +126,81 @@ export default async function EngagementDetailPage({
       </div>
 
       {/* ═══ TWO-COLUMN LAYOUT ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8 lg:gap-12">
 
         {/* ─── LEFT COLUMN: What's happening ─── */}
         <div className="space-y-10">
+
+          {/* Condensed Digest */}
+          {engagement.condensed && (
+            <section>
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Digest</h2>
+              <div className="border-l-2 border-accent/25 pl-4 space-y-1">
+                {engagement.condensed.split("\n").filter(Boolean).map((line, i) => {
+                  const tagMatch = line.match(/^([A-Za-z\s']+):\s*(.*)/);
+                  if (tagMatch) {
+                    return (
+                      <div key={i} className="flex gap-2 text-[15px] leading-relaxed">
+                        <span className="shrink-0 text-xs font-semibold uppercase tracking-wider text-muted/60 pt-0.5 min-w-[5rem]">
+                          {tagMatch[1]}
+                        </span>
+                        <span className="text-foreground/85">{tagMatch[2]}</span>
+                      </div>
+                    );
+                  }
+                  return <p key={i} className="text-[15px] text-foreground/85 leading-relaxed">{line}</p>;
+                })}
+              </div>
+            </section>
+          )}
 
           {/* Activity Summary (current_state) */}
           {engagement.current_state && (
             <section>
               <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Activity summary</h2>
-              <div className="space-y-1.5">
+              <div className="border-l-2 border-accent/25 pl-4 space-y-1.5">
                 {engagement.current_state.split("\n").filter(Boolean).map((para, i) => (
-                  <p key={i} className="text-sm text-foreground/80 leading-relaxed">{para}</p>
+                  <p key={i} className="text-[15px] text-foreground/85 leading-relaxed">{para}</p>
                 ))}
+              </div>
+            </section>
+          )}
+
+          {/* Connected Meetings */}
+          {connectedMeetings.length > 0 && (
+            <section>
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
+                Meetings
+                <span className="ml-1.5 font-normal text-muted">{connectedMeetings.length}</span>
+              </h2>
+              <div>
+                {connectedMeetings.map((m) => {
+                  const shortDate = m.meeting_date
+                    ? new Date(m.meeting_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                    : "TBD";
+                  const condensedPreview = condensedByMeetingId.get(m.id);
+                  const firstLine = condensedPreview
+                    ? condensedPreview.split("\n").find((l) => l.trim()) ?? null
+                    : null;
+
+                  return (
+                    <Link
+                      key={m.id}
+                      href={`/meetings/${m.id}`}
+                      className="block border-b border-border/20 px-3 py-3 transition-colors hover:bg-surface/50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="w-14 shrink-0 text-xs text-muted">{shortDate}</span>
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                          {cleanMeetingTitle(m.title)}
+                        </span>
+                      </div>
+                      {firstLine && (
+                        <p className="mt-1 ml-[calc(3.5rem+0.75rem)] text-sm text-muted truncate">{firstLine}</p>
+                      )}
+                    </Link>
+                  );
+                })}
               </div>
             </section>
           )}
@@ -123,7 +208,7 @@ export default async function EngagementDetailPage({
           {/* Timeline — audit trail, collapsible */}
           {timelineItems.length > 0 && (
             <section>
-              <details className="group">
+              <details className="group" open={timelineItems.length <= 5 ? true : undefined}>
                 <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted [&::-webkit-details-marker]:hidden">
                   <svg
                     width="14" height="14" viewBox="0 0 16 16"

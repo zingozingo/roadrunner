@@ -2,19 +2,6 @@ import type { DisplayContext } from "@/lib/types";
 import ContactRow from "@/components/shared/ContactRow";
 import { isNamedRole } from "@/lib/contact-display";
 
-function relativeTime(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  return `${Math.floor(days / 30)}mo ago`;
-}
-
 const OWNER_BADGE_STYLES: Record<string, { className: string; label: string }> = {
   me: { className: "bg-accent/10 text-accent", label: "Me" },
   partner: { className: "bg-emerald-500/10 text-emerald-400", label: "Partner" },
@@ -23,84 +10,41 @@ const OWNER_BADGE_STYLES: Record<string, { className: string; label: string }> =
 };
 
 export default function ContextSidebar({ context, currentNoteId }: { context: DisplayContext; currentNoteId?: string }) {
-  const { profile, contacts, openTasks, openTaskCount, scratchpadEntries } = context;
+  const { contacts, openTasks, openTaskCount } = context;
+
+  const keyContacts = contacts.filter((c) => isNamedRole(c.role));
+  const hasContacts = keyContacts.length > 0;
+  const hasTasks = openTaskCount > 0;
+
+  if (!hasContacts && !hasTasks) return null;
 
   return (
-    <div className="space-y-4">
-      {/* Partner Profile */}
-      <div className="rounded-xl border border-border bg-surface p-4">
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Partner Profile</h3>
-        <p className="text-sm font-medium text-foreground">{profile.name}</p>
-        {profile.segment && <p className="text-xs text-muted">{profile.segment}</p>}
-        {profile.what_they_do && <p className="mt-1 text-xs text-foreground/70">{profile.what_they_do}</p>}
-        {profile.focus_areas.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {profile.focus_areas.map((f) => (
-              <span key={f} className="rounded-full bg-surface-hover px-2 py-0.5 text-xs text-muted">{f}</span>
-            ))}
-          </div>
-        )}
-        {profile.key_aws_services.length > 0 && (
-          <p className="mt-1 text-xs text-muted">AWS: {profile.key_aws_services.join(", ")}</p>
-        )}
-        {profile.architecture && (
-          <p className="mt-1 text-xs text-muted">Architecture: <span className="text-foreground/80">{profile.architecture}</span></p>
-        )}
-        {profile.listing_types.length > 0 && (
-          <p className="mt-1 text-xs text-muted">Listings: <span className="text-foreground/80">{profile.listing_types.join(", ")}</span></p>
-        )}
-        {profile.pricing_model.length > 0 && (
-          <p className="mt-1 text-xs text-muted">Pricing: <span className="text-foreground/80">{profile.pricing_model.join(", ")}</span></p>
-        )}
-      </div>
-
+    <div>
       {/* Key Contacts */}
-      {(() => {
-        const keyContacts = contacts.filter((c) => isNamedRole(c.role));
-        return keyContacts.length > 0 ? (
-          <div className="rounded-xl border border-border bg-surface p-4">
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Key Contacts</h3>
-            <div className="space-y-2">
-              {keyContacts.map((c, i) => (
-                <ContactRow
-                  key={c.email ?? i}
-                  name={c.name}
-                  email={c.email}
-                  title={c.title}
-                  role={c.role}
-                  orgType={c.org_type}
-                />
-              ))}
-            </div>
-          </div>
-        ) : null;
-      })()}
-
-      {/* Partner Context (scratchpad entries) */}
-      {scratchpadEntries.length > 0 && (
-        <div className="rounded-xl border border-border bg-surface p-4">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Partner Context</h3>
-          <div className="space-y-1.5">
-            {scratchpadEntries.slice(0, 5).map((e, i) => (
-              <div key={i}>
-                <p className="text-xs text-foreground/70">
-                  {e.content.length > 100 ? e.content.slice(0, 100) + "..." : e.content}
-                </p>
-                <span className="text-[10px] text-muted">{relativeTime(e.created_at)}</span>
-              </div>
+      {hasContacts && (
+        <section>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Key Contacts</h3>
+          <div className="space-y-2">
+            {keyContacts.map((c, i) => (
+              <ContactRow
+                key={c.email ?? i}
+                name={c.name}
+                email={c.email}
+                title={c.title}
+                role={c.role}
+                orgType={c.org_type}
+              />
             ))}
-            {scratchpadEntries.length > 5 && (
-              <p className="text-[10px] text-muted">(+{scratchpadEntries.length - 5} more)</p>
-            )}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Open Tasks */}
-      {openTaskCount > 0 && (
-        <div className="rounded-xl border border-border bg-surface p-4">
+      {hasTasks && (
+        <section className={hasContacts ? "mt-4 pt-4 border-t border-border/20" : ""}>
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">
-            Open Tasks ({openTaskCount})
+            Open Tasks
+            <span className="ml-1.5 font-normal text-muted">{openTaskCount}</span>
           </h3>
           <div className="space-y-1">
             {openTasks.map((t, i) => {
@@ -118,7 +62,7 @@ export default function ContextSidebar({ context, currentNoteId }: { context: Di
               );
             })}
           </div>
-        </div>
+        </section>
       )}
     </div>
   );
