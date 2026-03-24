@@ -7,7 +7,7 @@ import BrainSynthesis from "@/components/partners/BrainSynthesis";
 import PartnerScratchpad from "@/components/partners/PartnerScratchpad";
 import { cleanMeetingTitle } from "@/lib/format-utils";
 import { getPartner, getSupabaseClient, getRelationshipsByPartner, getMeetingNotesByPartner, getTasksByPartner, getPartnerContext, getContactsByPartner, getContactsByRelationshipBulk } from "@/lib/db";
-import ContactGroup from "@/components/shared/ContactGroup";
+import PartnerReferencePanel from "@/components/partners/PartnerReferencePanel";
 import { USER_CONFIG } from "@/lib/user-config";
 import type { Engagement, Meeting, MeetingNoteWithTasks } from "@/lib/types";
 
@@ -60,22 +60,15 @@ export default async function PartnerDetailPage({
     getPartnerContext(id),
   ]);
 
-  // Bulk-fetch relationship contacts for inline display
+  // Bulk-fetch relationship contacts and pre-compute lead names for slide-over panel
   const relContactsMap = await getContactsByRelationshipBulk(
     linkedRelationships.map((r) => r.id)
   );
-
-  // Build note status map for meeting rows
-  const noteStatusByMeetingId = new Map<string, { noteId: string; status: "draft" | "complete"; taskCount: number }>();
-  for (const note of partnerNotes) {
-    if (note.meeting_id) {
-      noteStatusByMeetingId.set(note.meeting_id, {
-        noteId: note.id,
-        status: note.status === "complete" ? "complete" : "draft",
-        taskCount: note.tasks.length,
-      });
-    }
-  }
+  const relationshipsWithLeads = linkedRelationships.map((rel) => ({
+    id: rel.id,
+    name: rel.name,
+    leadName: relContactsMap.get(rel.id)?.find(c => c.role === 'Lead Contact')?.name || relContactsMap.get(rel.id)?.[0]?.name || null,
+  }));
 
   // Build condensed digest map for meeting rows
   const condensedByMeetingId = new Map<string, string>();
@@ -142,16 +135,32 @@ export default async function PartnerDetailPage({
             {partner.segment}
           </span>
         )}
-        <span className="ml-auto text-xs text-muted">
-          {partner.spms_id ? `SPMS ${partner.spms_id}` : ""}
-        </span>
+        <div className="ml-auto flex items-center gap-3">
+          <PartnerReferencePanel
+            partner={{
+              what_they_do: partner.what_they_do,
+              aws_stickiness: partner.aws_stickiness,
+              key_aws_services: partner.key_aws_services,
+              architecture: partner.architecture ?? null,
+              listing_types: partner.listing_types ?? null,
+              pricing_model: partner.pricing_model ?? null,
+              isva_status: partner.isva_status ?? null,
+              deployed_on_aws: partner.deployed_on_aws ?? null,
+              prm_status: partner.prm_status ?? null,
+              crm_status: partner.crm_status ?? null,
+            }}
+            contacts={contacts}
+            currentUserEmail={USER_CONFIG.email}
+            relationships={relationshipsWithLeads}
+          />
+          {partner.spms_id && (
+            <span className="text-xs text-muted">SPMS {partner.spms_id}</span>
+          )}
+        </div>
       </div>
 
-      {/* ═══ TWO-COLUMN LAYOUT ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8 lg:gap-12">
-
-        {/* ─── LEFT COLUMN: Workflow ─── */}
-        <div className="space-y-10">
+      {/* ═══ MAIN CONTENT ═══ */}
+      <div className="space-y-10">
 
           {/* Brain Synthesis */}
           <section>
@@ -171,7 +180,9 @@ export default async function PartnerDetailPage({
                 <span className="ml-1.5 font-normal text-muted">{scratchpadEntries.length}</span>
               )}
             </h2>
-            <PartnerScratchpad partnerId={id} initialEntries={scratchpadEntries} compact />
+            <div className="rounded-lg border border-border/20 bg-surface/50 p-4">
+              <PartnerScratchpad partnerId={id} initialEntries={scratchpadEntries} compact />
+            </div>
           </section>
 
           {/* Engagements */}
@@ -202,7 +213,9 @@ export default async function PartnerDetailPage({
                         <PillarBadge pillar={eng.pillar} />
                       </span>
                     )}
-                    <span className={`shrink-0 h-1.5 w-1.5 rounded-full ${dotColor}`} title={eng.status} />
+                    {eng.status !== "active" && (
+                      <span className={`shrink-0 h-1.5 w-1.5 rounded-full ${dotColor}`} title={eng.status} />
+                    )}
                   </div>
                   {preview && (
                     <p className="mt-1 text-sm text-muted line-clamp-2">{preview}</p>
@@ -260,7 +273,7 @@ export default async function PartnerDetailPage({
                         key={t.id}
                         className="flex items-center gap-3 border-b border-border/20 px-3 py-3 text-sm"
                       >
-                        <span className="min-w-0 flex-1 truncate text-foreground">{t.description}</span>
+                        <span className={`min-w-0 flex-1 truncate ${t.owner === "me" ? "text-foreground" : "text-muted"}`}>{t.description}</span>
                         {t.due_date && (
                           <span className="shrink-0 text-xs text-muted">
                             {new Date(t.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
@@ -301,12 +314,6 @@ export default async function PartnerDetailPage({
                     const shortDate = m.meeting_date
                       ? new Date(m.meeting_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
                       : "TBD";
-                    const noteStatus = noteStatusByMeetingId.get(m.id);
-                    const noteDotColor = noteStatus
-                      ? noteStatus.status === "complete"
-                        ? "bg-emerald-500"
-                        : "bg-amber-500"
-                      : null;
                     const condensedPreview = condensedByMeetingId.get(m.id);
                     const firstLine = condensedPreview
                       ? condensedPreview.split("\n").find((l) => l.trim()) ?? null
@@ -323,12 +330,6 @@ export default async function PartnerDetailPage({
                           <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
                             {cleanMeetingTitle(m.title)}
                           </span>
-                          {noteDotColor && (
-                            <span
-                              className={`shrink-0 h-1.5 w-1.5 rounded-full ${noteDotColor}`}
-                              title={noteStatus!.status === "complete" ? `Notes complete (${noteStatus!.taskCount} tasks)` : "Notes in progress"}
-                            />
-                          )}
                         </div>
                         {firstLine && (
                           <p className="mt-1 ml-[calc(3.5rem+0.75rem)] text-sm text-muted truncate">{firstLine}</p>
@@ -348,160 +349,6 @@ export default async function PartnerDetailPage({
               </section>
             );
           })()}
-        </div>
-
-        {/* ─── RIGHT COLUMN: Reference ─── */}
-        <div className="lg:border-l lg:border-border/20 lg:pl-8">
-
-          {/* ── Section 1: Solution Profile ── */}
-          {(partner.what_they_do || partner.aws_stickiness || partner.key_aws_services.length > 0) && (
-            <section>
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Solution profile</h2>
-              {partner.what_they_do && (
-                <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
-                  {partner.what_they_do}
-                </p>
-              )}
-              {(partner.aws_stickiness || partner.key_aws_services.length > 0) && (
-                <div className={partner.what_they_do ? "mt-4" : ""}>
-                  <span className="block text-[10px] font-semibold uppercase tracking-widest text-accent mb-1.5">AWS Stickiness</span>
-                  {partner.aws_stickiness && (
-                    <p className="text-xs text-muted leading-relaxed whitespace-pre-wrap mb-2">
-                      {partner.aws_stickiness}
-                    </p>
-                  )}
-                  {partner.key_aws_services.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {partner.key_aws_services.map((svc) => (
-                        <span
-                          key={svc}
-                          className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent"
-                        >
-                          {svc}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </section>
-          )}
-
-          {/* ── Section 2: Deployment & Pricing ── */}
-          {(partner.architecture || partner.listing_types?.length || partner.pricing_model?.length) && (
-            <section className="mt-6 pt-6 border-t border-border/20">
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Deployment & pricing</h2>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                {partner.architecture && (
-                  <div>
-                    <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Architecture</span>
-                    <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-400">
-                      {partner.architecture}
-                    </span>
-                  </div>
-                )}
-                {partner.listing_types && partner.listing_types.length > 0 && (
-                  <div>
-                    <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Listing Types</span>
-                    <div className="flex flex-wrap gap-1">
-                      {partner.listing_types.map((t) => (
-                        <span key={t} className="rounded-full bg-purple-500/10 px-2 py-0.5 text-xs font-medium text-purple-400">
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {partner.pricing_model && partner.pricing_model.length > 0 && (
-                  <div>
-                    <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Pricing</span>
-                    <div className="flex flex-wrap gap-1">
-                      {partner.pricing_model.map((m) => (
-                        <span key={m} className="rounded-full bg-indigo-500/10 px-2 py-0.5 text-xs font-medium text-indigo-400">
-                          {m}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </section>
-          )}
-
-          {/* ── Section 3: Operational Status ── */}
-          {/* Ring 3 future: program enrollments, funding wallets, goal progress */}
-          {(partner.isva_status || partner.deployed_on_aws || partner.prm_status || partner.crm_status) && (
-            <section className="mt-6 pt-6 border-t border-border/20">
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Operational status</h2>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                {partner.isva_status && (
-                  <div>
-                    <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">ISVa</span>
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                      partner.isva_status === "Approved" ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"
-                    }`}>
-                      {partner.isva_status}
-                    </span>
-                  </div>
-                )}
-                {partner.deployed_on_aws && (
-                  <div>
-                    <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Deployed on AWS</span>
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                      partner.deployed_on_aws === "Approved" ? "bg-emerald-500/10 text-emerald-400" : "bg-gray-500/10 text-gray-400"
-                    }`}>
-                      {partner.deployed_on_aws}
-                    </span>
-                  </div>
-                )}
-                {partner.prm_status && (
-                  <div>
-                    <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">PRM</span>
-                    <span className="text-sm text-foreground">{partner.prm_status}</span>
-                  </div>
-                )}
-                {partner.crm_status && (
-                  <div>
-                    <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">CRM</span>
-                    <span className="text-sm text-foreground">{partner.crm_status}</span>
-                  </div>
-                )}
-              </div>
-            </section>
-          )}
-
-          {/* ── Section 4: People ── */}
-          {contacts.length > 0 && (
-            <section className="mt-6 pt-6 border-t border-border/20">
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">People</h2>
-              <ContactGroup contacts={contacts} currentUserEmail={USER_CONFIG.email} />
-            </section>
-          )}
-
-          {/* ── Section 5: Relationships ── */}
-          <section className="mt-6 pt-6 border-t border-border/20">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Relationships</h2>
-            {linkedRelationships.length > 0 ? (
-              <div className="space-y-1">
-                {linkedRelationships.map((rel) => {
-                  const leadName = relContactsMap.get(rel.id)?.find(c => c.role === 'Lead Contact')?.name || relContactsMap.get(rel.id)?.[0]?.name;
-                  return (
-                    <Link
-                      key={rel.id}
-                      href={`/relationships/${rel.id}`}
-                      className="flex items-baseline gap-2 py-1 transition-colors hover:text-accent"
-                    >
-                      <span className="text-sm font-medium text-foreground">{rel.name}</span>
-                      {leadName && <span className="text-xs text-muted">{leadName}</span>}
-                    </Link>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-sm italic text-muted">No linked relationships</p>
-            )}
-          </section>
-        </div>
       </div>
     </div>
   );
