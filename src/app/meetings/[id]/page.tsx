@@ -127,8 +127,12 @@ export default async function MeetingDetailPage({
 
   const dotColor = statusDotColor[meeting.status] ?? "bg-zinc-500";
 
+  const shortDate = meeting.meeting_date
+    ? new Date(meeting.meeting_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    : null;
+
   return (
-    <div className="p-6 lg:p-8">
+    <div className="mx-auto max-w-7xl p-6 lg:p-8">
       <Link
         href="/meetings"
         className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
@@ -141,10 +145,18 @@ export default async function MeetingDetailPage({
 
       {/* ═══ IDENTITY BAR ═══ */}
       <div className="flex items-center gap-3 pb-4 mb-6 border-b border-border/30">
-        <h1 className="text-xl font-semibold text-foreground">{cleanMeetingTitle(meeting.title)}</h1>
+        <h1 className="text-2xl font-semibold text-foreground">{cleanMeetingTitle(meeting.title)}</h1>
         <span className={`shrink-0 h-2 w-2 rounded-full ${dotColor}`} title={meeting.status} />
+        {partner && (
+          <Link href={`/partners/${partner.id}`} className="text-sm font-medium text-accent hover:underline">
+            {partner.name}
+          </Link>
+        )}
+        {shortDate && (
+          <span className="text-sm text-muted">{shortDate}</span>
+        )}
         {meeting.source === "ics_parsed" && (
-          <span className="rounded-full bg-muted/15 px-2 py-0.5 text-xs font-medium text-muted">
+          <span className="rounded-full bg-muted/10 px-2 py-0.5 text-xs font-medium text-muted">
             ICS
           </span>
         )}
@@ -182,47 +194,10 @@ export default async function MeetingDetailPage({
       })()}
 
       {/* ═══ TWO-COLUMN LAYOUT ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8 lg:gap-12">
 
         {/* ─── LEFT COLUMN: Workspace ─── */}
-        <div className="space-y-8">
-
-          {/* Location */}
-          {meeting.location && (
-            <section>
-              {isUrl(meeting.location) ? (
-                <a
-                  href={meeting.location}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:text-accent-hover transition-colors"
-                >
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <path d="M6 8h4M8 6v4" />
-                    <rect x="2" y="2" width="12" height="12" rx="3" />
-                  </svg>
-                  {meeting.location.includes("zoom") ? "Join Zoom Meeting" : "Join Meeting"}
-                </a>
-              ) : (
-                <>
-                  <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Location</h2>
-                  <p className="text-sm text-foreground">{meeting.location}</p>
-                </>
-              )}
-            </section>
-          )}
-
-          {/* Calendar Notes (from ICS invite) */}
-          {meeting.notes && (
-            <section className={meeting.location ? "pt-6 border-t border-border/20" : ""}>
-              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Calendar notes</h2>
-              <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
-                {meeting.notes}
-              </p>
-            </section>
-          )}
-
-          {/* Meeting Notes Workspace */}
+        <div>
           {partner && partnerContext && (
             <MeetingNotesSection
               meetingId={id}
@@ -240,20 +215,8 @@ export default async function MeetingDetailPage({
         {/* ─── RIGHT COLUMN: Context ─── */}
         <div className="lg:border-l lg:border-border/20 lg:pl-8 space-y-0">
 
-          {/* Partner */}
-          <section className="pb-6">
-            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Partner</h2>
-            {partner ? (
-              <Link href={`/partners/${partner.id}`} className="text-sm font-medium text-accent hover:underline">
-                {partner.name}
-              </Link>
-            ) : (
-              <span className="text-sm text-muted">—</span>
-            )}
-          </section>
-
           {/* Details */}
-          <section className="pt-6 border-t border-border/20">
+          <section className="pb-6">
             <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Details</h2>
             <div className="space-y-3">
               <div>
@@ -300,6 +263,50 @@ export default async function MeetingDetailPage({
               </div>
             </div>
           </section>
+
+          {/* Location (relocated from left column) */}
+          {meeting.location && (
+            <section className="pt-6 border-t border-border/20">
+              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Location</h2>
+              {isUrl(meeting.location) ? (
+                <a
+                  href={meeting.location}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:text-accent-hover transition-colors"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M6 8h4M8 6v4" />
+                    <rect x="2" y="2" width="12" height="12" rx="3" />
+                  </svg>
+                  {meeting.location.includes("zoom") ? "Join Zoom Meeting" : "Join Meeting"}
+                </a>
+              ) : (
+                <p className="text-sm text-foreground">{meeting.location}</p>
+              )}
+            </section>
+          )}
+
+          {/* Calendar Notes (ICS boilerplate — collapsible) */}
+          {meeting.notes && (
+            <section className="pt-6 border-t border-border/20">
+              <details className="group">
+                <summary className="flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
+                  <svg
+                    width="14" height="14" viewBox="0 0 16 16"
+                    fill="none" stroke="currentColor" strokeWidth="1.5"
+                    className="shrink-0 text-muted/50 transition-transform group-open:rotate-90"
+                  >
+                    <path d="M6 4l4 4-4 4" />
+                  </svg>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted">Calendar notes</span>
+                </summary>
+                <p className="mt-2 ml-[22px] text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
+                  {meeting.notes}
+                </p>
+              </details>
+            </section>
+          )}
 
           {/* Attendees */}
           <section className="pt-6 border-t border-border/20">

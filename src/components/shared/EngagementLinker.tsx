@@ -160,9 +160,12 @@ export default function EngagementLinker({
   return (
     <button
       onClick={openPicker}
-      className="text-sm text-muted hover:text-accent transition-colors"
+      className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-accent/40 px-2.5 py-1 text-xs font-medium text-accent hover:bg-accent/5 transition-colors"
     >
-      — <span className="text-xs ml-1">Link</span>
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M8 4v8M4 8h8" />
+      </svg>
+      Link to engagement
     </button>
   );
 }
