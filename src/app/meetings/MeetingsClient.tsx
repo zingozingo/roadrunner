@@ -24,6 +24,17 @@ const MEETING_TYPE_OPTIONS = [
   { label: "Ad Hoc", value: "ad_hoc" },
 ];
 
+const MEETING_TYPE_LABELS: Record<string, string> = Object.fromEntries(
+  MEETING_TYPE_OPTIONS.map((opt) => [opt.value, opt.label])
+);
+
+const RECURRENCE_OPTIONS = [
+  { label: "Weekly", value: "weekly" },
+  { label: "Biweekly", value: "biweekly" },
+  { label: "Monthly", value: "monthly" },
+  { label: "Quarterly", value: "quarterly" },
+];
+
 interface MeetingsClientProps {
   meetings: MeetingWithNames[];
   partners: Partner[];
@@ -47,6 +58,10 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
   const [meetingType, setMeetingType] = useState("");
   const [selectedEngagementId, setSelectedEngagementId] = useState("");
   const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrencePattern, setRecurrencePattern] = useState("weekly");
+  const [recurrenceEnd, setRecurrenceEnd] = useState("");
+  // Tracks the last auto-generated title so we know when to overwrite
+  const [autoTitle, setAutoTitle] = useState("");
 
   const sortedPartners = useMemo(
     () => [...partners].sort((a, b) => a.name.localeCompare(b.name)),
@@ -68,25 +83,36 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
     setMeetingType("");
     setSelectedEngagementId("");
     setIsRecurring(false);
+    setRecurrencePattern("weekly");
+    setRecurrenceEnd("");
+    setAutoTitle("");
     setFormError(null);
     setSubmitting(false);
     setShowModal(true);
   }
 
-  function handlePartnerChange(partnerId: string) {
-    const oldPartner = partners.find((p) => p.id === selectedPartnerId);
-    const newPartner = partners.find((p) => p.id === partnerId);
-    const oldPrefix = oldPartner ? `${oldPartner.name} — ` : "";
-    const newPrefix = newPartner ? `${newPartner.name} — ` : "";
-
-    // Update title prefix if it currently starts with the old prefix (or is empty)
-    if (!title || title === oldPrefix || title.startsWith(oldPrefix)) {
-      setTitle(newPrefix + title.slice(oldPrefix.length));
+  /** Build "{Partner} — {Type}" title and apply if user hasn't manually edited */
+  function maybeAutoTitle(partnerId: string, typeValue: string, currentTitle: string, currentAutoTitle: string) {
+    const partner = partners.find((p) => p.id === partnerId);
+    const typeLabel = MEETING_TYPE_LABELS[typeValue];
+    if (!partner || !typeLabel) return;
+    const generated = `${partner.name} — ${typeLabel}`;
+    // Only auto-populate if empty or still matches the last auto-generated value
+    if (!currentTitle || currentTitle === currentAutoTitle) {
+      setTitle(generated);
+      setAutoTitle(generated);
     }
+  }
 
+  function handlePartnerChange(partnerId: string) {
     setSelectedPartnerId(partnerId);
-    // Clear engagement if partner changed (it may no longer be valid)
     setSelectedEngagementId("");
+    maybeAutoTitle(partnerId, meetingType, title, autoTitle);
+  }
+
+  function handleMeetingTypeChange(typeValue: string) {
+    setMeetingType(typeValue);
+    maybeAutoTitle(selectedPartnerId, typeValue, title, autoTitle);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -101,10 +127,13 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
       partner_id: selectedPartnerId,
       meeting_date: meetingDate,
       status: "scheduled",
-      is_recurring: isRecurring,
     };
     if (meetingType) body.meeting_type = meetingType;
     if (selectedEngagementId) body.engagement_id = selectedEngagementId;
+    if (isRecurring) {
+      body.recurrence_pattern = recurrencePattern;
+      body.recurrence_end = recurrenceEnd || null;
+    }
 
     try {
       const res = await fetch("/api/meetings", {
@@ -351,7 +380,7 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
                 </label>
                 <select
                   value={meetingType}
-                  onChange={(e) => setMeetingType(e.target.value)}
+                  onChange={(e) => handleMeetingTypeChange(e.target.value)}
                   className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground"
                 >
                   <option value="">Select type...</option>
@@ -380,15 +409,44 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
               </div>
 
               {/* Recurring */}
-              <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isRecurring}
-                  onChange={(e) => setIsRecurring(e.target.checked)}
-                  className="rounded border-border"
-                />
-                Recurring meeting
-              </label>
+              <div>
+                <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isRecurring}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setIsRecurring(checked);
+                      if (!checked) {
+                        setRecurrencePattern("weekly");
+                        setRecurrenceEnd("");
+                      }
+                    }}
+                    className="rounded border-border"
+                  />
+                  Recurring meeting
+                </label>
+                {isRecurring && (
+                  <div className="mt-2 flex items-center gap-3 pl-6">
+                    <select
+                      value={recurrencePattern}
+                      onChange={(e) => setRecurrencePattern(e.target.value)}
+                      className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
+                    >
+                      {RECURRENCE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="date"
+                      value={recurrenceEnd}
+                      onChange={(e) => setRecurrenceEnd(e.target.value)}
+                      placeholder="End date (optional)"
+                      className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
+                    />
+                  </div>
+                )}
+              </div>
 
               {/* Error */}
               {formError && (
