@@ -5578,3 +5578,153 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** 31 tasks extracted (6x improvement). Catches real obligations like "schedule follow-up," "send proposal," "prepare demo."
 
 ---
+
+### #289 — SKILL.md constitutional rewrite
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** Rewrote SKILL.md from scratch as a 17-section design constitution: mental model (partner-centric hierarchy), navigation hierarchy (Primary/Secondary/Reference), 4 container types (Section, Row, Detail Panel, Slide-Over Panel), 16 design principles, AI content rendering spec, progressive disclosure rules, responsive behavior, and page-by-page specifications.
+
+**Context:** The previous SKILL.md was a loose collection of patterns that had grown organically. No unified mental model, no clear container taxonomy, no progressive disclosure rules.
+
+**Rationale:** A constitutional design document prevents drift. Every UI decision should trace back to a principle. The partner-centric mental model ("partner is gravity") aligns with CLAUDE.md principle #12.
+
+**Impact:** All future UI work derives from SKILL.md. Partner detail page redesigned as proof-of-concept.
+
+---
+
+### #290 — Partner detail: full-width + slide-over panel layout
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** Replaced two-column layout with full-width main content + tabbed slide-over panel (Profile/Status/People) for reference data. SlideOverPanel is a shared portal-based component. PartnerReferencePanel manages tab state and renders trigger buttons in the identity bar.
+
+**Context:** The two-column layout cramped both dynamic content (engagements, meetings, tasks) and static reference data (solution profile, contacts, relationships). Neither column had enough room.
+
+**Rationale:** Dynamic content needs full width — engagement rows with condensed previews, meeting rows with digests. Reference data (profile, operational status, people) is consulted occasionally, not constantly. A slide-over panel gives reference data room when needed without competing for screen space.
+
+**Impact:** Main content area is ~40% wider. Reference data accessible via 3 tab buttons in identity bar. Pattern reusable on other detail pages.
+
+---
+
+### #291 — Brain accordion with amber "What Needs Attention"
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** BrainSynthesis component parses `## ` headers from brain text into 4 named sections. "What Needs Attention" is rendered first with amber accent (`border-l-2 border-amber-400/40`, label `text-amber-400/70`), always expanded. Other 3 sections (Relationship Overview, Activity Patterns, Momentum Assessment) collapse into `<details>` accordion with one-line previews via `firstSentence()`.
+
+**Context:** Full brain synthesis is 4 sections of prose (~500-800 words). Showing all expanded takes too much vertical space. But the most actionable section ("What Needs Attention") must be immediately visible.
+
+**Rationale:** Information weight principle — not all content gets equal treatment. The attention section is the one that drives immediate action. Other sections provide context when needed. Native `<details>/<summary>` avoids client state.
+
+**Impact:** Brain section takes ~50% less vertical space by default. Actionable items are always visible.
+
+---
+
+### #292 — Smart status dots
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** Status dots on engagement rows only render for non-active states (blocked=amber, completed=purple, archived=gray). Active engagements show no dot.
+
+**Context:** Every engagement row previously showed a colored dot. In a typical partner view, most engagements are active — the dots added visual noise without information.
+
+**Rationale:** Show signals only when informative. Active is the default/expected state. A dot for "active" communicates nothing. Dots for blocked/completed/archived draw attention to exceptional states that need awareness.
+
+**Impact:** Cleaner engagement lists. Blocked items visually pop.
+
+---
+
+### #293 — Notepad container type
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** New container type for scratchpad: `bg-surface/50 rounded-lg p-4 border border-border/20`. Added to SKILL.md container taxonomy.
+
+**Context:** Scratchpad content needed visual distinction from AI-rendered content (which uses `border-l-2 accent` treatment) and data lists (which use borderless rows).
+
+**Rationale:** Three distinct visual treatments for three content types: notepad for user-written content, accent border for AI content, clean rows for structured data. Each immediately communicates the content's origin and editability.
+
+**Impact:** Scratchpad visually distinct. Pattern available for other user-authored content surfaces.
+
+---
+
+### #294 — Information weight design principle
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** Added "information weight" as a core design principle in SKILL.md. Not all content gets equal visual treatment. Applied across partner detail: "Me" tasks in foreground text (others muted), "What Needs Attention" gets amber accent, reference data behind slide-over panel.
+
+**Context:** The old partner detail treated everything equally — every engagement row had the same weight, all tasks looked the same, all brain sections expanded. This flattened the visual hierarchy.
+
+**Rationale:** Users scan, not read. Visual weight should correlate with actionability and importance. The eye should land on what matters: attention items, personal tasks, blocked engagements.
+
+**Impact:** Guides all future visual decisions across the app.
+
+---
+
+### #295 — Partner detail section reorder
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** Section order: Brain Synthesis → Scratchpad → Open Tasks → Engagements → Recent Meetings. Tasks promoted above engagements.
+
+**Context:** Previously tasks appeared after engagements. But tasks are the most actionable items — they represent concrete things to do right now.
+
+**Rationale:** Order by actionability. Brain gives strategic overview, scratchpad has recent notes, tasks are immediate to-dos, engagements are workstream context, meetings are historical reference. Each layer is less immediately actionable than the one above.
+
+**Impact:** Tasks visible sooner on page load.
+
+---
+
+### #296 — Condensed digests surface in partner page UI
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** Engagement rows show first-line condensed preview (topic fallback). Meeting rows show first-line condensed preview from meeting notes. Both use `text-sm text-muted truncate` treatment.
+
+**Context:** Engagement and meeting rows were title-only — you had to click through to understand what the engagement was about or what happened in the meeting.
+
+**Rationale:** "Show enough to decide without drilling in." The condensed digests already exist (AI Brain Overhaul Phase 3). Surfacing the first line as a preview lets the user decide whether to click through. Implements the two-version pyramid's UI layer.
+
+**Impact:** Partner page becomes a functional dashboard — most decisions can be made without navigating to detail pages.
+
+---
+
+### #297 — SlideOverPanel shared component
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** Created `src/components/shared/SlideOverPanel.tsx` as a reusable tabbed slide-over panel. Portal-based (`createPortal` to `document.body`), z-50, animated slide transition, backdrop with click-to-close, Escape key dismissal. Props: `isOpen`, `onClose`, `tabs` (id/label/content), `activeTab`, `onTabChange`. Width: `w-[450px] max-w-[90vw]`.
+
+**Context:** Partner detail needed a slide-over for reference data. Building it as a shared component means other pages (engagement detail, meeting detail) can reuse it.
+
+**Rationale:** Portal avoids z-index stacking issues. Tab pattern is more space-efficient than multiple panels. Animation provides spatial context (panel slides in from right).
+
+**Impact:** Available for any page that needs a reference panel. Used on partner detail with 3 tabs.
+
+---
+
+### #298 — BrainSynthesis extracted component
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** Extracted brain synthesis display from PartnerScratchpad into dedicated `src/components/partners/BrainSynthesis.tsx`. Parses `## ` headers into sections, handles amber attention highlight, accordion for other sections, legacy fallback for unparseable text. PartnerScratchpad stripped to scratchpad-only (brain state, handler, display, `formatShortDate` all removed).
+
+**Context:** PartnerScratchpad was doing double duty — managing scratchpad entries AND brain synthesis display. Two concerns in one component.
+
+**Rationale:** Single responsibility. Brain synthesis has its own parsing logic, visual treatment, and state management. Scratchpad is a simple CRUD list. Separating them makes each easier to modify independently.
+
+**Impact:** Cleaner component boundaries. Brain rendering can evolve (e.g., more sections, different layouts) without touching scratchpad code.
+
+---

@@ -51,7 +51,7 @@ roadrunner/
 │   ├── CLASSIFICATION.md          #   AI synthesis pipeline documentation (rewrite pending)
 │   ├── entity-model.md            #   Canonical schema — ERD + field-level registry + AT field IDs
 │   └── goal-state.md              #   Living orientation doc — current state & next steps
-├── decisions.md                   # Append-only architectural decision log (288 entries)
+├── decisions.md                   # Append-only architectural decision log (298 entries)
 ├── src/
 │   ├── app/                       # Next.js App Router
 │   │   ├── api/                   #   API routes (31 route files, grouped by entity)
@@ -78,14 +78,14 @@ roadrunner/
 │   │   ├── tasks/                 #   Cross-partner task dashboard
 │   │   ├── layout.tsx             #   Root layout + sidebar
 │   │   └── page.tsx               #   Redirects to /partners
-│   ├── components/                # React components (33 across 7 groups)
+│   ├── components/                # React components (36 across 7 groups)
 │   │   ├── actions/               #   Entity action buttons + MergeButton (6 files)
 │   │   ├── engagement/            #   Engagement-specific cards (1 file: CurrentStateCard)
 │   │   ├── inbox/                 #   Inbox triage UI — InboxClient (1 file)
 │   │   ├── layout/                #   App structure — sidebar, headers (4 files)
 │   │   ├── notes/                 #   NoteWorkspace, ContextSidebar, PreviousNotes, TaskEditor, MeetingNotesSection
-│   │   ├── partners/              #   PartnerTasksSection, PartnerScratchpad
-│   │   └── shared/                #   Reusable primitives — CompactRow, DetailHeader, EngagementLinker, RecurrenceEditor, badges (14 files)
+│   │   ├── partners/              #   BrainSynthesis, PartnerReferencePanel, PartnerScratchpad
+│   │   └── shared/                #   Reusable primitives — CompactRow, DetailHeader, EngagementLinker, RecurrenceEditor, SlideOverPanel, badges (15 files)
 │   └── lib/                       # Core business logic
 │       ├── classifier.ts          #   Synthesis orchestrator (synthesizeIntoEngagement, persistClassificationResult)
 │       ├── claude.ts              #   Anthropic API client (synthesis calls)
@@ -363,7 +363,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-070). New migratio
 | `docs/entity-model.md` | Complete schema — 18 tables, all FKs, AT field IDs, ring model | Schema/data work |
 | `docs/CLASSIFICATION.md` | AI synthesis pipeline (rewrite pending — Phase 2 docs still accurate) | Prompt/AI work |
 | `docs/goal-state.md` | Living status — current state + what's next | Session planning |
-| `decisions.md` | Append-only architectural decision log (283 entries) | When you need "why" |
+| `decisions.md` | Append-only architectural decision log (298 entries) | When you need "why" |
 
 ---
 

@@ -12,7 +12,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 - AI Brain Overhaul Phases 1-3 complete (decisions #260-269): goal field eliminated (migration 069), condensed columns on engagements + meeting_notes (migration 068), meeting summarization restructured with scoped context builder, structured output (Discussion/Decisions/Key Context), condensed 3-5 bullet digest, non-redundancy with tasks
 - Phase D cleanup complete: dead tests deleted, stale assertions fixed, dead types/routes removed
 - Entity model fully rewritten with ring architecture (Catalog → Activity → People → Posture) in docs/entity-model.md
-- Documentation consolidated: 6 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline (rewrite pending), ai-call-map.md AI call reference, goal-state.md status, decisions.md through #288)
+- Documentation consolidated: 6 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline (rewrite pending), ai-call-map.md AI call reference, goal-state.md status, decisions.md through #298)
 - Dead weight cleaned: notes table dropped (migration 061), orphaned components removed (PillGrid, CalendarCard, TableList, SyncStatus), decisions.md merged from two files into one
 - Zero polymorphic tables: entity_links replaced with engagement_programs + engagement_events (migration 065, decisions #221-222)
 - Contact registry complete: 76 participants, 85 partner links, 4 dedicated join tables, sync layer auto-maintains registry — all reads and writes flow through registry, JSONB columns dropped (Decisions #182, #218)
@@ -24,7 +24,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 - Seed notes eliminated: note_type CHECK narrowed to 'meeting', historical context lives in scratchpad (decision 195)
 - Manual meeting quick-capture: modal form on /meetings page with partner dropdown, auto-title, meeting type (decision 189)
 - Manual task creation: inline form on partner detail, POST /api/notes/tasks, no meeting note required (decision 196)
-- Partner detail: four-layer model (Profile → Living Context → Engagements → Activity → Tasks → Relationships)
+- Partner detail redesigned: full-width + slide-over panel layout, brain accordion with amber "What Needs Attention", condensed digest previews, smart status dots, notepad container, information weight principle (decisions 289-298). 3 new components: BrainSynthesis, PartnerReferencePanel, SlideOverPanel
 - 5 active engagements processing real email data (Nozomi Networks, Spacelift x3, Qualys)
 - All Airtable push/delete calls awaited (no fire-and-forget)
 
@@ -39,9 +39,11 @@ A system where a PDM forwards an email and Roadrunner:
 ## What's Next
 
 ### Next Session
-- AI Brain Overhaul Phase 6 — UI alignment: update engagement detail to show condensed digest, update partner detail brain display for structured 4-section output
+- UI Overhaul Phase 2 — meeting detail page redesign (SKILL.md alignment)
+- UI Overhaul Phase 3 — engagement detail page redesign (SKILL.md alignment)
 
 ### Soon
+- UI Overhaul remaining pages: tasks page, list pages, sidebar restructure
 - Real daily use testing — forward emails, verify full pipeline end-to-end
 - Ring 3 pull sync planning (Partner Programs, Events, Co-Sell Goals, Partner Goals, Funding)
 - CLASSIFICATION.md full rewrite to document current pipeline
@@ -104,6 +106,7 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~Previous Context three-tier cascade~~ ✅ (decision 286): Engagement → series → empty. Joins through meetings table. Self-exclusion on all tiers
 - ~~Re-summarize removed from saved mode~~ ✅ (decision 287): Mode 3 has only "Edit Notes". One clear path: Edit → Summarize → Save
 - ~~Task extraction prompt rewrite~~ ✅ (decision 288): Forward/backward temporal test, obligation patterns, "when in doubt extract". 31 tasks (6x improvement)
+- ~~UI Overhaul Phase 1 — SKILL.md + partner detail~~ ✅ (decisions 289-298): SKILL.md constitutional rewrite, partner detail redesigned (full-width + slide-over panel, brain accordion, condensed digests, smart status, notepad container, section reorder). 3 new components (BrainSynthesis, PartnerReferencePanel, SlideOverPanel). 4 skill files rewritten
 
 ## Architecture Principles
 
