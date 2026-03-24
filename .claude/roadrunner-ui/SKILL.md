@@ -1,386 +1,823 @@
 ---
 name: roadrunner-ui
-description: UI design system and component patterns for Roadrunner (Relay), an AWS partner engagement management app. Use when building, modifying, or extending any Roadrunner UI — list pages, detail pages, filters, sidebar, or shared components. Also use when adding new entity types, fixing layout issues, or ensuring visual consistency across pages. Trigger on any mention of Roadrunner UI, Relay UI, list pages, detail pages, FilterBar, NoteWorkspace, identity bar, two-column layout, or entity-specific page work.
+description: UI design system for Roadrunner (Relay), an AI-powered AWS partner engagement management app. Read this BEFORE any UI work — list pages, detail pages, layout, components, or visual consistency. Covers layout system, container types, typography, AI content rendering, progressive disclosure, responsive behavior, and page-by-page specs. Trigger on any mention of Roadrunner UI, Relay UI, page layout, component patterns, or visual design work.
 ---
 
 # Roadrunner UI Design System
 
-> **Last updated:** 2026-03-22. Reflects decisions through #288. UI overhaul complete: two-column detail pages, collapsible list groups, sidebar zone labels, three-tier partner detail. Tasks page is full command center (decisions 279-281). Meeting notes: three-mode flow, unified sidebar tasks, three-tier Previous Context cascade (decisions 284-288).
+> **Constitution for all UI decisions.** Read fully before building, modifying, or extending any Roadrunner page. Reference files in `references/` provide exact prop types, color values, and entity field mappings — consult them for implementation detail after absorbing this document.
 
-Roadrunner (also called Relay) is an AI-powered email classification and partner engagement management system for AWS PDMs. This skill defines the UI layout system, component patterns, and visual conventions.
+---
 
-## 1. Design Tokens
+## 1. Vision & Mental Model
 
-**Stack:** Next.js 16 (App Router) + Tailwind CSS 4 + Supabase + TypeScript
-**Theme:** Dark mode, indigo accent (#6366f1), defined via CSS custom properties in `globals.css`
+Roadrunner is a partner intelligence platform for an AWS PDM managing 10–25 ISV technology partners. The UI must serve a specific daily workflow, not present a generic database browser.
+
+### The Partner-Centric Model
+
+Everything orbits the partner. The PDM doesn't think "let me look at engagements" — they think "let me look at Spacelift." The UI, data model, and AI all organize around this reality.
+
+Three top-level concepts:
+
+| Concept | What It Is | Why It's Top-Level |
+|---------|-----------|-------------------|
+| **Pulse** | What needs attention NOW across all partners. Inbox items, open tasks, stale signals. | The 8am Monday morning view. Cross-cutting by nature. |
+| **Partners** | The 10–25 partner cards. Each is a portal to everything about that partner. | The center of gravity. Where you spend most of your time. |
+| **Inbox** | Incoming emails and calendar invites needing routing. | Cross-partner inflow. Routing is a distinct workflow. |
+
+Everything else — engagements, meetings, tasks, programs, events, people — is accessed through a partner card or through a cross-partner utility view. Entity-type pages exist for cross-partner search and filtering, not as primary workflow destinations.
+
+### The Daily Workflow
+
+1. **Triage** — Check Pulse: route inbox items, review urgent tasks, scan upcoming meetings
+2. **Prepare** — Click into a partner before a meeting: read the brain, check recent activity, review open tasks
+3. **Capture** — During/after a meeting: take notes, trigger AI summarization, review extracted tasks
+4. **Synthesize** — Periodically: update scratchpad, re-synthesize brain, link entities
+
+The UI guides this journey. Every page has one clear job. No page tries to do everything.
+
+### The Two-Version Pyramid (UX Principle)
+
+Every AI-generated entity produces two versions: a **full version** for deep reading and a **condensed version** for scanning. This isn't just an AI architecture choice — it's the UX model. Condensed is the default everywhere. Full is one click away. This lets you scan 6 engagements in 30 seconds on a partner page, or read the complete narrative by clicking into one.
+
+---
+
+## 2. Navigation Hierarchy
+
+The sidebar reflects workflow priority, not entity completeness.
+
+### Tiers
+
+| Tier | Items | Rationale |
+|------|-------|-----------|
+| **Primary** | Pulse, Partners, Inbox | Daily workflow. Where you start every session. |
+| **Secondary** | Meetings, Tasks | Cross-partner temporal/action views. Used frequently but not the starting point. |
+| **Reference** | Programs, Events, People | Catalog browsing. Used when linking entities or looking up requirements. |
+
+### Sidebar Rendering
+
+- App name "Relay" at top
+- Tier labels as zone headers (subtle, uppercase, small)
+- Inbox shows unresolved count badge
+- `/` redirects to Pulse (once built; Partners until then)
+- Active page highlighted with accent background
+- Tiers separated by whitespace, not borders
+
+### Zone Label Style
+```
+text-[10px] font-medium uppercase tracking-[0.12em] text-muted/40 px-3 mb-1
+```
+Zone spacing: `mt-6` between tiers.
+
+---
+
+## 3. Layout System
+
+### Principles
+
+- **Two-column detail pages**: left = dynamic content (activity, AI, lists), right = stable reference (profile, status, people, metadata)
+- **Single-column list pages**: full width, filter bar at top, grouped content below
+- **No three-column layouts.** The meeting detail middle-column pattern is eliminated.
+- **No staggered card grids.** No floating boxes at different heights.
+- **Left column is the star.** It gets the majority of width and contains the content you're there to interact with.
+- **Right column is orientation.** It answers "what is this thing?" so you can focus on the left column's "what's happening with it?"
+
+### Two-Column Grid
+
+```
+grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8 lg:gap-12
+```
+
+Right column: `lg:border-l lg:border-border/20 lg:pl-8`
+
+Below `lg` breakpoint: columns stack vertically, right column appears below left.
+
+### Page Shell
+
+Every page follows this outer structure:
+```
+<div className="mx-auto max-w-7xl p-6 lg:p-8">
+  {/* Identity bar */}
+  {/* Content (single or two-column) */}
+</div>
+```
+
+`max-w-7xl` ensures readability on ultra-wide monitors. Content breathes on 30" screens without stretching to absurd line lengths.
+
+---
+
+## 4. Container Types
+
+Three container types. Every UI element maps to one of these. No exceptions.
+
+### Section
+
+A labeled group of related content. Optionally collapsible.
+
+```
+┌─ SECTION LABEL (count) ─────────────────────┐
+│                                              │
+│  Content: rows, prose, sub-components        │
+│                                              │
+└──────────────────────────────────────────────┘
+```
+
+- Header: section label style (see Typography)
+- Count shown as plain text after label, not a badge
+- Collapsible sections use `<details>/<summary>` with chevron
+- Non-collapsible sections use `<h2>` header
+- Content starts `mt-3` below header
+- Sections separated by `pt-6 border-t border-border/20` (first section after identity bar: no top border)
+
+### Row
+
+A single item in a list. Clickable when linking to a detail page.
+
+```
+[Name/Description]                    [metadata] [badge] [dot]
+```
+
+- Name: `flex-1 truncate` — takes available space
+- Metadata, badges, status indicators: `shrink-0` right-aligned
+- Padding: `px-3 py-3` (slightly more generous than before for readability)
+- Border: `border-b border-border/20`
+- Hover: `hover:bg-surface/50 transition-colors`
+- `items-center` when badges/dots present; `items-baseline` for text-only rows
+
+### Detail Panel
+
+Full-width content block for prose, AI summaries, or structured text.
+
+```
+┌──────────────────────────────────────────────┐
+│  Prose content, AI-generated summaries,      │
+│  structured text with sections.              │
+│  Leading-relaxed for readability.            │
+└──────────────────────────────────────────────┘
+```
+
+- Text: body prose style (see Typography)
+- `leading-relaxed` for multi-paragraph content
+- AI-generated content gets a visual marker (see AI Content Rendering)
+- No card wrapper (`rounded-xl border bg-surface`) on detail pages
+
+---
+
+## 5. Typography
+
+Readable, clear, scannable. Hierarchy creates visual speed — you should be able to identify the level of any text element at a glance.
+
+| Element | Size | Weight | Color | Extra |
+|---|---|---|---|---|
+| Page title | `text-2xl` (24px) | `font-semibold` | `text-foreground` | — |
+| Section label | `text-xs` (12px) | `font-semibold` | `text-muted` | `uppercase tracking-wider` |
+| Category sub-label | `text-[10px]` | `font-semibold` | `text-muted/50` | `uppercase tracking-widest` |
+| Row primary text | `text-sm` (14px) | `font-medium` | `text-foreground` | — |
+| Row secondary text | `text-sm` | normal | `text-muted` | — |
+| Body prose | `text-[15px]` | normal | `text-foreground/85` | `leading-relaxed` |
+| Metadata/dates | `text-xs` (12px) | normal | `text-muted` | — |
+| Pills/badges | `text-xs` | `font-medium` | tinted color | `whitespace-nowrap` |
+| Sidebar zone label | `text-[10px]` | `font-medium` | `text-muted/40` | `uppercase tracking-[0.12em]` |
+
+### Rules
+
+- **Page titles are the largest text on any page.** Nothing competes with `text-2xl`.
+- **Section labels are ALL CAPS and muted.** They orient without shouting.
+- **Body prose is generous.** `text-[15px]` with `leading-relaxed` — optimized for reading AI-generated summaries and activity narratives.
+- **Row text is compact.** `text-sm` keeps lists scannable. Density serves scanning; prose size serves reading.
+- **Never use bold for emphasis in prose.** The AI doesn't control formatting. If emphasis is needed, it comes from structure (section placement, ordering), not inline styling.
+
+---
+
+## 6. AI Content Rendering
+
+AI-generated content is visually distinct from user-entered content and always structurally parsed — never shown as raw text or markdown.
+
+### Visual Treatment
+
+AI-generated blocks receive a subtle left-border accent:
+```
+border-l-2 border-accent/25 pl-4
+```
+
+This creates a quiet "this came from the AI" signal without being distracting. Applied to: brain synthesis sections, meeting summaries, engagement summaries, condensed digests.
+
+User-entered content (scratchpad entries, raw notes) has NO left border — it's direct and personal.
+
+### Brain Synthesis (Partner Detail)
+
+The brain produces 4 named sections. Parse on `## ` headers and render each as a labeled block:
+
+```
+┌─ RELATIONSHIP OVERVIEW ──────────────────────┐
+│ ▎ 2-3 sentences on health, people, trajectory │
+├─ ACTIVITY PATTERNS ──────────────────────────┤
+│ ▎ Pillar distribution, focus areas, cadence   │
+├─ WHAT NEEDS ATTENTION ───────────────────────┤
+│ ▎ Stale items, gaps, risks, deadlines         │
+├─ MOMENTUM ASSESSMENT ────────────────────────┤
+│ ▎ One sentence: accelerating/steady/stalled   │
+└──────────────────────────────────────────────┘
+```
+
+Each section: section label header + AI-styled Detail Panel content. If the raw text contains `## ` markers, split on them. If it doesn't (legacy data), render as a single AI-styled block.
+
+### Meeting Summaries (Meeting Detail)
+
+Summaries have three named sections: Discussion, Decisions, Key Context. Parse on these labels and render as distinct blocks within the NoteWorkspace. Each section gets a sub-label header and prose content.
+
+### Condensed Digests
+
+Condensed digests are the scannable compressed versions. Render as compact bullet lists:
+
+```
+Discussed: Key topic and what was said
+Decided: Commitment or agreement reached
+Context: Important background signal
+Next: What happens next
+```
+
+Category tags rendered as small inline labels (`text-[10px] uppercase font-semibold text-muted/60`) before each bullet's content. Used on partner page for engagement previews and meeting previews.
+
+### Engagement Current State (Engagement Detail)
+
+- **Condensed digest** renders at the top of the left column as a compact scannable block
+- **Full current_state** renders below it as a Detail Panel for the complete narrative
+- Both get AI visual treatment (left border accent)
+
+### Parsing Safety
+
+Always handle the case where AI content doesn't contain expected section markers. Fallback: render as a single AI-styled Detail Panel. Never show raw `##` or `**` markdown tokens to the user.
+
+---
+
+## 7. Progressive Disclosure
+
+The principle: show the most useful information first. Expand for more. Scale gracefully from 3 items to 30.
+
+### Detail Page Lists
+
+Lists embedded in detail pages (engagements on partner page, tasks, meetings):
+
+| Item Count | Behavior |
+|---|---|
+| 1–7 | Show all items |
+| 8+ | Show first 5 items + "Show all N →" link/expander |
+
+The "Show all" expander reveals remaining items inline. For tasks, it can link to `/tasks?partner=X` for the full filtered view.
+
+### List Pages
+
+Lists on dedicated list pages (engagements list, meetings list, programs, events): **always expanded by default.** The filter bar handles narrowing. No collapsed-on-load groups.
+
+**Exception:** Time-based past sections. "Past" meetings and archived engagements can default collapsed since you're usually looking at upcoming/active items.
+
+### Default Filter States
+
+| Page | Default Filter | Rationale |
+|---|---|---|
+| Tasks | "Me" | Your obligations are what you act on |
+| Meetings | Upcoming open, Past collapsed | Preparation, not history |
+| Engagements | All, grouped by partner | Find by partner, not by status |
+| Inbox | All shown | Everything needs routing |
+
+### Collapsible Sections on Detail Pages
+
+- **Left column AI content:** Not collapsible. It's the reason you're on the page.
+- **Left column lists (engagements, tasks, meetings):** Collapsible, default open.
+- **Right column reference data:** NOT collapsible. Stable reference should always be visible without interaction.
+- **Timeline/email history:** Collapsible, default open if ≤5 items, collapsed if more.
+
+---
+
+## 8. Responsive Behavior
+
+Roadrunner must work on a 13" laptop and a 30" monitor. The same page, not different layouts.
+
+### Breakpoints
+
+| Breakpoint | Width | What Changes |
+|---|---|---|
+| `lg` (1024px) | Two → single column | Right column stacks below left. Grid goes from `grid-cols-[3fr_2fr]` to `grid-cols-1`. |
+| `md` (768px) | Filter bar wraps | Pills wrap to second line. Search stays full-width. |
+| `sm` (640px) | Compact adjustments | Tighter padding (`p-4` instead of `p-6`). Row metadata may hide or stack. |
+
+### Rules
+
+- **No horizontal scrolling. Ever.** Tables, code blocks, long text — everything wraps or truncates.
+- **`max-w-7xl` on page content.** Prevents unreadable line lengths on ultrawide monitors.
+- **Touch targets: 44px minimum** on interactive elements when viewport < 768px.
+- **Condensed-first helps responsiveness.** Compact content works at any width. Full prose only appears when explicitly expanded.
+- **Right column content order is preserved when stacking.** Solution Profile → Status → People in the same order whether side-by-side or stacked below.
+
+---
+
+## 9. Design Tokens
 
 ### Core Colors (CSS Custom Properties)
 
 | Token | Value | Usage |
 |---|---|---|
 | `--color-background` | `#0f1117` | Page background |
-| `--color-surface` | `#1a1b23` | Cards, sidebar, input backgrounds |
-| `--color-surface-hover` | `#22232d` | Card hover state |
+| `--color-surface` | `#1a1b23` | Sidebar, input backgrounds, modal cards |
+| `--color-surface-hover` | `#22232d` | Hover state for interactive surfaces |
 | `--color-foreground` | `#e4e4e7` | Primary text |
 | `--color-muted` | `#71717a` | Secondary text, labels, placeholders |
-| `--color-border` | `#27272a` | Borders, dividers |
-| `--color-accent` | `#6366f1` | Indigo — primary accent, links, active states |
+| `--color-border` | `#27272a` | Borders, dividers (always used with opacity) |
+| `--color-accent` | `#6366f1` | Indigo — links, active states, primary actions |
 | `--color-accent-hover` | `#818cf8` | Accent hover |
 
 ### Status Colors
 
-| Status | Dot Color | Badge BG | Badge Text |
-|---|---|---|---|
-| active | `#22c55e` (green) | `bg-status-active/20` | `text-status-active` |
-| blocked | `#f59e0b` (amber) | `bg-status-blocked/20` | `text-status-blocked` |
-| completed | `#8b5cf6` (purple) | `bg-status-completed/20` | `text-status-completed` |
-| archived | `#6b7280` (gray) | `bg-status-archived/20` | `text-status-archived` |
+| Status | Dot Color | CSS Variable |
+|---|---|---|
+| active | `#22c55e` (green) | `--color-status-active` |
+| blocked | `#f59e0b` (amber) | `--color-status-blocked` |
+| completed | `#8b5cf6` (purple) | `--color-status-completed` |
+| archived | `#6b7280` (gray) | `--color-status-archived` |
 
-### Program Type Colors (CSS variables for ProgramTypeBadge)
+### Semantic Tokens
 
-Competency (#3b82f6 blue), Service Ready (#8b5cf6 violet), SCA (#f59e0b amber), Funding (#10b981 emerald), Channel (#ec4899 pink), Enablement (#06b6d4 cyan).
+| Purpose | Pattern |
+|---|---|
+| Status dot (identity bar) | `h-2 w-2 rounded-full bg-{status-color}` |
+| Status dot (row) | `h-1.5 w-1.5 rounded-full bg-{status-color}` |
+| Standard pill | `text-xs font-medium rounded-full px-2 py-0.5 bg-{color}/10 text-{color}` |
+| AI content marker | `border-l-2 border-accent/25 pl-4` |
+| Section separator | `pt-6 border-t border-border/20` |
+| Row separator | `border-b border-border/20` |
+| Hover state | `hover:bg-surface/50 transition-colors` |
 
-## 2. Typography Hierarchy
+### Pillar Colors
 
-| Element | Size | Weight | Color |
-|---|---|---|---|
-| Page/entity title | 20px / `text-xl` | 500 / `font-semibold` | `text-foreground` |
-| Section label | 11px / `text-xs` | 500 / `font-semibold` | `text-muted`, uppercase, `tracking-wider` |
-| Category sub-label | 10px / `text-[10px]` | 500 / `font-semibold` | `text-muted/50`, uppercase, `tracking-widest` |
-| Row primary text | 13px / `text-sm` | 500 / `font-medium` | `text-foreground` |
-| Row secondary text | 13px / `text-sm` | 400 | `text-muted` |
-| Metadata/date | 12px / `text-xs` | 400 | `text-muted` |
-| Pills/badges | 11px / `text-xs` | 500 / `font-medium` | tinted color |
-| Body prose | 13-14px / `text-sm` | 400 | `text-foreground/80`, `leading-relaxed` |
+| Pillar | Background | Text |
+|---|---|---|
+| Co-Sell | `bg-emerald-500/10` | `text-emerald-400` |
+| Co-Build | `bg-blue-500/10` | `text-blue-400` |
+| Co-Market | `bg-purple-500/10` | `text-purple-400` |
 
-## 3. Status Indicators
+### Owner Colors
 
-**Dots for binary status.** 6-7px colored circle — use for engagement/meeting status in row context.
+| Owner | Background | Text |
+|---|---|---|
+| Me | `bg-accent/10` | `text-accent` |
+| Partner | `bg-emerald-500/10` | `text-emerald-400` |
+| Internal | `bg-amber-500/10` | `text-amber-400` |
+| Third Party | `bg-purple-500/10` | `text-purple-400` |
 
-**Pills for categorical data.** Pillar, owner, type, architecture, listing:
-- `text-xs`, `px-2 py-0.5`, `rounded-full`
-- Background: color at 10-15% opacity (e.g., `bg-accent/10`)
-- Text: color at 70-80% brightness (e.g., `text-accent`)
+Refer to `references/design-tokens.md` for the complete color catalog including program types.
 
-**Plain text for countable items.** Show count inline as plain text, not a badge pill. Example: `{count} engagements` as `text-xs text-muted`.
+---
 
-**Inline badge pattern** (ad-hoc, no dedicated component):
-```tsx
-<span className="rounded-full bg-{color}/15 px-2 py-0.5 text-xs font-medium text-{color} whitespace-nowrap">
-  {label}
-</span>
+## 10. Status Indicators
+
+### Dots — for binary/lifecycle status
+
+Small colored circles. Used in rows and identity bars to show where something stands.
+
+| Context | Size | Classes |
+|---|---|---|
+| Identity bar | 8px | `h-2 w-2 shrink-0 rounded-full` |
+| Row items | 6px | `h-1.5 w-1.5 shrink-0 rounded-full` |
+
+Always include `title={status}` for accessibility.
+
+### Pills — for categorical data
+
+Colored capsules for classification: pillar, owner, type, segment, architecture.
+
+```
+text-xs font-medium rounded-full px-2 py-0.5 whitespace-nowrap
+bg-{color}/10 text-{color}
 ```
 
-## 4. Row Patterns
+### Plain text — for counts
 
-### Clickable entity rows (engagements, meetings on detail pages)
-Individual items inside collapsible `<details>` groups. Subtle hover, no per-row border.
+Never use a badge pill for a number. "4 engagements" as `text-xs text-muted`. Counts are informational, not categorical.
 
-```tsx
-<Link
-  href={`/entity/${id}`}
-  className="flex items-baseline gap-4 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
->
-  <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{name}</span>
-  <span className="shrink-0 text-xs text-muted">{metadata}</span>
-</Link>
-```
+---
+
+## 11. Interactive Elements
+
+### Buttons
+
+| Type | Style | Usage |
+|---|---|---|
+| Primary action | `bg-accent text-white rounded-lg px-4 py-2 hover:bg-accent-hover` | One per page max. "+ New Meeting", "Summarize with AI" |
+| Secondary | `border border-border text-foreground rounded-lg px-3 py-1.5 hover:bg-surface-hover` | "Edit", "Re-synthesize", "Cancel" |
+| Destructive | `text-red-400 hover:text-red-300` | "Delete" — text-only or subtle, requires confirmation |
+| Inline action | `text-accent text-sm hover:underline` | "Show all", "Link to engagement", "View meeting" |
 
 **Rules:**
-- Name takes `flex-1`, metadata/badges right-aligned with `shrink-0`
-- `items-baseline` for text-only rows, `items-center` when dots/badges present
-- `hover:bg-surface/50` universally
-- `border-b border-border/20` for subtle row separation
-- Status dots as last element when present
+- **One primary action per page.** If a page has "+ New Meeting" as the primary CTA, everything else is secondary or inline.
+- **Destructive actions are never primary.** Delete is always secondary, always requires confirmation.
+- **Button text is action-oriented.** "Save", "Summarize", "Create" — not "OK" or "Submit".
 
-### Reference list rows (contacts, relationships in right column)
-Compact, no separators. Grouped by category label (`text-[10px] font-semibold uppercase tracking-widest text-muted/50`).
+### Links
 
-## 5. Collapsible Groups
+- Partner names: always accent-colored, always clickable to partner detail
+- Engagement names: always clickable to engagement detail
+- Meeting titles: always clickable to meeting detail
+- External URLs: accent-colored with external link indicator
 
-All list pages use `<details>/<summary>` for grouped sections. This is the standard pattern:
+### Filter Bars
 
-```tsx
-<details
-  key={group.key}
-  open={defaultOpen || undefined}
-  className="group"
->
-  <summary className="flex cursor-pointer list-none items-center gap-2 pb-2 text-xs font-medium uppercase tracking-[0.08em] text-muted/70 [&::-webkit-details-marker]:hidden">
-    <svg
-      width="14" height="14" viewBox="0 0 16 16"
-      fill="none" stroke="currentColor" strokeWidth="1.5"
-      className="shrink-0 transition-transform group-open:rotate-90"
-    >
-      <path d="M6 4l4 4-4 4" />
-    </svg>
-    {group.label}
-    <span className="font-normal text-muted/50">
-      {group.items.length}
-    </span>
-  </summary>
-  <div>
-    {/* Row items here */}
-  </div>
-</details>
-```
-
-**Smart defaults:**
-- If **any group** on a page has **10+ items**, **all groups** on that page default-collapsed (clean header-only overview)
-- If **no group** exceeds 10, all groups default-open
-- **Search active** → all groups forced open (`!!searchQuery`)
-- Time-based (Events/Meetings): Upcoming/TBD default-open, Past default-collapsed
-
-**Important:** Use `!!searchQuery` (double-bang) for boolean coercion — `string | true` doesn't satisfy `boolean | undefined` for the `<details open>` attribute.
-
-## 6. Page Layouts
-
-### List Pages (single-column)
-
-All list pages follow this structure:
-
-```tsx
-<div className="p-6 lg:p-8">
-  <PageHeader title="..." subtitle="N items tracked" />
-
-  {items.length === 0 ? (
-    <EmptyState title="No ... yet" description="..." />
-  ) : (
-    <>
-      <FilterBar
-        searchPlaceholder="Search ..."
-        filterOptions={OPTIONS}
-        activeFilter={activeFilter}
-        onSearchChange={setSearchQuery}
-        onFilterChange={setActiveFilter}
-        resultCount={filtered.length}
-        totalCount={items.length}
-        entityName="..."
-      />
-      {filtered.length === 0 ? (
-        <EmptyState title="No matching ..." description="Try adjusting..." />
-      ) : (
-        <div className="space-y-8">
-          {groups.map((group) => (
-            <details key={...} open={...} className="group">
-              {/* summary + rows */}
-            </details>
-          ))}
-        </div>
-      )}
-    </>
-  )}
-</div>
-```
-
-**Entity grouping:**
-
-| Entity | Groups By | Filter Dimension |
-|---|---|---|
-| Partners | segment | segment |
-| Engagements | status | status |
-| Meetings | time (Upcoming/Past/TBD) | meeting_type |
-| Programs | type (8 categories) | type |
-| Events | time → month | type + year |
-| Relationships | relationship_type | relationship_type |
-| Tasks | partner | owner (Me/Partner/AWS) |
-
-### Detail Pages — Two-Column Layout
-
-Detail pages use a two-column layout: primary content left, reference/metadata right. **No box-stack wrapper cards around sections.**
-
-#### Partner Detail
-
-```
-Left Column (3fr)
-├── PartnerScratchpad (compact — no card wrapper)
-├── Engagements (clickable entity rows)
-├── Open Tasks (flat rows)
-└── Recent Meetings (flat rows)
-
-Right Column (2fr, border-l)
-├── What They Do (prose)
-├── AWS Stickiness (accent label + service pills)
-├── Profile (2-col grid: architecture, listing, pricing, SPMS ID)
-├── Contacts (grouped by org_type)
-└── Relationships
-```
-
-#### Engagement Detail
-
-```
-Left Column (3fr)
-├── Goal callout (border-l-2 border-accent/40, italic)
-├── Current State (section label + prose)
-├── Connections (relationship links + EntityLinkChips)
-└── Timeline (collapsible <details>, CollapsibleEmails compact)
-
-Right Column (2fr, border-l)
-├── Partner link (accent)
-├── Details (pillar, topic, status dot+text, updated)
-└── Participants (count + org breakdown, CollapsibleParticipants compact)
-```
-
-#### Meeting Detail
-
-```
-Left Column (3fr)
-├── Location (URL → accent link, physical → label+text)
-├── Calendar Notes (prose)
-└── MeetingNotesSection (client bridge, manages own state)
-
-Right Column (2fr, border-l)
-├── Partner (accent link)
-├── Details (date, time, engagement, type, source)
-├── Attendees (grouped by org: AWS/Partner/Other)
-└── Footer (organizer + created)
-```
-
-### Sidebar
-
-Zone labels replace border dividers. Subtle right border (`border-border/30`).
-
-```
-REVIEW
-  Inbox (with unresolved count badge)
-
-WORK
-  Partners (home — / redirects here)
-  Engagements
-
-ACTIVITY
-  Meetings
-  Tasks
-
-REFERENCE
-  Programs
-  Events
-  Relationships
-```
-
-Zone label style: `text-[10px] font-medium uppercase tracking-[0.1em] text-muted/40 px-3 mb-1`
-Zone spacing: `mt-6` between zones (whitespace, no borders)
-Sidebar border: `border-border/15` (very subtle)
-
-## 7. Shared Components
-
-### FilterBar (`src/components/layout/FilterBar.tsx`)
-
-Single-select chip filter with integrated search.
-
-```typescript
-interface FilterBarProps {
-  searchPlaceholder?: string;
-  filterOptions: { label: string; value: string }[];
-  activeFilter: string | null;
-  onSearchChange: (query: string) => void;
-  onFilterChange: (value: string | null) => void;
-  resultCount: number;
-  totalCount: number;
-  entityName?: string;
-}
-```
+Pill-style single-select filters with integrated search.
 
 - Click chip → select exclusively. Click active chip → deselect (back to All).
-- Search + filter work together independently.
-- Shows "X of Y items" count.
-- If a page needs a second filter dimension, add a separate row below — don't modify FilterBar.
+- Active chip: `border-accent bg-accent/10 text-accent`
+- Inactive chip: `border-border bg-background text-muted hover:text-foreground`
+- Search and filter work independently.
+- Shows "X of Y items" count at right edge.
+- Use when a list has **5+ items with meaningful categories**. Don't add filters to 3-item lists.
 
-### PageHeader (`src/components/layout/PageHeader.tsx`)
+### Forms & Inputs
 
-```typescript
-interface PageHeaderProps {
-  title: string;
-  subtitle?: string;
-}
-```
+- Input background: `bg-surface`
+- Border: `border-border/40 focus:border-accent`
+- Text: `text-foreground`
+- Placeholder: `text-muted/50`
+- Consistent `rounded-lg` on all inputs
+- Labels above inputs, not floating
 
-Simple h1 + subtitle at top of every list page.
+---
 
-### EmptyState (`src/components/layout/EmptyState.tsx`)
+## 12. Page Specifications
 
-```typescript
-interface EmptyStateProps {
-  title: string;
-  description?: string;
-}
-```
+Each page has one job. The spec defines that job, the layout, and the content structure. Specific field mappings and component props are in `references/entity-catalog.md`.
+
+---
+
+### Pulse (Primary)
+
+**Job:** What needs attention right now across all partners.
+
+**Layout:** Single-column, sectioned.
+
+**Sections:**
+1. **Inbox** — Count of unrouted items + preview of most recent. "Go to Inbox →" link.
+2. **My Tasks** — Open tasks where owner = "me", sorted by recency. Top 5–10 with "View all →" link.
+3. **Upcoming Meetings** — Next 3–5 meetings across all partners. Partner name, date, title. Links to meeting detail.
+4. **Signals** (future) — Stale engagements, overdue items, partners with no recent activity. Built when the data supports it.
+
+**Status:** Not yet built. Partners page serves as landing page until Pulse exists.
+
+---
+
+### Partners List (Primary)
+
+**Job:** Find any partner and see portfolio at a glance.
+
+**Layout:** Single-column list.
+
+**Structure:**
+- Rows grouped by segment (Security, DevOps, CloudOps, Observability, OT/IoT)
+- Each row: partner name (linked) + segment badge + engagement count + meeting count
+- Groups default open
+- Search filters across name, segment
+
+---
+
+### Partner Detail (Primary — Center of Gravity)
+
+**Job:** Everything about one partner — the portal you explore.
+
+**Layout:** Two-column.
+
+**Identity Bar:**
+- Partner name (`text-2xl`)
+- Segment badge
+- SPMS ID (right-aligned, muted)
+
+**Left Column (dynamic — changes with activity):**
+
+1. **Brain Synthesis** — 4 sections parsed from `##` headers, each rendered as a Section with AI visual treatment. "Re-synthesize" as secondary button. "Last synthesized" timestamp. If no synthesis exists, show prompt to synthesize.
+
+2. **Scratchpad** — Compact inline entries. Input at bottom ("Add context about this partner..."). Entries show on hover-delete. No card wrapper.
+
+3. **Engagements** — Section with count. Each engagement as a condensed card showing:
+   - Engagement name (linked)
+   - Pillar badge
+   - Status dot
+   - Condensed digest preview (topic, status, what's next — 2-3 lines)
+   - If no condensed, fall back to topic field
+   
+   Progressive disclosure: first 5, "Show all N →" if more.
+
+4. **Open Tasks** — Section with count. Flat rows: description + owner badge. Top 5, "View all tasks →" links to `/tasks` filtered to this partner.
+
+5. **Recent Meetings** — Section with count. Rows: date + title (linked) + condensed digest preview (first line or two). Top 5, "View all meetings →" links to `/meetings` filtered to this partner.
+
+**Right Column (stable — changes slowly):**
+
+1. **Solution Profile** — "What They Do" (prose) + "AWS Stickiness" (prose, accent-labeled) + Key AWS Services (pill tags). This is the technical identity.
+
+2. **Deployment & Pricing** — Compact grid: Architecture, Listing Types, Pricing Model. Each as sub-label + value/pills.
+
+3. **Operational Status** — ISVa Status, Deployed on AWS, CRM Status, PRM Status. Each as sub-label + value. **This section is the future home of Ring 3 data:** program enrollment counts, funding wallet balances, goal progress. Design it as an expandable container that accommodates growth.
+
+4. **People** — Grouped by org type: Partner Team, AWS Team. Each contact: name + role + title + email. Uses ContactGroup component.
+
+---
+
+### Engagement Detail
+
+**Job:** The narrative of one workstream.
+
+**Layout:** Two-column.
+
+**Identity Bar:**
+- Engagement name (`text-2xl`)
+- Status dot (8px)
+- Actions (Edit, Merge, Delete) — secondary buttons or dropdown
+
+**Left Column:**
+
+1. **Condensed Digest** — The scannable version, always visible at top. AI-styled Detail Panel. If no condensed exists, omit (don't show empty state).
+
+2. **Activity Summary** — Full current_state as AI-styled Detail Panel. The complete narrative.
+
+3. **Connected Meetings** — Meetings linked to this engagement. Rows: date + title (linked) + condensed digest snippet. Provides the temporal backbone of the workstream.
+
+4. **Timeline** — Email messages routed to this engagement. Collapsible, default open if ≤5, collapsed if more. Each message: sender + date + subject + body preview.
+
+**Right Column:**
+
+1. **Partner** — Accent link to partner detail
+2. **Details** — Pillar badge, topic, status (dot + text), last updated date
+3. **Connections** — Linked relationships, programs, events (as pills/links)
+4. **Participants** — Count + org breakdown summary, expandable to full list
+
+---
+
+### Meeting Detail
+
+**Job:** Take notes, review summaries, manage tasks for one meeting.
+
+**Layout:** Two-column. Left column is the workspace — it gets most of the space and attention.
+
+**Identity Bar:**
+- Meeting title (`text-2xl`, cleaned via `cleanMeetingTitle`)
+- Partner name (as badge/link)
+- Date
+- Status dot
+
+**Left Column (workspace):**
+
+1. **NoteWorkspace** — The three-mode flow:
+   - **Mode 1 (Editing):** Raw notes textarea + Previous Context sidebar + "Summarize with AI" primary button + "Cancel" secondary
+   - **Mode 2 (Review):** AI summary (structured sections) + TaskEditor (interactive) + "Save" primary + "Back to Editing" secondary
+   - **Mode 3 (Saved):** Read-only summary (structured sections) + Tasks in sidebar (read-only, owner badges) + "Edit Notes" secondary button
+   
+   The NoteWorkspace component manages all three modes. The page just provides props.
+
+**Right Column (context — slim):**
+
+1. **Partner** — Accent link
+2. **Details** — Date (full weekday format), time range, engagement (linked — prominent "Link to Engagement" action if unlinked), meeting type, recurrence info, source
+3. **Attendees** — Grouped by org (AWS / Partner / Other). Compact contact rows.
+4. **Created** — Timestamp footer
+
+**What is NOT on this page:** Partner profile, partner description, AWS stickiness, key services, partner context/brain. All of that lives on the partner detail page. The meeting page shows enough to orient you (partner link, engagement link, attendees) and focuses on the workspace.
+
+---
+
+### Tasks Page (Secondary)
+
+**Job:** Act on your obligations across all partners.
+
+**Layout:** Single-column list.
+
+**Default state:** Filtered to "Me". Sorted by recency (newest first). Flat list, no grouping.
+
+**Filter bar:** Me / Internal / Partner / Third Party (+ All)
+
+**Optional toggle:** "Group by partner" — adds partner headers when enabled
+
+**Each task row:**
+- Checkbox (left) — toggles complete/reopen
+- Description — `flex-1`, inline editable on click
+- Partner tag — small muted text or pill
+- Meeting provenance — "from: Meeting Title" linked, if applicable
+- Engagement link — linked name if set, "+ link" inline action if not
+- Owner badge — pill (Me/Partner/Internal/Third Party)
+- Delete — trash icon, requires confirmation
+
+**Row spacing:** More generous than other lists (`py-3.5`) — tasks need room because each row has more interactive elements.
+
+**"+ Add Task" button:** Primary action, top-right.
+
+---
+
+### Meetings List (Secondary)
+
+**Job:** See your calendar across all partners.
+
+**Layout:** Single-column list.
+
+**Structure:**
+- Upcoming section (default open) / Past section (default collapsed)
+- Filter bar: All + 10 meeting type filters
+- Each row: date + title (linked, cleaned) + partner name (right-aligned) + engagement name if linked (muted) + recurrence icon if recurring
+
+**"+ New Meeting" button:** Primary action, top-right.
+
+---
+
+### Engagements List (Secondary)
+
+**Job:** Find any engagement across all partners.
+
+**Layout:** Single-column list.
+
+**Structure:**
+- Grouped by partner (not by status)
+- Groups default open
+- Filter bar: status filters (All, Active, Planned, Blocked, Completed, Archived) + search
+- Each row: name (linked) + pillar badge + status dot + last updated date (muted)
+
+---
+
+### Inbox (Primary)
+
+**Job:** Route incoming emails to the right place.
+
+**Layout:** Single-column.
+
+**Each inbox card (enhanced):**
+- Partner pill (if detected) or "Pick Partner" prompt
+- Subject line
+- Body preview: first 2–3 lines of parsed email text, truncated
+- Sender name + participant count ("+ 3 others")
+- Message group count and date range (for grouped messages)
+- Actions: Assign / New / Discard (Assign and New only available after partner identified)
+
+**Empty state:** "Inbox clear — nothing to route."
+
+---
+
+### Programs List (Reference)
+
+**Job:** Browse and search the program catalog.
+
+**Layout:** Single-column list.
+
+**Structure:**
+- Flat list (no grouped collapse). Each row shows name + type badge + linked engagement count
+- Filter bar: type filters (Competency, Service Ready, SCA, etc.)
+- Search filters on name and description
+- Click into detail for requirements, description, lifecycle info
+
+---
+
+### Events List (Reference)
+
+**Job:** See what's coming up on the events calendar.
+
+**Layout:** Single-column list.
+
+**Structure:**
+- Grouped by month (this works well — keep it)
+- Upcoming section default open, Past default collapsed
+- Filter bar: type filters
+- Each row: date range + name + location (city)
+
+---
+
+### People (Reference — Future)
+
+**Job:** Find and manage contacts across all partners and entities.
+
+**Layout:** Single-column list with search + filters.
+
+**Planned filters:** Organization, partner association, org type (AWS/Partner/Third Party), role, frequency of appearance.
+
+**Status:** Not yet built. Replaces the current Relationships page. The SKILL.md should be referenced when building this page to ensure it follows the list page pattern with the container types and typography defined here.
+
+---
+
+## 13. Shared Component Patterns
+
+Exact interfaces are in `references/component-api.md`. This section covers the behavioral patterns.
+
+### Identity Bar (CSS pattern, not component)
+
+Top of every detail page. Title + badges + actions.
+
+- Title: `text-2xl font-semibold`
+- Badges appear between title and actions
+- Actions right-aligned via `ml-auto`
+- Bottom border: `border-b border-border/30`
+- Bottom margin: `mb-6`
+
+### FilterBar (shared component)
+
+Used on every list page. Search + pill filters + count. See Interactive Elements section for styling.
+
+### PageHeader (shared component)
+
+`h1` title + subtitle. Top of every list page.
+
+### EmptyState (shared component)
 
 Two uses: initial empty ("No {entities} yet") and filter empty ("No matching {entities}").
 
-### Compact Prop Components
+### ContactGroup / ContactRow (shared components)
 
-Three components support `compact?: boolean` (default false). When true, suppresses the `rounded-xl border border-border bg-surface p-4` card wrapper:
-- **PartnerScratchpad** — used compact on partner detail
-- **CollapsibleParticipants** — used compact on engagement detail
-- **CollapsibleEmails** — used compact on engagement detail
+Render contact lists grouped by org type. Used on partner detail, meeting detail, engagement detail. ContactRow handles name + role + title + email display.
 
-### Notes Components (`src/components/notes/`)
+### NoteWorkspace (notes component)
 
-- **NoteWorkspace** — Three-mode workspace (editing → review → saved). Mode 1: raw notes + Summarize + Cancel. Mode 2: interactive TaskEditor + Save. Mode 3: read-only summary + Edit Notes + Re-summarize. Auto-save, no Save Draft button.
-- **MeetingNotesSection** — Client bridge for meeting detail (3-state: no note, creating, existing). Passes `initialPhase: "saved"` for completed notes.
-- **ContextSidebar** — Partner context during note-taking. Open Tasks section shows owner badges and highlights tasks from current meeting (`currentNoteId` prop). Previous notes scoped to same engagement with self-exclusion (query in server component).
-- **PreviousNotes** — Collapsible previous note summaries (engagement-scoped, excludes current meeting)
-- **TaskEditor** — Task management in NoteWorkspace review mode only (grouped by owner, add/toggle/delete). Tasks page (/tasks) is the full command center: checkbox complete/reopen, delete with confirmation, inline description edit, meeting link, inline engagement linker (set/change/unlink)
+Three-mode workspace. See Meeting Detail page spec for mode descriptions. Manages its own state. Parent page provides meeting data and previous context.
 
-### Partner Components (`src/components/partners/`)
+### ContextSidebar (notes component)
 
-- **PartnerScratchpad** — Living context scratchpad (Enter to submit, optimistic, hover-delete)
-- **PartnerTasksSection** — Open tasks grouped by owner with toggle capability
+Partner context during note-taking. Shows: partner profile summary, key contacts, scratchpad, open tasks (with owner badges and "this meeting" highlight), previous notes (scoped by engagement or series).
 
-## 8. Data Formatting Utilities
+---
 
-All in `src/lib/format-utils.ts`.
+## 14. Data Display Conventions
 
-### `extractCity(location: string | null | undefined): string`
-Extracts compact city from full location. Strips venues, street addresses, postal codes. Returns last 2 meaningful segments (city + state/country). Empty string for null/empty.
-- `"Venetian Expo, Las Vegas, NV"` → `"Las Vegas, NV"`
-- `"75017 Paris, France"` → `"Paris, France"`
+### Formatting Utilities
 
-**Usage:** List pages and cards. Detail pages show full location.
+All in `src/lib/format-utils.ts`:
 
-### `formatCompactDateRange(start, end): string`
-- Same month: `"Mar 9–12"` (en-dash)
-- Cross-month: `"Mar 9 – Apr 2"` (spaced dash)
-- Single date: `"Mar 9"`
-- No start: `"TBD"`
+- **Locations:** `extractCity()` on list rows, full address on detail pages
+- **Meeting titles:** Always `cleanMeetingTitle()` everywhere they render
+- **Compact dates:** `formatCompactDateRange()` for list rows
+- **Footer dates:** `formatFooterDate()` for entity footers
 
-### `cleanMeetingTitle(title: string): string`
-Strips `FW:`, `Fwd:`, `Re:`, `RE:`, `Accepted:`, `Tentative:`, `Declined:` prefixes. Handles multiple layers. **Apply everywhere meeting titles render.**
+### Empty Data
 
-### Data Display Rules
+- **List rows:** Show nothing. An engagement with no pillar just doesn't show a badge.
+- **Detail pages:** Use "—" for missing values in the right column.
+- **AI content:** If synthesis doesn't exist, show a prompt to generate it — not an empty block.
 
-1. **Locations:** `extractCity()` on list pages. Full address on detail pages.
-2. **Meeting titles:** Always `cleanMeetingTitle()`.
-3. **Dates:** `formatCompactDateRange()` for compact. Full on detail pages.
-4. **Empty data:** Show nothing in list rows. Detail page fields use "—" for missing values.
-5. **URLs:** Show meaningful labels, never raw URLs on list pages.
+### Links & Navigation
 
-## Design Principles
+- Partner names: always `text-accent hover:underline`, linked to partner detail
+- Engagement names: same treatment, linked to engagement detail
+- Meeting titles: always cleaned via `cleanMeetingTitle()`, linked to meeting detail
+- "Back to {Parent}" link at top of detail pages
 
-1. **Two-column over box-stack** — Detail pages split into content (left) and reference (right). No equal-weight vertical stacking of every section.
-2. **Whitespace over borders** — Separate zones with spacing, not dividers. Use `border-border/40` (reduced opacity) where borders are needed.
-3. **Collapsible where dense** — List page groups and detail page activity sections use `<details>`. Reference data on detail right columns stays visible (no collapsing).
-4. **Countable items are plain text** — `{n} engagements` as text, not a badge pill. Pills are for categorical data only.
-5. **Detail belongs on detail pages** — List rows show identity + one key context field. Don't cram everything in.
-6. **No duplicate content** — A field renders in exactly one place. Not in header AND sidebar.
-7. **Composition over inheritance** — Components define visual slots, pages fill them.
-8. **Viewport budget** — Identity + context on detail pages should not exceed ~1/3 of viewport height.
+---
 
-## What NOT to Do
+## 15. Design Principles (Summary)
 
-- No `rounded-xl border border-border bg-surface p-4` wrapper cards around sections on detail pages
-- No equal-weight single-column stacking of every section
-- No collapsing reference data that should be persistently visible on right column
-- No badge pills for counts — use plain text
-- No prose walls as primary content — structured fields first, prose secondary
-- No status text badges where a dot suffices
-- No duplicate information across header and sections
+1. **Partner is gravity.** Everything orbits the partner.
+2. **Condensed first, full on demand.** The two-version pyramid is a UX model, not just AI architecture.
+3. **Show enough to decide without drilling in.** Every row and card carries enough context.
+4. **One page, one job.** Don't replicate data across pages.
+5. **Default to the most actionable view.** Tasks → Me. Meetings → Upcoming. Lists → expanded.
+6. **AI content is structured and visually distinct.** Parse sections. Render with left-border accent. Never show raw markdown.
+7. **Three container types.** Section, Row, Detail Panel. Everything fits in one.
+8. **Left column dynamic, right column stable.** On every two-column page.
+9. **Progressive disclosure scales with data.** Show first N, expand for more.
+10. **Responsive by reduction.** Stack columns, don't rearrange. Condensed helps at every width.
+11. **Fewer patterns, used consistently.** Two button styles, three container types, one hover state.
+12. **Build for the future without building the future.** Right column Operational Status section accommodates Ring 3. People page placeholder exists. Pulse is specced but not built.
+
+---
+
+## 16. What NOT to Do
+
+- ❌ `rounded-xl border border-border bg-surface p-4` wrapper cards on detail pages
+- ❌ Three-column layouts or staggered card grids
+- ❌ Collapsed-on-load for primary content (lists that should be visible)
+- ❌ Badge pills for counts — use plain text
+- ❌ Raw markdown tokens (`##`, `**`, `-`) shown to users
+- ❌ Duplicate data across pages (partner profile on meeting detail)
+- ❌ Entity-type navigation as primary workflow ("go to engagements" instead of "go to Spacelift")
+- ❌ Status text badges where a dot suffices
+- ❌ Hard-coded section counts or fixed layouts that break when data grows
+- ❌ Horizontal scrolling on any viewport
+- ❌ Multiple primary action buttons on one page
+- ❌ Prose walls as the only way to consume AI content — always parse into sections
+
+---
+
+## 17. Future-Proofing
+
+These items are not built yet but the UI is designed to accommodate them:
+
+| Future Feature | Where It Slots In |
+|---|---|
+| **Ring 3 data** (programs, goals, funding) | Partner detail → Right column → Operational Status section expands |
+| **People layer** | Replaces Relationships in Reference tier. Follows list page pattern with search + filters |
+| **Pulse page** | Primary nav. Aggregates inbox count + tasks + upcoming meetings + staleness signals |
+| **Financial fields on partners** | Partner detail → Right column → Operational Status section |
+| **Pre-meeting briefing** | Meeting detail → Left column, above NoteWorkspace |
+| **Auto-brain refresh** | Backend only — no UI change needed; brain section already renders latest |
+| **Engagement-linked meetings on engagement detail** | Engagement detail → Left column → Connected Meetings section (spec ready) |
+
+The right column Operational Status section is intentionally designed as an expandable container. When Ring 3 data arrives, it gains sub-sections for program enrollments, funding wallets, and goal progress — all using the same Section container type and sub-label typography already defined.
+
+---
 
 ## Reference Files
 
-- **`references/component-api.md`** — Full TypeScript interfaces for shared components
-- **`references/entity-catalog.md`** — Entity-to-component mappings and slot configurations
-- **`references/design-tokens.md`** — CSS custom properties, color palette, spacing, typography details
+- **`references/component-api.md`** — TypeScript interfaces for shared components, prop types
+- **`references/entity-catalog.md`** — Entity-to-component mappings, field-by-field rendering specs
+- **`references/design-tokens.md`** — Complete CSS custom properties, color palette, spacing scale
 
-Read these when you need exact prop types, entity-specific field mappings, or color values.
+Read these for implementation detail after absorbing this document.

@@ -23,16 +23,43 @@ Defined in `src/app/globals.css` via Tailwind v4 `@theme inline` block.
 
 ### Status Colors
 
-| Status | Dot Class | CSS Variable |
+| Status | Dot Class | CSS Variable | Hex |
+|---|---|---|---|
+| active | `bg-emerald-500` | `--color-status-active` | #22c55e |
+| planned | `bg-blue-400` | — | #60a5fa |
+| blocked | `bg-amber-500` | `--color-status-blocked` | #f59e0b |
+| completed | `bg-violet-500` | `--color-status-completed` | #8b5cf6 |
+| archived | `bg-zinc-500` | `--color-status-archived` | #6b7280 |
+
+### Meeting Status Colors
+
+| Status | Dot Class | Hex |
 |---|---|---|
-| active | `bg-emerald-500` | `--color-status-active` (#22c55e) |
-| blocked | `bg-amber-500` | `--color-status-blocked` (#f59e0b) |
-| completed | `bg-violet-500` | `--color-status-completed` (#8b5cf6) |
-| archived | `bg-zinc-500` | `--color-status-archived` (#6b7280) |
+| scheduled | `bg-blue-400` | #60a5fa |
+| completed | `bg-emerald-500` | #22c55e |
+| cancelled | `bg-zinc-500` | #6b7280 |
+| did_not_occur | `bg-red-400` | #f87171 |
+
+### Pillar Colors
+
+| Pillar | Background | Text |
+|---|---|---|
+| Co-Sell | `bg-emerald-500/10` | `text-emerald-400` |
+| Co-Build | `bg-blue-500/10` | `text-blue-400` |
+| Co-Market | `bg-purple-500/10` | `text-purple-400` |
+
+### Owner Colors
+
+| Owner | Background | Text |
+|---|---|---|
+| Me | `bg-accent/10` | `text-accent` |
+| Partner | `bg-emerald-500/10` | `text-emerald-400` |
+| Internal | `bg-amber-500/10` | `text-amber-400` |
+| Third Party | `bg-purple-500/10` | `text-purple-400` |
 
 ### Program Type Colors
 
-| Type | Variable | Color |
+| Type | CSS Variable | Hex |
 |---|---|---|
 | Competency | `--color-program-competency` | #3b82f6 (blue) |
 | Service Ready | `--color-program-service-ready` | #8b5cf6 (violet) |
@@ -55,31 +82,60 @@ Defined in `src/app/globals.css` via Tailwind v4 `@theme inline` block.
 
 | Element | Size | Weight | Color | Extra |
 |---|---|---|---|---|
-| Page title (identity bar) | `text-xl` (20px) | `font-semibold` | `text-foreground` | — |
-| Section label | `text-xs` (11px) | `font-semibold` | `text-muted` | `uppercase tracking-wider` |
+| Page title | `text-2xl` (24px) | `font-semibold` | `text-foreground` | — |
+| Section label | `text-xs` (12px) | `font-semibold` | `text-muted` | `uppercase tracking-wider` |
 | Sub-label (category) | `text-[10px]` | `font-semibold` | `text-muted/50` | `uppercase tracking-widest` |
-| Row primary text | `text-sm` (13px) | `font-medium` | `text-foreground` | — |
+| Row primary text | `text-sm` (14px) | `font-medium` | `text-foreground` | — |
 | Row secondary | `text-sm` | normal | `text-muted` | — |
-| Metadata/dates | `text-xs` (11px) | normal | `text-muted` | — |
-| Body prose | `text-sm` | normal | `text-foreground/80` | `leading-relaxed` |
+| Body prose | `text-[15px]` | normal | `text-foreground/85` | `leading-relaxed` |
+| Metadata/dates | `text-xs` (12px) | normal | `text-muted` | — |
 | Pills/badges | `text-xs` | `font-medium` | tinted color | `whitespace-nowrap` |
-| Sidebar zone label | `text-[10px]` | `font-medium` | `text-muted/40` | `uppercase tracking-[0.1em]` |
+| Sidebar zone label | `text-[10px]` | `font-medium` | `text-muted/40` | `uppercase tracking-[0.12em]` |
 | List group label | `text-xs` | `font-medium` | `text-muted/70` | `uppercase tracking-[0.08em]` |
+
+---
+
+## Semantic Patterns
+
+Reusable class combinations for common UI elements.
+
+### AI Content Marker
+```
+border-l-2 border-accent/25 pl-4
+```
+Applied to: brain synthesis sections, meeting summaries, engagement summaries, condensed digest blocks. Signals "AI-generated content."
+
+### Section Separator
+```
+pt-6 border-t border-border/20
+```
+Between sections on detail pages. First section after identity bar: no top border.
+
+### Row Separator
+```
+border-b border-border/20
+```
+Between items in any list.
+
+### Hover State (universal)
+```
+hover:bg-surface/50 transition-colors
+```
+
+### Standard Pill
+```
+text-xs font-medium rounded-full px-2 py-0.5 whitespace-nowrap bg-{color}/10 text-{color}
+```
 
 ---
 
 ## Spacing
 
 ### Page Layout
-- Page padding: `p-6 lg:p-8`
-- Two-column grid: `grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8`
+- Page shell: `mx-auto max-w-7xl p-6 lg:p-8`
+- Two-column grid: `grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8 lg:gap-12`
 - Right column border: `lg:border-l lg:border-border/20 lg:pl-8`
-- Section spacing (between sections): `space-y-8` or explicit `pt-6`
-
-### Section Separation
-- Between sections on detail pages: `pt-6 border-t border-border/20`
-- First section after identity bar: no top border
-- Between right-column sections: `mt-6 pt-6 border-t border-border/20`
+- Section spacing: `space-y-8` or explicit `pt-6`
 
 ### Identity Bar
 - Bottom border: `border-b border-border/30`
@@ -87,15 +143,19 @@ Defined in `src/app/globals.css` via Tailwind v4 `@theme inline` block.
 - Bottom margin: `mb-6`
 
 ### Row Spacing
-- Row padding: `px-3 py-2.5`
+- Standard rows: `px-3 py-3`
+- Task rows (generous): `px-3 py-3.5`
 - Row border: `border-b border-border/20`
-- Row hover: `hover:bg-surface/50`
-- Gap between row elements: `gap-3` or `gap-4`
+- Gap between row elements: `gap-3`
+
+### Section Spacing
+- Between detail page sections: `pt-6 border-t border-border/20`
+- Between right-column sections: `mt-6 pt-6 border-t border-border/20`
+- Content below section header: `mt-3`
 
 ### Collapsible Groups (List Pages)
 - Groups container: `space-y-8`
 - Summary padding: `pb-2`
-- No card wrapper around `<details>`
 - Summary chevron: 14px SVG, `group-open:rotate-90`
 
 ---
@@ -105,31 +165,9 @@ Defined in `src/app/globals.css` via Tailwind v4 `@theme inline` block.
 | Context | Size | Classes |
 |---|---|---|
 | Identity bar | 8px | `h-2 w-2 shrink-0 rounded-full` |
-| Entity rows | 6px | `h-1.5 w-1.5 shrink-0 rounded-full` |
+| Row items | 6px | `h-1.5 w-1.5 shrink-0 rounded-full` |
 
 Always include `title={status}` for accessibility.
-
----
-
-## Pills / Badges
-
-### Standard pill
-```
-text-xs font-medium rounded-full px-2 py-0.5 whitespace-nowrap
-bg-{color}/10-15  text-{color}
-```
-
-### Specific pill patterns
-
-| Type | Background | Text |
-|---|---|---|
-| Segment | `bg-accent/10` | `text-accent` |
-| Pillar | per-pillar colors in PillarBadge | — |
-| Owner (Me) | `bg-accent/10` | `text-accent` |
-| Owner (Partner) | `bg-emerald-500/10` | `text-emerald-400` |
-| Owner (Internal) | `bg-amber-500/10` | `text-amber-400` |
-| Owner (3rd Party) | `bg-purple-500/10` | `text-purple-400` |
-| GEO / ICS | `bg-muted/15` | `text-muted` |
 
 ---
 
@@ -140,8 +178,11 @@ bg-{color}/10-15  text-{color}
 | Entity row | `border-border/20` | `bg-surface/50` | N/A |
 | Filter chip | `border-border bg-background text-muted` | `hover:text-foreground` | `border-accent bg-accent/10 text-accent` |
 | Nav item | `text-muted` | `bg-surface-hover text-foreground` | `bg-accent/10 text-accent` |
-| Button (primary) | `bg-accent text-white` | `bg-accent-hover` | `disabled:opacity-50` |
-| Accent link | `text-accent` | `hover:underline` or `hover:text-accent-hover` | — |
+| Button (primary) | `bg-accent text-white rounded-lg` | `bg-accent-hover` | `disabled:opacity-50` |
+| Button (secondary) | `border border-border text-foreground rounded-lg` | `bg-surface-hover` | `disabled:opacity-50` |
+| Button (destructive) | `text-red-400` | `text-red-300` | — |
+| Inline action | `text-accent text-sm` | `underline` | — |
+| Accent link | `text-accent` | `text-accent-hover underline` | — |
 
 ---
 
@@ -149,8 +190,17 @@ bg-{color}/10-15  text-{color}
 
 All utilities in `src/lib/format-utils.ts`:
 
-- **Locations:** `extractCity()` on list pages, full text on detail pages
-- **Meeting titles:** `cleanMeetingTitle()` everywhere
-- **Compact dates:** `formatCompactDateRange()` for list rows
-- **Footer dates:** `formatFooterDate()` for entity footers
-- **Empty values:** Nothing on list rows, "—" on detail pages
+| Utility | Usage |
+|---|---|
+| `extractCity(location)` | List rows (compact). Detail pages show full text. |
+| `cleanMeetingTitle(title)` | Everywhere meeting titles render. |
+| `formatCompactDateRange(start, end)` | List rows for date ranges. |
+| `formatFooterDate(dateStr)` | Entity footers and metadata. |
+
+### Empty Data Rules
+
+| Context | Rule |
+|---|---|
+| List rows | Show nothing — omit the field entirely |
+| Detail page fields | "—" for missing values |
+| AI content | Show prompt to generate — not an empty block |

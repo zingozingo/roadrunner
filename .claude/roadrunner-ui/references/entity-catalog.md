@@ -1,206 +1,277 @@
 # Entity Catalog
 
-Layout specs and field mappings for all 7 entity types in Roadrunner.
+Layout specs and field mappings for all entity types in Roadrunner. Implements the page specifications from SKILL.md.
 
 ---
 
 ## Entity Overview
 
-| Entity | List Layout | Detail Layout | Groups By |
-|---|---|---|---|
-| Partners | Flat rows in `<details>` | Two-column (3fr / 2fr) | segment |
-| Engagements | Flat rows in `<details>` | Two-column (3fr / 2fr) | status |
-| Meetings | Flat rows in `<details>` | Two-column (3fr / 2fr) | time (Upcoming/Past/TBD) |
-| Programs | Flat rows in `<details>` | Single-column | type (8 categories) |
-| Events | Flat rows in `<details>` | Single-column | time → month |
-| Relationships | Flat rows in `<details>` | Single-column | relationship_type |
-| Tasks | Flat rows (no `<details>`) | N/A (links to note/partner) | partner |
+| Entity | List Layout | Detail Layout | Default Grouping | Default Filter |
+|---|---|---|---|---|
+| Partners | Single-column, grouped rows | Two-column (3fr / 2fr) | segment | search |
+| Engagements | Single-column, grouped rows | Two-column (3fr / 2fr) | partner | status |
+| Meetings | Single-column, grouped rows | Two-column (3fr / 2fr) | time (Upcoming/Past) | meeting_type |
+| Programs | Single-column, flat rows | Single-column | none (flat) | type |
+| Events | Single-column, grouped rows | Single-column | time → month | type |
+| Tasks | Single-column, flat rows | N/A (inline edit) | none (flat, optional partner toggle) | owner (default: Me) |
+| Inbox | Single-column, flat rows | N/A (inline actions) | none | none |
 
 ---
 
 ## Partners
 
-**List page:** `PartnersClient.tsx` — flat rows grouped by segment
-**Detail page:** `partners/[id]/page.tsx` — two-column
+### List Page (`PartnersClient.tsx`)
 
-### Identity Bar
-- Title: `partner.name`
-- Badges: Segment pill, SPMS ID pill
-- Actions: (none currently)
+Flat rows grouped by segment. Groups default open.
 
-### Two-Column Layout
+**Row:** Partner name (linked, flex-1) + segment badge + engagement count (plain text) + meeting count (plain text)
 
-**Left column** (workflow):
-1. PartnerScratchpad (`compact`)
-2. Engagements — clickable entity rows (PillarBadge + status dot)
-3. Open Tasks — flat rows (due date + owner pill)
-4. Recent Meetings — flat rows (date + title + note status dot)
+### Detail Page (`partners/[id]/page.tsx`)
 
-**Right column** (reference):
-1. What They Do — prose text
-2. AWS Stickiness — accent label + service pills
-3. Profile — 2-column grid (architecture, listing, pricing, SPMS ID)
-4. Contacts — grouped by org_type (Partner Team / AWS Team), name + email
-5. Relationships — linked relationship rows
+**Job:** Everything about one partner — the portal you explore.
+
+**Identity Bar:**
+- Title: `partner.name` (`text-2xl`)
+- Badges: Segment pill
+- Right-aligned: SPMS ID (muted text)
+
+**Left Column (dynamic):**
+
+| Section | Content | Progressive Disclosure |
+|---|---|---|
+| Brain Synthesis | 4 sections parsed from `##` headers. AI visual treatment (left-border accent). "Re-synthesize" secondary button. "Last synthesized" timestamp. | Always visible, not collapsible |
+| Scratchpad | Compact entries, inline input at bottom. No card wrapper. | Always visible |
+| Engagements | Condensed cards: name (linked) + pillar badge + status dot + condensed digest preview (2-3 lines). Fall back to topic if no condensed. | First 5, "Show all N →" if more |
+| Open Tasks | Flat rows: description + owner badge. | First 5, "View all tasks →" links to `/tasks?partner=X` |
+| Recent Meetings | Rows: date + title (linked) + condensed digest snippet (first line). | First 5, "View all →" |
+
+**Right Column (stable):**
+
+| Section | Content |
+|---|---|
+| Solution Profile | "What They Do" (prose) + "AWS Stickiness" (prose, section label) + Key AWS Services (pill tags) |
+| Deployment & Pricing | 2-column grid: Architecture pill, Listing Types pills, Pricing Model pills |
+| Operational Status | Sub-label/value pairs: ISVa Status, Deployed on AWS, CRM Status, PRM Status. **Expandable container for Ring 3:** program enrollments, funding wallets, goal progress will be added here. |
+| People | ContactGroup: Partner Team, AWS Team. Each: name + role + title + email via ContactRow. |
+
+**Right Column Sections do NOT collapse.** Stable reference is always visible.
 
 ---
 
 ## Engagements
 
-**List page:** `EngagementsClient.tsx` — flat rows grouped by status
-**Detail page:** `engagements/[id]/page.tsx` — two-column
+### List Page (`EngagementsClient.tsx`)
 
-### List Row
-Name (flex-1) + partner name + PillarBadge + status dot
+**Grouped by partner** (not status). Groups default open.
 
-### Identity Bar
-- Title: `engagement.name`
-- Badges: Status dot (8px)
-- Actions: EngagementActions
+**Filter bar:** All, Active, Planned, Blocked, Completed, Archived + search
 
-### Two-Column Layout
+**Row:** Name (linked, flex-1) + pillar badge + status dot + last updated date (muted)
 
-**Left column** (workflow):
-1. Goal callout — `border-l-2 border-accent/40 pl-4`, italic
-2. Current State — section label + prose paragraphs
-3. Connections — relationship links + EntityLinkChips
-4. Timeline — collapsible `<details>` wrapping `CollapsibleEmails compact`
+### Detail Page (`engagements/[id]/page.tsx`)
 
-**Right column** (reference):
-1. Partner — accent-colored link
-2. Details — PillarBadge, topic, status (dot + text), updated date
-3. Participants — count + org breakdown + `CollapsibleParticipants compact`
+**Job:** The narrative of one workstream.
+
+**Identity Bar:**
+- Title: `engagement.name` (`text-2xl`)
+- Status dot (8px)
+- Actions: Edit, Merge Into..., Delete (secondary/dropdown)
+
+**Left Column:**
+
+| Section | Content |
+|---|---|
+| Condensed Digest | AI-styled Detail Panel. The scannable 5-line version. Omit if no condensed exists. |
+| Activity Summary | Full `current_state` as AI-styled Detail Panel. The complete narrative. |
+| Connected Meetings | Meetings linked to this engagement. Rows: date + title (linked) + condensed digest snippet. Shows the temporal backbone of the workstream. |
+| Timeline | Email messages routed here. Collapsible: open if ≤5 items, collapsed if more. Sender + date + subject + body preview. |
+
+**Right Column:**
+
+| Section | Content |
+|---|---|
+| Partner | Accent link to partner detail |
+| Details | Pillar badge, topic (text), status (dot + text), last updated date |
+| Connections | Linked relationships (rows), programs (EntityLinkChips), events (EntityLinkChips) |
+| Participants | Count + org breakdown summary ("4 AWS · 4 Vasion"), expandable to full ContactGroup |
+
+**Removed:** Goal callout (dropped in migration 069).
 
 ---
 
 ## Meetings
 
-**List page:** `MeetingsClient.tsx` — flat rows grouped by time section
-**Detail page:** `meetings/[id]/page.tsx` — two-column
+### List Page (`MeetingsClient.tsx`)
 
-### List Row
-Date (w-16) + time (w-32) + title (flex-1) + partner name + note status dot
+Upcoming section (default open) / Past section (default collapsed).
 
-### Identity Bar
-- Title: `cleanMeetingTitle(meeting.title)`
-- Badges: Status dot (8px), ICS pill (if source=ics_parsed, `bg-muted/15`)
-- Actions: MeetingActions
+**Filter bar:** All + 10 meeting type filters + search
 
-### Two-Column Layout
+**Row:** Date (w-16) + title (linked, cleaned, flex-1) + engagement name if linked (muted) + partner name (right-aligned) + recurrence icon if recurring
 
-**Left column** (workspace):
-1. Location — URL: accent link with icon ("Join Meeting" / "Join Zoom Meeting"). Physical: label + text. No card.
-2. Calendar Notes — section label + prose (if ICS notes exist)
-3. MeetingNotesSection — client bridge, manages own state
+**"+ New Meeting"** primary action button, top-right.
 
-**Right column** (context):
-1. Partner — accent link or "—"
-2. Details — Date (weekday), Time, Engagement (linked), Type, Source
-3. Attendees — grouped by org (AWS / Partner / Other), sub-labels, compact name + email list
-4. Footer — organizer email + created date
+### Detail Page (`meetings/[id]/page.tsx`)
 
----
+**Job:** Take notes, review summaries, manage tasks for one meeting.
 
-## Programs
+**Identity Bar:**
+- Title: `cleanMeetingTitle(meeting.title)` (`text-2xl`)
+- Partner name (as linked badge)
+- Date
+- Status dot
 
-**List page:** `ProgramsClient.tsx` — flat rows grouped by type
-**Detail page:** `programs/[id]/page.tsx` — single-column
+**Left Column (workspace):**
 
-### List Row
-Name (flex-1) + linked count
+| Section | Content |
+|---|---|
+| NoteWorkspace | Three-mode flow. Mode 1: raw notes + Summarize. Mode 2: AI summary + TaskEditor. Mode 3: read-only summary + sidebar tasks. Component manages all state internally. |
 
-### Identity Bar
-- Title: `program.name`
-- Badges: ProgramTypeBadge
-- Actions: ProgramActions
+The NoteWorkspace is the entire left column. It IS the page's purpose.
 
-### Single-Column Sections
-1. Description — prose
-2. Requirements — prose
-3. What It Unlocks — prose
-4. Lifecycle — type + duration as label/value pairs
-5. Linked Engagements — clickable entity rows (PillarBadge + status dot)
-6. Footer — created date
+**Right Column (context — slim):**
 
----
+| Section | Content |
+|---|---|
+| Partner | Accent link to partner detail |
+| Details | Date (full weekday), time range, engagement (linked — **prominent "Link to Engagement" action if unlinked**), meeting type, recurrence info, source |
+| Attendees | ContactGroup: AWS / Partner / Other. Compact rows. |
+| Created | Timestamp footer |
 
-## Events
-
-**List page:** `EventsClient.tsx` — flat rows grouped by time section → month
-**Detail page:** `events/[id]/page.tsx` — single-column
-
-### List Row
-Date range (w-24, `formatCompactDateRange`) + name (flex-1) + city (`extractCity`)
-
-### Identity Bar
-- Title: `event.name`
-- Badges: EventTypeBadge, GEO pill (`bg-muted/15`)
-- Actions: EventActions
-
-### Single-Column Sections
-1. Description — prose
-2. Details — dates, location, host as label/value pairs
-3. Linked Entities — EntityLinkChips (non-engagement links)
-4. Linked Engagements — clickable entity rows (PillarBadge + status dot)
-5. Footer — created date, source, verified status
-
----
-
-## Relationships
-
-**List page:** `RelationshipsClient.tsx` — flat rows grouped by relationship_type
-**Detail page:** `relationships/[id]/page.tsx` — single-column
-
-### List Row
-Name (flex-1) + org + service
-
-### Identity Bar
-- Title: `relationship.name`
-- Badges: RelationshipTypeBadge
-- Actions: RelationshipActions
-
-### Single-Column Sections
-1. Notes — prose
-2. Contacts — name + role + email (second line)
-3. Linked Engagements — clickable entity rows (PillarBadge + status dot)
-4. Details — AWS Org, AWS Service as label/value pairs
-5. Footer — created date
+**What is NOT on this page:** Partner profile, partner description, AWS stickiness, key services, partner context/brain boxes. The meeting page focuses on the workspace.
 
 ---
 
 ## Tasks
 
-**List page:** `TasksClient.tsx` — flat rows grouped by partner (no `<details>`)
-**Detail page:** N/A (links to meeting note or partner)
+### List Page (`TasksClient.tsx`)
 
-### List Row
-Description (flex-1) + due date (w-16) + owner pill (Me/Partner/3rd Party/Internal)
+**Job:** Act on your obligations across all partners.
 
-### Group Header
-Partner name as `text-xs font-medium uppercase tracking-[0.08em] text-muted/70` + count
+**Default filter:** "Me" (not All)
+**Default sort:** Recency (newest first)
+**Default grouping:** Flat list (no grouping). Optional "Group by partner" toggle.
 
-### Notes
-- "+ Add Task" button opens modal (not affected by dashboard restyling)
-- Tasks link to `/notes/{meeting_note_id}` if from a note, else `/partners/{partner_id}`
-- Owner pill colors: Me=accent, Partner=emerald, 3rd Party=purple, Internal=amber
+**Filter bar:** All, Me, Internal, Partner, Third Party + search
+
+**Row (generous spacing — `py-3.5`):**
+- Checkbox (left) — complete/reopen toggle
+- Description (flex-1) — inline editable on click
+- Partner tag — small muted text
+- Meeting provenance — "from: Meeting Title" linked, if applicable
+- Engagement link — linked name or "+ link" inline action
+- Owner badge — pill (Me/Partner/Internal/Third Party)
+- Delete — trash icon, requires confirmation
+
+**"+ Add Task"** primary action button, top-right.
+
+### Group Header (when grouping by partner)
+Partner name as section label style + count.
 
 ---
 
 ## Inbox
 
-**Page:** `inbox/page.tsx` + `InboxClient.tsx`
-**Layout:** Single-column, section label "Unrouted Messages" with grouped count
+### Page (`inbox/page.tsx` + `InboxClient.tsx`)
 
-- Section header: `text-xs font-semibold uppercase tracking-wider text-muted`
-- Count: grouped count (forwarded_at window groups, not raw messages) `text-muted/50`
-- Messages grouped by `forwarded_at` (5-second window, `INBOX_GROUP_WINDOW_MS`) — displayed as single rows with count badge when >1
-- Group primary selection: prefers messages with sender_name or sender_email populated (makeGroup helper)
-- Sender subtitle: conditionally rendered only when sender info exists — no "Unknown" fallback
-- Flat rows: `border-b border-border/20`, `hover:bg-surface/50`
-- Partner pills: `bg-accent/10 text-accent` for known partners
-- Unknown partner flow (two-step): "Pick Partner" button (`bg-amber-500/10 text-amber-400`) → filterable dropdown (lazy-loaded, cached in useRef) → partner stamped via POST `/api/inbox/set-partner` → Assign/New buttons unlock
-- Assign and New buttons hidden when partner_id is null — only Discard available until partner picked
-- Assign panel: fetches partner's engagements, clickable entity rows to pick target
-- Create panel: pre-filled title (`"{Partner} - {cleaned subject}"`), underline input
-- EmptyState when inbox is empty
-- ReviewCard and ConfidenceBar deleted — no longer used
+**Job:** Route incoming emails to the right place.
+
+**Section header:** "UNROUTED MESSAGES" with grouped count
+
+**Each inbox card (enhanced):**
+- Partner pill (if detected) or "Pick Partner" prompt (amber)
+- Subject line (primary text)
+- **Body preview:** first 2–3 lines of parsed email text, truncated (from `body_text`)
+- **Sender + participants:** sender name + "and N others" if multiple participants
+- **Date range:** for grouped messages, show earliest–latest date
+- Message count badge when group has >1 messages
+- Actions: Assign / New / Discard (Assign and New only available after partner identified)
+
+**Unknown partner flow:** "Pick Partner" button → filterable dropdown → partner stamped → Assign/New unlock.
+
+**Empty state:** "Inbox clear — nothing to route."
+
+---
+
+## Programs
+
+### List Page (`ProgramsClient.tsx`)
+
+**Job:** Browse the program catalog.
+
+**Flat list** — no collapse grouping. Type badge on each row.
+
+**Filter bar:** Competency, Service Ready, SCA, Program, Credit Program, Funding, Channel, Enablement + search
+
+**Row:** Name (linked, flex-1) + type badge + linked engagement count (plain text, muted)
+
+### Detail Page (`programs/[id]/page.tsx`)
+
+Single-column.
+
+| Section | Content |
+|---|---|
+| Description | Prose |
+| Requirements | Prose |
+| What It Unlocks | Prose |
+| Lifecycle | Type + duration as sub-label/value pairs |
+| Linked Engagements | Clickable entity rows (name + pillar badge + status dot) |
+
+---
+
+## Events
+
+### List Page (`EventsClient.tsx`)
+
+**Job:** See upcoming events on the calendar.
+
+Grouped by month. Upcoming default open, Past default collapsed.
+
+**Filter bar:** type filters (Conference, Summit, Workshop, etc.) + search
+
+**Row:** Date range (`formatCompactDateRange`, w-24) + name (linked, flex-1) + location (`extractCity`)
+
+### Detail Page (`events/[id]/page.tsx`)
+
+Single-column.
+
+| Section | Content |
+|---|---|
+| Description | Prose |
+| Details | Dates, location (full), host, geo — sub-label/value pairs |
+| Linked Engagements | Clickable entity rows |
+
+---
+
+## Relationships (→ transitioning to People)
+
+### Current List Page (`RelationshipsClient.tsx`)
+
+Flat rows grouped by relationship_type. Will be replaced by People page.
+
+**Row:** Name (linked, flex-1) + org + service (muted)
+
+### Future: People Page
+
+Replaces Relationships. Single-column list with search + filters.
+
+**Planned filters:** Organization, partner association, org type (AWS/Partner/Third Party), role, frequency of appearance.
+
+Follows list page pattern with FilterBar, flat rows, ContactRow rendering.
+
+---
+
+## Pulse (Future)
+
+**Job:** What needs attention right now across all partners.
+
+Single-column, sectioned.
+
+| Section | Content |
+|---|---|
+| Inbox | Unrouted count + preview of most recent. "Go to Inbox →" link. |
+| My Tasks | Open tasks where owner = "me", sorted by recency. Top 5–10 + "View all →". |
+| Upcoming Meetings | Next 3–5 meetings. Partner name + date + title. Linked to meeting detail. |
+| Signals (future) | Stale engagements, overdue items, partners with no recent activity. |
+
+Not yet built. Partners page serves as landing page until Pulse exists.
