@@ -9,6 +9,13 @@ const VALID_STATUSES = new Set([
   "did_not_occur",
 ]);
 
+const VALID_RECURRENCE_PATTERNS = new Set([
+  "weekly",
+  "biweekly",
+  "monthly",
+  "quarterly",
+]);
+
 export async function GET() {
   try {
     // Best-effort: spawn next occurrences for overdue recurring meetings
@@ -33,7 +40,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { title, engagement_id, partner_id: rawPartnerId, partner_name, meeting_type, status, meeting_date, start_time, end_time, location, attendees, notes, is_recurring } = body;
+    const { title, engagement_id, partner_id: rawPartnerId, partner_name, meeting_type, status, meeting_date, start_time, end_time, location, attendees, notes, is_recurring, recurrence_pattern, recurrence_end } = body;
 
     if (!title || typeof title !== "string" || !title.trim()) {
       return NextResponse.json(
@@ -54,6 +61,23 @@ export async function POST(request: NextRequest) {
         { error: "Attendees must be an array" },
         { status: 400 }
       );
+    }
+
+    if (recurrence_pattern && !VALID_RECURRENCE_PATTERNS.has(recurrence_pattern)) {
+      return NextResponse.json(
+        { error: `Invalid recurrence_pattern "${recurrence_pattern}". Must be one of: ${[...VALID_RECURRENCE_PATTERNS].join(", ")}` },
+        { status: 400 }
+      );
+    }
+
+    if (recurrence_end !== undefined && recurrence_end !== null) {
+      const parsed = Date.parse(recurrence_end);
+      if (isNaN(parsed)) {
+        return NextResponse.json(
+          { error: "recurrence_end must be a valid date string" },
+          { status: 400 }
+        );
+      }
     }
 
     // Resolve partner: prefer direct partner_id, fall back to ilike name lookup
@@ -83,6 +107,8 @@ export async function POST(request: NextRequest) {
       notes: notes?.trim() || null,
       source: "manual",
       is_recurring: !!is_recurring,
+      recurrence_pattern: recurrence_pattern || null,
+      recurrence_end: recurrence_end || null,
     });
 
     return NextResponse.json({ meeting }, { status: 201 });

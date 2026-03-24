@@ -177,6 +177,8 @@ export async function createMeeting(data: {
   notes?: string | null;
   source?: Meeting["source"];
   is_recurring?: boolean;
+  recurrence_pattern?: string | null;
+  recurrence_end?: string | null;
 }): Promise<Meeting> {
   const db = getSupabaseClient();
 
@@ -195,14 +197,31 @@ export async function createMeeting(data: {
       meeting_type: data.meeting_type ?? null,
       notes: data.notes ?? null,
       source: data.source ?? "manual",
-      is_recurring: data.is_recurring ?? false,
+      is_recurring: data.recurrence_pattern ? true : (data.is_recurring ?? false),
+      recurrence_pattern: data.recurrence_pattern ?? null,
+      recurrence_end: data.recurrence_end ?? null,
     })
     .select()
     .single();
 
   if (error) throw new Error(`Failed to create meeting: ${error.message}`);
 
-  const mtgResult = meeting as Meeting;
+  let mtgResult = meeting as Meeting;
+
+  // Self-referencing series root: set series_id = own ID after insert
+  if (data.recurrence_pattern) {
+    const { data: updated, error: updateError } = await db
+      .from("meetings")
+      .update({ series_id: mtgResult.id })
+      .eq("id", mtgResult.id)
+      .select()
+      .single();
+    if (updateError) {
+      console.error(`Failed to set series_id on meeting ${mtgResult.id}:`, updateError);
+    } else {
+      mtgResult = updated as Meeting;
+    }
+  }
 
   // Push to Airtable (awaited to prevent serverless termination)
   try {
