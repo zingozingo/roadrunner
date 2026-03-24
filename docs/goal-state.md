@@ -12,7 +12,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 - AI Brain Overhaul Phases 1-3 complete (decisions #260-269): goal field eliminated (migration 069), condensed columns on engagements + meeting_notes (migration 068), meeting summarization restructured with scoped context builder, structured output (Discussion/Decisions/Key Context), condensed 3-5 bullet digest, non-redundancy with tasks
 - Phase D cleanup complete: dead tests deleted, stale assertions fixed, dead types/routes removed
 - Entity model fully rewritten with ring architecture (Catalog → Activity → People → Posture) in docs/entity-model.md
-- Documentation consolidated: 6 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline (rewrite pending), ai-call-map.md AI call reference, goal-state.md status, decisions.md through #298)
+- Documentation consolidated: 6 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline (rewrite pending), ai-call-map.md AI call reference, goal-state.md status, decisions.md through #307)
 - Dead weight cleaned: notes table dropped (migration 061), orphaned components removed (PillGrid, CalendarCard, TableList, SyncStatus), decisions.md merged from two files into one
 - Zero polymorphic tables: entity_links replaced with engagement_programs + engagement_events (migration 065, decisions #221-222)
 - Contact registry complete: 76 participants, 85 partner links, 4 dedicated join tables, sync layer auto-maintains registry — all reads and writes flow through registry, JSONB columns dropped (Decisions #182, #218)
@@ -24,7 +24,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 - Seed notes eliminated: note_type CHECK narrowed to 'meeting', historical context lives in scratchpad (decision 195)
 - Manual meeting quick-capture: modal form on /meetings page with partner dropdown, auto-title, meeting type (decision 189)
 - Manual task creation: inline form on partner detail, POST /api/notes/tasks, no meeting note required (decision 196)
-- Partner detail redesigned: full-width + slide-over panel layout, brain accordion with amber "What Needs Attention", condensed digest previews, smart status dots, notepad container, information weight principle (decisions 289-298). 3 new components: BrainSynthesis, PartnerReferencePanel, SlideOverPanel
+- UI Overhaul complete (decisions 289-307): SKILL.md constitutional rewrite, all detail pages (partner, meeting, engagement) aligned, tasks page redesigned, sidebar minimal treatment, all list pages shell-fixed, ContextSidebar stripped, programs flattened, engagements grouped by partner. 3 new components: BrainSynthesis, PartnerReferencePanel, SlideOverPanel
 - 5 active engagements processing real email data (Nozomi Networks, Spacelift x3, Qualys)
 - All Airtable push/delete calls awaited (no fire-and-forget)
 
@@ -39,19 +39,19 @@ A system where a PDM forwards an email and Roadrunner:
 ## What's Next
 
 ### Next Session
-- UI Overhaul Phase 2 — meeting detail page redesign (SKILL.md alignment)
-- UI Overhaul Phase 3 — engagement detail page redesign (SKILL.md alignment)
+- Real daily use testing — forward emails, verify full pipeline end-to-end
+- UI polish pass: spacing/alignment consistency, filter bar refinement, responsive edge cases
 
 ### Soon
-- UI Overhaul remaining pages: tasks page, list pages, sidebar restructure
-- Real daily use testing — forward emails, verify full pipeline end-to-end
 - Ring 3 pull sync planning (Partner Programs, Events, Co-Sell Goals, Partner Goals, Funding)
 - CLASSIFICATION.md full rewrite to document current pipeline
+- Brain prompt refinement based on real data review
 
 ### Later
 - Ring 3 pull sync implementation
 - Financial fields on partners table
 - Pre-meeting briefing (AI-generated)
+- Pulse page (dashboard landing)
 
 ### Completed
 - ~~Meeting notes feature~~ ✅ (decisions 101-108)
@@ -106,7 +106,7 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~Previous Context three-tier cascade~~ ✅ (decision 286): Engagement → series → empty. Joins through meetings table. Self-exclusion on all tiers
 - ~~Re-summarize removed from saved mode~~ ✅ (decision 287): Mode 3 has only "Edit Notes". One clear path: Edit → Summarize → Save
 - ~~Task extraction prompt rewrite~~ ✅ (decision 288): Forward/backward temporal test, obligation patterns, "when in doubt extract". 31 tasks (6x improvement)
-- ~~UI Overhaul Phase 1 — SKILL.md + partner detail~~ ✅ (decisions 289-298): SKILL.md constitutional rewrite, partner detail redesigned (full-width + slide-over panel, brain accordion, condensed digests, smart status, notepad container, section reorder). 3 new components (BrainSynthesis, PartnerReferencePanel, SlideOverPanel). 4 skill files rewritten
+- ~~UI Overhaul — full SKILL.md alignment~~ ✅ (decisions 289-307): SKILL.md constitutional rewrite, partner detail (full-width + slide-over + brain accordion), meeting detail (workspace focus + identity bar), engagement detail (condensed digest + connected meetings + AI treatment), tasks page (Me default + recency + flat/grouped toggle), sidebar minimal treatment, ContextSidebar stripped (no gray boxes), all list pages shell-fixed + structural fixes (engagements grouped by partner, programs flattened, meetings show engagement names). 3 new components, 4 skill files rewritten
 
 ## Architecture Principles
 

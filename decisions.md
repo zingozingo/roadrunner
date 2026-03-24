@@ -5728,3 +5728,138 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** Cleaner component boundaries. Brain rendering can evolve (e.g., more sections, different layouts) without touching scratchpad code.
 
 ---
+
+### #299 — Sidebar minimal treatment
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** Removed `bg-surface` background and `border-r border-border/15` from the sidebar container. Navigation now floats on the page background with no distinct panel.
+
+**Context:** The gray rectangle sidebar felt heavy and dated. SKILL.md navigation hierarchy spec calls for minimal, text-based navigation.
+
+**Rationale:** The sidebar is navigation, not a panel. Removing the surface background makes it feel part of the page rather than a separate element. Active state (`bg-accent/10 text-accent`) still provides clear selection feedback against the page background.
+
+**Impact:** Lighter, more modern feel across every page. Sidebar width and padding unchanged.
+
+---
+
+### #300 — Meeting detail aligned to SKILL.md
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** Meeting detail page restructured: `mx-auto max-w-7xl` shell, `text-2xl` title, partner name + short date added to identity bar, `lg:gap-12` grid. Location and Calendar Notes relocated from left column to right column (Calendar Notes as collapsible `<details>`). Left column now contains only MeetingNotesSection. Partner section removed from right column (now in identity bar). ICS badge opacity normalized to `/10`.
+
+**Context:** Left column had Location, Calendar Notes, and NoteWorkspace. Per SKILL.md, the left column is the workspace — it should contain only NoteWorkspace. Location is metadata, Calendar Notes are ICS boilerplate.
+
+**Rationale:** The workspace is the star. Everything else is context. Moving metadata to the right column lets the workspace own the entire left column.
+
+**Impact:** Cleaner workspace focus. Partner + date visible in identity bar without scrolling.
+
+---
+
+### #301 — ContextSidebar stripped of gray boxes
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** Removed Partner Profile box and Partner Context box from ContextSidebar. Key Contacts and Open Tasks restyled as flat sections with no `rounded-xl border border-border bg-surface` card wrappers. Sections separated by `border-t border-border/20`.
+
+**Context:** ContextSidebar rendered 4 gray card boxes (Partner Profile, Key Contacts, Partner Context, Open Tasks). Partner Profile and Partner Context duplicate information on the partner detail page. Card wrappers violate SKILL.md's no-card-on-detail-pages rule.
+
+**Rationale:** The meeting page should show enough to orient (contacts for note-taking, tasks to avoid duplication) but not replicate the partner page. Flat sections match the app-wide visual language.
+
+**Impact:** ContextSidebar is ~50% smaller. No gray blobs. NoteWorkspace area feels cleaner.
+
+---
+
+### #302 — Engagement detail aligned to SKILL.md
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** Engagement detail page restructured: `mx-auto max-w-7xl` shell, `text-2xl` title, `lg:gap-12` grid. New Condensed Digest section at top of left column with category tag labels (Topic/Status/Key developments/What's next), AI visual treatment (`border-l-2 border-accent/25 pl-4`). Activity Summary now has AI visual treatment. New Connected Meetings section showing linked meetings with dates, cleaned titles, and condensed digest previews. Timeline smart collapse: open if ≤5 items, collapsed if more. Goal confirmed absent (migration 069).
+
+**Context:** Left column had only Activity Summary + Timeline. No condensed digest, no connected meetings, no AI visual treatment. Timeline always collapsed.
+
+**Rationale:** Condensed digest gives the scannable view. AI visual treatment distinguishes AI-generated content from structural data. Connected meetings provide the temporal backbone of the workstream. Smart collapse shows small timelines by default.
+
+**Impact:** Engagement page now has 4 left-column sections: Digest → Summary → Meetings → Timeline.
+
+---
+
+### #303 — Tasks page redesigned
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** Tasks page defaults: filter "Me" (not All), sort by `created_at` desc (newest first), flat list (not grouped). "Group by partner" toggle button added next to FilterBar. Row spacing increased to `py-3.5`. Text emphasis: "Me" tasks in `text-foreground`, other owners in `text-muted`. Partner name shown inline in flat view. `mx-auto max-w-7xl` shell added. Task row rendering extracted to `renderTaskRow()` function shared by flat and grouped views.
+
+**Context:** Default was "All" filter, alphabetical partner grouping, no recency sort. All task descriptions had equal visual weight.
+
+**Rationale:** PDM opens /tasks to see what they need to do — "Me" filter is the right default. Recency sort surfaces new obligations. Flat list is simpler for scanning; grouping is opt-in for partner context. Text emphasis follows information weight principle.
+
+**Impact:** Task page is a personal action list by default. Partner grouping available when needed.
+
+---
+
+### #304 — All list pages shell-fixed
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** Added `mx-auto max-w-7xl` wrapper to all remaining list pages: Partners, Engagements, Meetings, Programs, Events, Relationships, Inbox.
+
+**Context:** Detail pages had been aligned to the max-w-7xl shell but list pages were still unbounded.
+
+**Rationale:** Consistent page width across all pages. Content doesn't stretch to fill ultra-wide screens.
+
+**Impact:** All pages now have consistent max-width shell.
+
+---
+
+### #305 — Engagements list grouped by partner
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** Changed engagements list default grouping from status to partner. Groups are open sections (no collapsible `<details>`), alphabetical, Unassigned last. Within groups: active engagements first, then by `updated_at` desc. Rows show: name + pillar badge + smart status dot (non-active only) + last updated date. `statusOrder` removed, `statusDotColor` and `formatFooterDate` added.
+
+**Context:** Previous grouping by status (Active/Planned/Blocked/Completed/Archived) required collapsible groups and put partner context second. The PDM thinks by partner, not by status.
+
+**Rationale:** Partner is gravity (CLAUDE.md principle #12). Grouping by partner matches the mental model. Status filter still allows status-based views when needed. Smart status dots reduce noise on active-heavy lists.
+
+**Impact:** Engagement list is partner-centric. Status information via dots + filter, not grouping.
+
+---
+
+### #306 — Programs list flattened
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** Replaced collapsed type-grouped view with flat alphabetical list. Each row shows: name + ProgramTypeBadge + linked engagement count. Dead code removed: `pluralizeType()`, `stripTypeSuffix()`, `isGroupedView`, `grouped` memo. Type filter bar retained for filtering.
+
+**Context:** Programs were grouped by type in collapsible sections. With only ~15 programs, the grouping added clicks without value.
+
+**Rationale:** Small catalog doesn't need grouping. Type badges on each row provide type information inline. Filter bar handles type-based narrowing when needed.
+
+**Impact:** Simpler page. All programs visible without expanding sections.
+
+---
+
+### #307 — Meetings list shows engagement names
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** Added engagement name to meeting list rows when the meeting is linked to an engagement. Shown as `text-muted/50` text, truncated to `max-w-[12rem]`, after the partner name.
+
+**Context:** Meeting rows showed date, title, recurrence icon, and partner name. No indication of which engagement a meeting belonged to.
+
+**Rationale:** Engagement context helps the PDM decide which meeting to click into. The data was already available (`engagement_name` on `MeetingWithNames` type).
+
+**Impact:** Engagement context visible without drilling into meeting detail.
+
+---
