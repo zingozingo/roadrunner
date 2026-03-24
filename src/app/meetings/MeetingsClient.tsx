@@ -276,7 +276,7 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
                             <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
                               {cleanMeetingTitle(m.title)}
                             </span>
-                            {(m.is_recurring || m.recurrence_pattern) && (
+                            {(m.recurrence_pattern || m.series_id) && (
                               <span className="shrink-0 flex items-center gap-1 text-[10px] text-muted/60" title={m.recurrence_pattern ? m.recurrence_pattern.charAt(0).toUpperCase() + m.recurrence_pattern.slice(1) : "Recurring"}>
                                 <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="shrink-0">
                                   <path d="M2 8a6 6 0 0 1 10.47-4M14 8a6 6 0 0 1-10.47 4" />
