@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import PillarBadge from "@/components/shared/PillarBadge";
+import BrainSynthesis from "@/components/partners/BrainSynthesis";
 import PartnerScratchpad from "@/components/partners/PartnerScratchpad";
 import { cleanMeetingTitle } from "@/lib/format-utils";
 import { getPartner, getSupabaseClient, getRelationshipsByPartner, getMeetingNotesByPartner, getTasksByPartner, getPartnerContext, getContactsByPartner, getContactsByRelationshipBulk } from "@/lib/db";
@@ -89,6 +90,15 @@ export default async function PartnerDetailPage({
 
   // Contacts are grouped/sorted by ContactGroup component
 
+  // Split partner context: brain synthesis vs scratchpad entries
+  const brainEntry = partnerContextEntries.find((e) => e.source === "ai_synthesis") ?? null;
+  const scratchpadEntries = partnerContextEntries.filter(
+    (e) => e.source === "scratchpad" || e.source === "seed_dump"
+  );
+  const scratchpadLastUpdated = scratchpadEntries.length > 0
+    ? scratchpadEntries.reduce((latest, e) => e.created_at > latest ? e.created_at : latest, scratchpadEntries[0].created_at)
+    : null;
+
   // Owner label map for inline task display
   const ownerLabels: Record<string, { label: string; color: string }> = {
     me: { label: "Me", color: "bg-accent/15 text-accent" },
@@ -108,7 +118,7 @@ export default async function PartnerDetailPage({
   }).slice(0, 15);
 
   return (
-    <div className="p-6 lg:p-8">
+    <div className="mx-auto max-w-7xl p-6 lg:p-8">
       <Link
         href="/partners"
         className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
@@ -121,7 +131,7 @@ export default async function PartnerDetailPage({
 
       {/* ═══ IDENTITY BAR ═══ */}
       <div className="flex items-center gap-3 pb-4 mb-6 border-b border-border/30">
-        <h1 className="text-xl font-semibold text-foreground">{partner.name}</h1>
+        <h1 className="text-2xl font-semibold text-foreground">{partner.name}</h1>
         {partner.segment && (
           <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent capitalize">
             {partner.segment}
@@ -133,17 +143,30 @@ export default async function PartnerDetailPage({
       </div>
 
       {/* ═══ TWO-COLUMN LAYOUT ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8 lg:gap-12">
 
         {/* ─── LEFT COLUMN: Workflow ─── */}
         <div className="space-y-10">
 
-          {/* Living Context */}
+          {/* Brain Synthesis */}
           <section>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">Living context</h2>
-            </div>
-            <PartnerScratchpad partnerId={id} initialEntries={partnerContextEntries} compact />
+            <BrainSynthesis
+              partnerId={id}
+              initialContent={brainEntry?.content ?? null}
+              initialDate={brainEntry?.created_at ?? null}
+              scratchpadLastUpdated={scratchpadLastUpdated}
+            />
+          </section>
+
+          {/* Scratchpad */}
+          <section>
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
+              Scratchpad
+              {scratchpadEntries.length > 0 && (
+                <span className="ml-1.5 font-normal text-muted">{scratchpadEntries.length}</span>
+              )}
+            </h2>
+            <PartnerScratchpad partnerId={id} initialEntries={scratchpadEntries} compact />
           </section>
 
           {/* Engagements */}
