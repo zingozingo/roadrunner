@@ -7,6 +7,7 @@ import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
 import PillarBadge from "@/components/shared/PillarBadge";
 import { Engagement } from "@/lib/types";
+import { formatFooterDate } from "@/lib/format-utils";
 
 type EngagementWithCounts = Engagement & { message_count: number; partner_name: string | null };
 
@@ -18,12 +19,12 @@ const STATUS_FILTER_OPTIONS = [
   { label: "Archived", value: "archived" },
 ];
 
-const statusOrder: Record<string, number> = {
-  active: 0,
-  planned: 1,
-  blocked: 2,
-  completed: 3,
-  archived: 4,
+const statusDotColor: Record<string, string> = {
+  active: "bg-emerald-500",
+  planned: "bg-blue-400",
+  blocked: "bg-amber-500",
+  completed: "bg-violet-500",
+  archived: "bg-zinc-500",
 };
 
 interface EngagementsClientProps {
@@ -49,24 +50,32 @@ export default function EngagementsClient({ engagements }: EngagementsClientProp
     });
   }, [engagements, searchQuery, activeFilter]);
 
-  const statusGroups = useMemo(() => {
-    const grouped = filteredEngagements.reduce(
-      (acc, eng) => {
-        const status = eng.status;
-        if (!acc[status]) acc[status] = [];
-        acc[status].push(eng);
-        return acc;
-      },
-      {} as Record<string, EngagementWithCounts[]>
-    );
-
-    return Object.entries(grouped).sort(
-      ([a], [b]) => (statusOrder[a] ?? 99) - (statusOrder[b] ?? 99)
-    );
+  const partnerGroups = useMemo(() => {
+    const groupMap = new Map<string, EngagementWithCounts[]>();
+    for (const eng of filteredEngagements) {
+      const key = eng.partner_name ?? "Unassigned";
+      if (!groupMap.has(key)) groupMap.set(key, []);
+      groupMap.get(key)!.push(eng);
+    }
+    const entries = [...groupMap.entries()].sort(([a], [b]) => {
+      if (a === "Unassigned") return 1;
+      if (b === "Unassigned") return -1;
+      return a.localeCompare(b);
+    });
+    // Within each group: active first, then by updated_at desc
+    for (const [, items] of entries) {
+      items.sort((a, b) => {
+        const aActive = a.status === "active" ? 0 : 1;
+        const bActive = b.status === "active" ? 0 : 1;
+        if (aActive !== bActive) return aActive - bActive;
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+      });
+    }
+    return entries;
   }, [filteredEngagements]);
 
   return (
-    <div className="p-6 lg:p-8">
+    <div className="mx-auto max-w-7xl p-6 lg:p-8">
       <PageHeader
         title="Engagements"
         subtitle={`${engagements.length} engagement${engagements.length !== 1 ? "s" : ""} tracked`}
@@ -97,47 +106,41 @@ export default function EngagementsClient({ engagements }: EngagementsClientProp
             />
           ) : (
             <div className="space-y-8">
-              {statusGroups.map(([status, items]) => {
-                const defaultOpen = !!searchQuery || items.length < 10;
-                return (
-                  <details
-                    key={status}
-                    open={defaultOpen || undefined}
-                    className="group"
-                  >
-                    <summary className="flex cursor-pointer list-none items-center gap-2 pb-2 text-xs font-medium uppercase tracking-[0.08em] text-muted/70 [&::-webkit-details-marker]:hidden">
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="shrink-0 transition-transform group-open:rotate-90">
-                        <path d="M6 4l4 4-4 4" />
-                      </svg>
-                      {status}
-                      <span className="font-normal text-muted/50">{items.length}</span>
-                    </summary>
-                    <div>
-                      {items.map((eng) => (
+              {partnerGroups.map(([partnerName, items]) => (
+                <section key={partnerName}>
+                  <h2 className="mb-2 text-xs font-medium uppercase tracking-[0.08em] text-muted/70">
+                    {partnerName}
+                    <span className="ml-1.5 font-normal text-muted/50">{items.length}</span>
+                  </h2>
+                  <div>
+                    {items.map((eng) => {
+                      const dotColor = statusDotColor[eng.status] ?? "bg-zinc-500";
+                      return (
                         <Link
                           key={eng.id}
                           href={`/engagements/${eng.id}`}
-                          className="flex items-baseline gap-4 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
+                          className="flex items-center gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
                         >
                           <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
                             {eng.name}
                           </span>
-                          {eng.partner_name && (
-                            <span className="shrink-0 text-xs text-muted">
-                              {eng.partner_name}
-                            </span>
-                          )}
                           {eng.pillar && (
                             <span className="shrink-0">
                               <PillarBadge pillar={eng.pillar} />
                             </span>
                           )}
+                          {eng.status !== "active" && (
+                            <span className={`shrink-0 h-1.5 w-1.5 rounded-full ${dotColor}`} title={eng.status} />
+                          )}
+                          <span className="shrink-0 text-xs text-muted">
+                            {formatFooterDate(eng.updated_at)}
+                          </span>
                         </Link>
-                      ))}
-                    </div>
-                  </details>
-                );
-              })}
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
             </div>
           )}
         </>

@@ -121,7 +121,7 @@ export default function EventsClient({ events }: { events: EventWithCount[] }) {
   }, [filteredEvents]);
 
   return (
-    <div className="p-6 lg:p-8">
+    <div className="mx-auto max-w-7xl p-6 lg:p-8">
       <PageHeader
         title="Events"
         subtitle={`${events.length} event${events.length !== 1 ? "s" : ""} tracked`}

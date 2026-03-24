@@ -172,7 +172,7 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
   }, [filteredMeetings]);
 
   return (
-    <div className="p-6 lg:p-8">
+    <div className="mx-auto max-w-7xl p-6 lg:p-8">
       <div className="mb-6 flex items-start justify-between">
         <PageHeader
           title="Meetings"
@@ -258,6 +258,11 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
                             {m.partner_name && (
                               <span className="shrink-0 text-xs text-muted">
                                 {m.partner_name}
+                              </span>
+                            )}
+                            {m.engagement_name && (
+                              <span className="shrink-0 text-xs text-muted/50 truncate max-w-[12rem]">
+                                {m.engagement_name}
                               </span>
                             )}
                           </Link>
