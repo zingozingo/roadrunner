@@ -34,8 +34,9 @@ Flat rows grouped by segment. Groups default open.
 
 **Identity Bar:**
 - Title: `partner.name` (`text-2xl`)
+- SPMS ID inline after name (`text-sm text-muted`)
 - Badges: Segment pill
-- Right-aligned: SPMS ID (muted) + Reference tabs: "Profile" | "Status" | "People"
+- Right-aligned: Reference tabs: "Profile" | "Status" | "People"
 
 **Main Content (full-width, above-the-fold target):**
 
@@ -43,8 +44,8 @@ Flat rows grouped by segment. Groups default open.
 |---|---|---|
 | Brain Highlight | "What Needs Attention" prominent (amber accent). Other 3 brain sections as accordion. "Re-synthesize" + timestamp. | Attention always visible. Others collapsed. |
 | Scratchpad | Notepad container (`bg-surface/50 rounded-lg p-4 border border-border/20`). Input at bottom. Hover-delete entries. | First 3, "Show all N" if more |
+| Open Tasks | Flat rows: description + owner badge. "Me" in foreground, others muted. **Above engagements — most actionable.** | Top 5, "View all tasks →" |
 | Engagements | Rows: name (linked) + pillar badge. Condensed one-liner below. Smart status (dots only for non-active). | 7 or fewer: all. 8+: first 5 + expander |
-| Open Tasks | Rows: description + owner badge. "Me" in foreground, others muted. | Top 5, "View all tasks →" |
 | Recent Meetings | Rows: date + title (linked) + condensed one-liner. No status dots. | Top 5, "View all →" |
 
 **Slide-Over Panel (tabbed):**

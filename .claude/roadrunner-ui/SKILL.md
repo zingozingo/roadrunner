@@ -510,9 +510,9 @@ Each page has one job. The spec defines that job, the layout, and the content st
 
 **Identity Bar:**
 - Partner name (`text-2xl`)
+- SPMS ID immediately after name (`text-sm text-muted` — visible, not hidden in corner)
 - Segment badge
-- SPMS ID (right-aligned, muted)
-- Reference panel tabs: compact buttons — "Profile" | "Status" | "People" — that open the slide-over panel to the corresponding section. Styled as subtle secondary buttons in a row, right side of identity bar area.
+- Reference panel tabs right-aligned: "Profile" | "Status" | "People"
 
 **Main Content (full-width, above-the-fold target):**
 
@@ -524,21 +524,21 @@ Each page has one job. The spec defines that job, the layout, and the content st
 
 2. **Scratchpad** — Notepad container (see Container Types). Visually distinct zone: `bg-surface/50 rounded-lg p-4 border border-border/20`. Input at bottom. Compact entries with hover-delete. Shows first 3, "Show all N" if more. Feels like a sticky note area — the place for tribal knowledge.
 
-3. **Engagements** — Section with count. Compact rows:
-   - Engagement name (linked) + pillar badge (right-aligned)
-   - Below name: condensed one-liner (first meaningful line from condensed digest, or topic as fallback). `text-sm text-muted`.
-   - **Smart status:** Only show status dot if status is NOT active (blocked = amber, stale = gray). All-active = no dots = clean rows.
-   - Progressive disclosure: 7 or fewer → show all. 8+ → first 5 + "Show all N →" expander.
-
-4. **Open Tasks** — Section with count. Tight flat rows:
+3. **Open Tasks** — Section with count. **Promoted above engagements because tasks are the most actionable items on the page.** Tight flat rows:
    - Description + owner badge
-   - **"Me" tasks visually emphasized:** normal foreground text. Partner/internal tasks in muted text — they're tracked, not actionable by you.
+   - **"Me" tasks visually emphasized:** normal foreground text. Partner/internal tasks in muted text.
    - Top 5, "View all tasks →" links to `/tasks` filtered to this partner.
+
+4. **Engagements** — Section with count. Compact rows:
+   - Engagement name (linked) + pillar badge (right-aligned)
+   - Below name: condensed one-liner. `text-sm text-muted`.
+   - **Smart status:** Only show status dot if status is NOT active.
+   - Progressive disclosure: 7 or fewer → show all. 8+ → first 5 + "Show all N →" expander.
 
 5. **Recent Meetings** — Section with count. Compact rows:
    - Date + title (linked, cleaned) + condensed one-liner below
    - Top 5, "View all →" link.
-   - No note status dots (they add clutter here — the meeting detail page shows note status).
+   - No note status dots.
 
 **Slide-Over Panel (triggered by identity bar tabs):**
 
