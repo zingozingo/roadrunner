@@ -135,6 +135,9 @@ export default async function PartnerDetailPage({
             {partner.segment}
           </span>
         )}
+        {partner.spms_id && (
+          <span className="text-sm text-muted ml-1">SPMS {partner.spms_id}</span>
+        )}
         <div className="ml-auto flex items-center gap-3">
           <PartnerReferencePanel
             partner={{
@@ -153,9 +156,6 @@ export default async function PartnerDetailPage({
             currentUserEmail={USER_CONFIG.email}
             relationships={relationshipsWithLeads}
           />
-          {partner.spms_id && (
-            <span className="text-xs text-muted">SPMS {partner.spms_id}</span>
-          )}
         </div>
       </div>
 
@@ -184,6 +184,52 @@ export default async function PartnerDetailPage({
               <PartnerScratchpad partnerId={id} initialEntries={scratchpadEntries} compact />
             </div>
           </section>
+
+          {/* Open Tasks */}
+          {tasksWithTitles.length > 0 && (() => {
+            const TASK_VISIBLE = 5;
+            const TASK_THRESHOLD = 8;
+            const showAllTasks = tasksWithTitles.length < TASK_THRESHOLD;
+            const visibleTasks = showAllTasks ? tasksWithTitles : tasksWithTitles.slice(0, TASK_VISIBLE);
+
+            return (
+              <section>
+                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
+                  Open tasks
+                  <span className="ml-1.5 font-normal text-muted">{tasksWithTitles.length}</span>
+                </h2>
+                <div>
+                  {visibleTasks.map((t) => {
+                    const owner = ownerLabels[t.owner] ?? ownerLabels.me;
+                    return (
+                      <div
+                        key={t.id}
+                        className="flex items-center gap-3 border-b border-border/20 px-3 py-3 text-sm"
+                      >
+                        <span className={`min-w-0 flex-1 truncate ${t.owner === "me" ? "text-foreground" : "text-muted"}`}>{t.description}</span>
+                        {t.due_date && (
+                          <span className="shrink-0 text-xs text-muted">
+                            {new Date(t.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          </span>
+                        )}
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${owner.color}`}>
+                          {owner.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {!showAllTasks && (
+                  <Link
+                    href="/tasks"
+                    className="mt-2 inline-block text-sm text-accent hover:underline"
+                  >
+                    View all {tasksWithTitles.length} tasks →
+                  </Link>
+                )}
+              </section>
+            );
+          })()}
 
           {/* Engagements */}
           {linkedEngagements.length > 0 && (() => {
@@ -248,52 +294,6 @@ export default async function PartnerDetailPage({
                     </details>
                   )}
                 </div>
-              </section>
-            );
-          })()}
-
-          {/* Open Tasks */}
-          {tasksWithTitles.length > 0 && (() => {
-            const TASK_VISIBLE = 5;
-            const TASK_THRESHOLD = 8;
-            const showAllTasks = tasksWithTitles.length < TASK_THRESHOLD;
-            const visibleTasks = showAllTasks ? tasksWithTitles : tasksWithTitles.slice(0, TASK_VISIBLE);
-
-            return (
-              <section>
-                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
-                  Open tasks
-                  <span className="ml-1.5 font-normal text-muted">{tasksWithTitles.length}</span>
-                </h2>
-                <div>
-                  {visibleTasks.map((t) => {
-                    const owner = ownerLabels[t.owner] ?? ownerLabels.me;
-                    return (
-                      <div
-                        key={t.id}
-                        className="flex items-center gap-3 border-b border-border/20 px-3 py-3 text-sm"
-                      >
-                        <span className={`min-w-0 flex-1 truncate ${t.owner === "me" ? "text-foreground" : "text-muted"}`}>{t.description}</span>
-                        {t.due_date && (
-                          <span className="shrink-0 text-xs text-muted">
-                            {new Date(t.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                          </span>
-                        )}
-                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${owner.color}`}>
-                          {owner.label}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-                {!showAllTasks && (
-                  <Link
-                    href="/tasks"
-                    className="mt-2 inline-block text-sm text-accent hover:underline"
-                  >
-                    View all {tasksWithTitles.length} tasks →
-                  </Link>
-                )}
               </section>
             );
           })()}
