@@ -57,7 +57,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, partner_name, status, current_state, pillar } = body;
+    const { name, partner_name, status, current_state, condensed, pillar } = body;
 
     // Resolve partner_name to partner_id if provided
     let partner_id: string | null | undefined;
@@ -82,6 +82,7 @@ export async function PUT(
       partner_name === undefined &&
       status === undefined &&
       current_state === undefined &&
+      condensed === undefined &&
       pillar === undefined
     ) {
       return NextResponse.json(
@@ -125,6 +126,7 @@ export async function PUT(
       partner_id,
       status,
       current_state,
+      condensed,
       pillar,
     });
 

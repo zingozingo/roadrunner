@@ -125,6 +125,14 @@ export async function PUT(
           console.error(`Engagement sync failed for ${engagement_id}:`, err);
         }
       }
+
+      // Cascade engagement_id to tasks from this meeting's notes
+      try {
+        const { cascadeEngagementToTasks } = await import("@/lib/db");
+        await cascadeEngagementToTasks(id, engagement_id || null, existing.engagement_id);
+      } catch (err) {
+        console.error(`Task cascade failed for meeting ${id}:`, err);
+      }
     }
 
     return NextResponse.json({ meeting: updated });

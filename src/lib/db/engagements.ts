@@ -191,6 +191,7 @@ export async function updateEngagement(
     partner_id?: string | null;
     status?: Engagement["status"];
     current_state?: string | null;
+    condensed?: string | null;
     pillar?: Pillar | null;
   }
 ): Promise<Engagement> {
@@ -200,6 +201,7 @@ export async function updateEngagement(
   if (updates.name !== undefined) row.name = updates.name;
   if (updates.partner_id !== undefined) row.partner_id = updates.partner_id;
   if (updates.current_state !== undefined) row.current_state = updates.current_state;
+  if (updates.condensed !== undefined) row.condensed = updates.condensed;
   if (updates.pillar !== undefined) row.pillar = updates.pillar;
 
   if (updates.status !== undefined) {

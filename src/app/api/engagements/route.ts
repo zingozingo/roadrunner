@@ -28,7 +28,7 @@ const VALID_PILLARS = new Set(["Co-Sell", "Co-Market", "Co-Build"]);
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, partner_name, status, pillar, current_state } = body;
+    const { name, partner_name, partner_id, status, pillar, current_state } = body;
 
     // Validate name
     if (!name || typeof name !== "string" || !name.trim()) {
@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
 
     let engagement = await createEngagement({
       name: name.trim(),
+      partner_id: partner_id || undefined,
       partner_name: partner_name?.trim() || null,
       current_state: current_state?.trim() || null,
       pillar: pillar ?? null,

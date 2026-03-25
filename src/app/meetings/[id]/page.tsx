@@ -236,6 +236,9 @@ export default async function MeetingDetailPage({
                 <EngagementLinker
                   meetingId={id}
                   partnerId={meeting.partner_id}
+                  partnerName={partner?.name ?? null}
+                  meetingTitle={meeting.title}
+                  noteCondensed={existingNote?.condensed ?? null}
                   initialEngagementId={meeting.engagement_id}
                   initialEngagementName={engagement?.name ?? null}
                 />
