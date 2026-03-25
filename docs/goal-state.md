@@ -6,13 +6,13 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 70 migrations, 18 active tables, 31 API routes, 18 UI pages, 437 passing tests (0 failures), tsc --noEmit passes clean
+- 71 migrations, 18 active tables, 31 API routes, 18 UI pages, 437 passing tests (0 failures), tsc --noEmit passes clean
 - Human-guided intake pipeline fully operational: webhook → mechanical partner detection → ICS partner backfill → inbox triage (with unknown partner picker) → single-phase AI synthesis (decisions #223-252)
 - Meetings Motion complete (decisions #253-259): 10 interaction-based meeting types, recurring meeting engine with auto-spawn, series tracking via self-referential FK, RecurrenceEditor UI, synthesis-on-link, conference boilerplate pre-split fix, ICS multi-VEVENT guardrail confirmed
 - AI Brain Overhaul Phases 1-3 complete (decisions #260-269): goal field eliminated (migration 069), condensed columns on engagements + meeting_notes (migration 068), meeting summarization restructured with scoped context builder, structured output (Discussion/Decisions/Key Context), condensed 3-5 bullet digest, non-redundancy with tasks
 - Phase D cleanup complete: dead tests deleted, stale assertions fixed, dead types/routes removed
 - Entity model fully rewritten with ring architecture (Catalog → Activity → People → Posture) in docs/entity-model.md
-- Documentation consolidated: 6 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline (rewrite pending), ai-call-map.md AI call reference, goal-state.md status, decisions.md through #307)
+- Documentation consolidated: 6 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline (rewrite pending), ai-call-map.md AI call reference, goal-state.md status, decisions.md through #317)
 - Dead weight cleaned: notes table dropped (migration 061), orphaned components removed (PillGrid, CalendarCard, TableList, SyncStatus), decisions.md merged from two files into one
 - Zero polymorphic tables: entity_links replaced with engagement_programs + engagement_events (migration 065, decisions #221-222)
 - Contact registry complete: 76 participants, 85 partner links, 4 dedicated join tables, sync layer auto-maintains registry — all reads and writes flow through registry, JSONB columns dropped (Decisions #182, #218)
@@ -25,6 +25,9 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 - Manual meeting quick-capture: modal form on /meetings page with partner dropdown, auto-title, meeting type (decision 189)
 - Manual task creation: inline form on partner detail, POST /api/notes/tasks, no meeting note required (decision 196)
 - UI Overhaul complete (decisions 289-307): SKILL.md constitutional rewrite, all detail pages (partner, meeting, engagement) aligned, tasks page redesigned, sidebar minimal treatment, all list pages shell-fixed, ContextSidebar stripped, programs flattened, engagements grouped by partner. 3 new components: BrainSynthesis, PartnerReferencePanel, SlideOverPanel
+- Recurring meeting system fully operational (decisions #308-312): creation modal with pattern picker + auto-title, spawn engine verified end-to-end (33 meetings: 8 roots + 8 spawned + 17 one-off), is_recurring decommissioned from app code (column remains for backward compat, future migration to drop), migration 071 backfilled 8 orphaned meetings
+- EngagementLinker enhanced with "Create new engagement" (decision #314): meeting detail can create engagements seeded from note condensed digest, task cascade on link/unlink (decisions #313, #315), POST /api/engagements accepts partner_id directly, PUT accepts condensed
+- Task provenance redesigned (decisions #316-317): adaptive display shows engagement name (preferred) or cleaned meeting title (partner prefix stripped), partner detail gains provenance subtitles, quiet "+ eng" affordance
 - 5 active engagements processing real email data (Nozomi Networks, Spacelift x3, Qualys)
 - All Airtable push/delete calls awaited (no fire-and-forget)
 
@@ -40,12 +43,16 @@ A system where a PDM forwards an email and Roadrunner:
 
 ### Next Session
 - Real daily use testing — forward emails, verify full pipeline end-to-end
+- 41-task engagement backfill — link meetings to engagements so cascade populates task.engagement_id
+- Dead component cleanup — 4 unused: CurrentStateCard, MeetingTimeline, ExpandableList, PartnerTasksSection
+- meeting_type backfill for 16 older meetings (pre-meeting-type era, all have type=null)
 - UI polish pass: spacing/alignment consistency, filter bar refinement, responsive edge cases
 
 ### Soon
 - Ring 3 pull sync planning (Partner Programs, Events, Co-Sell Goals, Partner Goals, Funding)
 - CLASSIFICATION.md full rewrite to document current pipeline
 - Brain prompt refinement based on real data review
+- is_recurring column drop migration (app code done, column unused)
 
 ### Later
 - Ring 3 pull sync implementation
@@ -107,6 +114,9 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~Re-summarize removed from saved mode~~ ✅ (decision 287): Mode 3 has only "Edit Notes". One clear path: Edit → Summarize → Save
 - ~~Task extraction prompt rewrite~~ ✅ (decision 288): Forward/backward temporal test, obligation patterns, "when in doubt extract". 31 tasks (6x improvement)
 - ~~UI Overhaul — full SKILL.md alignment~~ ✅ (decisions 289-307): SKILL.md constitutional rewrite, partner detail (full-width + slide-over + brain accordion), meeting detail (workspace focus + identity bar), engagement detail (condensed digest + connected meetings + AI treatment), tasks page (Me default + recency + flat/grouped toggle), sidebar minimal treatment, ContextSidebar stripped (no gray boxes), all list pages shell-fixed + structural fixes (engagements grouped by partner, programs flattened, meetings show engagement names). 3 new components, 4 skill files rewritten
+- ~~Recurring meeting system end-to-end~~ ✅ (decisions 308-312): POST accepts recurrence_pattern/recurrence_end, creation modal pattern picker + auto-title, recurring icon truth source swap (recurrence_pattern || series_id), migration 071 backfill (8 meetings), is_recurring decommissioned from app code, spawn engine verified (8 auto-spawned meetings)
+- ~~EngagementLinker create-new + task cascade~~ ✅ (decisions 313-315): cascadeEngagementToTasks utility (link fills nulls, unlink clears matched), EngagementLinker "Create new engagement" with note-seeded current_state, task cascade wired server-side into PUT /api/meetings/[id]
+- ~~Task provenance redesign~~ ✅ (decisions 316-317): Adaptive display (engagement > meeting > partner-only), stripPartnerPrefix utility, quiet "+ eng" affordance, partner detail provenance subtitles
 
 ## Architecture Principles
 

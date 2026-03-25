@@ -1,7 +1,7 @@
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → human-guided routing → AI synthesis → structured engagements → Airtable sync.
-> 70 migrations · 18 tables · 31 API routes · 18 UI pages · 437 passing tests
+> 71 migrations · 18 tables · 31 API routes · 18 UI pages · 437 passing tests
 
 ---
 
@@ -51,7 +51,7 @@ roadrunner/
 │   ├── CLASSIFICATION.md          #   AI synthesis pipeline documentation (rewrite pending)
 │   ├── entity-model.md            #   Canonical schema — ERD + field-level registry + AT field IDs
 │   └── goal-state.md              #   Living orientation doc — current state & next steps
-├── decisions.md                   # Append-only architectural decision log (307 entries)
+├── decisions.md                   # Append-only architectural decision log (317 entries)
 ├── src/
 │   ├── app/                       # Next.js App Router
 │   │   ├── api/                   #   API routes (31 route files, grouped by entity)
@@ -96,7 +96,7 @@ roadrunner/
 │       ├── ics-parser.ts          #   ICS calendar event parser (RFC 5545)
 │       ├── name-resolver.ts       #   Contact name resolution from JSONB columns
 │       ├── contact-parser.ts      #   Universal "Name <email> (Title)" parser
-│       ├── format-utils.ts        #   Display name formatting utilities
+│       ├── format-utils.ts        #   Display name formatting + stripPartnerPrefix
 │       ├── meeting-recurrence.ts  #   Recurring meeting engine (spawn, overdue detection)
 │       ├── notes-summarizer.ts    #   AI meeting note summarizer (Claude API)
 │       ├── notes-context.ts       #   Context builders (buildPartnerContext, buildMeetingNoteContext, buildBrainContext)
@@ -126,7 +126,7 @@ roadrunner/
 │       │   └── utils.ts           #     Coercion helpers + validation
 │       └── __tests__/             #   437 passing tests across 14 test files
 ├── supabase/
-│   ├── migrations/                # 70 migration files (001-070)
+│   ├── migrations/                # 71 migration files (001-071)
 │   └── (authoritative schema lives in migrations/)
 ├── scripts/
 │   ├── seed-data.ts               # CLI script to seed events/programs
@@ -281,7 +281,7 @@ npx tsc --noEmit                   # TypeScript check (must pass with zero error
 
 ### Migrations
 
-Sequential numbering in `supabase/migrations/` (currently 001-070). New migrations get the next number (071, 072, ...). Write idempotent SQL where possible.
+Sequential numbering in `supabase/migrations/` (currently 001-071). New migrations get the next number (072, 073, ...). Write idempotent SQL where possible.
 
 ### Key Conventions
 
@@ -363,7 +363,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-070). New migratio
 | `docs/entity-model.md` | Complete schema — 18 tables, all FKs, AT field IDs, ring model | Schema/data work |
 | `docs/CLASSIFICATION.md` | AI synthesis pipeline (rewrite pending — Phase 2 docs still accurate) | Prompt/AI work |
 | `docs/goal-state.md` | Living status — current state + what's next | Session planning |
-| `decisions.md` | Append-only architectural decision log (307 entries) | When you need "why" |
+| `decisions.md` | Append-only architectural decision log (317 entries) | When you need "why" |
 
 ---
 

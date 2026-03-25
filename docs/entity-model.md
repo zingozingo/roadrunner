@@ -387,8 +387,8 @@ erDiagram
 | organizer_name | text | — | RR | — (internal) | — | — |
 | ics_uid | text UNIQUE | singleLineText | RR | → AT | fldNb83l5XLtz8J9k | — |
 | sequence | integer | — | RR | — (internal) | — | — |
-| is_recurring | boolean | — | RR | — (internal) | — | — |
-| source | text CHECK (manual, ics_parsed) | singleSelect (2 options) | RR | → AT | fld2RW78vS1T91bab | — |
+| is_recurring | boolean | — | RR | — (DEPRECATED: use recurrence_pattern) | — | — |
+| source | text CHECK (manual, ics_parsed, auto) | singleSelect | RR | → AT | fld2RW78vS1T91bab | — |
 | notes | text | multilineText | RR | → AT | fldzGUipu36EA9rax | meeting detail |
 | airtable_record_id | text UNIQUE | — | RR | — | — | — |
 | created_at | timestamptz | — | RR | — | — | — |

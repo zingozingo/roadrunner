@@ -44,7 +44,7 @@ Flat rows grouped by segment. Groups default open.
 |---|---|---|
 | Brain Highlight | "What Needs Attention" prominent (amber accent). Other 3 brain sections as accordion. "Re-synthesize" + timestamp. | Attention always visible. Others collapsed. |
 | Scratchpad | Notepad container (`bg-surface/50 rounded-lg p-4 border border-border/20`). Input at bottom. Hover-delete entries. | First 3, "Show all N" if more |
-| Open Tasks | Flat rows: description + owner badge. "Me" in foreground, others muted. **Above engagements — most actionable.** | Top 5, "View all tasks →" |
+| Open Tasks | Flat rows: description + owner badge + provenance subtitle (engagement name or cleaned meeting title). "Me" in foreground, others muted. **Above engagements — most actionable.** | Top 5, "View all tasks →" |
 | Engagements | Rows: name (linked) + pillar badge. Condensed one-liner below. Smart status (dots only for non-active). | 7 or fewer: all. 8+: first 5 + expander |
 | Recent Meetings | Rows: date + title (linked) + condensed one-liner. No status dots. | Top 5, "View all →" |
 
@@ -157,9 +157,11 @@ The NoteWorkspace is the entire left column. It IS the page's purpose.
 **Row (generous spacing — `py-3.5`):**
 - Checkbox (left) — complete/reopen toggle
 - Description (flex-1) — inline editable on click
-- Partner tag — small muted text
-- Meeting provenance — "from: Meeting Title" linked, if applicable
-- Engagement link — linked name or "+ link" inline action
+- Provenance line (adaptive, tertiary weight):
+  - Partner name (hidden when grouped by partner)
+  - Engagement name (if linked) OR cleaned meeting title (partner prefix stripped) — never both
+  - "+ eng" quiet affordance (if no engagement)
+- Due date — right-aligned, short format
 - Owner badge — pill (Me/Partner/Internal/Third Party)
 - Delete — trash icon, requires confirmation
 

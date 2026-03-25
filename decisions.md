@@ -5863,3 +5863,153 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** Engagement context visible without drilling into meeting detail.
 
 ---
+
+### #308 — POST meetings accepts recurrence fields
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** POST /api/meetings now accepts `recurrence_pattern` and `recurrence_end`. When `recurrence_pattern` is provided, the route validates against the CHECK constraint (weekly/biweekly/monthly/quarterly), inserts the meeting, then sets `series_id = id` (self-referencing root) in a second update. `is_recurring` is inferred from pattern presence, not sent by the client.
+
+**Context:** The creation modal could only set the cosmetic `is_recurring` boolean. The spawn engine requires `recurrence_pattern` + `series_id` to function.
+
+**Rationale:** Two-step insert-then-update because Supabase doesn't support self-referencing on insert. Validation matches the DB CHECK constraint exactly.
+
+**Impact:** `createMeeting()` in db/meetings.ts accepts `recurrence_pattern` and `recurrence_end`. Spawn-ready meetings can now be created in one API call.
+
+---
+
+### #309 — Creation modal pattern picker + title auto-populate
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** When "Recurring meeting" checkbox is checked, an inline pattern dropdown (Weekly/Biweekly/Monthly/Quarterly, default Weekly) and optional end date input appear. Title auto-populates as "{Partner Name} — {Meeting Type Label}" when both partner and meeting type are selected. Auto-populate only fires when the title is empty or matches the last auto-generated value — manual edits are never overwritten.
+
+**Context:** The checkbox previously only set `is_recurring=true`. Meeting titles were manually typed, often inconsistently.
+
+**Rationale:** Inline reveal keeps the modal compact. Default to Weekly because that's the most common cadence. Auto-title reduces typos and enforces naming consistency while remaining editable.
+
+**Impact:** MeetingsClient.tsx — new state for recurrencePattern, recurrenceEnd, autoTitle. POST body sends recurrence_pattern/recurrence_end instead of is_recurring.
+
+---
+
+### #310 — Recurring icon truth source swap
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** Meeting list recurring icon condition changed from `is_recurring || recurrence_pattern` to `recurrence_pattern || series_id`. Icon now reflects actual spawn-engine capability, not the cosmetic boolean.
+
+**Context:** 8 meetings had `is_recurring=true` but no `recurrence_pattern` or `series_id`. They showed the icon but couldn't actually recur.
+
+**Rationale:** The icon should communicate "this meeting will auto-spawn." Only meetings with `recurrence_pattern` (root) or `series_id` (spawned child) have that capability.
+
+**Impact:** 8 cosmetic-only meetings stopped showing the icon until backfilled (decision #311).
+
+---
+
+### #311 — Migration 071 backfill recurring meetings
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** Migration 071: `UPDATE meetings SET recurrence_pattern = 'weekly', series_id = id WHERE is_recurring = true AND recurrence_pattern IS NULL AND series_id IS NULL`. 8 partner cadence meetings made spawn-ready. Idempotent — WHERE clause excludes already-fixed rows.
+
+**Context:** 8 meetings created with the old "Recurring" checkbox had `is_recurring=true` but no recurrence fields. The spawn engine ignored them.
+
+**Rationale:** All 8 are weekly partner cadences. Steven can change individual patterns later via RecurrenceEditor on the detail page.
+
+**Impact:** 8 meetings became spawn-eligible. Auto-spawn triggered on next page load, creating 8 next-occurrence meetings (25 → 33 total).
+
+---
+
+### #312 — is_recurring decommissioned from application code
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** No application code writes `is_recurring=true`. Removed from: spawn insert (meeting-recurrence.ts), ICS create/update (db/meetings.ts), RecurrenceEditor save/stop, POST/PUT route passthrough. `createMeeting()` reverted to simple `data.is_recurring ?? false`. Phase 2 prompt changed from `m.is_recurring` to `m.recurrence_pattern` (shows "Recurring: weekly" instead of "Recurring: Yes"). Meeting type marked `// DEPRECATED: use recurrence_pattern instead` in types.ts.
+
+**Context:** `recurrence_pattern` + `series_id` are the functional truth source. `is_recurring` was a cosmetic boolean that provided no engine value.
+
+**Rationale:** Single source of truth. The column remains in DB for backward compat — future migration will drop it.
+
+**Impact:** 10 files changed. Only test fixtures still reference `is_recurring: true`.
+
+---
+
+### #313 — cascadeEngagementToTasks utility
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** New function `cascadeEngagementToTasks(meetingId, newEngagementId, oldEngagementId?)` in db/meetings.ts. Finds the meeting_note for the meeting, then: on link — sets `engagement_id` on tasks where `meeting_note_id` matches AND `engagement_id IS NULL` (respects manual overrides). On unlink — clears `engagement_id` where it matches the old value (doesn't touch manually overridden tasks).
+
+**Context:** 41 of 49 tasks had `meeting_note_id` but no `engagement_id`. When a meeting links to an engagement, its tasks should inherit that engagement unless manually set otherwise.
+
+**Rationale:** Link fills nulls (safe default). Unlink clears only matched values (preserves intentional overrides). Two-direction symmetry prevents data drift.
+
+**Impact:** New export from db/index.ts. Used by PUT /api/meetings/[id] (decision #315).
+
+---
+
+### #314 — EngagementLinker "Create new engagement"
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** EngagementLinker on meeting detail page now supports creating new engagements. Picker shows "+ Create new engagement" at top. Clicking reveals inline title form (auto-populated as "{Partner} — {Meeting Title}"). On submit: POST creates engagement with partner_id → PUT links meeting → if note has condensed digest, PUT seeds engagement's `current_state` and `condensed` from it. No AI synthesis needed — note content reused directly.
+
+**Context:** Inbox routing had "create new engagement" but meeting detail only had "link to existing." Meeting context is different from email context — notes have condensed digests, emails have raw threads.
+
+**Rationale:** Seeding from condensed digest gives the engagement a meaningful starting state without an AI call. The note's digest is already a high-quality summary of the meeting discussion.
+
+**Impact:** EngagementLinker gained 3 new props (partnerName, meetingTitle, noteCondensed). POST /api/engagements accepts `partner_id` directly. PUT /api/engagements/[id] accepts `condensed`. `updateEngagement()` handles `condensed`.
+
+---
+
+### #315 — Task cascade wired into meeting PUT
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** PUT /api/meetings/[id] now calls `cascadeEngagementToTasks()` server-side when `engagement_id` changes. Both link (fills nulls) and unlink (clears matched) directions. The old `engagement_id` comes from the existing meeting record fetched before the update.
+
+**Context:** The cascade utility existed (decision #313) but needed a trigger point. The meeting PUT route already handled AT sync on engagement_id change.
+
+**Rationale:** Server-side cascade means no client coordination needed. The PUT route already has both old and new values available.
+
+**Impact:** Linking a meeting to an engagement now automatically populates engagement_id on that meeting's tasks. Unlinking clears them (respecting manual overrides).
+
+---
+
+### #316 — Task provenance adaptive display
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** Task provenance line shows the most relevant context link, not all links: engagement name (if linked) OR cleaned meeting title (partner prefix stripped, if has meeting note) — never both. Partner name always shown first in flat view. Partner detail page gained provenance subtitle (engagement name or cleaned meeting title) below each task description.
+
+**Context:** Previous display showed "partner · from: meeting_title · eng: engagement_name" with dot separators. Meeting titles redundantly included partner prefix. When engagement was linked, showing both meeting and engagement was noise.
+
+**Rationale:** Engagement is the workstream context — once linked, it supersedes meeting provenance. `stripPartnerPrefix()` removes the redundant "{Partner} — " prefix from meeting titles used in task context.
+
+**Impact:** Tasks page provenance simplified. Partner detail gained context subtitles with meeting/engagement resolution.
+
+---
+
+### #317 — stripPartnerPrefix + quiet link affordance
+
+**Date:** 2026-03-24
+**Status:** ✅ Implemented
+
+**Decision:** New utility `stripPartnerPrefix(title, partnerName)` in format-utils.ts strips "{Partner} — " or "{Partner} - " prefix from meeting titles. "+ link eng" shortened to "+ eng" in muted text — available but not demanding.
+
+**Context:** "ProsperOps — Partner Cadence" is redundant when displayed next to "ProsperOps" in a task row. The old "+ link eng" button with dashed border demanded attention on 41/49 tasks.
+
+**Rationale:** Context lines should add information, not repeat it. Link affordances should be discoverable, not prominent — they're a secondary action.
+
+**Impact:** format-utils.ts gained `stripPartnerPrefix()`. Tasks page and partner detail both use it for task provenance display.
+
+---

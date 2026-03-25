@@ -638,10 +638,12 @@ The panel is a single component with tabbed content. Clicking "Profile" opens th
 **Each task row:**
 - Checkbox (left) — toggles complete/reopen
 - Description — `flex-1`, inline editable on click
-- Partner tag — small muted text or pill
-- Meeting provenance — "from: Meeting Title" linked, if applicable
-- Engagement link — linked name if set, "+ link" inline action if not
+- Provenance line (adaptive, tertiary weight):
+  - Always: partner name (hidden when grouped by partner)
+  - Then: engagement name (if linked, as clickable link) OR cleaned meeting title (partner prefix stripped via `stripPartnerPrefix()`, clickable) — never both
+  - Then: "+ eng" quiet affordance (if no engagement linked)
 - Owner badge — pill (Me/Partner/Internal/Third Party)
+- Due date — right-aligned, short format
 - Delete — trash icon, requires confirmation
 
 **Row spacing:** More generous than other lists (`py-3.5`) — tasks need room because each row has more interactive elements.
