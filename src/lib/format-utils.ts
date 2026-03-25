@@ -119,6 +119,22 @@ export function cleanMeetingTitle(title: string): string {
 }
 
 /**
+ * Strip the "{Partner} — " prefix from a meeting title for task provenance.
+ * "ProsperOps — Partner Cadence" → "Partner Cadence"
+ * "Orange Logic — Joint ISV/SI GTM" → "Joint ISV/SI GTM"
+ * Titles without the pattern pass through unchanged.
+ */
+export function stripPartnerPrefix(title: string, partnerName: string | null): string {
+  if (!partnerName) return title;
+  const prefix = `${partnerName} — `;
+  if (title.startsWith(prefix)) return title.slice(prefix.length);
+  // Also try em-dash without spaces and en-dash
+  const altPrefix = `${partnerName} - `;
+  if (title.startsWith(altPrefix)) return title.slice(altPrefix.length);
+  return title;
+}
+
+/**
  * Format a date for footer/metadata contexts.
  * "2026-02-22T..." → "Feb 22, 2026"
  * null/undefined → ""

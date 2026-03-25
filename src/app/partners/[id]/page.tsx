@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import PillarBadge from "@/components/shared/PillarBadge";
 import BrainSynthesis from "@/components/partners/BrainSynthesis";
 import PartnerScratchpad from "@/components/partners/PartnerScratchpad";
-import { cleanMeetingTitle } from "@/lib/format-utils";
+import { cleanMeetingTitle, stripPartnerPrefix } from "@/lib/format-utils";
 import { getPartner, getSupabaseClient, getRelationshipsByPartner, getMeetingNotesByPartner, getTasksByPartner, getPartnerContext, getContactsByPartner, getContactsByRelationshipBulk } from "@/lib/db";
 import PartnerReferencePanel from "@/components/partners/PartnerReferencePanel";
 import { USER_CONFIG } from "@/lib/user-config";
@@ -78,16 +78,46 @@ export default async function PartnerDetailPage({
     }
   }
 
-  // Build note title map for tasks
-  const noteTitleMap = new Map<string, string>();
+  // Build note → meeting resolution for tasks
+  const noteMeetingMap = new Map<string, string | null>();
   for (const note of partnerNotes) {
-    noteTitleMap.set(note.id, note.title ?? "Untitled");
+    noteMeetingMap.set(note.id, note.meeting_id ?? null);
   }
 
-  const tasksWithTitles = openTasks.map((t) => ({
-    ...t,
-    note_title: (t.meeting_note_id ? noteTitleMap.get(t.meeting_note_id) : null) ?? "Untitled",
-  }));
+  // Resolve meeting titles for tasks
+  const taskMeetingIds = new Set<string>();
+  for (const t of openTasks) {
+    if (t.meeting_note_id) {
+      const mid = noteMeetingMap.get(t.meeting_note_id);
+      if (mid) taskMeetingIds.add(mid);
+    }
+  }
+  const meetingTitleMap = new Map<string, string>();
+  if (taskMeetingIds.size > 0) {
+    const { data: mtgRows } = await db.from("meetings").select("id, title").in("id", [...taskMeetingIds]);
+    for (const m of (mtgRows ?? []) as { id: string; title: string | null }[]) {
+      meetingTitleMap.set(m.id, m.title ?? "Untitled");
+    }
+  }
+
+  // Resolve engagement names for tasks
+  const taskEngIds = [...new Set(openTasks.map(t => t.engagement_id).filter((id): id is string => id !== null))];
+  const engNameMap = new Map<string, string>();
+  if (taskEngIds.length > 0) {
+    const { data: engRows } = await db.from("engagements").select("id, name").in("id", taskEngIds);
+    for (const e of (engRows ?? []) as { id: string; name: string | null }[]) {
+      engNameMap.set(e.id, e.name ?? "Untitled");
+    }
+  }
+
+  const tasksWithContext = openTasks.map((t) => {
+    const meetingId = t.meeting_note_id ? noteMeetingMap.get(t.meeting_note_id) ?? null : null;
+    return {
+      ...t,
+      meeting_title: meetingId ? meetingTitleMap.get(meetingId) ?? null : null,
+      engagement_name: t.engagement_id ? engNameMap.get(t.engagement_id) ?? null : null,
+    };
+  });
 
   // Split partner context: brain synthesis vs scratchpad entries
   const brainEntry = partnerContextEntries.find((e) => e.source === "ai_synthesis") ?? null;
@@ -186,35 +216,45 @@ export default async function PartnerDetailPage({
           </section>
 
           {/* Open Tasks */}
-          {tasksWithTitles.length > 0 && (() => {
+          {tasksWithContext.length > 0 && (() => {
             const TASK_VISIBLE = 5;
             const TASK_THRESHOLD = 8;
-            const showAllTasks = tasksWithTitles.length < TASK_THRESHOLD;
-            const visibleTasks = showAllTasks ? tasksWithTitles : tasksWithTitles.slice(0, TASK_VISIBLE);
+            const showAllTasks = tasksWithContext.length < TASK_THRESHOLD;
+            const visibleTasks = showAllTasks ? tasksWithContext : tasksWithContext.slice(0, TASK_VISIBLE);
 
             return (
               <section>
                 <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
                   Open tasks
-                  <span className="ml-1.5 font-normal text-muted">{tasksWithTitles.length}</span>
+                  <span className="ml-1.5 font-normal text-muted">{tasksWithContext.length}</span>
                 </h2>
                 <div>
                   {visibleTasks.map((t) => {
                     const owner = ownerLabels[t.owner] ?? ownerLabels.me;
+                    const contextLabel = t.engagement_name
+                      ? t.engagement_name
+                      : t.meeting_title
+                        ? stripPartnerPrefix(t.meeting_title, partner.name)
+                        : null;
                     return (
                       <div
                         key={t.id}
-                        className="flex items-center gap-3 border-b border-border/20 px-3 py-3 text-sm"
+                        className="border-b border-border/20 px-3 py-3 text-sm"
                       >
-                        <span className={`min-w-0 flex-1 truncate ${t.owner === "me" ? "text-foreground" : "text-muted"}`}>{t.description}</span>
-                        {t.due_date && (
-                          <span className="shrink-0 text-xs text-muted">
-                            {new Date(t.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        <div className="flex items-center gap-3">
+                          <span className={`min-w-0 flex-1 truncate ${t.owner === "me" ? "text-foreground" : "text-muted"}`}>{t.description}</span>
+                          {t.due_date && (
+                            <span className="shrink-0 text-xs text-muted">
+                              {new Date(t.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            </span>
+                          )}
+                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${owner.color}`}>
+                            {owner.label}
                           </span>
+                        </div>
+                        {contextLabel && (
+                          <span className="mt-0.5 block text-xs text-muted/50 truncate">{contextLabel}</span>
                         )}
-                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${owner.color}`}>
-                          {owner.label}
-                        </span>
                       </div>
                     );
                   })}
@@ -224,7 +264,7 @@ export default async function PartnerDetailPage({
                     href="/tasks"
                     className="mt-2 inline-block text-sm text-accent hover:underline"
                   >
-                    View all {tasksWithTitles.length} tasks →
+                    View all {tasksWithContext.length} tasks →
                   </Link>
                 )}
               </section>

@@ -6,6 +6,7 @@ import PageHeader from "@/components/layout/PageHeader";
 import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
 import { Task } from "@/lib/types";
+import { stripPartnerPrefix } from "@/lib/format-utils";
 
 type TaskWithContext = Task & { partner_name: string | null; note_title: string | null; meeting_id: string | null; meeting_title: string | null; engagement_name: string | null };
 
@@ -321,44 +322,32 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
             {!groupByPartner && task.partner_name && (
               <span className="text-xs text-muted/50">{task.partner_name}</span>
             )}
-            {!groupByPartner && task.partner_name && (task.meeting_id || task.engagement_id) && (
-              <span className="text-xs text-muted/30">·</span>
-            )}
-            {task.meeting_id && task.meeting_title && (
-              <Link
-                href={`/meetings/${task.meeting_id}`}
-                className="truncate text-xs text-muted/60 hover:text-accent transition-colors"
-              >
-                from: {task.meeting_title}
-              </Link>
-            )}
-            {task.meeting_id && task.meeting_title && task.engagement_id && (
-              <span className="text-xs text-muted/30">·</span>
-            )}
-            {task.engagement_id && task.engagement_name ? (
-              <span className="flex items-center gap-1">
-                <Link
-                  href={`/engagements/${task.engagement_id}`}
-                  className="truncate text-xs text-muted/60 hover:text-accent transition-colors"
-                >
-                  eng: {task.engagement_name}
-                </Link>
-                <button
-                  onClick={() => openEngagementLinker(task)}
-                  className="text-muted/30 hover:text-foreground transition-colors"
-                  aria-label="Change engagement"
-                >
-                  <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
-                </button>
-              </span>
-            ) : !task.engagement_id && (
+            {(() => {
+              // Show engagement name if linked, else cleaned meeting title
+              const contextLabel = task.engagement_id && task.engagement_name
+                ? task.engagement_name
+                : task.meeting_id && task.meeting_title
+                  ? stripPartnerPrefix(task.meeting_title, task.partner_name)
+                  : null;
+              if (!contextLabel) return null;
+              const href = task.engagement_id
+                ? `/engagements/${task.engagement_id}`
+                : `/meetings/${task.meeting_id}`;
+              return (
+                <>
+                  {!groupByPartner && task.partner_name && <span className="text-xs text-muted/30">·</span>}
+                  <Link href={href} className="truncate text-xs text-muted/60 hover:text-accent transition-colors">
+                    {contextLabel}
+                  </Link>
+                </>
+              );
+            })()}
+            {!task.engagement_id && (
               <button
                 onClick={() => openEngagementLinker(task)}
                 className="text-xs text-muted/40 hover:text-accent transition-colors"
               >
-                + link eng
+                + eng
               </button>
             )}
           </div>
