@@ -567,3 +567,73 @@ export async function linkMeetingToEngagement(
     console.error("linkMeetingToEngagement error:", err instanceof Error ? err.message : err);
   }
 }
+
+/**
+ * Cascade engagement_id to tasks belonging to a meeting's notes.
+ *
+ * Link (newEngagementId is set):
+ *   Sets engagement_id on tasks whose engagement_id IS NULL.
+ *   Respects manual overrides — never overwrites an existing engagement_id.
+ *
+ * Unlink (newEngagementId is null, oldEngagementId provided):
+ *   Clears engagement_id only on tasks whose engagement_id matches the old value.
+ *   Doesn't touch tasks with a different (manually set) engagement_id.
+ */
+export async function cascadeEngagementToTasks(
+  meetingId: string,
+  newEngagementId: string | null,
+  oldEngagementId?: string | null
+): Promise<number> {
+  const db = getSupabaseClient();
+
+  // Find the meeting_note for this meeting
+  const { data: note } = await db
+    .from("meeting_notes")
+    .select("id")
+    .eq("meeting_id", meetingId)
+    .maybeSingle();
+
+  if (!note) return 0;
+
+  if (newEngagementId) {
+    // Link: fill in tasks that don't already have an engagement
+    const { data, error } = await db
+      .from("tasks")
+      .update({ engagement_id: newEngagementId })
+      .eq("meeting_note_id", note.id)
+      .is("engagement_id", null)
+      .select("id");
+
+    if (error) {
+      console.error(`Failed to cascade engagement to tasks: ${error.message}`);
+      return 0;
+    }
+    const count = data?.length ?? 0;
+    if (count > 0) {
+      console.log(`Cascaded engagement ${newEngagementId} to ${count} task(s) for meeting ${meetingId}`);
+    }
+    return count;
+  }
+
+  if (oldEngagementId) {
+    // Unlink: only clear tasks that got their engagement from this link
+    const { data, error } = await db
+      .from("tasks")
+      .update({ engagement_id: null })
+      .eq("meeting_note_id", note.id)
+      .eq("engagement_id", oldEngagementId)
+      .select("id");
+
+    if (error) {
+      console.error(`Failed to clear engagement on tasks: ${error.message}`);
+      return 0;
+    }
+    const count = data?.length ?? 0;
+    if (count > 0) {
+      console.log(`Cleared engagement from ${count} task(s) for meeting ${meetingId}`);
+    }
+    return count;
+  }
+
+  return 0;
+}

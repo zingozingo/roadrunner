@@ -38,6 +38,7 @@ export {
   createMeetingFromICS,
   linkMeetingToEngagement,
   linkEngagementRelationship,
+  cascadeEngagementToTasks,
 } from "./meetings";
 
 // Partners
