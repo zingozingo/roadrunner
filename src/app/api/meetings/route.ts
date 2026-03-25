@@ -106,7 +106,6 @@ export async function POST(request: NextRequest) {
       meeting_type: meeting_type?.trim() || null,
       notes: notes?.trim() || null,
       source: "manual",
-      is_recurring: !!is_recurring,
       recurrence_pattern: recurrence_pattern || null,
       recurrence_end: recurrence_end || null,
     });

@@ -364,7 +364,7 @@ function buildNewMeetingData(
       const idPart = m.partner_id ? ` (id: ${m.partner_id})` : "";
       lines.push(`**Matched Partner:** ${m.partner_name}${idPart}`);
     }
-    if (m.is_recurring) lines.push(`**Recurring:** Yes`);
+    if (m.recurrence_pattern) lines.push(`**Recurring:** ${m.recurrence_pattern}`);
 
     // Render attendees from registry
     const registryContacts = meetingContactsMap?.get(m.id);

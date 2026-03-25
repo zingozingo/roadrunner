@@ -144,7 +144,6 @@ export async function spawnNextOccurrence(meeting: Meeting): Promise<Meeting | n
         meeting_date: nextDate,
         status: "scheduled",
         source: "auto",
-        is_recurring: true,
         notes: meeting.notes,
         location: meeting.location,
         start_time: meeting.start_time,

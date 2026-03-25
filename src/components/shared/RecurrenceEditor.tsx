@@ -45,7 +45,6 @@ export default function RecurrenceEditor({
       const body: Record<string, unknown> = {
         recurrence_pattern: formPattern,
         recurrence_end: formEnd || null,
-        is_recurring: true,
       };
       // If no series_id yet, set it to the meeting's own id (first in series)
       if (!seriesId) {
@@ -80,7 +79,6 @@ export default function RecurrenceEditor({
         body: JSON.stringify({
           recurrence_pattern: null,
           recurrence_end: null,
-          is_recurring: false,
         }),
       });
 

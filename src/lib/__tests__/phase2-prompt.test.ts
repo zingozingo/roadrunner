@@ -564,10 +564,10 @@ describe("buildPhase2Context — incoming meeting data", () => {
     organizer_name: "Alice Chen",
     ics_uid: "uid-new",
     sequence: 0,
-    is_recurring: true,
+    is_recurring: false,
     source: "ics_parsed",
     meeting_type: null,
-    recurrence_pattern: null,
+    recurrence_pattern: "weekly",
     recurrence_end: null,
     series_id: null,
     notes: null,
@@ -591,7 +591,7 @@ describe("buildPhase2Context — incoming meeting data", () => {
     expect(result).toContain("Partner Kickoff Call");
     expect(result).toContain("**Organizer:** alice@cybershield.com");
     expect(result).toContain("**Matched Partner:** CyberShield (id: partner-001)");
-    expect(result).toContain("**Recurring:** Yes");
+    expect(result).toContain("**Recurring:** weekly");
     expect(result).toContain("Alice Chen <alice@cybershield.com>");
     expect(result).toContain("Bob Smith <bob@cybershield.com>");
   });

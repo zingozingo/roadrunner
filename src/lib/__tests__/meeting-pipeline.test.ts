@@ -225,7 +225,6 @@ describe("createMeetingFromICS", () => {
     expect(captured.insertData).not.toBeNull();
     expect(captured.insertData!.status).toBe("scheduled");
     expect(captured.insertData!.sequence).toBe(0);
-    expect(captured.insertData!.is_recurring).toBe(false);
     expect(captured.insertData!.source).toBe("ics_parsed");
   });
 

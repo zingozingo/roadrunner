@@ -197,7 +197,7 @@ export async function createMeeting(data: {
       meeting_type: data.meeting_type ?? null,
       notes: data.notes ?? null,
       source: data.source ?? "manual",
-      is_recurring: data.recurrence_pattern ? true : (data.is_recurring ?? false),
+      is_recurring: data.is_recurring ?? false,
       recurrence_pattern: data.recurrence_pattern ?? null,
       recurrence_end: data.recurrence_end ?? null,
     })
@@ -432,7 +432,6 @@ export async function createMeetingFromICS(
         organizer_email: parsed.organizer_email,
         organizer_name: parsed.organizer_name,
         sequence: parsed.sequence,
-        is_recurring: parsed.is_recurring,
       };
       if (partner.partner_id) {
         updates.partner_id = partner.partner_id;
@@ -479,7 +478,6 @@ export async function createMeetingFromICS(
         organizer_name: parsed.organizer_name,
         ics_uid: parsed.ics_uid,
         sequence: parsed.sequence,
-        is_recurring: parsed.is_recurring,
         source: "ics_parsed",
         status: parsed.is_cancellation ? "cancelled" : "scheduled",
         message_id: messageId,

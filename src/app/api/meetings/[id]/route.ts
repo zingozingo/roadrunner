@@ -100,7 +100,6 @@ export async function PUT(
     if (end_time !== undefined) updates.end_time = end_time?.trim() || null;
     if (location !== undefined) updates.location = location?.trim() || null;
     if (notes !== undefined) updates.notes = notes?.trim() || null;
-    if (is_recurring !== undefined) updates.is_recurring = !!is_recurring;
     if (recurrence_pattern !== undefined) updates.recurrence_pattern = recurrence_pattern || null;
     if (recurrence_end !== undefined) updates.recurrence_end = recurrence_end || null;
     if (series_id !== undefined) updates.series_id = series_id || null;
