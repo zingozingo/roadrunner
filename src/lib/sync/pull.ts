@@ -168,7 +168,7 @@ function mapPartner(rec: AirtableRecord): Record<string, unknown> | null {
     isva_status: str(rec.fields[PTRF.isvaStatus]),
     deployed_on_aws: str(rec.fields[PTRF.deployedOnAws]),
     prm_status: str(rec.fields[PTRF.prmStatus]),
-    crm_status: str(rec.fields[PTRF.crmStatus]),
+    crm_platform: str(rec.fields[PTRF.crmPlatform]),
   };
 }
 

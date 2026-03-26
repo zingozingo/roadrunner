@@ -86,7 +86,7 @@ export async function buildPartnerContext(
       isva_status: partner.isva_status ?? null,
       deployed_on_aws: partner.deployed_on_aws ?? null,
       prm_status: partner.prm_status ?? null,
-      crm_status: partner.crm_status ?? null,
+      crm_platform: partner.crm_platform ?? null,
     },
     contacts,
     engagements: engagements.map((e) => ({
@@ -157,7 +157,7 @@ export function formatContextForPrompt(context: PartnerContext): string {
   if (p.isva_status) profileLines.push(`ISVa Status: ${p.isva_status}`);
   if (p.deployed_on_aws) profileLines.push(`Deployed on AWS: ${p.deployed_on_aws}`);
   if (p.prm_status) profileLines.push(`PRM Status: ${p.prm_status}`);
-  if (p.crm_status) profileLines.push(`CRM Status: ${p.crm_status}`);
+  if (p.crm_platform) profileLines.push(`CRM Platform: ${p.crm_platform}`);
   sections.push(profileLines.join("\n"));
 
   // Contacts
@@ -242,7 +242,7 @@ export function formatContextForDisplay(context: PartnerContext): DisplayContext
       isva_status: context.partner.isva_status,
       deployed_on_aws: context.partner.deployed_on_aws,
       prm_status: context.partner.prm_status,
-      crm_status: context.partner.crm_status,
+      crm_platform: context.partner.crm_platform,
     },
     contacts: context.registryContacts,
     activeEngagements: context.engagements.map((e) => ({
@@ -442,7 +442,7 @@ export async function buildBrainContext(partnerId: string): Promise<string> {
   if (partner.deployed_on_aws) profileLines.push(`**Deployed on AWS:** ${partner.deployed_on_aws}`);
   if (partner.isva_status) profileLines.push(`**ISVa Status:** ${partner.isva_status}`);
   if (partner.prm_status) profileLines.push(`**PRM Status:** ${partner.prm_status}`);
-  if (partner.crm_status) profileLines.push(`**CRM Status:** ${partner.crm_status}`);
+  if (partner.crm_platform) profileLines.push(`**CRM Platform:** ${partner.crm_platform}`);
   sections.push(profileLines.join("\n"));
 
   // 2. Key contacts

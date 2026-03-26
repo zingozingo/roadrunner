@@ -16,7 +16,7 @@ interface PartnerReferencePanelProps {
     isva_status: string | null;
     deployed_on_aws: string | null;
     prm_status: string | null;
-    crm_status: string | null;
+    crm_platform: string | null;
   };
   contacts: Array<{ name: string | null; email: string; title: string | null; role: string | null; org_type: string | null }>;
   currentUserEmail: string;
@@ -124,7 +124,7 @@ export default function PartnerReferencePanel({
         <div className="space-y-6">
           {/* Operational Status */}
           {/* Ring 3 future: program enrollments, funding wallets, goal progress */}
-          {(partner.isva_status || partner.deployed_on_aws || partner.prm_status || partner.crm_status) && (
+          {(partner.isva_status || partner.deployed_on_aws || partner.prm_status || partner.crm_platform) && (
             <section>
               <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">Operational status</h2>
               <div className="grid grid-cols-2 gap-x-6 gap-y-3">
@@ -154,10 +154,10 @@ export default function PartnerReferencePanel({
                     <span className="text-sm text-foreground">{partner.prm_status}</span>
                   </div>
                 )}
-                {partner.crm_status && (
+                {partner.crm_platform && (
                   <div>
                     <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">CRM</span>
-                    <span className="text-sm text-foreground">{partner.crm_status}</span>
+                    <span className="text-sm text-foreground">{partner.crm_platform}</span>
                   </div>
                 )}
               </div>

@@ -180,7 +180,7 @@ export default async function PartnerDetailPage({
               isva_status: partner.isva_status ?? null,
               deployed_on_aws: partner.deployed_on_aws ?? null,
               prm_status: partner.prm_status ?? null,
-              crm_status: partner.crm_status ?? null,
+              crm_platform: partner.crm_platform ?? null,
             }}
             contacts={contacts}
             currentUserEmail={USER_CONFIG.email}

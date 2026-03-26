@@ -99,7 +99,17 @@ export interface Partner {
   isva_status?: string | null;
   deployed_on_aws?: string | null;
   prm_status?: string | null;
-  crm_status?: string | null;
+  crm_platform?: string | null;
+  crm_notes?: string | null;
+  mp_tcv_goal?: number | null;
+  larr_goal?: number | null;
+  mp_tcv_ytd?: number | null;
+  larr_ytd?: number | null;
+  mp_tcv_prior_year?: number | null;
+  larr_prior_year?: number | null;
+  mp_tcv_projected_annual?: number | null;
+  larr_projected_annual?: number | null;
+  joint_value_proposition?: string | null;
   airtable_record_id: string | null;
   created_at: string;
   updated_at: string;
@@ -468,7 +478,7 @@ export interface PartnerContext {
     isva_status: string | null;
     deployed_on_aws: string | null;
     prm_status: string | null;
-    crm_status: string | null;
+    crm_platform: string | null;
   };
   contacts: {
     alliance_lead: string | null;
@@ -534,7 +544,7 @@ export interface DisplayContext {
     isva_status: string | null;
     deployed_on_aws: string | null;
     prm_status: string | null;
-    crm_status: string | null;
+    crm_platform: string | null;
   };
   contacts: Array<{
     name: string | null;
@@ -573,6 +583,88 @@ export interface DisplayContext {
     source: string;
     created_at: string;
   }>;
+}
+
+// ============================================================
+// Notes AI summarization types
+// ============================================================
+
+// ============================================================
+// Ring 3 types — strategic/financial posture
+// ============================================================
+
+export type PartnerGoalCategory = "co_sell" | "co_build" | "co_market" | "compliance" | "program" | "vertical" | "operational";
+export type PartnerGoalStatus = "not_started" | "in_progress" | "completed" | "deferred";
+
+export interface PartnerGoal {
+  id: string;
+  partner_id: string;
+  goal: string;
+  category: PartnerGoalCategory;
+  year: number | null;
+  target_date: string | null;
+  status: PartnerGoalStatus;
+  linked_program_id: string | null;
+  engagement_id: string | null;
+  notes: string | null;
+  airtable_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PartnerProgramEnrollment {
+  id: string;
+  partner_id: string;
+  program_id: string;
+  type: string | null;
+  status: string | null;
+  date_achieved: string | null;
+  aws_stakeholder: string | null;
+  notes: string | null;
+  airtable_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PartnerEventParticipation {
+  id: string;
+  partner_id: string;
+  event_id: string;
+  status: string | null;
+  contacts_attending: string | null;
+  notes: string | null;
+  airtable_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PartnerFundingMpopp {
+  id: string;
+  partner_id: string;
+  status: string | null;
+  half: string | null;
+  track: string | null;
+  allocated: number | null;
+  spent: number | null;
+  notes: string | null;
+  airtable_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PartnerFundingMdf {
+  id: string;
+  partner_id: string;
+  record_name: string | null;
+  allocated: number | null;
+  utilized: number | null;
+  date_allocated: string | null;
+  source: string | null;
+  recurrence: string | null;
+  notes: string | null;
+  airtable_id: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 // ============================================================
