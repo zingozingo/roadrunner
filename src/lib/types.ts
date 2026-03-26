@@ -105,8 +105,11 @@ export interface Partner {
   larr_goal?: number | null;
   mp_tcv_ytd?: number | null;
   larr_ytd?: number | null;
-  mp_tcv_prior_year?: number | null;
-  larr_prior_year?: number | null;
+  mp_tcv_2024?: number | null;
+  larr_2024?: number | null;
+  mp_tcv_2025?: number | null;
+  larr_2025?: number | null;
+  mp_tcv_target_2025?: number | null;
   mp_tcv_projected_annual?: number | null;
   larr_projected_annual?: number | null;
   joint_value_proposition?: string | null;

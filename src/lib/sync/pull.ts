@@ -200,8 +200,11 @@ function mapPartner(rec: AirtableRecord): Record<string, unknown> | null {
     larr_goal: num(rec.fields[PTRF.larrGoal]),
     mp_tcv_ytd: num(rec.fields[PTRF.mpTcvYtd]),
     larr_ytd: num(rec.fields[PTRF.larrYtd]),
-    mp_tcv_prior_year: num(rec.fields[PTRF.mpTcvPriorYear]),
-    larr_prior_year: num(rec.fields[PTRF.larrPriorYear]),
+    mp_tcv_2024: num(rec.fields[PTRF.mpTcv2024]),
+    larr_2024: num(rec.fields[PTRF.larr2024]),
+    mp_tcv_2025: num(rec.fields[PTRF.mpTcv2025]),
+    larr_2025: num(rec.fields[PTRF.larr2025]),
+    mp_tcv_target_2025: num(rec.fields[PTRF.mpTcvTarget2025]),
     mp_tcv_projected_annual: num(rec.fields[PTRF.mpTcvProjectedAnnual]),
     larr_projected_annual: num(rec.fields[PTRF.larrProjectedAnnual]),
   };

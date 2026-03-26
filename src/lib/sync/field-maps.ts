@@ -79,8 +79,11 @@ export const PTRF = {
   jointValueProposition: "fldxiGwoIWPDtAk7z",
   mpTcvYtd: "fldPjzGNolAHbLrlE",
   larrYtd: "fld9I88K1ijili8Af",
-  mpTcvPriorYear: "fld6BOKL7CmXdmR2D",
-  larrPriorYear: "fldjI3nMg5ich9DKL",
+  mpTcv2024: "fld6BOKL7CmXdmR2D",
+  larr2024: "fldjI3nMg5ich9DKL",
+  mpTcv2025: "fldM1iuzmDdLT3axX",
+  larr2025: "fld1uD9SHVZvnU5wR",
+  mpTcvTarget2025: "fld5C6rHOzZVu6MXw",
   mpTcvProjectedAnnual: "fldQwP5RFGW3fhuAb",
   larrProjectedAnnual: "fldlw3f03ebKd5Jpf",
 } as const;
