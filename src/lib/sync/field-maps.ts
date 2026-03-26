@@ -133,7 +133,8 @@ export const PARTNER_GOALS_FIELDS = {
 } as const;
 
 export const PARTNER_PROGRAMS_FIELDS = {
-  programId: "fldmaD6ZTY7XvXkjw",
+  programId: "fldmaD6ZTY7XvXkjw",   // text shorthand (legacy)
+  program: "flduk1vdlcOFmAnaa",      // linked record → Programs table
   partner: "fldXXpf6zyDLLAKOz",
   type: "fldu4oNGIHu7h5et5",
   status: "flddDihdNtRaLgYqn",

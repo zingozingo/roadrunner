@@ -615,7 +615,7 @@ export interface PartnerGoal {
 export interface PartnerProgramEnrollment {
   id: string;
   partner_id: string;
-  program_id: string;
+  program_id: string | null;
   type: string | null;
   status: string | null;
   date_achieved: string | null;

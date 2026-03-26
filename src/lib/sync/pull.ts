@@ -16,6 +16,9 @@ import {
 import {
   PROGRAMS_TABLE, EVENTS_TABLE, RELATIONSHIPS_TABLE, PARTNERS_TABLE,
   PF, EF, RF, PTRF,
+  RING3_TABLES,
+  PARTNER_GOALS_FIELDS, PARTNER_PROGRAMS_FIELDS, PARTNER_EVENTS_FIELDS,
+  MPOPP_FIELDS, MDF_FIELDS,
 } from "./field-maps";
 import {
   str, strArr, arr, selectName,
@@ -25,6 +28,13 @@ import {
 import { parseRoleContact, parseContactList } from "../contact-parser";
 import type { RoleContact } from "../types";
 import { syncEngagementsToAirtable, syncMeetingsToAirtable } from "./push";
+import {
+  upsertPartnerGoal,
+  upsertPartnerProgramEnrollment,
+  upsertPartnerEventParticipation,
+  upsertMpoppFunding,
+  upsertMdfFunding,
+} from "../db/ring3";
 
 export interface SyncResult {
   inserted: number;
@@ -41,6 +51,11 @@ export interface SyncAllResult {
   relationships?: SyncResult;
   engagements?: SyncResult;
   meetings?: SyncResult;
+  partnerGoals?: SyncResult;
+  partnerProgramEnrollments?: SyncResult;
+  partnerEventParticipations?: SyncResult;
+  mpoppFunding?: SyncResult;
+  mdfFunding?: SyncResult;
   duration_ms: number;
 }
 
@@ -122,6 +137,13 @@ function mapRelationship(
   };
 }
 
+/** Coerce Airtable number/formula field to number | null */
+function num(val: unknown): number | null {
+  if (val === undefined || val === null || val === "") return null;
+  const n = Number(val);
+  return Number.isFinite(n) ? n : null;
+}
+
 function mapPartner(rec: AirtableRecord): Record<string, unknown> | null {
   const name = str(rec.fields[PTRF.name]);
   if (!name) return null;
@@ -168,7 +190,20 @@ function mapPartner(rec: AirtableRecord): Record<string, unknown> | null {
     isva_status: str(rec.fields[PTRF.isvaStatus]),
     deployed_on_aws: str(rec.fields[PTRF.deployedOnAws]),
     prm_status: str(rec.fields[PTRF.prmStatus]),
-    crm_platform: str(rec.fields[PTRF.crmPlatform]),
+    crm_platform: (() => {
+      const raw = selectName(rec.fields[PTRF.crmPlatform]);
+      return raw ? raw.toLowerCase() : null;
+    })(),
+    crm_notes: str(rec.fields[PTRF.crmNotes]),
+    joint_value_proposition: str(rec.fields[PTRF.jointValueProposition]),
+    mp_tcv_goal: num(rec.fields[PTRF.mpTcvGoal]),
+    larr_goal: num(rec.fields[PTRF.larrGoal]),
+    mp_tcv_ytd: num(rec.fields[PTRF.mpTcvYtd]),
+    larr_ytd: num(rec.fields[PTRF.larrYtd]),
+    mp_tcv_prior_year: num(rec.fields[PTRF.mpTcvPriorYear]),
+    larr_prior_year: num(rec.fields[PTRF.larrPriorYear]),
+    mp_tcv_projected_annual: num(rec.fields[PTRF.mpTcvProjectedAnnual]),
+    larr_projected_annual: num(rec.fields[PTRF.larrProjectedAnnual]),
   };
 }
 
@@ -546,6 +581,269 @@ export async function syncPartners(): Promise<SyncResult> {
   return result;
 }
 
+// ── Ring 3 helpers ──────────────────────────────────────────
+
+/** Resolve AT linked record field (array of record IDs) to a Supabase UUID via lookup map */
+function resolveLinkedRecord(
+  val: unknown,
+  lookupMap: Map<string, string>
+): string | null {
+  if (!Array.isArray(val) || val.length === 0) return null;
+  return lookupMap.get(val[0] as string) ?? null;
+}
+
+/** Convert AT select display name to snake_case DB value (e.g. "Co-Sell" → "co_sell", "NEEDS ACTION" → "needs_action") */
+function toSnake(val: unknown): string | null {
+  const raw = selectName(val);
+  if (!raw) return null;
+  return raw.toLowerCase().replace(/[\s-]+/g, "_").replace(/\//g, "_");
+}
+
+/** Build partner lookup: Map<airtable_record_id, supabase_uuid> */
+async function buildPartnerLookup(): Promise<Map<string, string>> {
+  const supabase = getSupabaseClient();
+  const { data } = await supabase.from("partners").select("id, airtable_record_id");
+  const map = new Map<string, string>();
+  for (const row of data ?? []) {
+    if (row.airtable_record_id) map.set(row.airtable_record_id, row.id);
+  }
+  return map;
+}
+
+/** Build program lookup: Map<airtable_record_id, supabase_uuid> */
+async function buildProgramLookup(): Promise<Map<string, string>> {
+  const supabase = getSupabaseClient();
+  const { data } = await supabase.from("programs").select("id, airtable_record_id");
+  const map = new Map<string, string>();
+  for (const row of data ?? []) {
+    if (row.airtable_record_id) map.set(row.airtable_record_id, row.id);
+  }
+  return map;
+}
+
+/** Build event lookup: Map<airtable_record_id, supabase_uuid> */
+async function buildEventLookup(): Promise<Map<string, string>> {
+  const supabase = getSupabaseClient();
+  const { data } = await supabase.from("events").select("id, airtable_record_id");
+  const map = new Map<string, string>();
+  for (const row of data ?? []) {
+    if (row.airtable_record_id) map.set(row.airtable_record_id, row.id);
+  }
+  return map;
+}
+
+// ── Ring 3 sync functions ───────────────────────────────────
+
+export async function syncPartnerGoals(): Promise<SyncResult> {
+  const result: SyncResult = { inserted: 0, updated: 0, unchanged: 0, deleted: 0, errors: [] };
+  const [atRecords, partnerMap, programMap] = await Promise.all([
+    fetchAllRecords(RING3_TABLES.partnerGoals),
+    buildPartnerLookup(),
+    buildProgramLookup(),
+  ]);
+
+  for (const rec of atRecords) {
+    try {
+      const partnerId = resolveLinkedRecord(rec.fields[PARTNER_GOALS_FIELDS.partner], partnerMap);
+      if (!partnerId) {
+        result.errors.push(`Skipped goal ${rec.id}: no partner resolved`);
+        continue;
+      }
+
+      const goal = str(rec.fields[PARTNER_GOALS_FIELDS.goal]);
+      if (!goal) {
+        result.errors.push(`Skipped goal ${rec.id}: missing goal text`);
+        continue;
+      }
+
+      const category = toSnake(rec.fields[PARTNER_GOALS_FIELDS.category]);
+      if (!category) {
+        result.errors.push(`Skipped goal ${rec.id}: missing category`);
+        continue;
+      }
+
+      const yearRaw = selectName(rec.fields[PARTNER_GOALS_FIELDS.year]);
+      const year = yearRaw ? parseInt(yearRaw, 10) || null : null;
+
+      await upsertPartnerGoal({
+        partner_id: partnerId,
+        goal,
+        category: category as "co_sell" | "co_build" | "co_market" | "compliance" | "program" | "vertical" | "operational",
+        year,
+        target_date: str(rec.fields[PARTNER_GOALS_FIELDS.targetDate]),
+        status: (toSnake(rec.fields[PARTNER_GOALS_FIELDS.status]) ?? "not_started") as "not_started" | "in_progress" | "completed" | "deferred",
+        linked_program_id: resolveLinkedRecord(rec.fields[PARTNER_GOALS_FIELDS.linkedProgram], programMap),
+        engagement_id: null,
+        notes: str(rec.fields[PARTNER_GOALS_FIELDS.notes]),
+        airtable_id: rec.id,
+      });
+      result.inserted++;
+    } catch (err) {
+      result.errors.push(`Goal ${rec.id}: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  }
+
+  console.log(`syncPartnerGoals: ${result.inserted} upserted, ${result.errors.length} errors`);
+  return result;
+}
+
+export async function syncPartnerProgramEnrollments(): Promise<SyncResult> {
+  const result: SyncResult = { inserted: 0, updated: 0, unchanged: 0, deleted: 0, errors: [] };
+  const [atRecords, partnerMap, programMap] = await Promise.all([
+    fetchAllRecords(RING3_TABLES.partnerPrograms),
+    buildPartnerLookup(),
+    buildProgramLookup(),
+  ]);
+
+  for (const rec of atRecords) {
+    try {
+      const partnerId = resolveLinkedRecord(rec.fields[PARTNER_PROGRAMS_FIELDS.partner], partnerMap);
+      if (!partnerId) {
+        result.errors.push(`Skipped enrollment ${rec.id}: no partner resolved`);
+        continue;
+      }
+
+      // Resolve program via linked record field (preferred)
+      const programId = resolveLinkedRecord(rec.fields[PARTNER_PROGRAMS_FIELDS.program], programMap);
+
+      // Preserve the legacy text "Program ID" in notes if program not linked
+      const programText = str(rec.fields[PARTNER_PROGRAMS_FIELDS.programId]);
+      const baseNotes = str(rec.fields[PARTNER_PROGRAMS_FIELDS.notes]);
+      const notes = !programId && programText
+        ? [baseNotes, `[Program: ${programText}]`].filter(Boolean).join(" ")
+        : baseNotes;
+
+      await upsertPartnerProgramEnrollment({
+        partner_id: partnerId,
+        program_id: programId,
+        type: toSnake(rec.fields[PARTNER_PROGRAMS_FIELDS.type]),
+        status: toSnake(rec.fields[PARTNER_PROGRAMS_FIELDS.status]),
+        date_achieved: str(rec.fields[PARTNER_PROGRAMS_FIELDS.dateAchieved]),
+        aws_stakeholder: str(rec.fields[PARTNER_PROGRAMS_FIELDS.awsStakeholder]),
+        notes,
+        airtable_id: rec.id,
+      });
+      result.inserted++;
+    } catch (err) {
+      result.errors.push(`Enrollment ${rec.id}: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  }
+
+  console.log(`syncPartnerProgramEnrollments: ${result.inserted} upserted, ${result.errors.length} errors`);
+  return result;
+}
+
+export async function syncPartnerEventParticipations(): Promise<SyncResult> {
+  const result: SyncResult = { inserted: 0, updated: 0, unchanged: 0, deleted: 0, errors: [] };
+  const [atRecords, partnerMap, eventMap] = await Promise.all([
+    fetchAllRecords(RING3_TABLES.partnerEvents),
+    buildPartnerLookup(),
+    buildEventLookup(),
+  ]);
+
+  for (const rec of atRecords) {
+    try {
+      const partnerId = resolveLinkedRecord(rec.fields[PARTNER_EVENTS_FIELDS.partner], partnerMap);
+      if (!partnerId) {
+        result.errors.push(`Skipped event participation ${rec.id}: no partner resolved`);
+        continue;
+      }
+
+      const eventId = resolveLinkedRecord(rec.fields[PARTNER_EVENTS_FIELDS.events], eventMap);
+      if (!eventId) {
+        result.errors.push(`Skipped event participation ${rec.id}: no event resolved`);
+        continue;
+      }
+
+      await upsertPartnerEventParticipation({
+        partner_id: partnerId,
+        event_id: eventId,
+        status: toSnake(rec.fields[PARTNER_EVENTS_FIELDS.status]),
+        contacts_attending: str(rec.fields[PARTNER_EVENTS_FIELDS.contactsAttending]),
+        notes: str(rec.fields[PARTNER_EVENTS_FIELDS.notes]),
+        airtable_id: rec.id,
+      });
+      result.inserted++;
+    } catch (err) {
+      result.errors.push(`Event participation ${rec.id}: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  }
+
+  console.log(`syncPartnerEventParticipations: ${result.inserted} upserted, ${result.errors.length} errors`);
+  return result;
+}
+
+export async function syncMpoppFunding(): Promise<SyncResult> {
+  const result: SyncResult = { inserted: 0, updated: 0, unchanged: 0, deleted: 0, errors: [] };
+  const [atRecords, partnerMap] = await Promise.all([
+    fetchAllRecords(RING3_TABLES.mpoppFunding),
+    buildPartnerLookup(),
+  ]);
+
+  for (const rec of atRecords) {
+    try {
+      const partnerId = resolveLinkedRecord(rec.fields[MPOPP_FIELDS.partner], partnerMap);
+      if (!partnerId) {
+        result.errors.push(`Skipped MPOPP ${rec.id}: no partner resolved`);
+        continue;
+      }
+
+      await upsertMpoppFunding({
+        partner_id: partnerId,
+        status: toSnake(rec.fields[MPOPP_FIELDS.status]),
+        half: toSnake(rec.fields[MPOPP_FIELDS.half]),
+        track: toSnake(rec.fields[MPOPP_FIELDS.track]),
+        allocated: num(rec.fields[MPOPP_FIELDS.allocated]),
+        spent: num(rec.fields[MPOPP_FIELDS.spent]),
+        notes: str(rec.fields[MPOPP_FIELDS.notes]),
+        airtable_id: rec.id,
+      });
+      result.inserted++;
+    } catch (err) {
+      result.errors.push(`MPOPP ${rec.id}: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  }
+
+  console.log(`syncMpoppFunding: ${result.inserted} upserted, ${result.errors.length} errors`);
+  return result;
+}
+
+export async function syncMdfFunding(): Promise<SyncResult> {
+  const result: SyncResult = { inserted: 0, updated: 0, unchanged: 0, deleted: 0, errors: [] };
+  const [atRecords, partnerMap] = await Promise.all([
+    fetchAllRecords(RING3_TABLES.mdfFunding),
+    buildPartnerLookup(),
+  ]);
+
+  for (const rec of atRecords) {
+    try {
+      const partnerId = resolveLinkedRecord(rec.fields[MDF_FIELDS.partners], partnerMap);
+      if (!partnerId) {
+        result.errors.push(`Skipped MDF ${rec.id}: no partner resolved`);
+        continue;
+      }
+
+      await upsertMdfFunding({
+        partner_id: partnerId,
+        record_name: str(rec.fields[MDF_FIELDS.recordName]),
+        allocated: num(rec.fields[MDF_FIELDS.allocated]),
+        utilized: num(rec.fields[MDF_FIELDS.utilized]),
+        date_allocated: str(rec.fields[MDF_FIELDS.dateAllocated]),
+        source: toSnake(rec.fields[MDF_FIELDS.source]),
+        recurrence: toSnake(rec.fields[MDF_FIELDS.recurrence]),
+        notes: str(rec.fields[MDF_FIELDS.notes]),
+        airtable_id: rec.id,
+      });
+      result.inserted++;
+    } catch (err) {
+      result.errors.push(`MDF ${rec.id}: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  }
+
+  console.log(`syncMdfFunding: ${result.inserted} upserted, ${result.errors.length} errors`);
+  return result;
+}
+
 // ── Orchestration ───────────────────────────────────────────
 
 export async function syncAllCatalogs(): Promise<SyncAllResult> {
@@ -553,16 +851,29 @@ export async function syncAllCatalogs(): Promise<SyncAllResult> {
 
   // Run sequentially to respect Airtable rate limits.
   // Partners sync first — other entities may reference them.
+  // Ring 1+2: catalog entities (partners first — others reference them)
   const partners = await syncPartners();
   const programs = await syncPrograms();
   const events = await syncEvents();
   const relationships = await syncRelationships();
+
+  // Ring 3: posture data (depends on partners, programs, events being synced)
+  const partnerGoals = await syncPartnerGoals();
+  const partnerProgramEnrollments = await syncPartnerProgramEnrollments();
+  const partnerEventParticipations = await syncPartnerEventParticipations();
+  const mpoppFunding = await syncMpoppFunding();
+  const mdfFunding = await syncMdfFunding();
 
   return {
     partners,
     programs,
     events,
     relationships,
+    partnerGoals,
+    partnerProgramEnrollments,
+    partnerEventParticipations,
+    mpoppFunding,
+    mdfFunding,
     duration_ms: Date.now() - start,
   };
 }

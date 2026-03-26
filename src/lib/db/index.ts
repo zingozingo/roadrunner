@@ -144,3 +144,17 @@ export {
   deletePartnerContext,
   getPartnerScratchpad,
 } from "./partner-context";
+
+// Ring 3 (Goals, Enrollments, Event Participations, Funding)
+export {
+  upsertPartnerGoal,
+  upsertPartnerProgramEnrollment,
+  upsertPartnerEventParticipation,
+  upsertMpoppFunding,
+  upsertMdfFunding,
+  getPartnerGoals,
+  getPartnerProgramEnrollments,
+  getPartnerEventParticipations,
+  getPartnerMpoppFunding,
+  getPartnerMdfFunding,
+} from "./ring3";
