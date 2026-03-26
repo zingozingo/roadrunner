@@ -1,7 +1,7 @@
 # Roadrunner Entity Model
 
-> **Last updated**: 2026-03-18 (approval_queue dropped — migration 066)
-> 17 active tables · 66 migrations · 6 Airtable-only tables (future)
+> **Last updated**: 2026-03-26 (Ring 3 tables created — migrations 072-074)
+> 23 active tables · 74 migrations · Ring 3 pull sync operational
 
 ---
 
@@ -52,10 +52,9 @@ graph TB
         ER[Engagement Relationships]
     end
 
-    subgraph RING3["Ring 3: Posture (AT-only — future)"]
-        PARTNER_PROGRAMS[Partner Programs]
-        PARTNER_EVENTS[Partner Events]
-        COSELL_GOALS[Co-Sell Goals 2026]
+    subgraph RING3["Ring 3: Posture (AT → RR)"]
+        PARTNER_PROGRAMS[Partner Program Enrollments]
+        PARTNER_EVENTS[Partner Event Participations]
         PARTNER_GOALS[Partner Goals]
         MPOPP[MPOPP Funding]
         MDF[MDF Funding]
@@ -717,9 +716,9 @@ UNIQUE constraint: `(engagement_id, event_id)`
 
 ---
 
-## Ring 3: Posture (Airtable-Only — Future Sync)
+## Ring 3: Posture (AT → RR Pull Sync)
 
-Where each partner stands — program achievements, event participation, revenue goals, and funding. AT-only today. These connect partners to catalog entities (Programs, Events) with per-partner status, unlike engagement_programs/engagement_events which connect engagements to catalog entities. When pulled into Roadrunner, these become the foundation for the slot registry and strategic AI context.
+Where each partner stands — program achievements, event participation, revenue goals, and funding. Pulled from Airtable into Supabase via syncAllCatalogs(). These connect partners to catalog entities (Programs, Events) with per-partner status, unlike engagement_programs/engagement_events which connect engagements to catalog entities. Co-Sell Goals 2026 table dissolved into partner columns (decision #318). Partner financial fields (goals + actuals) live on the partners table.
 
 ```mermaid
 erDiagram
@@ -727,44 +726,48 @@ erDiagram
     PROGRAMS ||--o{ PARTNER_PROGRAMS : "has enrollments"
     PARTNERS ||--o{ PARTNER_EVENTS : "attending"
     EVENTS ||--o{ PARTNER_EVENTS : "has registrations"
-    PARTNERS ||--o| COSELL_GOALS : "has plan"
+    PARTNERS ||--o{ PARTNER_GOALS : "has goals"
     PARTNERS ||--o{ MPOPP_FUNDING : "receives"
     PARTNERS ||--o{ MDF_FUNDING : "receives"
 
     PARTNER_PROGRAMS {
-        text program_id
-        text partner
+        uuid partner_id FK
+        uuid program_id FK
+        text type
         text status
         date date_achieved
     }
     PARTNER_EVENTS {
-        text partner
+        uuid partner_id FK
+        uuid event_id FK
         text status
         text contacts_attending
     }
-    COSELL_GOALS {
-        text plan_name
-        text plan_status
-        number tcv_goal
-        number larr_goal
+    PARTNER_GOALS {
+        uuid partner_id FK
+        text goal
+        text category
+        text status
+        uuid linked_program_id FK
+        uuid engagement_id FK
     }
     MPOPP_FUNDING {
-        text partner FK
+        uuid partner_id FK
         text track
-        currency allocated
-        currency spent
+        numeric allocated
+        numeric spent
     }
     MDF_FUNDING {
-        text partners FK
-        number allocated
-        number utilized
+        uuid partner_id FK
+        numeric allocated
+        numeric utilized
         text source
     }
 ```
 
 ---
 
-### PARTNER_PROGRAMS (Airtable-only — future: slot registry)
+### PARTNER_PROGRAM_ENROLLMENTS (AT → RR pull sync)
 
 **Airtable Table:** `tbl1CPtbVzQvRN8LA`
 
@@ -781,7 +784,7 @@ erDiagram
 
 ---
 
-### PARTNER_EVENTS (Airtable-only — future: event tracking)
+### PARTNER_EVENT_PARTICIPATIONS (AT → RR pull sync)
 
 **Airtable Table:** `tblYljQDnXwjTDy2T`
 
@@ -798,9 +801,9 @@ erDiagram
 
 ---
 
-### COSELL_GOALS_2026 (Airtable-only — future: financial context)
+### COSELL_GOALS_2026 (ARCHIVED — dissolved into Partners table)
 
-**Airtable Table:** `tbligbfCTvpCkG7tS`
+**Airtable Table:** `tbligbfCTvpCkG7tS` (archived, hidden from AT navigation)
 
 | AT Field | AT Type | AT Field ID | Future RR Role |
 |----------|---------|-------------|----------------|
@@ -824,26 +827,26 @@ erDiagram
 
 ---
 
-### PARTNER_GOALS (Airtable-only — future: strategic context)
+### PARTNER_GOALS (AT → RR pull sync)
 
-**Airtable Table:** `tblmboZKyBasfh5pV`
+**Airtable Table:** `tblmboZKyBasfh5pV` · **Supabase Table:** `partner_goals`
 
-| AT Field | AT Type | AT Field ID | Future RR Role |
-|----------|---------|-------------|----------------|
-| Goal | singleLineText | (primary) | goal description |
-| Partner | linkedRecord → Partners | — | FK → partners |
-| Category | singleSelect (Co-Sell, Co-Build, Co-Market, Compliance, Program, Vertical) | — | categorization |
-| Year | singleSelect (2026, 2027) | — | time scope |
-| Target Date | date | — | deadline |
-| Status | singleSelect (Not Started, In Progress, Complete, Blocked) | — | status tracking |
-| Program | linkedRecord → Programs | — | optional program link |
-| Notes | multilineText | — | freeform notes |
+| AT Field | AT Type | AT Field ID | Supabase Column |
+|----------|---------|-------------|-----------------|
+| Goal | singleLineText | fldRBFWDIWthlAVcE | goal TEXT NOT NULL |
+| Partner | linkedRecord → Partners | fldrxWrawLH3HbpcR | partner_id UUID FK CASCADE |
+| Category | singleSelect (7 options) | fld4j48oV32q9iE83 | category TEXT CHECK |
+| Year | singleSelect (2026, 2027) | fldTR0rPelRFJ2agz | year INTEGER |
+| Target Date | date | fldqwZ8lPVMouy2t3 | target_date DATE |
+| Status | singleSelect (4 options) | fldJNIlsAIsiVW8Uv | status TEXT CHECK DEFAULT 'not_started' |
+| Program | linkedRecord → Programs | fld0B5PPg49c0m5CI | linked_program_id UUID FK SET NULL |
+| Notes | multilineText | fld7kF9CQDxh5uIyM | notes TEXT |
 
-> **Note:** Field IDs TBD — table was just created. Will be captured on first sync integration.
+Additional Supabase columns: engagement_id UUID FK SET NULL (decision #325), airtable_id TEXT UNIQUE.
 
 ---
 
-### MPOPP_FUNDING_2026 (Airtable-only — future: financial context)
+### MPOPP_FUNDING (AT → RR pull sync)
 
 **Airtable Table:** `tbl2ilHOaXYsgxqFY`
 
@@ -861,7 +864,7 @@ erDiagram
 
 ---
 
-### MDF_FUNDING_2026 (Airtable-only — future: financial context)
+### MDF_FUNDING (AT → RR pull sync)
 
 **Airtable Table:** `tblRSsochM23QGQpS`
 
@@ -949,6 +952,15 @@ UNIQUE index on `(participant_id, entity_type, entity_id)`
 | engagement_programs | program_id | programs | CASCADE | Both sides cascade |
 | engagement_events | engagement_id | engagements | CASCADE | Both sides cascade |
 | engagement_events | event_id | events | CASCADE | Both sides cascade |
+| partner_goals | partner_id | partners | CASCADE | Partner is gravity |
+| partner_goals | linked_program_id | programs | SET NULL | Goal survives program cleanup |
+| partner_goals | engagement_id | engagements | SET NULL | Goal survives engagement close |
+| partner_program_enrollments | partner_id | partners | CASCADE | Partner is gravity |
+| partner_program_enrollments | program_id | programs | CASCADE | Enrollment dies with program |
+| partner_event_participations | partner_id | partners | CASCADE | Partner is gravity |
+| partner_event_participations | event_id | events | CASCADE | Participation dies with event |
+| partner_funding_mpopp | partner_id | partners | CASCADE | Partner is gravity |
+| partner_funding_mdf | partner_id | partners | CASCADE | Partner is gravity |
 
 ---
 
@@ -965,9 +977,11 @@ UNIQUE index on `(participant_id, entity_type, entity_id)`
 | ~~Manual task creation~~ | **Done** — POST handler + inline form, Decision #196 | ✅ |
 | Intake pipeline redesign (human-guided routing) | Planned (decisions #223-232) | Next |
 | entity_links → typed junctions | **Done** — migration 065, decisions #221-222 | ✅ |
-| Ring 3 pull sync (Partner Programs, Events, Co-Sell Goals, Partner Goals, Funding) | Not started | Later |
+| Ring 3 pull sync (Partner Programs, Events, Partner Goals, MPOPP, MDF) | **Done** — migrations 072-074, decisions #318-338 | ✅ |
+| Financial fields on partners table | **Done** — migration 072, 8 NUMERIC columns | ✅ |
+| CRM restructure (crm_status→crm_platform) | **Done** — migration 072, decision #331 | ✅ |
+| Partner page tab redesign for Ring 3 data | Planned (decision #324) | Next |
 | Slot registry v1 | Not started | Later |
-| Financial fields on partners table | Not started | Later |
 | ~~Tasks on partner detail~~ | ~~Query by partner_id~~ | **Done** |
 | ~~Open tasks in writing sidebar~~ | ~~Query by partner_id, status=open~~ | **Done** |
 | ~~Cross-partner task dashboard~~ | ~~New /tasks page~~ | **Done** |

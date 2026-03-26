@@ -1,7 +1,7 @@
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → human-guided routing → AI synthesis → structured engagements → Airtable sync.
-> 71 migrations · 18 tables · 31 API routes · 18 UI pages · 437 passing tests
+> 74 migrations · 23 tables · 31 API routes · 18 UI pages · 437 passing tests
 
 ---
 
@@ -47,11 +47,12 @@ Roadrunner turns scattered partner email threads into structured, trackable enga
 
 ```
 roadrunner/
-├── docs/                          # Project documentation (3 files)
+├── docs/                          # Project documentation (4 files)
 │   ├── CLASSIFICATION.md          #   AI synthesis pipeline documentation (rewrite pending)
+│   ├── ai-call-map.md             #   AI call reference (3 calls: synthesis, summarization, brain)
 │   ├── entity-model.md            #   Canonical schema — ERD + field-level registry + AT field IDs
 │   └── goal-state.md              #   Living orientation doc — current state & next steps
-├── decisions.md                   # Append-only architectural decision log (317 entries)
+├── decisions.md                   # Append-only architectural decision log (338 entries)
 ├── src/
 │   ├── app/                       # Next.js App Router
 │   │   ├── api/                   #   API routes (31 route files, grouped by entity)
@@ -78,9 +79,8 @@ roadrunner/
 │   │   ├── tasks/                 #   Cross-partner task dashboard
 │   │   ├── layout.tsx             #   Root layout + sidebar
 │   │   └── page.tsx               #   Redirects to /partners
-│   ├── components/                # React components (36 across 7 groups)
+│   ├── components/                # React components (32 across 6 groups)
 │   │   ├── actions/               #   Entity action buttons + MergeButton (6 files)
-│   │   ├── engagement/            #   Engagement-specific cards (1 file: CurrentStateCard)
 │   │   ├── inbox/                 #   Inbox triage UI — InboxClient (1 file)
 │   │   ├── layout/                #   App structure — sidebar, headers (4 files)
 │   │   ├── notes/                 #   NoteWorkspace, ContextSidebar, PreviousNotes, TaskEditor, MeetingNotesSection
@@ -105,7 +105,7 @@ roadrunner/
 │       ├── types.ts               #   All shared TypeScript interfaces
 │       ├── user-config.ts         #   Canonical user identity config
 │       ├── airtable.ts            #   Airtable REST API client
-│       ├── db/                    #   Database layer (13 modules)
+│       ├── db/                    #   Database layer (14 modules)
 │       │   ├── client.ts          #     Supabase singleton client
 │       │   ├── engagements.ts     #     Engagement CRUD + history
 │       │   ├── messages.ts        #     Message storage + fingerprint dedup
@@ -118,15 +118,16 @@ roadrunner/
 │       │   ├── participants.ts    #     Participant upsert + registry joins
 │       │   ├── engagement-links.ts #     Engagement↔program/event junction queries
 │       │   ├── inbox.ts           #     Inbox queries, grouped count, set-partner, INBOX_GROUP_WINDOW_MS
+│       │   ├── ring3.ts           #     Ring 3 upsert + queries (goals, enrollments, funding)
 │       │   └── index.ts           #     Barrel re-exports
 │       ├── sync/                  #   Airtable sync engine
-│       │   ├── pull.ts            #     AT → RR catalog sync
+│       │   ├── pull.ts            #     AT → RR catalog + posture sync (9 tables)
 │       │   ├── push.ts            #     RR → AT activity sync
-│       │   ├── field-maps.ts      #     Airtable field ID constants
+│       │   ├── field-maps.ts      #     Airtable field ID constants (6 pull + 2 push + 5 Ring 3)
 │       │   └── utils.ts           #     Coercion helpers + validation
 │       └── __tests__/             #   437 passing tests across 14 test files
 ├── supabase/
-│   ├── migrations/                # 71 migration files (001-071)
+│   ├── migrations/                # 74 migration files (001-074)
 │   └── (authoritative schema lives in migrations/)
 ├── scripts/
 │   ├── seed-data.ts               # CLI script to seed events/programs
@@ -195,7 +196,7 @@ roadrunner/
 
 ## Data Ownership
 
-Airtable owns **catalog** (Ring 1: Partners, Programs, Events, Relationships). Roadrunner owns **activity** (Ring 2: Engagements, Meetings, Notes, Tasks, Messages, Participants, Partner Context). Airtable-only tables (Ring 3: Partner Programs, Partner Events, Plans, Funding) will be pulled in later. See `docs/entity-model.md` for the complete schema with all 18 tables, FK cascade behaviors, and Airtable field IDs.
+Airtable owns **catalog** (Ring 1: Partners, Programs, Events, Relationships) and **posture** (Ring 3: Partner Goals, Program Enrollments, Event Participations, MPOPP Funding, MDF Funding). Roadrunner owns **activity** (Ring 2: Engagements, Meetings, Notes, Tasks, Messages, Participants, Partner Context). See `docs/entity-model.md` for the complete schema with all 23 tables, FK cascade behaviors, and Airtable field IDs.
 
 ---
 
@@ -281,14 +282,14 @@ npx tsc --noEmit                   # TypeScript check (must pass with zero error
 
 ### Migrations
 
-Sequential numbering in `supabase/migrations/` (currently 001-071). New migrations get the next number (072, 073, ...). Write idempotent SQL where possible.
+Sequential numbering in `supabase/migrations/` (currently 001-074). New migrations get the next number (075, 076, ...). Write idempotent SQL where possible.
 
 ### Key Conventions
 
 - **Types:** All TypeScript types in `src/lib/types.ts` — keep them there, don't scatter.
 - **API routes:** `src/app/api/{resource}/route.ts` pattern.
 - **UI pages:** `src/app/{resource}/page.tsx` for list, `src/app/{resource}/[id]/page.tsx` for detail.
-- **Components:** `src/components/` organized by concern — `layout/`, `shared/`, `inbox/`, `engagement/`, `actions/`, `notes/`, `partners/`.
+- **Components:** `src/components/` organized by concern — `layout/`, `shared/`, `inbox/`, `actions/`, `notes/`, `partners/`.
 - **No RLS:** Single-user app, service key auth. No row-level security policies.
 - **Conventional commits:** `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`
 - **Compiler-driven refactoring:** Strip from `types.ts` first, then use `tsc --noEmit` errors as the fix list. Order: Types → Lib → UI → API/Tests → Migration.
@@ -300,7 +301,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-071). New migratio
 ### Adding a New Synced Field (End-to-End)
 
 1. **Airtable:** Create or identify the field. Note the field ID (visible in API docs or URL).
-2. **field-maps.ts:** Add the field ID to the appropriate constant (PTRF, PF, EF, RF, ENF, MF).
+2. **field-maps.ts:** Add the field ID to the appropriate constant (PTRF, PF, EF, RF, ENF, MF, or Ring 3 field maps).
 3. **pull.ts/push.ts:** Add the field mapping in the relevant build/map function.
 4. **types.ts:** Add the field to the TypeScript interface.
 5. **Migration:** Add the column to the Supabase table (if it doesn't exist).
@@ -318,6 +319,11 @@ Sequential numbering in `supabase/migrations/` (currently 001-071). New migratio
 | RF | Relationships | AT → RR | tblqVBssFsUeAt9bj |
 | ENF | Engagements | RR → AT | tblTC491AUVcrKvq2 |
 | MF | Meetings | RR → AT | tbl6LsEqSvEZgqBdW |
+| PARTNER_GOALS_FIELDS | Partner Goals | AT → RR | tblmboZKyBasfh5pV |
+| PARTNER_PROGRAMS_FIELDS | Partner Programs | AT → RR | tbl1CPtbVzQvRN8LA |
+| PARTNER_EVENTS_FIELDS | Partner Events | AT → RR | tblYljQDnXwjTDy2T |
+| MPOPP_FIELDS | MPOPP Funding | AT → RR | tbl2ilHOaXYsgxqFY |
+| MDF_FIELDS | MDF Funding | AT → RR | tblRSsochM23QGQpS |
 
 ### Safe vs. Dangerous Airtable Changes
 
@@ -347,7 +353,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-071). New migratio
 
 **Sync:** `sync/pull.ts` / `sync/push.ts` → `sync/field-maps.ts` → `sync/utils.ts`
 
-**Data layer:** `db/index.ts` → `db/engagements.ts` → `db/messages.ts` → `db/meetings.ts` → `db/meeting-notes.ts` → `db/participants.ts` → `db/partner-context.ts` → `db/catalog.ts` → `db/engagement-links.ts` → `db/relationships.ts` → `db/partners.ts` → `db/inbox.ts`
+**Data layer:** `db/index.ts` → `db/engagements.ts` → `db/messages.ts` → `db/meetings.ts` → `db/meeting-notes.ts` → `db/participants.ts` → `db/partner-context.ts` → `db/catalog.ts` → `db/engagement-links.ts` → `db/relationships.ts` → `db/partners.ts` → `db/inbox.ts` → `db/ring3.ts`
 
 **Email:** `email-parser.ts` → `ics-parser.ts` → `name-resolver.ts` → `contact-parser.ts` → `format-utils.ts` · Recurrence: `meeting-recurrence.ts`
 
@@ -360,10 +366,11 @@ Sequential numbering in `supabase/migrations/` (currently 001-071). New migratio
 | Doc | Purpose | When to Read |
 |-----|---------|--------------|
 | `CLAUDE.md` | This file — project overview, architecture, development | Start of every session |
-| `docs/entity-model.md` | Complete schema — 18 tables, all FKs, AT field IDs, ring model | Schema/data work |
+| `docs/entity-model.md` | Complete schema — 23 tables, all FKs, AT field IDs, ring model | Schema/data work |
 | `docs/CLASSIFICATION.md` | AI synthesis pipeline (rewrite pending — Phase 2 docs still accurate) | Prompt/AI work |
+| `docs/ai-call-map.md` | AI call reference — 3 calls: synthesis, summarization, brain | AI/prompt work |
 | `docs/goal-state.md` | Living status — current state + what's next | Session planning |
-| `decisions.md` | Append-only architectural decision log (317 entries) | When you need "why" |
+| `decisions.md` | Append-only architectural decision log (338 entries) | When you need "why" |
 
 ---
 

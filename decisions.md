@@ -6017,7 +6017,7 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 ### #318 — Co-Sell Goals 2026 table dissolves into Partners table
 
 **Date:** 2026-03-25
-**Status:** 📋 Planned
+**Status:** ✅ Implemented
 
 **Decision:** The Co-Sell Goals 2026 AT table has only 2 real input fields (TCV Goal, LARR Goal) — everything else is formula/lookup. Move goal fields to Partners table as columns. AT gets a "Co-Sell Performance" view. Supabase computes trend from actuals vs goals. No separate table needed.
 
@@ -6032,7 +6032,7 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 ### #319 — Partner Goals = strategic milestones + operational KPIs
 
 **Date:** 2026-03-25
-**Status:** 📋 Planned
+**Status:** ✅ Implemented (schema; data population pending)
 
 **Decision:** Partner plans contain two goal types: strategic milestones ("Attain Gov Competency", "Sign SCA") and operational KPIs ("25 MPPO Transactions", "4 Public References"). Both fit the existing Partner Goals table with a category taxonomy. Add "Operational" to the existing categories (Co-Sell/Co-Build/Co-Market/Compliance/Program/Vertical).
 
@@ -6047,7 +6047,7 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 ### #320 — Joint Value Proposition text field on Partners table
 
 **Date:** 2026-03-25
-**Status:** 📋 Planned
+**Status:** ✅ Implemented
 
 **Decision:** Rich text field for the "better together" narrative from partner plans. Displayed on the Profile tab of the partner page. Feeds brain synthesis context so the AI understands the strategic positioning.
 
@@ -6062,7 +6062,7 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 ### #321 — MPOPP and MDF stay separate tables with pull sync
 
 **Date:** 2026-03-25
-**Status:** 📋 Planned
+**Status:** ✅ Implemented
 
 **Decision:** MPOPP (Marketplace Partner Originated Pipeline Program) and MDF (Market Development Funds) have different schemas. MPOPP has Half/Track/Status workflow fields. MDF has Source/Recurrence/Amount fields. Both get dedicated Supabase tables and pull sync from AT.
 
@@ -6077,7 +6077,7 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 ### #322 — CRM Status becomes structured dropdown
 
 **Date:** 2026-03-25
-**Status:** 📋 Planned
+**Status:** ✅ Implemented
 
 **Decision:** Convert CRM Status from freeform text to a single select dropdown (Suger/Labra/Tackle/Native/None) plus a CRM Notes text field for contextual details like "setting it up with Kaley."
 
@@ -6092,7 +6092,7 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 ### #323 — 3P Rep becomes CRM Contact in participants registry
 
 **Date:** 2026-03-25
-**Status:** 📋 Planned
+**Status:** ✅ Implemented (AT rename done; participants migration future)
 
 **Decision:** Rename "3P Rep" to "CRM Contact", convert to proper contact format (name/email/title), store in participants table with partner_participants join like PSA/AM/Alliance Lead.
 
@@ -6137,7 +6137,7 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 ### #326 — Financial actuals stay AT-entered, pulled to Roadrunner
 
 **Date:** 2026-03-25
-**Status:** 📋 Planned
+**Status:** ✅ Implemented
 
 **Decision:** Financial actuals (MP TCV YTD, LARR YTD, prior year figures) are manually entered in Airtable and pulled to Roadrunner via sync. No dual-entry. Roadrunner displays and uses them for trend computation but never writes financial data.
 
@@ -6152,7 +6152,7 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 ### #327 — Ring 3 tables all pull from AT initially, flip later
 
 **Date:** 2026-03-25
-**Status:** 📋 Planned
+**Status:** ✅ Implemented
 
 **Decision:** Partner Programs, Partner Events, Partner Goals, MPOPP, MDF all start as AT-owned with pull sync to Roadrunner. As Roadrunner gains CRUD UI for each entity, ownership flips to RR-push. Incremental migration, not big bang.
 
@@ -6161,5 +6161,170 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Rationale:** Pull-first means data is immediately available for display and brain synthesis. Flip-to-push is a per-table decision made when the CRUD UI is ready. This matches how Ring 2 tables (engagements, meetings) evolved.
 
 **Impact:** All Ring 3 sync starts in pull.ts. field-maps.ts gets 5 new field map constants. Each table flips independently when ready.
+
+---
+
+### #328 — Dead component cleanup (36 → 32)
+
+**Date:** 2026-03-26
+**Status:** ✅ Implemented
+
+**Decision:** Removed 4 unused components: CurrentStateCard, MeetingTimeline, ExpandableList, PartnerTasksSection. All confirmed zero references across src/ via grep. Component count 36→32.
+
+**Context:** These components were superseded by the UI Overhaul (decisions 289-307) and tasks page command center (decisions 279-281). No imports, no references — dead weight.
+
+**Rationale:** Dead code removal keeps the codebase clean and prevents confusion about which components are canonical.
+
+**Impact:** 4 files deleted, 471 lines removed. engagement/ group now empty (CurrentStateCard was sole occupant).
+
+---
+
+### #329 — Ring 3 Supabase schema — 5 new tables
+
+**Date:** 2026-03-26
+**Status:** ✅ Implemented
+
+**Decision:** Created 5 Ring 3 tables in migration 073: partner_goals, partner_program_enrollments, partner_event_participations, partner_funding_mpopp, partner_funding_mdf. All follow standard patterns: UUID PK, partner_id CASCADE, airtable_id UNIQUE, timestamps. Table count 18→23.
+
+**Context:** Ring 3 data (posture) was AT-only. To display in Roadrunner and feed AI context, it needs Supabase tables with pull sync.
+
+**Rationale:** Separate tables per entity type (not one polymorphic table). Each has distinct schemas, FK relationships, and CHECK constraints. Matches the entity model ring architecture.
+
+**Impact:** 5 new tables with indexes. partner_goals has FKs to programs and engagements. partner_program_enrollments has UNIQUE(partner_id, program_id) relaxed in migration 074.
+
+---
+
+### #330 — Partner financial columns
+
+**Date:** 2026-03-26
+**Status:** ✅ Implemented
+
+**Decision:** Added 8 NUMERIC(12,2) financial fields to partners table in migration 072: mp_tcv_goal, larr_goal, mp_tcv_ytd, larr_ytd, mp_tcv_prior_year, larr_prior_year, mp_tcv_projected_annual, larr_projected_annual. All pulled from AT. Goals migrated from dissolved Co-Sell Goals table.
+
+**Context:** Financial data was in Co-Sell Goals table (2 input fields + 17 formulas). Goals dissolved into partners (decision #318). Actuals already on AT Partners table.
+
+**Rationale:** NUMERIC(12,2) handles currency with cent precision. All 8 fields nullable — not all partners have financial data yet. Pulled from AT, never written by Roadrunner.
+
+**Impact:** All 24 partners now have financial data populated via sync. OPSWAT verified: mp_tcv_goal=$4M, larr_goal=$5.5M, mp_tcv_ytd=$215K, larr_ytd=$91K.
+
+---
+
+### #331 — crm_status → crm_platform structured rename
+
+**Date:** 2026-03-26
+**Status:** ✅ Implemented
+
+**Decision:** Migration 072 renames crm_status to crm_platform, NULLs existing freeform values, adds CHECK constraint (suger/labra/tackle/native/none), adds crm_notes TEXT for context. 13 code references updated across 6 files.
+
+**Context:** crm_status was freeform text mixing platform names with status notes. The CRM platform is a finite set; the contextual details belong in a separate notes field.
+
+**Rationale:** Structured dropdown enables filtering/grouping. CHECK constraint prevents drift. Notes field preserves the "why" that was being crammed into the status value.
+
+**Impact:** Types, notes-context, pull sync, PartnerReferencePanel, partner detail page all updated. Zero crm_status references remain.
+
+---
+
+### #332 — Ring 3 field maps and table constants
+
+**Date:** 2026-03-26
+**Status:** ✅ Implemented
+
+**Decision:** Added RING3_TABLES constant (5 AT table IDs), 5 new field map objects (PARTNER_GOALS_FIELDS, PARTNER_PROGRAMS_FIELDS, PARTNER_EVENTS_FIELDS, MPOPP_FIELDS, MDF_FIELDS), and 13 new PTRF entries for partner financial/CRM/JVP fields to field-maps.ts.
+
+**Context:** Ring 3 sync requires AT table IDs and field IDs. Following existing pattern where all AT field IDs live in field-maps.ts.
+
+**Rationale:** Single source of truth for AT field IDs (principle #7). Field map objects grouped by AT table, matching the pattern established by PF, EF, RF, PTRF, ENF, MF.
+
+**Impact:** PTRF grew from 18 to 30 fields. 5 new field map constants. RING3_TABLES constant with 5 table IDs.
+
+---
+
+### #333 — Ring 3 pull sync architecture
+
+**Date:** 2026-03-26
+**Status:** ✅ Implemented
+
+**Decision:** 5 new sync functions in pull.ts (syncPartnerGoals, syncPartnerProgramEnrollments, syncPartnerEventParticipations, syncMpoppFunding, syncMdfFunding). Shared helpers: resolveLinkedRecord(), toSnake(), buildPartnerLookup/buildProgramLookup/buildEventLookup(). Wired into syncAllCatalogs() after Ring 1-2.
+
+**Context:** Ring 3 tables need AT→RR sync. Each table has AT linked record fields for partner/program/event resolution that need lookup maps.
+
+**Rationale:** Lookup maps built once per sync function (not per record). Individual record failures logged but don't abort sync. Order matters: Ring 1-2 first (partners, programs, events, relationships) then Ring 3 (which references them). upsert-by-airtable_id pattern via db/ring3.ts.
+
+**Impact:** syncAllCatalogs() now syncs 9 tables. Full sync duration ~40s. First sync: 80 program enrollments, 18 MPOPP, 8 MDF records.
+
+---
+
+### #334 — Partner Programs gains Program linked record field
+
+**Date:** 2026-03-26
+**Status:** ✅ Implemented
+
+**Decision:** Created AT field (flduk1vdlcOFmAnaa) on Partner Programs table linking to Programs table. Sync resolves program_id through this linked record instead of text matching against "Program ID" shorthand field.
+
+**Context:** The original "Program ID" field was free text with shorthand like "CloudOps Comp" that didn't match full program names. Text matching resolved only 38/80 records.
+
+**Rationale:** Linked records provide clean airtable_record_id resolution via lookup maps. This is the same pattern used for partner resolution across all Ring 3 tables.
+
+**Impact:** PARTNER_PROGRAMS_FIELDS gained `program` field ID. Sync resolves via linked record first; falls back to null program_id with legacy text preserved in notes.
+
+---
+
+### #335 — program_id nullable on partner_program_enrollments
+
+**Date:** 2026-03-26
+**Status:** ✅ Implemented
+
+**Decision:** Migration 074 drops NOT NULL on program_id and drops UNIQUE(partner_id, program_id) constraint. Unresolved programs sync with null program_id. Legacy "Program ID" text preserved in notes field as "[Program: {text}]".
+
+**Context:** Many AT Partner Programs records don't have the new Program linked record populated yet. The NOT NULL constraint blocked sync for 58/80 records.
+
+**Rationale:** airtable_id UNIQUE is the real dedup key, not (partner_id, program_id). A partner can have multiple enrollments without resolved program links. Data availability > referential completeness.
+
+**Impact:** All 80 program enrollments now sync successfully. 22 have resolved program_id, 58 have null with text fallback in notes.
+
+---
+
+### #336 — Partner Events fresh start
+
+**Date:** 2026-03-26
+**Status:** ✅ Implemented
+
+**Decision:** Deleted all 24 stale AT Partner Events records. These were orphaned from events removed during initial Roadrunner event seeding — the linked event records no longer exist in AT.
+
+**Context:** All 24 event participation sync attempts failed with "no event resolved" because the linked events had been deleted from the Events table. The records were artifacts of the original seeding process.
+
+**Rationale:** Clean slate is better than patching orphaned records. Forward-looking event tracking starts fresh with real 2026 event data.
+
+**Impact:** partner_event_participations table starts at 0 records. Table is ready for new entries as events approach.
+
+---
+
+### #337 — Co-Sell Goals 2026 AT table archived
+
+**Date:** 2026-03-26
+**Status:** ✅ Implemented
+
+**Decision:** Co-Sell Goals 2026 AT table hidden from navigation after data migrated to Partners table. 14 partners had TCV/LARR goals — now stored as mp_tcv_goal and larr_goal columns. Formulas (attainment %, trend, projected) will be computed in Roadrunner UI.
+
+**Context:** Decision #318 dissolved this table. The 2 input fields (TCV Goal, LARR Goal) moved to partners. The 17 computed fields will be recreated as Roadrunner UI computations.
+
+**Rationale:** Keep AT table archived (not deleted) in case historical reference is needed. But it's no longer part of the active sync pipeline.
+
+**Impact:** AT syncs 11 active tables (was 12). No Supabase equivalent — data lives on partner records.
+
+---
+
+### #338 — Partner Programs and Partner Events Partner fields converted to linked records
+
+**Date:** 2026-03-26
+**Status:** ✅ Implemented
+
+**Decision:** Both AT tables had plain text Partner field, converted to linked records pointing to Partners table. This enables clean airtable_record_id resolution during sync instead of text name matching.
+
+**Context:** Text-based partner matching is fragile — name changes, typos, and formatting differences cause sync failures. Linked records use stable AT record IDs.
+
+**Rationale:** Every AT table that references Partners should use a linked record, not text. This is the AT equivalent of an FK. Partner Programs field fldXXpf6zyDLLAKOz and Partner Events field fldFA6221VhsyXG1v are now linked records.
+
+**Impact:** resolveLinkedRecord() in sync code resolves partner_id from linked record arrays. All partner resolutions now use the same pattern.
 
 ---
