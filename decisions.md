@@ -6013,3 +6013,153 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** format-utils.ts gained `stripPartnerPrefix()`. Tasks page and partner detail both use it for task provenance display.
 
 ---
+
+### #318 — Co-Sell Goals 2026 table dissolves into Partners table
+
+**Date:** 2026-03-25
+**Status:** 📋 Planned
+
+**Decision:** The Co-Sell Goals 2026 AT table has only 2 real input fields (TCV Goal, LARR Goal) — everything else is formula/lookup. Move goal fields to Partners table as columns. AT gets a "Co-Sell Performance" view. Supabase computes trend from actuals vs goals. No separate table needed.
+
+**Context:** Reviewed full AT schema. Co-Sell Goals 2026 has 19 fields but only TCV Goal and LARR Goal are manually entered. The rest are rollups, lookups, and formulas computed from other tables.
+
+**Rationale:** A table with 2 input fields and 17 computed fields is a view, not an entity. Moving inputs to Partners eliminates a join and keeps goal data on the partner record where it's consumed.
+
+**Impact:** Partners table gains tcv_goal and larr_goal columns. No co_sell_goals table in Supabase.
+
+---
+
+### #319 — Partner Goals = strategic milestones + operational KPIs
+
+**Date:** 2026-03-25
+**Status:** 📋 Planned
+
+**Decision:** Partner plans contain two goal types: strategic milestones ("Attain Gov Competency", "Sign SCA") and operational KPIs ("25 MPPO Transactions", "4 Public References"). Both fit the existing Partner Goals table with a category taxonomy. Add "Operational" to the existing categories (Co-Sell/Co-Build/Co-Market/Compliance/Program/Vertical).
+
+**Context:** Reviewed 4 partner business plans (OPSWAT, Progress, Supabase, KnowBe4). Each contains 5-10 goals mixing strategic milestones with operational targets. The existing partner_goals table already has a category field.
+
+**Rationale:** One table with category taxonomy is simpler than two tables with different schemas. The AI brain can group by category when surfacing goals.
+
+**Impact:** partner_goals table gains "Operational" as a valid category. Pull sync populates from AT.
+
+---
+
+### #320 — Joint Value Proposition text field on Partners table
+
+**Date:** 2026-03-25
+**Status:** 📋 Planned
+
+**Decision:** Rich text field for the "better together" narrative from partner plans. Displayed on the Profile tab of the partner page. Feeds brain synthesis context so the AI understands the strategic positioning.
+
+**Context:** Every partner plan includes a JVP section describing how the partner's solution complements AWS. This is high-value context for the brain synthesizer but has no home in the current schema.
+
+**Rationale:** JVP is a partner-level attribute, not an engagement or meeting artifact. It changes infrequently and applies across all engagements with the partner.
+
+**Impact:** Partners table gains joint_value_proposition TEXT column. Pulled from AT. Displayed on Profile tab. Included in buildBrainContext.
+
+---
+
+### #321 — MPOPP and MDF stay separate tables with pull sync
+
+**Date:** 2026-03-25
+**Status:** 📋 Planned
+
+**Decision:** MPOPP (Marketplace Partner Originated Pipeline Program) and MDF (Market Development Funds) have different schemas. MPOPP has Half/Track/Status workflow fields. MDF has Source/Recurrence/Amount fields. Both get dedicated Supabase tables and pull sync from AT.
+
+**Context:** Reviewed both AT tables. MPOPP is opportunity-tracking with status progression. MDF is budget allocation with recurrence patterns. They share partner_id but nothing else.
+
+**Rationale:** Different schemas serve different purposes. Forcing them into one table would require nullable columns and confusing type discrimination. Separate tables are cleaner.
+
+**Impact:** Two new Supabase tables: mpopp, mdf. Both get pull sync via field-maps.ts.
+
+---
+
+### #322 — CRM Status becomes structured dropdown
+
+**Date:** 2026-03-25
+**Status:** 📋 Planned
+
+**Decision:** Convert CRM Status from freeform text to a single select dropdown (Suger/Labra/Tackle/Native/None) plus a CRM Notes text field for contextual details like "setting it up with Kaley."
+
+**Context:** Current AT field is freeform text with inconsistent entries. The CRM platform is a finite, known set. The free text often mixes platform name with status details.
+
+**Rationale:** Structured dropdown enables filtering and grouping. Notes field preserves the contextual detail that was being crammed into the status field.
+
+**Impact:** Partners table: crm_status (text CHECK) + crm_notes (text). Pull sync maps from AT.
+
+---
+
+### #323 — 3P Rep becomes CRM Contact in participants registry
+
+**Date:** 2026-03-25
+**Status:** 📋 Planned
+
+**Decision:** Rename "3P Rep" to "CRM Contact", convert to proper contact format (name/email/title), store in participants table with partner_participants join like PSA/AM/Alliance Lead.
+
+**Context:** 3P Rep is currently a text field on the partner. It's a person who should be in the contact registry like other partner team members.
+
+**Rationale:** Every person in the system should go through the participants registry. This enables consistent rendering via ContactRow and inclusion in meeting attendee resolution.
+
+**Impact:** New role "CRM Contact" in partner_participants. Migration moves existing 3P Rep data. AT pull sync writes to registry.
+
+---
+
+### #324 — Partner page tabs replace slide-over panels
+
+**Date:** 2026-03-25
+**Status:** 📋 Planned
+
+**Decision:** Partner detail page gains four full-width tabs: Overview (brain/engagements/tasks/meetings/scratchpad), Operations (co-sell performance/funding/programs/goals/status), Profile (solution/architecture/JVP), People (partner team/AWS team/CRM contact). The slide-over panel retires.
+
+**Context:** The current slide-over panel (PartnerReferencePanel) was designed before Ring 3 data existed. With financial fields, goals, programs, funding, and expanded contacts, a slide-over can't hold everything without becoming a scrolling drawer.
+
+**Rationale:** Tabs provide full-width layout for each concern. The Overview tab preserves the current partner page experience. Operations and Profile are new homes for Ring 3 data. People centralizes all contact surfaces.
+
+**Impact:** Major UI restructure of partner detail page. SlideOverPanel and PartnerReferencePanel components may be repurposed or removed.
+
+---
+
+### #325 — Partner Goals gains optional engagement_id link
+
+**Date:** 2026-03-25
+**Status:** 📋 Planned
+
+**Decision:** partner_goals table gains an optional engagement_id FK. Some goals map to active engagements ("Sign SCA" → SCA negotiation engagement). This enables the brain synthesizer to connect strategic objectives with active workstreams.
+
+**Context:** Partner plans show goals alongside the engagements pursuing them. Without the link, the brain treats goals and engagements as independent, missing the strategic connection.
+
+**Rationale:** Optional FK — most goals won't have an engagement link. But for those that do, the connection enriches both the goal context and the engagement context.
+
+**Impact:** partner_goals table gains engagement_id UUID REFERENCES engagements(id). Brain synthesizer's buildBrainContext includes goal→engagement connections.
+
+---
+
+### #326 — Financial actuals stay AT-entered, pulled to Roadrunner
+
+**Date:** 2026-03-25
+**Status:** 📋 Planned
+
+**Decision:** Financial actuals (MP TCV YTD, LARR YTD, prior year figures) are manually entered in Airtable and pulled to Roadrunner via sync. No dual-entry. Roadrunner displays and uses them for trend computation but never writes financial data.
+
+**Context:** Financial data comes from AWS internal systems and is entered in AT as part of the existing reporting workflow. Building a financial entry UI in Roadrunner would duplicate effort.
+
+**Rationale:** Data ownership boundary: AT owns catalog + financial data (pull only). Roadrunner owns activity data (push only). Financial data is catalog-class — it describes the partner's business relationship, not a specific engagement.
+
+**Impact:** Partners table gains financial columns (tcv_ytd, larr_ytd, etc.). Pull sync from AT. Display on Operations tab. Read-only in Roadrunner.
+
+---
+
+### #327 — Ring 3 tables all pull from AT initially, flip later
+
+**Date:** 2026-03-25
+**Status:** 📋 Planned
+
+**Decision:** Partner Programs, Partner Events, Partner Goals, MPOPP, MDF all start as AT-owned with pull sync to Roadrunner. As Roadrunner gains CRUD UI for each entity, ownership flips to RR-push. Incremental migration, not big bang.
+
+**Context:** Building CRUD UI for 5 entity types simultaneously is too much work for one session. But the data needs to be visible in Roadrunner now.
+
+**Rationale:** Pull-first means data is immediately available for display and brain synthesis. Flip-to-push is a per-table decision made when the CRUD UI is ready. This matches how Ring 2 tables (engagements, meetings) evolved.
+
+**Impact:** All Ring 3 sync starts in pull.ts. field-maps.ts gets 5 new field map constants. Each table flips independently when ready.
+
+---
