@@ -2,6 +2,7 @@ import { getSupabaseClient } from "./db/client";
 import { getTasksByPartner, getStandaloneCondensedDigests } from "./db/meeting-notes";
 import { getPartnerContext, getPartnerScratchpad } from "./db/partner-context";
 import { getContactsByPartner } from "./db/participants";
+import { getPartnerProgramEnrollments, getPartnerGoals, getPartnerMpoppFunding, getPartnerMdfFunding } from "./db/ring3";
 import type {
   Partner,
   Engagement,
@@ -403,6 +404,10 @@ export async function buildBrainContext(partnerId: string): Promise<string> {
     standaloneMeetingDigests,
     openTasks,
     { data: meetingCountData },
+    programEnrollments,
+    partnerGoals,
+    mpoppFunding,
+    mdfFunding,
   ] = await Promise.all([
     db.from("partners").select("*").eq("id", partnerId).single(),
     db.from("engagements")
@@ -419,6 +424,10 @@ export async function buildBrainContext(partnerId: string): Promise<string> {
       .eq("partner_id", partnerId)
       .order("meeting_date", { ascending: false })
       .limit(50),
+    getPartnerProgramEnrollments(partnerId),
+    getPartnerGoals(partnerId),
+    getPartnerMpoppFunding(partnerId),
+    getPartnerMdfFunding(partnerId),
   ]);
 
   if (partnerErr) throw new Error(`Failed to fetch partner: ${partnerErr.message}`);
@@ -443,6 +452,28 @@ export async function buildBrainContext(partnerId: string): Promise<string> {
   if (partner.isva_status) profileLines.push(`**ISVa Status:** ${partner.isva_status}`);
   if (partner.prm_status) profileLines.push(`**PRM Status:** ${partner.prm_status}`);
   if (partner.crm_platform) profileLines.push(`**CRM Platform:** ${partner.crm_platform}`);
+  if (partner.crm_notes) profileLines.push(`**CRM Notes:** ${partner.crm_notes}`);
+  if (partner.joint_value_proposition) profileLines.push(`**Joint Value Proposition:** ${partner.joint_value_proposition}`);
+
+  // Financial data
+  if (partner.mp_tcv_goal != null) profileLines.push(`**MP TCV Goal (2026):** $${partner.mp_tcv_goal.toLocaleString()}`);
+  if (partner.larr_goal != null) profileLines.push(`**LARR Goal (2026):** $${partner.larr_goal.toLocaleString()}`);
+  if (partner.mp_tcv_ytd != null) profileLines.push(`**MP TCV YTD (2026):** $${partner.mp_tcv_ytd.toLocaleString()}`);
+  if (partner.larr_ytd != null) profileLines.push(`**LARR YTD (2026):** $${partner.larr_ytd.toLocaleString()}`);
+  if (partner.mp_tcv_ytd != null && partner.mp_tcv_goal != null && partner.mp_tcv_goal > 0) {
+    profileLines.push(`**MP TCV Attainment:** ${Math.round((partner.mp_tcv_ytd / partner.mp_tcv_goal) * 100)}%`);
+  }
+  if (partner.larr_ytd != null && partner.larr_goal != null && partner.larr_goal > 0) {
+    profileLines.push(`**LARR Attainment:** ${Math.round((partner.larr_ytd / partner.larr_goal) * 100)}%`);
+  }
+  if (partner.mp_tcv_2025 != null) profileLines.push(`**MP TCV 2025 Actuals:** $${partner.mp_tcv_2025.toLocaleString()}`);
+  if (partner.larr_2025 != null) profileLines.push(`**LARR 2025 Actuals:** $${partner.larr_2025.toLocaleString()}`);
+  if (partner.mp_tcv_2024 != null) profileLines.push(`**MP TCV 2024 Actuals:** $${partner.mp_tcv_2024.toLocaleString()}`);
+  if (partner.larr_2024 != null) profileLines.push(`**LARR 2024 Actuals:** $${partner.larr_2024.toLocaleString()}`);
+  if (partner.mp_tcv_target_2025 != null) profileLines.push(`**MP TCV 2025 Target:** $${partner.mp_tcv_target_2025.toLocaleString()}`);
+  if (partner.mp_tcv_projected_annual != null) profileLines.push(`**MP TCV Projected Annual:** $${partner.mp_tcv_projected_annual.toLocaleString()}`);
+  if (partner.larr_projected_annual != null) profileLines.push(`**LARR Projected Annual:** $${partner.larr_projected_annual.toLocaleString()}`);
+
   sections.push(profileLines.join("\n"));
 
   // 2. Key contacts
@@ -508,7 +539,78 @@ export async function buildBrainContext(partnerId: string): Promise<string> {
     sections.push(lines.join("\n"));
   }
 
-  // 7. Activity pattern signals (computed for the AI to interpret)
+  // 7. Program Enrollments
+  if (programEnrollments.length > 0) {
+    const lines = ["## Program Enrollments\n"];
+    // Summary by type
+    const typeCounts: Record<string, number> = {};
+    for (const e of programEnrollments) {
+      const t = e.type ?? "Unknown";
+      typeCounts[t] = (typeCounts[t] || 0) + 1;
+    }
+    const typeSummary = Object.entries(typeCounts)
+      .map(([t, c]) => `${c} ${t}`)
+      .join(", ");
+    lines.push(`${programEnrollments.length} programs enrolled: ${typeSummary}\n`);
+    for (const e of programEnrollments) {
+      const name = e.program_name ?? "Unlinked Program";
+      const type = e.type ? ` (${e.type})` : "";
+      const status = e.status ? ` — ${e.status}` : "";
+      const achieved = e.date_achieved ? ` [achieved ${e.date_achieved}]` : "";
+      lines.push(`- ${name}${type}${status}${achieved}`);
+    }
+    sections.push(lines.join("\n"));
+  }
+
+  // 8. Funding (MPOPP + MDF)
+  if (mpoppFunding.length > 0 || mdfFunding.length > 0) {
+    const lines = ["## Funding\n"];
+    // Summary totals
+    const totalMpopp = mpoppFunding.reduce((sum, f) => sum + (f.allocated ?? 0), 0);
+    const totalMdf = mdfFunding.reduce((sum, f) => sum + (f.allocated ?? 0), 0);
+    if (totalMpopp > 0) lines.push(`Total MPOPP allocated: $${totalMpopp.toLocaleString()}`);
+    if (totalMdf > 0) lines.push(`Total MDF allocated: $${totalMdf.toLocaleString()}`);
+    lines.push("");
+
+    if (mpoppFunding.length > 0) {
+      for (const f of mpoppFunding) {
+        const allocated = f.allocated ?? 0;
+        const spent = f.spent ?? 0;
+        const remaining = allocated - spent;
+        const track = f.track ?? "unknown";
+        const half = f.half ? ` (${f.half.toUpperCase()})` : "";
+        const status = f.status ? ` [${f.status}]` : "";
+        lines.push(`- MPOPP ${track}${half}: $${allocated.toLocaleString()} allocated, $${spent.toLocaleString()} spent, $${remaining.toLocaleString()} remaining${status}`);
+      }
+    }
+    if (mdfFunding.length > 0) {
+      for (const f of mdfFunding) {
+        const allocated = f.allocated ?? 0;
+        const utilized = f.utilized ?? 0;
+        const remaining = allocated - utilized;
+        const name = f.record_name ?? "MDF";
+        lines.push(`- MDF ${name}: $${allocated.toLocaleString()} allocated, $${utilized.toLocaleString()} utilized, $${remaining.toLocaleString()} remaining`);
+      }
+    }
+    sections.push(lines.join("\n"));
+  }
+
+  // 9. Strategic Goals
+  {
+    const lines = ["## Strategic Goals\n"];
+    if (partnerGoals.length === 0) {
+      lines.push("No strategic goals set.");
+    } else {
+      for (const g of partnerGoals) {
+        const category = g.category ?? "uncategorized";
+        const status = g.status ? ` — ${g.status}` : "";
+        lines.push(`- [${category}] ${g.goal}${status}`);
+      }
+    }
+    sections.push(lines.join("\n"));
+  }
+
+  // 10. Activity pattern signals (computed for the AI to interpret)
   {
     const lines = ["## Activity Patterns\n"];
 
@@ -543,6 +645,14 @@ export async function buildBrainContext(partnerId: string): Promise<string> {
 
     // Standalone meeting count
     lines.push(`**Standalone meeting digests available:** ${standaloneMeetingDigests.length}`);
+
+    // Ring 3 signals
+    lines.push(`**Program enrollment count:** ${programEnrollments.length}`);
+    const totalMpoppSignal = mpoppFunding.reduce((sum, f) => sum + (f.allocated ?? 0), 0);
+    const totalMdfSignal = mdfFunding.reduce((sum, f) => sum + (f.allocated ?? 0), 0);
+    if (totalMpoppSignal > 0) lines.push(`**Total MPOPP allocated:** $${totalMpoppSignal.toLocaleString()}`);
+    if (totalMdfSignal > 0) lines.push(`**Total MDF allocated:** $${totalMdfSignal.toLocaleString()}`);
+    lines.push(`**Strategic goals set:** ${partnerGoals.length}`);
 
     sections.push(lines.join("\n"));
   }
