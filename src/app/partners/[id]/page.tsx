@@ -6,7 +6,7 @@ import PillarBadge from "@/components/shared/PillarBadge";
 import BrainSynthesis from "@/components/partners/BrainSynthesis";
 import PartnerScratchpad from "@/components/partners/PartnerScratchpad";
 import { cleanMeetingTitle, stripPartnerPrefix } from "@/lib/format-utils";
-import { getPartner, getSupabaseClient, getRelationshipsByPartner, getMeetingNotesByPartner, getTasksByPartner, getPartnerContext, getContactsByPartner, getContactsByRelationshipBulk } from "@/lib/db";
+import { getPartner, getSupabaseClient, getRelationshipsByPartner, getMeetingNotesByPartner, getTasksByPartner, getPartnerContext, getContactsByPartner, getContactsByRelationshipBulk, getPartnerGoals, getPartnerProgramEnrollments, getPartnerEventParticipations, getPartnerMpoppFunding, getPartnerMdfFunding } from "@/lib/db";
 import PartnerReferencePanel from "@/components/partners/PartnerReferencePanel";
 import { USER_CONFIG } from "@/lib/user-config";
 import type { Engagement, Meeting, MeetingNoteWithTasks } from "@/lib/types";
@@ -53,11 +53,16 @@ export default async function PartnerDetailPage({
   const linkedEngagements = (engagements ?? []) as Engagement[];
   const linkedMeetings = (meetings ?? []) as Meeting[];
 
-  const [linkedRelationships, partnerNotes, openTasks, partnerContextEntries] = await Promise.all([
+  const [linkedRelationships, partnerNotes, openTasks, partnerContextEntries, partnerGoals, programEnrollments, eventParticipations, mpoppFunding, mdfFunding] = await Promise.all([
     getRelationshipsByPartner(id),
     getMeetingNotesByPartner(id),
     getTasksByPartner(id, { status: "open" }),
     getPartnerContext(id),
+    getPartnerGoals(id),
+    getPartnerProgramEnrollments(id),
+    getPartnerEventParticipations(id),
+    getPartnerMpoppFunding(id),
+    getPartnerMdfFunding(id),
   ]);
 
   // Bulk-fetch relationship contacts and pre-compute lead names for slide-over panel
