@@ -1,7 +1,53 @@
+## UI Overhaul — Agent Context
+
+**Before any UI work, read these documents in order:**
+1. `docs/north-star.md` — The complete vision: what Roadrunner should become, data architecture, interaction flows, enterprise UX standards
+2. `.claude/roadrunner-ui/SKILL.md` — The design system: containers, typography, tokens, patterns. This is a LIVING document — update it as you establish new patterns
+3. `.claude/roadrunner-ui/references/design-tokens.md` — Color palette, typography hierarchy, spacing
+4. `.claude/roadrunner-ui/references/entity-catalog.md` — Per-entity field mappings and layout specs
+
+**Agent working rules:**
+- Read the North Star FIRST. Understand the vision before touching code.
+- Read SKILL.md SECOND. Understand the design system before creating components.
+- When you establish a new UI pattern (e.g., how financial data is displayed, how loading states work, how performance bars look), DOCUMENT IT IN SKILL.md BEFORE reusing it across multiple pages. Consistency comes from documenting patterns, not from memory.
+- After EVERY page change: run `npx tsc --noEmit` and `npx vitest run`. Fix any breaks before moving on.
+- NEVER modify these files unless explicitly directed: src/lib/sync/*, src/lib/email-parser.ts, src/lib/ics-parser.ts, src/lib/classifier.ts, src/lib/phase2-prompt.ts, src/lib/meeting-recurrence.ts, src/app/api/inbound/route.ts. These are stable production pipelines.
+- The brain synthesizer prompt (src/lib/brain-synthesizer.ts, src/lib/notes-context.ts) CAN be refined to produce a single cohesive paragraph instead of 4 sections. The North Star describes the target format.
+- All database modules (src/lib/db/*) are stable. Use existing query functions. Add new query functions if needed for new data displays, but don't restructure existing ones.
+- All 437+ tests must pass at every checkpoint. If a test fails, fix it before continuing.
+- Enterprise UX is non-negotiable: explicit loading states, navigation safety for unsaved changes, confirmation dialogs for destructive actions, professional button labels. See North Star Part 7.
+- Dark theme only. All colors use CSS custom properties defined in globals.css. See design-tokens.md.
+- Data fetching: use server components with parallel Supabase queries (existing pattern). Don't create new API routes for read operations unless there's a specific need.
+
+**What to rebuild:**
+- Sidebar (simplify navigation)
+- Landing page (Today screen — replaces redirect-to-partners)
+- Partner list page (add performance indicators)
+- Partner detail page (synthesis paragraph, financial snapshot, scrollable sections)
+- Meeting detail page (enterprise loading states, button labels, navigation safety)
+- Tasks page (visual refinement)
+- Inbox page (enterprise UX polish)
+
+**What to remove:**
+- Standalone engagements list page → accessed through partners
+- Standalone programs list page → accessed through partner enrollments
+- Standalone events list page → accessed through partner event participations
+- Standalone relationships list page → accessed through partner people section
+- Slide-over panel on partner page → replaced by inline scrollable sections
+- 4-section brain accordion → replaced by synthesis paragraph
+
+**What to preserve:**
+- The sync layer, email/ICS parsers, AI pipeline (except brain prompt refinement)
+- All database modules and test files
+- The Mailgun webhook
+- The meeting recurrence engine
+
+---
+
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → human-guided routing → AI synthesis → structured engagements → Airtable sync.
-> 74 migrations · 23 tables · 31 API routes · 18 UI pages · 437 passing tests
+> 75 migrations · 23 tables · 31 API routes · 18 UI pages · 437 passing tests
 
 ---
 
@@ -127,7 +173,7 @@ roadrunner/
 │       │   └── utils.ts           #     Coercion helpers + validation
 │       └── __tests__/             #   437 passing tests across 14 test files
 ├── supabase/
-│   ├── migrations/                # 74 migration files (001-074)
+│   ├── migrations/                # 75 migration files (001-075)
 │   └── (authoritative schema lives in migrations/)
 ├── scripts/
 │   ├── seed-data.ts               # CLI script to seed events/programs
@@ -282,7 +328,7 @@ npx tsc --noEmit                   # TypeScript check (must pass with zero error
 
 ### Migrations
 
-Sequential numbering in `supabase/migrations/` (currently 001-074). New migrations get the next number (075, 076, ...). Write idempotent SQL where possible.
+Sequential numbering in `supabase/migrations/` (currently 001-075). New migrations get the next number (076, 077, ...). Write idempotent SQL where possible.
 
 ### Key Conventions
 
