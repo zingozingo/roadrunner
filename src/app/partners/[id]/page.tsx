@@ -12,6 +12,14 @@ import PartnerReferencePanel from "@/components/partners/PartnerReferencePanel";
 import { USER_CONFIG } from "@/lib/user-config";
 import type { Engagement, Meeting, MeetingNoteWithTasks } from "@/lib/types";
 
+// Currency formatting helper
+function fmtCurrency(val: number | null | undefined): string {
+  if (val === null || val === undefined) return "—";
+  if (val >= 1_000_000) return `$${(val / 1_000_000).toFixed(1)}M`;
+  if (val >= 1_000) return `$${Math.round(val / 1_000)}k`;
+  return `$${Math.round(val)}`;
+}
+
 // Status dot color map
 const statusDotColor: Record<string, string> = {
   active: "bg-emerald-500",
@@ -238,13 +246,6 @@ export default async function PartnerDetailPage({
             };
             const hasAny = Object.values(fin).some((v) => v !== null);
             if (!hasAny) return null;
-
-            function fmtCurrency(val: number | null): string {
-              if (val === null || val === undefined) return "—";
-              if (val >= 1_000_000) return `$${(val / 1_000_000).toFixed(1)}M`;
-              if (val >= 1_000) return `$${Math.round(val / 1_000)}k`;
-              return `$${Math.round(val)}`;
-            }
 
             function attainmentPct(ytd: number | null, goal: number | null): string | null {
               if (ytd === null || goal === null || goal <= 0) return null;
@@ -600,6 +601,111 @@ export default async function PartnerDetailPage({
                       {overflowEnrollments.map(renderEnrollmentRow)}
                     </details>
                   )}
+                </div>
+              </section>
+            );
+          })()}
+
+          {/* Funding (MPOPP + MDF) */}
+          {(mpoppFunding.length > 0 || mdfFunding.length > 0) && (() => {
+            const totalFunding = mpoppFunding.length + mdfFunding.length;
+
+            const mpoppStatusColor: Record<string, string> = {
+              "Approved": "text-emerald-400",
+              "Pending": "text-amber-400",
+            };
+
+            return (
+              <section>
+                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
+                  Funding
+                  <span className="ml-1.5 font-normal text-muted">{totalFunding}</span>
+                </h2>
+                <div className="space-y-4">
+
+                  {/* MPOPP */}
+                  {mpoppFunding.length > 0 && (
+                    <div>
+                      <div className="mb-1 px-3 text-xs font-medium text-muted">MPOPP</div>
+                      <div>
+                        {mpoppFunding.map((f) => {
+                          const remaining = (f.allocated ?? 0) - (f.spent ?? 0);
+                          const hasNotes = f.notes && f.notes.trim().length > 0;
+                          const statusClass = (f.status && mpoppStatusColor[f.status]) ?? "text-muted";
+
+                          return (
+                            <div key={f.id} className="border-b border-border/20 px-3 py-3">
+                              <div className="flex items-center gap-3">
+                                {f.status && (
+                                  <span className={`shrink-0 text-xs ${statusClass}`}>{f.status}</span>
+                                )}
+                                {f.half && (
+                                  <span className="shrink-0 text-xs text-muted">{f.half.toUpperCase()}</span>
+                                )}
+                                <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+                                  {f.track ?? "—"}
+                                </span>
+                                <span className="shrink-0 text-xs text-muted">
+                                  {fmtCurrency(f.allocated)}
+                                </span>
+                                <span className="shrink-0 text-xs text-muted">
+                                  spent {fmtCurrency(f.spent)}
+                                </span>
+                                <span className={`shrink-0 text-xs font-medium ${remaining > 0 ? "text-amber-400" : "text-muted"}`}>
+                                  {fmtCurrency(remaining)} left
+                                </span>
+                              </div>
+                              {hasNotes && (
+                                <span className="mt-0.5 block text-xs text-muted/50 truncate">{f.notes}</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* MDF */}
+                  {mdfFunding.length > 0 && (
+                    <div>
+                      <div className="mb-1 px-3 text-xs font-medium text-muted">MDF</div>
+                      <div>
+                        {mdfFunding.map((f) => {
+                          const remaining = (f.allocated ?? 0) - (f.utilized ?? 0);
+                          const hasNotes = f.notes && f.notes.trim().length > 0;
+
+                          return (
+                            <div key={f.id} className="border-b border-border/20 px-3 py-3">
+                              <div className="flex items-center gap-3">
+                                <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+                                  {f.record_name ?? "—"}
+                                </span>
+                                <span className="shrink-0 text-xs text-muted">
+                                  {fmtCurrency(f.allocated)}
+                                </span>
+                                <span className="shrink-0 text-xs text-muted">
+                                  used {fmtCurrency(f.utilized)}
+                                </span>
+                                <span className={`shrink-0 text-xs font-medium ${remaining > 0 ? "text-amber-400" : "text-muted"}`}>
+                                  {fmtCurrency(remaining)} left
+                                </span>
+                                {f.source && (
+                                  <span className="shrink-0 text-xs text-muted">{f.source}</span>
+                                )}
+                                {f.recurrence && (
+                                  <span className="shrink-0 text-xs text-muted">{f.recurrence}</span>
+                                )}
+                              </div>
+                              {hasNotes && (
+                                <span className="mt-0.5 block text-xs text-muted/50 truncate">{f.notes}</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                 </div>
               </section>
             );
