@@ -516,6 +516,94 @@ export default async function PartnerDetailPage({
               </section>
             );
           })()}
+
+          {/* Program Enrollments */}
+          {programEnrollments.length > 0 && (() => {
+            const ENROLL_VISIBLE = 5;
+            const ENROLL_THRESHOLD = 8;
+            const needsExpander = programEnrollments.length >= ENROLL_THRESHOLD;
+            const visibleEnrollments = needsExpander ? programEnrollments.slice(0, ENROLL_VISIBLE) : programEnrollments;
+            const overflowEnrollments = needsExpander ? programEnrollments.slice(ENROLL_VISIBLE) : [];
+
+            const typeColors: Record<string, string> = {
+              "Competency": "bg-violet-500/10 text-violet-400",
+              "Service Ready": "bg-emerald-500/10 text-emerald-400",
+              "Program": "bg-blue-500/10 text-blue-400",
+              "Credit Program": "bg-amber-500/10 text-amber-400",
+            };
+
+            const statusColors: Record<string, string> = {
+              "Approved": "text-emerald-400",
+              "In Progress": "text-amber-400",
+              "Not Started": "text-muted",
+              "Expired": "text-red-400",
+            };
+
+            function renderEnrollmentRow(enroll: typeof programEnrollments[number]) {
+              const typeClass = (enroll.type && typeColors[enroll.type]) ?? "bg-zinc-500/10 text-zinc-400";
+              const statusClass = (enroll.status && statusColors[enroll.status]) ?? "text-muted";
+              const achieved = enroll.date_achieved
+                ? new Date(enroll.date_achieved + "T00:00:00").toLocaleDateString("en-US", { month: "short", year: "numeric" })
+                : null;
+              const hasNotes = enroll.notes && enroll.notes.trim().length > 0;
+
+              return (
+                <div
+                  key={enroll.id}
+                  className="border-b border-border/20 px-3 py-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                      {enroll.program_name ?? "Unlinked Program"}
+                    </span>
+                    {enroll.type && (
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${typeClass}`}>
+                        {enroll.type}
+                      </span>
+                    )}
+                    {enroll.status && (
+                      <span className={`shrink-0 text-xs ${statusClass}`}>
+                        {enroll.status}
+                      </span>
+                    )}
+                    {achieved && (
+                      <span className="shrink-0 text-xs text-muted">Achieved {achieved}</span>
+                    )}
+                  </div>
+                  {hasNotes && (
+                    <span className="mt-0.5 block text-xs text-muted/50 truncate">{enroll.notes}</span>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <section>
+                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
+                  Program Enrollments
+                  <span className="ml-1.5 font-normal text-muted">{programEnrollments.length}</span>
+                </h2>
+                <div>
+                  {visibleEnrollments.map(renderEnrollmentRow)}
+                  {overflowEnrollments.length > 0 && (
+                    <details className="group">
+                      <summary className="flex cursor-pointer list-none items-center gap-1 px-3 py-2.5 text-sm text-accent hover:underline [&::-webkit-details-marker]:hidden">
+                        Show all {programEnrollments.length} enrollments
+                        <svg
+                          width="14" height="14" viewBox="0 0 16 16"
+                          fill="none" stroke="currentColor" strokeWidth="1.5"
+                          className="shrink-0 transition-transform group-open:rotate-90"
+                        >
+                          <path d="M6 4l4 4-4 4" />
+                        </svg>
+                      </summary>
+                      {overflowEnrollments.map(renderEnrollmentRow)}
+                    </details>
+                  )}
+                </div>
+              </section>
+            );
+          })()}
       </div>
     </div>
   );
