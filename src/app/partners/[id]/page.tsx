@@ -195,6 +195,8 @@ export default async function PartnerDetailPage({
               deployed_on_aws: partner.deployed_on_aws ?? null,
               prm_status: partner.prm_status ?? null,
               crm_platform: partner.crm_platform ?? null,
+              joint_value_proposition: partner.joint_value_proposition ?? null,
+              crm_notes: partner.crm_notes ?? null,
             }}
             contacts={contacts}
             currentUserEmail={USER_CONFIG.email}
@@ -706,6 +708,186 @@ export default async function PartnerDetailPage({
                     </div>
                   )}
 
+                </div>
+              </section>
+            );
+          })()}
+
+          {/* Strategic Goals */}
+          {(() => {
+            const GOAL_VISIBLE = 5;
+            const GOAL_THRESHOLD = 8;
+            const needsExpander = partnerGoals.length >= GOAL_THRESHOLD;
+            const visibleGoals = needsExpander ? partnerGoals.slice(0, GOAL_VISIBLE) : partnerGoals;
+            const overflowGoals = needsExpander ? partnerGoals.slice(GOAL_VISIBLE) : [];
+
+            const categoryColors: Record<string, string> = {
+              co_sell: "bg-blue-500/10 text-blue-400",
+              co_build: "bg-violet-500/10 text-violet-400",
+              co_market: "bg-emerald-500/10 text-emerald-400",
+              program: "bg-amber-500/10 text-amber-400",
+              operational: "bg-zinc-500/10 text-zinc-400",
+              compliance: "bg-red-500/10 text-red-400",
+              vertical: "bg-cyan-500/10 text-cyan-400",
+            };
+
+            const categoryLabels: Record<string, string> = {
+              co_sell: "Co-Sell",
+              co_build: "Co-Build",
+              co_market: "Co-Market",
+              program: "Program",
+              operational: "Operational",
+              compliance: "Compliance",
+              vertical: "Vertical",
+            };
+
+            const statusColors: Record<string, string> = {
+              in_progress: "text-emerald-400",
+              not_started: "text-blue-400",
+              completed: "text-violet-400",
+              deferred: "text-amber-400",
+            };
+
+            const statusLabels: Record<string, string> = {
+              in_progress: "Active",
+              not_started: "Planned",
+              completed: "Completed",
+              deferred: "Blocked",
+            };
+
+            function renderGoalRow(g: typeof partnerGoals[number]) {
+              const catClass = (g.category && categoryColors[g.category]) ?? "bg-zinc-500/10 text-zinc-400";
+              const catLabel = (g.category && categoryLabels[g.category]) ?? g.category ?? "";
+              const statClass = (g.status && statusColors[g.status]) ?? "text-muted";
+              const statLabel = (g.status && statusLabels[g.status]) ?? g.status ?? "";
+              const hasNotes = g.notes && g.notes.trim().length > 0;
+
+              return (
+                <div key={g.id} className="border-b border-border/20 px-3 py-3">
+                  <div className="flex items-center gap-3">
+                    <span className="min-w-0 flex-1 text-sm text-foreground">{g.goal}</span>
+                    {catLabel && (
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${catClass}`}>
+                        {catLabel}
+                      </span>
+                    )}
+                    {statLabel && (
+                      <span className={`shrink-0 text-xs ${statClass}`}>{statLabel}</span>
+                    )}
+                    {g.year && (
+                      <span className="shrink-0 text-xs text-muted">{g.year}</span>
+                    )}
+                  </div>
+                  {hasNotes && (
+                    <span className="mt-0.5 block text-xs text-muted/50 truncate">{g.notes}</span>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <section>
+                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
+                  Strategic Goals
+                  {partnerGoals.length > 0 && (
+                    <span className="ml-1.5 font-normal text-muted">{partnerGoals.length}</span>
+                  )}
+                </h2>
+                {partnerGoals.length === 0 ? (
+                  <div className="rounded-lg border border-border/20 bg-surface/50 p-4">
+                    <p className="text-sm text-muted">No goals set for this partner yet.</p>
+                  </div>
+                ) : (
+                  <div>
+                    {visibleGoals.map(renderGoalRow)}
+                    {overflowGoals.length > 0 && (
+                      <details className="group">
+                        <summary className="flex cursor-pointer list-none items-center gap-1 px-3 py-2.5 text-sm text-accent hover:underline [&::-webkit-details-marker]:hidden">
+                          Show all {partnerGoals.length} goals
+                          <svg
+                            width="14" height="14" viewBox="0 0 16 16"
+                            fill="none" stroke="currentColor" strokeWidth="1.5"
+                            className="shrink-0 transition-transform group-open:rotate-90"
+                          >
+                            <path d="M6 4l4 4-4 4" />
+                          </svg>
+                        </summary>
+                        {overflowGoals.map(renderGoalRow)}
+                      </details>
+                    )}
+                  </div>
+                )}
+              </section>
+            );
+          })()}
+
+          {/* Event Participations */}
+          {eventParticipations.length > 0 && (() => {
+            const EVT_VISIBLE = 5;
+            const EVT_THRESHOLD = 8;
+            const needsExpander = eventParticipations.length >= EVT_THRESHOLD;
+            const visibleEvents = needsExpander ? eventParticipations.slice(0, EVT_VISIBLE) : eventParticipations;
+            const overflowEvents = needsExpander ? eventParticipations.slice(EVT_VISIBLE) : [];
+
+            const statusColors: Record<string, string> = {
+              "Registered": "text-emerald-400",
+              "Interested": "text-blue-400",
+              "Attended": "text-violet-400",
+            };
+
+            function renderEventRow(ep: typeof eventParticipations[number]) {
+              const statClass = (ep.status && statusColors[ep.status]) ?? "text-muted";
+              const dateStr = ep.event_start_date
+                ? new Date(ep.event_start_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                : null;
+              const hasNotes = ep.notes && ep.notes.trim().length > 0;
+
+              return (
+                <div key={ep.id} className="border-b border-border/20 px-3 py-3">
+                  <div className="flex items-center gap-3">
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                      {ep.event_name ?? "Unknown Event"}
+                    </span>
+                    {dateStr && (
+                      <span className="shrink-0 text-xs text-muted">{dateStr}</span>
+                    )}
+                    {ep.status && (
+                      <span className={`shrink-0 text-xs ${statClass}`}>{ep.status}</span>
+                    )}
+                    {ep.contacts_attending && ep.contacts_attending.trim().length > 0 && (
+                      <span className="shrink-0 text-xs text-muted">{ep.contacts_attending}</span>
+                    )}
+                  </div>
+                  {hasNotes && (
+                    <span className="mt-0.5 block text-xs text-muted/50 truncate">{ep.notes}</span>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <section>
+                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
+                  Event Participations
+                  <span className="ml-1.5 font-normal text-muted">{eventParticipations.length}</span>
+                </h2>
+                <div>
+                  {visibleEvents.map(renderEventRow)}
+                  {overflowEvents.length > 0 && (
+                    <details className="group">
+                      <summary className="flex cursor-pointer list-none items-center gap-1 px-3 py-2.5 text-sm text-accent hover:underline [&::-webkit-details-marker]:hidden">
+                        Show all {eventParticipations.length} participations
+                        <svg
+                          width="14" height="14" viewBox="0 0 16 16"
+                          fill="none" stroke="currentColor" strokeWidth="1.5"
+                          className="shrink-0 transition-transform group-open:rotate-90"
+                        >
+                          <path d="M6 4l4 4-4 4" />
+                        </svg>
+                      </summary>
+                      {overflowEvents.map(renderEventRow)}
+                    </details>
+                  )}
                 </div>
               </section>
             );

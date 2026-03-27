@@ -17,6 +17,8 @@ interface PartnerReferencePanelProps {
     deployed_on_aws: string | null;
     prm_status: string | null;
     crm_platform: string | null;
+    joint_value_proposition: string | null;
+    crm_notes: string | null;
   };
   contacts: Array<{ name: string | null; email: string; title: string | null; role: string | null; org_type: string | null }>;
   currentUserEmail: string;
@@ -52,8 +54,16 @@ export default function PartnerReferencePanel({
                   {partner.what_they_do}
                 </p>
               )}
-              {(partner.aws_stickiness || partner.key_aws_services.length > 0) && (
+              {partner.joint_value_proposition && (
                 <div className={partner.what_they_do ? "mt-4" : ""}>
+                  <span className="block text-[10px] font-semibold uppercase tracking-widest text-accent mb-1.5">Joint Value Proposition</span>
+                  <p className="text-xs text-muted leading-relaxed whitespace-pre-wrap">
+                    {partner.joint_value_proposition}
+                  </p>
+                </div>
+              )}
+              {(partner.aws_stickiness || partner.key_aws_services.length > 0) && (
+                <div className={(partner.what_they_do || partner.joint_value_proposition) ? "mt-4" : ""}>
                   <span className="block text-[10px] font-semibold uppercase tracking-widest text-accent mb-1.5">AWS Stickiness</span>
                   {partner.aws_stickiness && (
                     <p className="text-xs text-muted leading-relaxed whitespace-pre-wrap mb-2">
@@ -158,6 +168,12 @@ export default function PartnerReferencePanel({
                   <div>
                     <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">CRM</span>
                     <span className="text-sm text-foreground">{partner.crm_platform}</span>
+                  </div>
+                )}
+                {partner.crm_notes && (
+                  <div className="col-span-2">
+                    <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">CRM Notes</span>
+                    <span className="text-sm text-foreground">{partner.crm_notes}</span>
                   </div>
                 )}
               </div>
