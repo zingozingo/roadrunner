@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import PillarBadge from "@/components/shared/PillarBadge";
@@ -219,6 +220,127 @@ export default async function PartnerDetailPage({
               <PartnerScratchpad partnerId={id} initialEntries={scratchpadEntries} compact />
             </div>
           </section>
+
+          {/* Co-Sell Performance */}
+          {(() => {
+            const fin = {
+              mp_tcv_ytd: partner.mp_tcv_ytd ?? null,
+              mp_tcv_goal: partner.mp_tcv_goal ?? null,
+              larr_ytd: partner.larr_ytd ?? null,
+              larr_goal: partner.larr_goal ?? null,
+              mp_tcv_2024: partner.mp_tcv_2024 ?? null,
+              larr_2024: partner.larr_2024 ?? null,
+              mp_tcv_2025: partner.mp_tcv_2025 ?? null,
+              larr_2025: partner.larr_2025 ?? null,
+              mp_tcv_target_2025: partner.mp_tcv_target_2025 ?? null,
+              mp_tcv_projected_annual: partner.mp_tcv_projected_annual ?? null,
+              larr_projected_annual: partner.larr_projected_annual ?? null,
+            };
+            const hasAny = Object.values(fin).some((v) => v !== null);
+            if (!hasAny) return null;
+
+            function fmtCurrency(val: number | null): string {
+              if (val === null || val === undefined) return "—";
+              if (val >= 1_000_000) return `$${(val / 1_000_000).toFixed(1)}M`;
+              if (val >= 1_000) return `$${Math.round(val / 1_000)}k`;
+              return `$${Math.round(val)}`;
+            }
+
+            function attainmentPct(ytd: number | null, goal: number | null): string | null {
+              if (ytd === null || goal === null || goal <= 0) return null;
+              return `${Math.round((ytd / goal) * 100)}%`;
+            }
+
+            const mpAttain = attainmentPct(fin.mp_tcv_ytd, fin.mp_tcv_goal);
+            const larrAttain = attainmentPct(fin.larr_ytd, fin.larr_goal);
+
+            const priorRows: { label: string; mp: number | null; larr: number | null }[] = [
+              { label: "2025 Actuals", mp: fin.mp_tcv_2025, larr: fin.larr_2025 },
+              { label: "2024 Actuals", mp: fin.mp_tcv_2024, larr: fin.larr_2024 },
+            ];
+            const hasPrior = priorRows.some((r) => r.mp !== null || r.larr !== null);
+
+            return (
+              <section>
+                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
+                  Co-Sell Performance
+                </h2>
+                <div className="rounded-lg border border-border/20 bg-surface/50 p-4 space-y-4">
+                  {/* Primary metrics: MP TCV and LARR */}
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* MP TCV */}
+                    <div>
+                      <div className="text-xs text-muted mb-1">MP TCV</div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-lg font-semibold text-foreground">{fmtCurrency(fin.mp_tcv_ytd)}</span>
+                        {fin.mp_tcv_goal !== null && (
+                          <span className="text-xs text-muted">/ {fmtCurrency(fin.mp_tcv_goal)} goal</span>
+                        )}
+                      </div>
+                      {mpAttain && (
+                        <div className="mt-0.5 text-sm font-medium text-accent">{mpAttain} attainment</div>
+                      )}
+                    </div>
+                    {/* LARR */}
+                    <div>
+                      <div className="text-xs text-muted mb-1">LARR</div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-lg font-semibold text-foreground">{fmtCurrency(fin.larr_ytd)}</span>
+                        {fin.larr_goal !== null && (
+                          <span className="text-xs text-muted">/ {fmtCurrency(fin.larr_goal)} goal</span>
+                        )}
+                      </div>
+                      {larrAttain && (
+                        <div className="mt-0.5 text-sm font-medium text-accent">{larrAttain} attainment</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Prior year + projections */}
+                  {(hasPrior || fin.mp_tcv_target_2025 !== null || fin.mp_tcv_projected_annual !== null || fin.larr_projected_annual !== null) && (
+                    <div className="border-t border-border/20 pt-3">
+                      <div className="grid grid-cols-[auto_1fr_1fr] gap-x-4 gap-y-1.5 text-sm">
+                        {/* Column headers */}
+                        <div className="text-xs text-muted/50" />
+                        <div className="text-xs text-muted/50">MP TCV</div>
+                        <div className="text-xs text-muted/50">LARR</div>
+
+                        {/* Prior year rows */}
+                        {priorRows.map((row) => {
+                          if (row.mp === null && row.larr === null) return null;
+                          return (
+                            <Fragment key={row.label}>
+                              <div className="text-xs text-muted">{row.label}</div>
+                              <div className="text-sm text-foreground/80">{fmtCurrency(row.mp)}</div>
+                              <div className="text-sm text-foreground/80">{fmtCurrency(row.larr)}</div>
+                            </Fragment>
+                          );
+                        })}
+
+                        {/* 2025 Target */}
+                        {fin.mp_tcv_target_2025 !== null && (
+                          <>
+                            <div className="text-xs text-muted">2025 Target</div>
+                            <div className="text-sm text-foreground/80">{fmtCurrency(fin.mp_tcv_target_2025)}</div>
+                            <div className="text-sm text-foreground/80">—</div>
+                          </>
+                        )}
+
+                        {/* Projected Annual */}
+                        {(fin.mp_tcv_projected_annual !== null || fin.larr_projected_annual !== null) && (
+                          <>
+                            <div className="text-xs text-muted">Projected Annual</div>
+                            <div className="text-sm text-foreground/80">{fmtCurrency(fin.mp_tcv_projected_annual)}</div>
+                            <div className="text-sm text-foreground/80">{fmtCurrency(fin.larr_projected_annual)}</div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </section>
+            );
+          })()}
 
           {/* Open Tasks */}
           {tasksWithContext.length > 0 && (() => {
