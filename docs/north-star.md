@@ -179,7 +179,7 @@ The agent needs to understand what data is available for rendering. This is the 
 **Ring 1 — Catalog (AT → RR pull sync):**
 | Table | Records | Key Fields |
 |-------|---------|------------|
-| partners | 22 | name, segment, focus_area, what_they_do, architecture, listing_types, pricing_model, aws_stickiness, key_aws_services, joint_value_proposition, isva_status, deployed_on_aws, prm_status, crm_platform, crm_notes, mp_tcv_goal, larr_goal, mp_tcv_ytd, larr_ytd, mp_tcv_2024, larr_2024, mp_tcv_2025, larr_2025, mp_tcv_target_2025, mp_tcv_projected_annual, larr_projected_annual |
+| partners | 24 | name, segment, focus_area, what_they_do, architecture, listing_types, pricing_model, aws_stickiness, key_aws_services, joint_value_proposition, isva_status, deployed_on_aws, prm_status, crm_platform, crm_notes, mp_tcv_goal, larr_goal, mp_tcv_ytd, larr_ytd, mp_tcv_2024, larr_2024, mp_tcv_2025, larr_2025, mp_tcv_target_2025, mp_tcv_projected_annual, larr_projected_annual |
 | programs | 72 | name, description, type, requirements, what_it_unlocks |
 | events | 44 | name, type, start_date, end_date, location, geo |
 | relationships | 7 | (future: dissolves into People layer) |
@@ -187,8 +187,8 @@ The agent needs to understand what data is available for rendering. This is the 
 **Ring 2 — Activity (RR-owned, pushed to AT):**
 | Table | Records | Key Fields |
 |-------|---------|------------|
-| engagements | 30 | partner_id, topic, pillar, status, current_state, condensed |
-| meetings | 37 | partner_id, engagement_id, meeting_type, meeting_date, source, recurrence_pattern, series_id |
+| engagements | 30+ | partner_id, topic, pillar, status, current_state, condensed |
+| meetings | 44 | partner_id, engagement_id, meeting_type, meeting_date, source, recurrence_pattern, series_id |
 | meeting_notes | ~17 | meeting_id, raw_notes, summary, condensed, tasks extracted |
 | tasks | ~33 | partner_id, engagement_id, meeting_note_id, description, owner, status, due_date, origin |
 | messages | varies | partner_id, subject, body, sender, received_at |
@@ -237,9 +237,10 @@ All existing routes are stable and should not be modified without explicit need.
 
 **3. Brain Synthesizer** (brain-synthesizer.ts, notes-context.ts)
 - Fires when: user clicks "Re-synthesize" on partner page
-- Reads: partner profile + scratchpad + condensed engagement digests + standalone meeting digests + open tasks + activity patterns
-- **NEEDS REFINEMENT:** Currently produces a 4-section executive briefing. Should produce a single cohesive paragraph (3-5 sentences) that covers: what the partner does, what's active, performance snapshot, and anything notable. The prompt needs rewriting to target this format.
-- **NEW CONTEXT TO ADD:** Financial data (mp_tcv_ytd, larr_ytd, goals, attainment), program enrollment status, funding wallet status. These should be included in the context passed to the brain synthesizer so the paragraph can reference financial trajectory and program status.
+- Reads: partner profile (full) + scratchpad + condensed engagement digests + standalone meeting digests + open tasks + activity patterns + financial data (11 fields) + program enrollments + funding wallets (MPOPP/MDF) + strategic goals
+- Produces: single Strategic Posture paragraph (3-6 sentences). No section headers, no bullets, no specific dollar amounts. Qualitative assessment of co-sell/co-build/co-market maturity.
+- Context: 11 sections in buildBrainContext (partner profile, contacts, scratchpad, engagements, standalone meetings, tasks, activity patterns, program enrollments, funding, strategic goals, financial summary)
+- Don't touch: prompt and context pipeline are stable (rewritten 2026-03-27)
 
 ### What AI Does NOT Do
 - No automated "at risk" / "critical" / "on track" labels

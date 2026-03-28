@@ -6,7 +6,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 74 migrations, 23 active tables, 31 API routes, 18 UI pages, 437 passing tests (0 failures), tsc --noEmit passes clean
+- 75 migrations, 23 active tables, 31 API routes, 18 UI pages, 437 passing tests (0 failures), tsc --noEmit passes clean
 - Human-guided intake pipeline fully operational: webhook → mechanical partner detection → ICS partner backfill → inbox triage (with unknown partner picker) → single-phase AI synthesis (decisions #223-252)
 - Meetings Motion complete (decisions #253-259): 10 interaction-based meeting types, recurring meeting engine with auto-spawn, series tracking via self-referential FK, RecurrenceEditor UI, synthesis-on-link, conference boilerplate pre-split fix, ICS multi-VEVENT guardrail confirmed
 - AI Brain Overhaul Phases 1-3 complete (decisions #260-269): goal field eliminated (migration 069), condensed columns on engagements + meeting_notes (migration 068), meeting summarization restructured with scoped context builder, structured output (Discussion/Decisions/Key Context), condensed 3-5 bullet digest, non-redundancy with tasks
@@ -20,7 +20,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 - Tasks promoted to partner-level entities with owner_participant_id FK + engagement_id FK (decisions 170-175, 280-281). Tasks page is full command center: checkbox complete/reopen, delete with confirmation, inline description edit, meeting link, engagement linker (decision 279). AI-extracted tasks inherit engagement_id from meeting→engagement chain. Re-summarize is additive — never deletes existing tasks (decision 278). Task extraction prompt rewritten with aggressive forward/backward test (6x improvement, decision 277).
 - Relationships universally renamed from aws_relationships (decision 173)
 - Meeting notes: 3-mode workspace (editing → review → saved), AI summarizer with structured output + condensed digest, task extraction, engagement-scoped context, Previous Context three-tier cascade (engagement → series → empty), Re-summarize removed from saved mode (decisions 101-119, 156-167, 265-266, 284-288)
-- Brain synthesis (AI Call 3): structured 4-section executive briefing (Relationship Overview, Activity Patterns, What Needs Attention, Momentum Assessment), dedicated buildBrainContext reads condensed digests, max_tokens 2,000, manual trigger, stored as partner_context source='ai_synthesis' (decisions 191-193, 274-275)
+- Brain synthesis (AI Call 3): single Strategic Posture paragraph (3-6 sentences), dedicated buildBrainContext reads condensed digests + Ring 3 data (financials, enrollments, funding, goals), max_tokens 1,000, manual trigger, stored as partner_context source='ai_synthesis' (decisions 191-193, 274-275). Prompt rewritten 2026-03-27 from 4-section briefing to single paragraph. All 24 partners batch re-synthesized.
 - Seed notes eliminated: note_type CHECK narrowed to 'meeting', historical context lives in scratchpad (decision 195)
 - Manual meeting quick-capture: modal form on /meetings page with partner dropdown, auto-title, meeting type (decision 189)
 - Manual task creation: inline form on partner detail, POST /api/notes/tasks, no meeting note required (decision 196)
@@ -43,23 +43,29 @@ A system where a PDM forwards an email and Roadrunner:
 
 ## What's Next
 
-### Next Session
-- Partner page tab redesign (decision #324) — 4-tab layout for Ring 3 data (Overview, Operations, Profile, People)
-- Partner Goals population from business plans — AT table created but empty
-- Finish program enrollment linking — 58/80 enrollments have null program_id (need AT linked records populated)
-- Real daily use testing — forward emails, verify full pipeline end-to-end
-- 41-task engagement backfill — link meetings to engagements so cascade populates task.engagement_id
+### Next Session — UI Overhaul (Agent)
+- Today page (new landing — replaces redirect-to-partners)
+- Partner list page (add performance indicators)
+- Partner detail page (visual refinement — data already wired)
+- Meeting detail page (enterprise loading states, button labels, navigation safety)
+- Tasks page (visual refinement)
+- Inbox page (enterprise UX polish)
+- Sidebar simplification
+- See docs/north-star.md for full spec
 
 ### Soon
 - CLASSIFICATION.md full rewrite to document current pipeline
-- Brain prompt refinement based on real data review (now with Ring 3 context available)
 - is_recurring column drop migration (app code done, column unused)
 - meeting_type backfill for 16 older meetings (pre-meeting-type era, all have type=null)
+- SKILL.md rewrite for agent session
+- Docs checkpoint (entity-model.md field updates)
 
 ### Later
 - Ring 3 CRUD UI (flip from pull-only to push when ready)
+- Partner Goals population from business plans — AT table created but empty
+- Finish program enrollment linking — 58/80 enrollments have null program_id (need AT linked records populated)
 - Pre-meeting briefing (AI-generated)
-- Pulse page (dashboard landing)
+- 41-task engagement backfill — link meetings to engagements so cascade populates task.engagement_id
 
 ### Completed
 - ~~Meeting notes feature~~ ✅ (decisions 101-108)
@@ -119,7 +125,12 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~EngagementLinker create-new + task cascade~~ ✅ (decisions 313-315): cascadeEngagementToTasks utility (link fills nulls, unlink clears matched), EngagementLinker "Create new engagement" with note-seeded current_state, task cascade wired server-side into PUT /api/meetings/[id]
 - ~~Task provenance redesign~~ ✅ (decisions 316-317): Adaptive display (engagement > meeting > partner-only), stripPartnerPrefix utility, quiet "+ eng" affordance, partner detail provenance subtitles
 - ~~Dead component cleanup~~ ✅ (decision 328): CurrentStateCard, MeetingTimeline, ExpandableList, PartnerTasksSection removed (36→32 components)
-- ~~Ring 3 data architecture~~ ✅ (decisions 318-338): 5 new tables, 11 new partner columns (financials/CRM/JVP), 5 pull sync functions, AT cleanup (Co-Sell Goals dissolved, Partner field linked records, CRM restructured). 80 program enrollments + 18 MPOPP + 8 MDF syncing. Migrations 072-074
+- ~~Ring 3 data architecture~~ ✅ (decisions 318-338): 5 new tables, 11 new partner columns (financials/CRM/JVP), 5 pull sync functions, AT cleanup (Co-Sell Goals dissolved, Partner field linked records, CRM restructured). 80 program enrollments + 18 MPOPP + 8 MDF syncing. Migrations 072-075
+- ~~Ring 3 data wired to partner detail page~~ ✅: 5 new sections (Co-Sell Performance, Program Enrollments, Funding, Strategic Goals, Event Participations), JVP + CRM Notes wired to PartnerReferencePanel slide-over, all 14 unrendered partner fields now displayed
+- ~~Brain prompt rewrite~~ ✅: 4-section executive briefing → single Strategic Posture paragraph (3-6 sentences), max_tokens 2,000 → 1,000, no specific dollar amounts, no section headers/bullets/traffic-light labels
+- ~~Brain context enriched with Ring 3~~ ✅: buildBrainContext now includes financial fields (11), program enrollments, funding wallets (MPOPP/MDF), strategic goals, activity signals
+- ~~Batch re-synthesis~~ ✅: All 24 partners re-synthesized with new prompt format (2026-03-27)
+- ~~Merge route fix~~ ✅: meeting_notes + tasks engagement_id now cascaded during merge, source current_state enriched into target before deletion
 
 ## Architecture Principles
 

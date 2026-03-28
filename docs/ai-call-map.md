@@ -1,5 +1,5 @@
 # Roadrunner AI Call Map
-**Updated:** 2026-03-21 (Post AI Brain Overhaul — Phases 1-5)
+**Updated:** 2026-03-27 (Post Ring 3 data wiring + brain prompt rewrite)
 **Purpose:** Complete documentation of all three AI calls — what triggers them, what they read, what they produce, where the output goes. This is the living reference for the two-version pyramid architecture.
 
 ---
@@ -22,7 +22,7 @@ Each level compresses before feeding the level above. At 50 meetings and 15 enga
 |------|--------|----------------|---------|-------------------|-------------------|
 | 1. Engagement Synthesis | classifier.ts + phase2-prompt.ts | buildPhase2Context (phase2-prompt.ts) | User routes inbox item | ~3,075 | 4,096 |
 | 2. Meeting Note Summary | notes-summarizer.ts + notes-context.ts | buildMeetingNoteContext (notes-context.ts) | User clicks "Summarize" | ~1,800 | 4,096 |
-| 3. Partner Brain | brain-synthesizer.ts + notes-context.ts | buildBrainContext (notes-context.ts) | User clicks "Synthesize" | ~2,000+ (scales with engagement count) | 2,000 |
+| 3. Partner Brain | brain-synthesizer.ts + notes-context.ts | buildBrainContext (notes-context.ts) | User clicks "Synthesize" | ~3,000+ (scales with engagement count + Ring 3 data) | 1,000 |
 
 Each call has its own dedicated context builder. No shared context paths.
 
@@ -176,15 +176,19 @@ User clicks "Synthesize" on partner detail → `/api/partners/[id]/synthesize` �
 ```
 brain-synthesizer.ts::saveAndSynthesize()
   ├── synthesizePartnerBrain(partnerId)
-  │     ├── buildBrainContext(partnerId)       ← DEDICATED context builder
-  │     │     ├── partner profile (FULL — architecture, stickiness, services)
+  │     ├── buildBrainContext(partnerId)       ← DEDICATED context builder (11 sections)
+  │     │     ├── partner profile (FULL — architecture, stickiness, services, 11 financial fields)
   │     │     ├── key contacts from registry
   │     │     ├── getPartnerScratchpad()       → source='scratchpad' only (no ai_synthesis feedback)
   │     │     ├── active engagements with condensed digests
   │     │     ├── getStandaloneCondensedDigests() → meetings NOT linked to any engagement
   │     │     ├── getTasksByPartner(status: open) → titles + owners
-  │     │     └── activity pattern signals (pillar distribution, meeting frequency, recency)
-  │     └── Anthropic API call (max_tokens: 2,000)
+  │     │     ├── activity pattern signals (pillar distribution, meeting frequency, recency)
+  │     │     ├── getPartnerProgramEnrollments() → type distribution, status breakdown
+  │     │     ├── getPartnerMpoppFunding() → allocated/spent per half
+  │     │     ├── getPartnerMdfFunding() → allocated/utilized per record
+  │     │     └── getPartnerGoals() → goals with category/status
+  │     └── Anthropic API call (max_tokens: 1,000)
   ├── DELETE partner_context WHERE source='ai_synthesis'
   └── INSERT partner_context (source='ai_synthesis')
 ```
@@ -192,46 +196,49 @@ brain-synthesizer.ts::saveAndSynthesize()
 ### What the Prompt Contains
 | Section | Est. Tokens | Notes |
 |---------|-------------|-------|
-| System prompt | ~800 | 4-section structured briefing, pattern synthesis, non-redundancy rules |
-| Partner profile (full) | ~400 | Architecture, stickiness, services — brain synthesizes these into insight |
+| System prompt | ~800 | Single-paragraph Strategic Posture, qualitative-only financials, pattern synthesis rules |
+| Partner profile (full + financials) | ~600 | Architecture, stickiness, services, 11 financial fields with computed attainment % |
 | Key contacts | ~100 | Alliance lead, AM, PSA, top others |
 | Scratchpad entries | variable | PRIMARY value — tribal knowledge |
 | Condensed engagement digests | ~300+ | All active engagements × ~50 words each. Scales with engagement count. |
 | Standalone meeting digests | variable | Partner cadences, unlinked meetings |
 | Open tasks | ~100 | Titles + owners only |
-| Activity patterns | ~100 | Pillar distribution, meeting frequency, recency signals |
-| **TOTAL** | **~2,000+** | Scales with engagement/meeting count, but through compressed lenses |
+| Activity patterns + Ring 3 signals | ~150 | Pillar distribution, meeting frequency, recency, enrollment count, funding totals, goal count |
+| Program enrollments | ~200 | Type distribution (Competency/Credit/Strategic/Operational), status breakdown |
+| Funding (MPOPP + MDF) | ~200 | Allocated/spent/remaining per wallet |
+| Strategic goals | ~100 | Goals with category and status |
+| **TOTAL** | **~3,000+** | Scales with engagement/meeting count + Ring 3 data volume |
 
 ### What the AI Produces
-Structured executive briefing with 4 named sections:
-```
-### Relationship Overview
-2-3 sentences on overall health, key people, trajectory.
+A single plain paragraph (3-6 sentences) answering: "Is this partner progressing toward co-sell, co-build, and co-market maturity — and what does the evidence say?"
 
-### Activity Patterns
-Synthesized patterns — pillar distribution, cadence, focus areas. NOT a list of engagements.
-
-### What Needs Attention
-Stale engagements, overdue tasks, relationship risks, data gaps.
-
-### Momentum Assessment
-One sentence: accelerating, steady, decelerating, or stalled.
-```
+**Prompt rules:**
+- No section headers, markdown formatting, or bullet points
+- No specific dollar amounts, percentages, or attainment figures — describe financial trajectory qualitatively only
+- No "at risk" / "on track" / traffic-light labels
+- No "needs attention" urgency judgments
+- Third person factual assessment ("The partnership is..." not "You should...")
+- Reference people by first name when relevant (from scratchpad)
+- Note pillar balance, engagement depth, program enrollment patterns
+- Honest about limited data
 
 ### Where Output Is Stored
 - `partner_context` table: `source='ai_synthesis'`, replaces previous synthesis
 
 ### Where Output Is Displayed
-- Partner detail page: position #2 in left column, labeled "Living Context"
+- Partner detail page: BrainSynthesis component, labeled "Living Context"
 
-### What Was Changed (Phase 5)
+### What Was Changed (Phase 5 → Ring 3 Enrichment)
 - Dedicated buildBrainContext replaces shared buildPartnerContext (Decision #275)
 - Reads condensed digests from pyramid below, not raw prose
 - Scratchpad filtered to source='scratchpad' — no ai_synthesis feedback loop (Decision #275)
 - Standalone meeting digests feed directly (Decision D5)
-- Structured 4-section output replaces 2-4 sentence blob (Decision #274)
-- max_tokens 500 → 2,000 (Decision #274)
+- max_tokens 500 → 2,000 → 1,000 (Decisions #274, rewrite 2026-03-27)
 - Activity pattern signals computed and provided
+- **2026-03-27:** 4-section executive briefing → single Strategic Posture paragraph
+- **2026-03-27:** buildBrainContext enriched with Ring 3 data (financials, enrollments, funding, goals)
+- **2026-03-27:** Prompt rule added: no specific dollar amounts (qualitative financial references only)
+- **2026-03-27:** All 24 partners batch re-synthesized with new format
 
 ---
 
@@ -269,11 +276,11 @@ No shared context paths between calls. Each builder fetches exactly what its cal
 
 ## Token Budget Summary
 
-| Call | Pre-Overhaul | Post-Overhaul | Change |
-|------|-------------|---------------|--------|
-| 1. Engagement Synthesis | ~18,550 | ~3,075 | -83% (removed history + catalogs) |
-| 2. Meeting Note Summary | ~2,000 | ~1,800 | -10% (scoping helps quality, not size) |
-| 3. Partner Brain | ~1,070 | ~2,000+ | +87% (intentional: more input for better output) |
+| Call | Pre-Overhaul | Post-Overhaul | Post-Ring 3 | Change |
+|------|-------------|---------------|-------------|--------|
+| 1. Engagement Synthesis | ~18,550 | ~3,075 | ~3,075 | -83% (removed history + catalogs) |
+| 2. Meeting Note Summary | ~2,000 | ~1,800 | ~1,800 | -10% (scoping helps quality, not size) |
+| 3. Partner Brain | ~1,070 | ~2,000+ | ~3,000+ | +180% (Ring 3 data added, output compressed to 1,000 max_tokens) |
 
 ---
 
@@ -297,3 +304,6 @@ No shared context paths between calls. Each builder fetches exactly what its cal
 | 273 | Dead code removed — 7 orphaned functions | 4 |
 | 274 | Partner brain rewritten — structured 4-section briefing | 5 |
 | 275 | Brain context decoupled — dedicated buildBrainContext | 5 |
+| — | Brain prompt rewritten: 4-section → single Strategic Posture paragraph | Ring 3 |
+| — | buildBrainContext enriched with Ring 3 data (financials, enrollments, funding, goals) | Ring 3 |
+| — | max_tokens reduced 2,000 → 1,000, qualitative-only financial rule added | Ring 3 |

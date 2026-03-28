@@ -12,7 +12,7 @@
 - When you establish a new UI pattern (e.g., how financial data is displayed, how loading states work, how performance bars look), DOCUMENT IT IN SKILL.md BEFORE reusing it across multiple pages. Consistency comes from documenting patterns, not from memory.
 - After EVERY page change: run `npx tsc --noEmit` and `npx vitest run`. Fix any breaks before moving on.
 - NEVER modify these files unless explicitly directed: src/lib/sync/*, src/lib/email-parser.ts, src/lib/ics-parser.ts, src/lib/classifier.ts, src/lib/phase2-prompt.ts, src/lib/meeting-recurrence.ts, src/app/api/inbound/route.ts. These are stable production pipelines.
-- The brain synthesizer prompt (src/lib/brain-synthesizer.ts, src/lib/notes-context.ts) CAN be refined to produce a single cohesive paragraph instead of 4 sections. The North Star describes the target format.
+- The brain synthesizer prompt (src/lib/brain-synthesizer.ts, src/lib/notes-context.ts) has been rewritten to produce a single Strategic Posture paragraph (3-6 sentences). The prompt and context are stable — do not modify unless explicitly directed.
 - All database modules (src/lib/db/*) are stable. Use existing query functions. Add new query functions if needed for new data displays, but don't restructure existing ones.
 - All 437+ tests must pass at every checkpoint. If a test fails, fix it before continuing.
 - Enterprise UX is non-negotiable: explicit loading states, navigation safety for unsaved changes, confirmation dialogs for destructive actions, professional button labels. See North Star Part 7.
@@ -23,7 +23,7 @@
 - Sidebar (simplify navigation)
 - Landing page (Today screen — replaces redirect-to-partners)
 - Partner list page (add performance indicators)
-- Partner detail page (synthesis paragraph, financial snapshot, scrollable sections)
+- Partner detail page (scrollable sections, visual refinement — synthesis paragraph + financial snapshot already wired)
 - Meeting detail page (enterprise loading states, button labels, navigation safety)
 - Tasks page (visual refinement)
 - Inbox page (enterprise UX polish)
