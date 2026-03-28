@@ -564,7 +564,6 @@ describe("buildPhase2Context — incoming meeting data", () => {
     organizer_name: "Alice Chen",
     ics_uid: "uid-new",
     sequence: 0,
-    is_recurring: false,
     source: "ics_parsed",
     meeting_type: null,
     recurrence_pattern: "weekly",

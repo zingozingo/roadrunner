@@ -176,7 +176,6 @@ export async function createMeeting(data: {
   meeting_type?: string | null;
   notes?: string | null;
   source?: Meeting["source"];
-  is_recurring?: boolean;
   recurrence_pattern?: string | null;
   recurrence_end?: string | null;
 }): Promise<Meeting> {
@@ -197,7 +196,6 @@ export async function createMeeting(data: {
       meeting_type: data.meeting_type ?? null,
       notes: data.notes ?? null,
       source: data.source ?? "manual",
-      is_recurring: data.is_recurring ?? false,
       recurrence_pattern: data.recurrence_pattern ?? null,
       recurrence_end: data.recurrence_end ?? null,
     })
@@ -253,7 +251,6 @@ export async function updateMeeting(
     organizer_email?: string | null;
     meeting_type?: string | null;
     notes?: string | null;
-    is_recurring?: boolean;
     recurrence_pattern?: string | null;
     recurrence_end?: string | null;
     series_id?: string | null;

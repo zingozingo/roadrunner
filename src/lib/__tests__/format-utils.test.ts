@@ -150,7 +150,6 @@ function makeMeeting(overrides: Partial<Meeting> & { id: string; meeting_date?: 
     organizer_name: null,
     ics_uid: null,
     sequence: null,
-    is_recurring: false,
     source: "manual",
     meeting_type: null,
     notes: null,

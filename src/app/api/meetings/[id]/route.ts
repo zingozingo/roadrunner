@@ -52,7 +52,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { title, engagement_id, partner_name, status, meeting_date, start_time, end_time, location, notes, is_recurring, recurrence_pattern, recurrence_end, series_id } = body;
+    const { title, engagement_id, partner_name, status, meeting_date, start_time, end_time, location, notes, recurrence_pattern, recurrence_end, series_id } = body;
 
     if (title !== undefined && (typeof title !== "string" || !title.trim())) {
       return NextResponse.json(

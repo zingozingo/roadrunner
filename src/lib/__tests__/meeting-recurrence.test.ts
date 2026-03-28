@@ -52,7 +52,6 @@ function makeMeeting(overrides: Partial<Meeting> = {}): Meeting {
     organizer_name: null,
     ics_uid: null,
     sequence: null,
-    is_recurring: true,
     source: "manual",
     meeting_type: "partner_cadence",
     recurrence_pattern: "weekly",

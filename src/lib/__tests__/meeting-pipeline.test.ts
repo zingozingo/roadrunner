@@ -54,7 +54,6 @@ function buildParsedMeeting(overrides: Partial<ParsedMeeting> = {}): ParsedMeeti
     method: null,
     status: null,
     sequence: null,
-    is_recurring: false,
     organizer_name: "Jane Doe",
     is_cancellation: false,
     ...overrides,

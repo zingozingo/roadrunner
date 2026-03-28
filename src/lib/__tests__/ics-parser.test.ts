@@ -342,7 +342,7 @@ describe("parseICSContent", () => {
   });
 
   // ============================================================
-  // New fields: method, status, sequence, is_recurring,
+  // New fields: method, status, sequence,
   //             organizer_name, is_cancellation
   // ============================================================
 
@@ -358,7 +358,6 @@ describe("parseICSContent", () => {
     expect(result!.method).toBeNull();
     expect(result!.status).toBeNull();
     expect(result!.sequence).toBeNull();
-    expect(result!.is_recurring).toBe(false);
     expect(result!.organizer_name).toBe("Jane Smith");
     expect(result!.is_cancellation).toBe(false);
   });
@@ -405,22 +404,6 @@ describe("parseICSContent", () => {
 
     expect(result).not.toBeNull();
     expect(result!.sequence).toBe(3);
-  });
-
-  it("detects RRULE presence → is_recurring true", () => {
-    const ics = buildICS({}, ["RRULE:FREQ=WEEKLY;BYDAY=TU"]);
-    const result = parseICSContent(ics);
-
-    expect(result).not.toBeNull();
-    expect(result!.is_recurring).toBe(true);
-  });
-
-  it("no RRULE → is_recurring false", () => {
-    const ics = buildICS();
-    const result = parseICSContent(ics);
-
-    expect(result).not.toBeNull();
-    expect(result!.is_recurring).toBe(false);
   });
 
   it("extracts organizer_name from CN parameter", () => {
@@ -479,7 +462,6 @@ describe("parseICSContent", () => {
     expect(result!.method).toBe("CANCEL");
     expect(result!.status).toBe("CANCELLED");
     expect(result!.sequence).toBe(2);
-    expect(result!.is_recurring).toBe(true);
     expect(result!.is_cancellation).toBe(true);
   });
 });
@@ -527,9 +509,6 @@ describe("parseICSContent — multi-VEVENT guardrail", () => {
     expect(result!.title).toBe("Weekly Partner Sync");
     expect(result!.meeting_date).toBe("2026-03-10");
     expect(result!.location).toBe("Chime");
-
-    // RRULE detected → is_recurring true
-    expect(result!.is_recurring).toBe(true);
 
     // Second VEVENT's data is NOT used
     expect(result!.title).not.toBe("Weekly Partner Sync (Rescheduled)");

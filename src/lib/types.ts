@@ -146,7 +146,6 @@ export interface Meeting {
   organizer_name: string | null;
   ics_uid: string | null;
   sequence: number | null;
-  is_recurring: boolean; // DEPRECATED: use recurrence_pattern instead
   source: "manual" | "ics_parsed" | "body_parsed" | "auto";
   meeting_type: MeetingType | null;
   recurrence_pattern: RecurrencePattern | null;
@@ -175,8 +174,6 @@ export interface ParsedMeeting {
   status: string | null;
   /** VEVENT SEQUENCE — update counter, starts at 0, increments on updates */
   sequence: number | null;
-  /** True if VEVENT contains an RRULE (recurrence rule). DEPRECATED: use recurrence_pattern instead */
-  is_recurring: boolean;
   /** CN from ORGANIZER line */
   organizer_name: string | null;
   /** Derived: METHOD=CANCEL, STATUS=CANCELLED, or title starts with "Canceled:"/"Cancelled:" */

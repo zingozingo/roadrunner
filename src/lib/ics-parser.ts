@@ -253,8 +253,7 @@ export function parseICSContent(icsContent: string): ParsedMeeting | null {
         // DESIGN: One forward = one meeting, always.
         // Recurring series ICS may contain multiple VEVENT blocks (the master
         // event plus individual occurrences with RECURRENCE-ID). We only parse
-        // the first VEVENT. RRULE is detected to set is_recurring = true, but
-        // Roadrunner never auto-expands recurrence from ICS — the user decides
+        // the first VEVENT. Roadrunner never auto-expands recurrence from ICS — the user decides
         // whether to enable recurrence via the meeting detail page.
         break;
       }
@@ -295,8 +294,6 @@ export function parseICSContent(icsContent: string): ParsedMeeting | null {
     const status = getProperty(eventLines, "STATUS")?.toUpperCase() ?? null;
     const sequenceRaw = getProperty(eventLines, "SEQUENCE");
     const sequence = sequenceRaw !== null ? parseInt(sequenceRaw, 10) : null;
-    const is_recurring = eventLines.some((l) => l.startsWith("RRULE:") || l.startsWith("RRULE;"));
-
     const title = unescapeText(summary);
     const is_cancellation =
       method === "CANCEL" ||
@@ -316,7 +313,6 @@ export function parseICSContent(icsContent: string): ParsedMeeting | null {
       method,
       status,
       sequence: sequence !== null && !isNaN(sequence) ? sequence : null,
-      is_recurring,
       organizer_name: organizer.name,
       is_cancellation,
     };
