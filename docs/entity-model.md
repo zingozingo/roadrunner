@@ -1,7 +1,7 @@
 # Roadrunner Entity Model
 
-> **Last updated**: 2026-03-26 (Ring 3 tables created — migrations 072-074)
-> 23 active tables · 74 migrations · Ring 3 pull sync operational
+> **Last updated**: 2026-03-27 (Ring 3 data wired to UI, brain prompt rewritten, merge route fixed)
+> 23 active tables · 75 migrations · Ring 3 pull sync operational
 
 ---
 
@@ -130,31 +130,34 @@ erDiagram
 | isva_status | text | singleSelect (2 options) | AT | ← AT | fldHYucRg9ZIJ6PWI | partner detail |
 | deployed_on_aws | text | singleSelect (4 options) | AT | ← AT | fldNtBO1Wlh9mOL0c | partner detail |
 | prm_status | text | singleSelect (3 options) | AT | ← AT | fldDV1UhZjAuR1Xxl | partner detail |
-| crm_status | text | multilineText | AT | ← AT | fldPdisuSJruZqLbo | partner detail |
+| crm_platform | text CHECK (Salesforce, HubSpot, Other, None) | singleSelect | AT | ← AT | fldPdisuSJruZqLbo | partner detail (status tab) |
+| crm_notes | text | multilineText | AT | ← AT | fldCrmNotesXXX | partner detail (status tab) |
+| joint_value_proposition | text | multilineText | AT | ← AT | fldJvpXXX | partner detail (profile tab) |
+| mp_tcv_goal | numeric | number | AT | ← AT | fldJwFIRzYit9MsQe | partner detail (Co-Sell Performance) |
+| larr_goal | numeric | number | AT | ← AT | fldAS4Qa8F39qc7La | partner detail (Co-Sell Performance) |
+| mp_tcv_ytd | numeric | number | AT | ← AT | fldPjzGNolAHbLrlE | partner detail (Co-Sell Performance) |
+| larr_ytd | numeric | number | AT | ← AT | fld9I88K1ijili8Af | partner detail (Co-Sell Performance) |
+| mp_tcv_2024 | numeric | number | AT | ← AT | fld6BOKL7CmXdmR2D | partner detail (Co-Sell Performance) |
+| larr_2024 | numeric | number | AT | ← AT | fldjI3nMg5ich9DKL | partner detail (Co-Sell Performance) |
+| mp_tcv_2025 | numeric | number | AT | ← AT | fldM1iuzmDdLT3axX | partner detail (Co-Sell Performance) |
+| larr_2025 | numeric | number | AT | ← AT | fld1uD9SHVZvnU5wR | partner detail (Co-Sell Performance) |
+| mp_tcv_target_2025 | numeric | number | AT | ← AT | fld5C6rHOzZVu6MXw | partner detail (Co-Sell Performance) |
+| mp_tcv_projected_annual | numeric | formula | AT | ← AT | fldQwP5RFGW3fhuAb | partner detail (Co-Sell Performance) |
+| larr_projected_annual | numeric | formula | AT | ← AT | fldlw3f03ebKd5Jpf | partner detail (Co-Sell Performance) |
 | airtable_record_id | text UNIQUE | — | RR | — | — | — |
 | created_at | timestamptz | — | RR | — | — | — |
 | updated_at | timestamptz | — | RR | — | — | — |
 
-**AT fields NOT in Supabase (planned for future sync):**
+**AT fields NOT in Supabase (linked records / computed):**
 
 | AT Field | AT Type | AT Field ID | Plan |
 |----------|---------|-------------|------|
-| Trailing 12 Months ($) | number | fldop0elollTQ3fnA | sync later |
-| 2024 MP TCV ($) | number | fld6BOKL7CmXdmR2D | sync later |
-| 2024 LARR ($) | number | fldjI3nMg5ich9DKL | sync later |
-| 2025 MP TCV YTD ($) | number | fldM1iuzmDdLT3axX | sync later |
-| 2025 LARR YTD ($) | number | fld1uD9SHVZvnU5wR | sync later |
-| 2025 MP TCV Target ($) | number | fld5C6rHOzZVu6MXw | sync later |
-| 2026 MP TCV Projected Annual | formula | fldQwP5RFGW3fhuAb | sync later (read-only) |
-| 2026 LARR Projected Annual | formula | fldlw3f03ebKd5Jpf | sync later (read-only) |
-| 2026 MP TCV YTD ($) | number | fldPjzGNolAHbLrlE | sync later |
-| 2026 LARR YTD ($) | number | fld9I88K1ijili8Af | sync later |
-| MPOPP Funding | linkedRecord → MPOPP Funding | fld1NCw566nVkuRZQ | sync later (with table) |
-| MDF Spent | number | fldxFdsp3DiWrIeXa | sync later |
-| MDF Funding 2026 | linkedRecord → MDF Funding | fldkU6G8mr0oRvlIE | sync later (with table) |
-| MDF Total Allocated | rollup | fld5EmiUardg2DBjA | sync later (read-only) |
-| MDF Remaining | formula | fldp57wu1hlHVZtJL | sync later (read-only) |
-| Co-Sell Goals 2026 | linkedRecord → Co-Sell Goals | fldeeaBJPf3V3aJK3 | sync later (with table) |
+| MPOPP Funding | linkedRecord → MPOPP Funding | fld1NCw566nVkuRZQ | separate table (partner_funding_mpopp) |
+| MDF Funding 2026 | linkedRecord → MDF Funding | fldkU6G8mr0oRvlIE | separate table (partner_funding_mdf) |
+| MDF Spent | number | fldxFdsp3DiWrIeXa | computed in AT |
+| MDF Total Allocated | rollup | fld5EmiUardg2DBjA | computed in AT |
+| MDF Remaining | formula | fldp57wu1hlHVZtJL | computed in AT |
+| Co-Sell Goals 2026 | linkedRecord → Co-Sell Goals | fldeeaBJPf3V3aJK3 | dissolved into partner columns (decision #318) |
 | Partner Engagements | linkedRecord → Engagements | fldQYMSnTe8Y5HmxL | computed (reverse link) |
 
 ---
@@ -278,8 +281,12 @@ erDiagram
         uuid partner_id FK
         text pillar
         text topic
-        text goal
         text current_state
+        text condensed
+        text engagement_type
+        jsonb tags
+        date start_date
+        date target_completion
     }
     MEETINGS {
         uuid id PK
@@ -289,6 +296,9 @@ erDiagram
         text status
         text meeting_type
         date meeting_date
+        text recurrence_pattern
+        date recurrence_end
+        uuid series_id FK
     }
     MEETING_NOTES {
         uuid id PK
@@ -314,12 +324,6 @@ erDiagram
         text subject
         text content_type
     }
-    APPROVAL_QUEUE {
-        uuid id PK
-        uuid message_id FK
-        uuid engagement_id FK
-        boolean resolved
-    }
     PARTNER_CONTEXT {
         uuid id PK
         uuid partner_id FK
@@ -342,8 +346,12 @@ erDiagram
 | partner_id | uuid FK → partners | linkedRecord → Partners | RR | → AT (resolved to AT record) | fldkYNE9C0UcdnGCL | engagement list, detail |
 | pillar | text CHECK (Co-Sell, Co-Market, Co-Build) | singleSelect (3 options) | RR | → AT | fldvxfxhOPDGr5jBA | engagement list, detail |
 | topic | text | singleLineText | RR | → AT | fldDRMrtkVHOdDYVy | engagement detail |
-| goal | text | multilineText | RR | → AT | fld1yU46baF052MHd | engagement detail |
 | current_state | text | multilineText (merged into Notes) | RR | → AT | flduVQ9wp3XXVUiwo | engagement detail |
+| condensed | text | — | RR | — | — | brain context (upstream AI) |
+| engagement_type | text | — | RR | — | — | — (taxonomy TBD) |
+| tags | jsonb | — | RR | — | — | — |
+| start_date | date | — | RR | — | — | engagement detail |
+| target_completion | date | — | RR | — | — | engagement detail |
 | program_id | uuid FK → programs | linkedRecord → Programs | RR | → AT (resolved to AT record) | fldZ4IqdSvuEXgp83 | engagement detail |
 | closed_at | timestamptz | — | RR | — | — | — |
 | airtable_record_id | text UNIQUE | — | RR | — | — | — |
@@ -377,7 +385,7 @@ erDiagram
 | partner_id | uuid FK → partners (CASCADE) | — (lookup through engagement) | RR | — | — | meeting list, detail |
 | message_id | uuid FK → messages (SET NULL) | — | RR | — | — | — |
 | status | text NOT NULL CHECK (scheduled, completed, cancelled, did_not_occur) | singleSelect (4 options) | RR | → AT | fldpXlLugkUgQsjcr | meeting list, detail |
-| meeting_type | text CHECK (9 options) | singleSelect (9 options) | ↔ | → AT | fldGWa1MFoqoc89qC | meeting detail |
+| meeting_type | text CHECK (10 options: partner_cadence, sca_review, qbr, executive, event, internal, support, demo, enablement, ad_hoc) | singleSelect (10 options) | ↔ | → AT | fldGWa1MFoqoc89qC | meeting detail |
 | meeting_date | date | date | RR | → AT | fldx9ZrIMundEMUko | meeting list, detail, timeline |
 | start_time | text | singleLineText | RR | → AT | fldifWilEYICfifXz | meeting detail |
 | end_time | text | singleLineText | RR | → AT | fldV78rQbzDhVK9NO | meeting detail |
@@ -387,7 +395,10 @@ erDiagram
 | ics_uid | text UNIQUE | singleLineText | RR | → AT | fldNb83l5XLtz8J9k | — |
 | sequence | integer | — | RR | — (internal) | — | — |
 | is_recurring | boolean | — | RR | — (DEPRECATED: use recurrence_pattern) | — | — |
-| source | text CHECK (manual, ics_parsed, auto) | singleSelect | RR | → AT | fld2RW78vS1T91bab | — |
+| source | text CHECK (manual, ics_parsed, body_parsed, auto) | singleSelect | RR | → AT | fld2RW78vS1T91bab | — |
+| recurrence_pattern | text | — | RR | — | — | meeting detail (RecurrenceEditor) |
+| recurrence_end | date | — | RR | — | — | meeting detail (RecurrenceEditor) |
+| series_id | uuid FK → meetings (self-ref, SET NULL) | — | RR | — | — | meeting detail (series nav) |
 | notes | text | multilineText | RR | → AT | fldzGUipu36EA9rax | meeting detail |
 | airtable_record_id | text UNIQUE | — | RR | — | — | — |
 | created_at | timestamptz | — | RR | — | — | — |
@@ -440,6 +451,7 @@ Output format: one `Name <email> (Title)` per line (universal contact format).
 | date_range_end | date | RR | notes detail (seed type) |
 | raw_notes | text NOT NULL | RR | notes detail (collapsible) |
 | ai_summary | text | RR | notes detail |
+| condensed | text | RR | brain context (upstream AI — 3-5 bullet digest) |
 | ai_tasks | jsonb | RR | — (superseded by tasks table) |
 | context_snapshot | jsonb | RR | — (audit trail) |
 | status | text NOT NULL CHECK (draft, complete) | RR | notes list, detail |
