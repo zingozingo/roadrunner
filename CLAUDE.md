@@ -2,52 +2,68 @@
 
 **Before any UI work, read these documents in order:**
 1. `docs/north-star.md` — The complete vision: what Roadrunner should become, data architecture, interaction flows, enterprise UX standards
-2. `.claude/roadrunner-ui/SKILL.md` — The design system: containers, typography, tokens, patterns. This is a LIVING document — update it as you establish new patterns
-3. `.claude/roadrunner-ui/references/design-tokens.md` — Color palette, typography hierarchy, spacing
-4. `.claude/roadrunner-ui/references/entity-catalog.md` — Per-entity field mappings and layout specs
+2. `.claude/roadrunner-ui/SKILL.md` — The design system: tokens, components, pages, patterns. This is a LIVING document — update it as you establish new patterns
+3. `docs/entity-model.md` — The complete schema: all 23 tables, FK cascades, Airtable field IDs, ring model. This is your data reference for what fields exist and how entities connect
+
+**Path-level guardrails:**
+
+READ-ONLY — do not modify any files in these paths:
+- `src/lib/` — all database, sync, AI, parsing, and utility modules
+- `src/app/api/` — all API routes
+- `supabase/migrations/` — never create migrations
+- `src/lib/__tests__/` — never modify existing tests
+- `.env`, `.env.local` — never touch environment config
+
+WRITE-ALLOWED:
+- `src/app/` (page components, layouts — but NOT `src/app/api/`)
+- `src/components/` — UI components
+- `src/app/globals.css` — styling
+- `scripts/` — audit and screenshot tooling
+- `docs/` — documentation updates
+- `.claude/` — design system docs, references, screenshots
+
+The agent may READ anything in src/lib/ to understand data shapes, types, and existing query functions. It must not WRITE to those files. If a page needs data in a shape the existing API doesn't provide, filter or transform client-side.
+
+**Visual verification tools:**
+
+After every page change, use these tools to verify your work:
+
+- `npx tsx scripts/screenshot.ts /path 1440` — Screenshots a page at the given viewport width. Saves PNG to `.claude/screenshots/`. Use to visually verify layout, spacing, and content rendering. Screenshot at both 1280 and 1440 after each page.
+- `npx tsx scripts/interact.ts '[...]'` — Runs a JSON interaction sequence (goto, click, fill, wait, assert_visible, assert_hidden, assert_text, assert_url, screenshot). Use to test UX flows: button clicks, loading states, navigation safety, form behavior. On failure, captures error screenshot automatically.
+- `bash scripts/ui-audit.sh` — Mechanical code checks: no hardcoded hex colors, no off-scale spacing (4/8/12/16/24/32 only), no inline styles, no console.log, no TODO/FIXME. Must pass clean after every task.
+
+**Verification sequence after every task:**
+1. `npx tsc --noEmit` — zero type errors
+2. `npx vitest run` — all 435+ tests pass
+3. `bash scripts/ui-audit.sh` — all mechanical checks pass
+4. `npx tsx scripts/screenshot.ts` — visual verification at 1280 and 1440
+5. `npx tsx scripts/interact.ts` — test key interaction flows for the page
 
 **Agent working rules:**
 - Read the North Star FIRST. Understand the vision before touching code.
 - Read SKILL.md SECOND. Understand the design system before creating components.
+- Read entity-model.md THIRD. Understand what data exists before building pages.
 - When you establish a new UI pattern (e.g., how financial data is displayed, how loading states work, how performance bars look), DOCUMENT IT IN SKILL.md BEFORE reusing it across multiple pages. Consistency comes from documenting patterns, not from memory.
-- After EVERY page change: run `npx tsc --noEmit` and `npx vitest run`. Fix any breaks before moving on.
-- NEVER modify these files unless explicitly directed: src/lib/sync/*, src/lib/email-parser.ts, src/lib/ics-parser.ts, src/lib/classifier.ts, src/lib/phase2-prompt.ts, src/lib/meeting-recurrence.ts, src/app/api/inbound/route.ts. These are stable production pipelines.
-- The brain synthesizer prompt (src/lib/brain-synthesizer.ts, src/lib/notes-context.ts) has been rewritten to produce a single Strategic Posture paragraph (3-6 sentences). The prompt and context are stable — do not modify unless explicitly directed.
-- All database modules (src/lib/db/*) are stable. Use existing query functions. Add new query functions if needed for new data displays, but don't restructure existing ones.
-- All 437+ tests must pass at every checkpoint. If a test fails, fix it before continuing.
+- Before implementing any page, identify every state that page can be in — loading, loaded, empty, partial data, error, mid-mutation, unsaved changes. Implement each one deliberately. If you can't articulate what the user sees in a given state, that's a bug.
+- After EVERY page change: run the full verification sequence above.
 - Enterprise UX is non-negotiable: explicit loading states, navigation safety for unsaved changes, confirmation dialogs for destructive actions, professional button labels. See North Star Part 7.
-- Dark theme only. All colors use CSS custom properties defined in globals.css. See design-tokens.md.
+- Dark theme only. All colors use CSS custom properties defined in globals.css. See SKILL.md for token reference.
 - Data fetching: use server components with parallel Supabase queries (existing pattern). Don't create new API routes for read operations unless there's a specific need.
+- All spacing uses the 4px scale: 4/8/12/16/24/32. No other values.
+- Delete, don't stub. When removing a page or component, delete the file entirely. No dead code, no "removed" comments.
 
-**What to rebuild:**
-- Sidebar (simplify navigation)
-- Landing page (Today screen — replaces redirect-to-partners)
-- Partner list page (add performance indicators)
-- Partner detail page (scrollable sections, visual refinement — synthesis paragraph + financial snapshot already wired)
-- Meeting detail page (enterprise loading states, button labels, navigation safety)
-- Tasks page (visual refinement)
-- Inbox page (enterprise UX polish)
+**What to rebuild:** Sidebar, Today screen (new landing page), Partner list + detail, Meeting detail, Tasks page, Inbox page. See North Star Parts 2-4.
 
-**What to remove:**
-- Standalone engagements list page → accessed through partners
-- Standalone programs list page → accessed through partner enrollments
-- Standalone events list page → accessed through partner event participations
-- Standalone relationships list page → accessed through partner people section
-- Slide-over panel on partner page → replaced by inline scrollable sections
-- 4-section brain accordion → replaced by synthesis paragraph
+**What to remove:** Standalone engagements/programs/events/relationships list pages, slide-over panel on partner page, 4-section brain accordion. See North Star Part 10.
 
-**What to preserve:**
-- The sync layer, email/ICS parsers, AI pipeline (except brain prompt refinement)
-- All database modules and test files
-- The Mailgun webhook
-- The meeting recurrence engine
+**What to preserve:** Sync layer, AI pipeline, email/ICS parsers, database modules, test files, Mailgun webhook, meeting recurrence engine. See North Star Part 10.
 
 ---
 
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → human-guided routing → AI synthesis → structured engagements → Airtable sync.
-> 75 migrations · 23 tables · 31 API routes · 18 UI pages · 437 passing tests
+> 76 migrations · 23 tables · 31 API routes · 18 UI pages · 435 passing tests
 
 ---
 
@@ -93,11 +109,12 @@ Roadrunner turns scattered partner email threads into structured, trackable enga
 
 ```
 roadrunner/
-├── docs/                          # Project documentation (4 files)
+├── docs/                          # Project documentation (5 files)
 │   ├── CLASSIFICATION.md          #   AI synthesis pipeline documentation (rewrite pending)
 │   ├── ai-call-map.md             #   AI call reference (3 calls: synthesis, summarization, brain)
 │   ├── entity-model.md            #   Canonical schema — ERD + field-level registry + AT field IDs
-│   └── goal-state.md              #   Living orientation doc — current state & next steps
+│   ├── goal-state.md              #   Living orientation doc — current state & next steps
+│   └── north-star.md              #   UI vision spec — what Roadrunner should become
 ├── decisions.md                   # Append-only architectural decision log (338 entries)
 ├── src/
 │   ├── app/                       # Next.js App Router
@@ -124,7 +141,7 @@ roadrunner/
 │   │   ├── relationships/         #   Relationship list + detail pages
 │   │   ├── tasks/                 #   Cross-partner task dashboard
 │   │   ├── layout.tsx             #   Root layout + sidebar
-│   │   └── page.tsx               #   Redirects to /partners
+│   │   └── page.tsx               #   Today page (meetings + inbox signal)
 │   ├── components/                # React components (32 across 6 groups)
 │   │   ├── actions/               #   Entity action buttons + MergeButton (6 files)
 │   │   ├── inbox/                 #   Inbox triage UI — InboxClient (1 file)
@@ -147,7 +164,7 @@ roadrunner/
 │       ├── notes-summarizer.ts    #   AI meeting note summarizer (Claude API)
 │       ├── notes-context.ts       #   Context builders (buildPartnerContext, buildMeetingNoteContext, buildBrainContext)
 │       ├── contact-display.ts     #   Contact display formatting for UI
-│       ├── brain-synthesizer.ts   #   AI partner brain synthesis (structured executive briefing)
+│       ├── brain-synthesizer.ts   #   AI partner brain synthesis (single Strategic Posture paragraph)
 │       ├── types.ts               #   All shared TypeScript interfaces
 │       ├── user-config.ts         #   Canonical user identity config
 │       ├── airtable.ts            #   Airtable REST API client
@@ -171,11 +188,14 @@ roadrunner/
 │       │   ├── push.ts            #     RR → AT activity sync
 │       │   ├── field-maps.ts      #     Airtable field ID constants (6 pull + 2 push + 5 Ring 3)
 │       │   └── utils.ts           #     Coercion helpers + validation
-│       └── __tests__/             #   437 passing tests across 14 test files
+│       └── __tests__/             #   435 passing tests across 14 test files
 ├── supabase/
-│   ├── migrations/                # 75 migration files (001-075)
+│   ├── migrations/                # 76 migration files (001-076)
 │   └── (authoritative schema lives in migrations/)
 ├── scripts/
+│   ├── screenshot.ts              # Playwright: screenshot a page at given viewport width
+│   ├── interact.ts                # Playwright: run JSON interaction sequences (click, assert, etc.)
+│   ├── ui-audit.sh                # Mechanical UI checks (spacing, colors, inline styles)
 │   ├── seed-data.ts               # CLI script to seed events/programs
 │   ├── hydrate-contact-registry.ts # Backfill contact registry join tables
 │   ├── backfill-notes.ts          # One-time: re-summarize all meeting notes
@@ -297,7 +317,7 @@ AIRTABLE_BASE_ID=appy9TT1LRJTAuQ4W
 ```bash
 npm install                        # Install dependencies
 npm run dev                        # Start Next.js dev server on :3000
-npx vitest run --reporter=verbose  # Run tests (437 passing, 0 failures)
+npx vitest run --reporter=verbose  # Run tests (435 passing, 0 failures)
 npx tsc --noEmit                   # TypeScript check (must pass with zero errors)
 ```
 

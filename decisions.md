@@ -6328,3 +6328,183 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** resolveLinkedRecord() in sync code resolves partner_id from linked record arrays. All partner resolutions now use the same pattern.
 
 ---
+
+### #339 — Ring 3 data wired to partner detail page
+
+**Date:** 2026-03-27
+**Status:** ✅ Implemented
+
+**Decision:** Added 5 parallel Ring 3 fetches (goals, enrollments, events, MPOPP, MDF) to partner detail server component. 6 new sections rendered: Co-Sell Performance (11 financial fields), Program Enrollments (type/status badges), Funding (MPOPP + MDF with computed remaining), Strategic Goals (always renders with empty state), Event Participations (hidden when empty). JVP and crm_notes wired to PartnerReferencePanel.
+
+**Context:** Ring 3 data architecture was complete (decisions #318-338) but none of it was visible in the UI. Partner detail page was the natural home for all posture data.
+
+**Rationale:** All 14 previously unrendered partner fields and 5 Ring 3 tables now display on the partner detail page. Server-side parallel fetches keep load time flat.
+
+**Impact:** Partner detail page is now the single comprehensive view of a partner's posture, activity, and catalog data.
+
+---
+
+### #340 — fmtCurrency extracted to module-level helper
+
+**Date:** 2026-03-27
+**Status:** ✅ Implemented
+
+**Decision:** Currency formatting helper ($X.Xk / $X.XM / — for null) extracted from inline IIFE to module-level function, shared by Co-Sell Performance and Funding sections.
+
+**Context:** Financial display appeared in multiple sections with identical formatting logic duplicated as inline IIFEs.
+
+**Rationale:** Single formatting function ensures consistent currency display across all financial surfaces.
+
+**Impact:** All financial numbers on partner detail use the same formatting. Pattern available for reuse on other pages.
+
+---
+
+### #341 — Brain synthesis prompt rewritten to single Strategic Posture paragraph
+
+**Date:** 2026-03-27
+**Status:** ✅ Implemented
+
+**Decision:** Replaced 4-section executive briefing (Relationship Overview, Activity Patterns, What Needs Attention, Momentum Assessment) with single 3-6 sentence Strategic Posture assessment. No section headers, no bullets, no markdown. max_tokens reduced from 2000 to 1000.
+
+**Context:** The 4-section format was designed before Ring 3 data existed. With financial data, enrollments, and funding now visible on the page, the brain no longer needs to restate structured data — it should synthesize what the numbers mean.
+
+**Rationale:** A single paragraph forces the AI to prioritize and connect dots rather than enumerate. The PDM reads the numbers on the page; the brain tells them what the numbers mean together.
+
+**Impact:** Brain output is a concise strategic assessment. All 24 partners re-synthesized to new format (decision #344).
+
+---
+
+### #342 — Brain context enriched with Ring 3 data
+
+**Date:** 2026-03-27
+**Status:** ✅ Implemented
+
+**Decision:** buildBrainContext() expanded from 7 to 11 sections. Added: financial fields (11 fields + computed attainment %), program enrollments with type distribution, funding wallets (MPOPP + MDF breakdowns), strategic goals. 4 new parallel Ring 3 queries added to Promise.all. Activity patterns section extended with Ring 3 signals.
+
+**Context:** Brain prompt was operating on engagement summaries and scratchpad only. With Ring 3 data in the database, the brain can now reason about financial trajectory, program portfolio, and funding investments.
+
+**Rationale:** The brain's value is connecting disparate signals. Giving it financial + enrollment + funding data alongside activity data produces richer strategic insights.
+
+**Impact:** Brain synthesis now considers the full partner picture: activity patterns, financial trajectory, program portfolio, and funding status.
+
+---
+
+### #343 — Brain synthesis financial rule: descriptive only, no dollar amounts
+
+**Date:** 2026-03-27
+**Status:** ✅ Implemented
+
+**Decision:** Added explicit prompt rule: brain may reference financial trajectory and funding status descriptively ("pacing ahead of prior year", "AWS has made funding investments") but NEVER cite specific dollar amounts, percentages, or attainment figures.
+
+**Context:** Early re-synthesis tests showed the brain restating exact dollar amounts that were already visible on the page. This was redundant and cluttered the paragraph.
+
+**Rationale:** Prevents AI from restating numbers visible on the page. The brain's job is interpretation, not repetition.
+
+**Impact:** Brain paragraphs reference financial direction without duplicating the financial display.
+
+---
+
+### #344 — All 24 partners batch re-synthesized to new format
+
+**Date:** 2026-03-27
+**Status:** ✅ Implemented
+
+**Decision:** Ran backfill-brains.ts to re-synthesize all 24 partners with the new single-paragraph prompt and enriched Ring 3 context.
+
+**Context:** After prompt rewrite (decision #341) and context enrichment (decision #342), 21 partners had old 4-section format and 1 had new format. Mixed formats in the UI looked inconsistent.
+
+**Rationale:** Eliminated mixed brain formats. All partners now have consistent single-paragraph Strategic Posture synthesis.
+
+**Impact:** 24/24 partners have current-format brain synthesis. No legacy 4-section content remains.
+
+---
+
+### #345 — Merge route: FK cascade for meeting_notes and tasks
+
+**Date:** 2026-03-27
+**Status:** ✅ Implemented
+
+**Decision:** Added steps 2b/2c to engagement merge: UPDATE meeting_notes SET engagement_id = target WHERE engagement_id = source, same for tasks. Prevents orphaned FKs when source engagement is deleted.
+
+**Context:** Merge route moved messages and meetings but not meeting_notes or tasks. The CASCADE on engagement deletion would have deleted them — losing data, not transferring it.
+
+**Rationale:** Previously latent bug — 0 orphans found in audit but would manifest on future merges. Fix before it causes data loss.
+
+**Impact:** Engagement merge now transfers all 4 child entity types: messages, meetings, meeting_notes, tasks.
+
+---
+
+### #346 — Merge route: source context preservation
+
+**Date:** 2026-03-27
+**Status:** ✅ Implemented
+
+**Decision:** Before deleting source engagement, enriches target's current_state with source's current_state using [MERGED FROM "..."] marker. AI re-synthesis in step 8 then sees both contexts as its anchor, producing unified output.
+
+**Context:** Merge was discarding source's current_state. If source had rich history not captured in the 5 most recent messages, that context was lost.
+
+**Rationale:** Prevents information loss when source had rich history not in the 5 most recent messages. The merged marker gives AI clear provenance.
+
+**Impact:** Merged engagements retain full context from both source and target.
+
+---
+
+### #347 — Migration 076: drop is_recurring column
+
+**Date:** 2026-03-27
+**Status:** ✅ Implemented
+
+**Decision:** ALTER TABLE meetings DROP COLUMN is_recurring. Column was deprecated — recurrence_pattern is the source of truth. Removed from types.ts (Meeting + ParsedMeeting), ics-parser.ts, db/meetings.ts, API routes. 2 dedicated tests removed, 4 assertions cleaned.
+
+**Context:** is_recurring was decommissioned from app code in decisions #308-312 but the column remained for backward compat. All code paths now use recurrence_pattern || series_id.
+
+**Rationale:** Dead column creates confusion. Column retained long enough to verify no dependencies.
+
+**Impact:** 437 → 435 tests. Clean schema with single recurrence truth source.
+
+---
+
+### #348 — Today page replaces redirect-to-partners
+
+**Date:** 2026-03-27
+**Status:** ✅ Implemented
+
+**Decision:** Root page (/) changed from redirect to working server component. Shows today's meetings (partner name, cleaned title, type badge, "Open" link) and inbox count.
+
+**Context:** The redirect was a placeholder from early development. North Star specifies a Today screen as the landing page.
+
+**Rationale:** Basic functional page gives the agent a working starting point for the UI overhaul. Real data rendering, not a mockup.
+
+**Impact:** Roadrunner now has a landing page. Agent will redesign it during the UI overhaul session.
+
+---
+
+### #349 — SKILL.md rewritten: 885 → 174 lines, thin agent-oriented doc
+
+**Date:** 2026-03-27
+**Status:** ✅ Implemented
+
+**Decision:** Replaced prescriptive 885-line design spec with thin inventory of tokens, components, pages, and patterns. Points to North Star for all design decisions. Agent has explicit design autonomy: "Color choices, layout patterns, and component structures are yours to design."
+
+**Context:** The old SKILL.md was written before the North Star existed and contained detailed layout prescriptions that conflicted with the vision doc. The agent needs to know what exists, not what to build.
+
+**Rationale:** A thin inventory + design autonomy produces better results than prescriptive layouts. The agent should solve design problems, not follow a script.
+
+**Impact:** Empty "Patterns Established" section for agent to fill during overhaul. Design system grows from implementation, not speculation.
+
+---
+
+### #350 — Reference files deleted, North Star sidebar revised
+
+**Date:** 2026-03-28
+**Status:** ✅ Implemented
+
+**Decision:** Deleted .claude/roadrunner-ui/references/ (component-api.md, design-tokens.md, entity-catalog.md) — described old UI, contradicted North Star. North Star Part 4 revised: 3-tier sidebar (Primary: Today/Partners/Inbox, Secondary: Tasks/Meetings, Tertiary: Programs/Events). Only Engagements and Relationships list pages deleted. Programs and Events list pages preserved. All detail pages preserved as drill-through targets.
+
+**Context:** Original North Star Part 4 removed Programs and Events from sidebar entirely, forcing access only through partner detail. This was too aggressive — PDMs browse program catalogs and event calendars independently.
+
+**Rationale:** Programs and Events are catalog data with standalone browsing value. Tertiary sidebar placement keeps them accessible without cluttering the primary workflow.
+
+**Impact:** Part 10 updated to match: 2 list pages deleted (engagements, relationships), 2 preserved as tertiary (programs, events), all detail pages preserved as drill-through targets.
+
+---

@@ -146,20 +146,26 @@ Summary displayed read-only. Tasks shown in a sidebar or below. "Edit Notes" but
 
 **Target state:** Simplified sidebar with clear hierarchy.
 
-**Primary navigation:**
+**Primary (prominent, daily workflow):**
 - **Today** — the landing page (meetings, tasks, inbox signal)
 - **Partners** — the partner list
 - **Inbox** — the triage queue (with unread count badge)
 
-**Secondary navigation (accessible but visually subordinate):**
+**Secondary (accessible, visually subordinate):**
 - **Tasks** — cross-partner task view (may eventually merge into Today)
 - **Meetings** — cross-partner meetings list (needed for "show me all meetings this week" outside of Today)
 
+**Tertiary (minimal, catalog browsing):**
+- **Programs** — browse the program catalog ("what programs exist?")
+- **Events** — browse upcoming events ("what's coming up?")
+
 **What gets REMOVED from sidebar:**
-- Engagements — accessed through partner pages
-- Programs — accessed through partner pages (Program Enrollments section)
-- Events — accessed through partner pages (Event Participations section, when populated)
-- Relationships — accessed through partner pages (People section)
+- Engagements — always accessed through partner detail pages. List page (/engagements) is deleted.
+- Relationships — accessed through partner detail people section. List page (/relationships) is deleted. (Relationships are transitioning to a People model.)
+
+**What STAYS but moves to tertiary:**
+- Programs — catalog data the PDM browses independently. List page stays. Detail pages stay.
+- Events — calendar data the PDM browses independently. List page stays. Detail pages stay.
 
 **Sidebar design:**
 - Clean, minimal, dark surface
@@ -379,21 +385,24 @@ All work happens on a fresh git branch. The main branch is untouched. If the ite
 - The Mailgun webhook (api/inbound) — production email pipeline
 
 ### What to Rebuild
-- Sidebar component (simplify to 3-5 items)
+- Sidebar component (3-tier hierarchy: primary/secondary/tertiary)
 - Partner list page (add performance indicators)
 - Partner detail page (new layout with synthesis paragraph, financial snapshot, scrollable sections)
 - Meeting detail page (refine note workspace UX, enterprise loading states)
 - Today screen (new — replaces current redirect-to-partners)
 - Tasks page (refine visual treatment)
 - Inbox page (minimal changes — mostly enterprise UX polish)
+- Engagement detail page (enterprise polish as part of partner drill-through flow)
+- Programs list page (visual refresh with tertiary nav treatment, no structural changes)
+- Events list page (visual refresh with tertiary nav treatment, no structural changes)
 
 ### What to Remove
-- Standalone engagements list page → accessed through partners
-- Standalone programs list page → accessed through partner enrollments
-- Standalone events list page → accessed through partner event participations
-- Standalone relationships list page → accessed through partner people section
+- Standalone engagements list page (/engagements) → deleted, accessed through partner detail
+- Standalone relationships list page (/relationships) → deleted, accessed through partner detail people section
 - Slide-over panel on partner page → replaced by inline scrollable sections
 - 4-section brain accordion → replaced by synthesis paragraph
+
+All detail pages (/engagements/[id], /programs/[id], /events/[id], /relationships/[id]) are preserved as drill-through targets.
 
 ### UI Design System Skill
 The agent must read .claude/roadrunner-ui/SKILL.md before any UI work. This document defines containers, typography, tokens, and patterns. The agent should update SKILL.md as it makes decisions, keeping the design system in sync with implementation.
@@ -402,7 +411,7 @@ If the agent needs to establish new patterns (e.g., financial data display, perf
 
 ### Quality Checklist (run after each iteration)
 - [ ] tsc --noEmit passes clean
-- [ ] All 437+ tests pass
+- [ ] All 435+ tests pass
 - [ ] No loading states show raw "..." or empty flickering
 - [ ] Every async button disables during operation
 - [ ] Every destructive action has confirmation
