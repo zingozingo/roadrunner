@@ -1,20 +1,54 @@
 # UI/UX Overhaul — Agent Task List
 
-**Read docs/north-star.md, .claude/roadrunner-ui/SKILL.md, and docs/entity-model.md before starting any work.**
-**Run the verification sequence after every task. Do not proceed to the next task until all checks pass.**
+## Who This Is For
 
-Verification sequence:
+Roadrunner is used by a single person — an AWS Partner Development Manager (PDM) managing 22 ISV partner relationships. He is in back-to-back meetings all day. He context-switches between partners constantly. Every design decision must serve this reality.
+
+**#1 interaction: Meeting notes.** He opens Roadrunner mid-meeting to type notes, generate a summary, and extract tasks. Getting from app open to typing must be ONE CLICK. Speed and clarity are everything. If the meeting notes flow has any friction — unclear buttons, confusing states, slow feedback — the tool fails at its primary job.
+
+**#2 interaction: Partner lookup.** Between meetings, he opens a partner page to orient: what's happening with this partner, how are they performing, what's active. He needs to absorb the situation in 10 seconds and drill into whatever needs attention. The partner detail page is a dossier — it must communicate hierarchy instantly.
+
+**#3 interaction: Task management.** He has 36+ open tasks across 22 partners. He needs to see what he owes people, check things off, and not lose track. The current task page is a flat scrollable list with clunky filters — it works but doesn't scale. He needs to manage tasks efficiently, not wade through them.
+
+**#4 interaction: Inbox triage.** Forwarded emails land in the inbox. He routes them to engagements or discards them. This should be fast and decisive — see the email, make the call, move on.
+
+**The overarching principle:** This person has 15 minutes between meetings. Every screen must answer a question or enable an action within seconds. If a page makes him think "where do I click?" or "what am I looking at?" — that's a failure. The data is rich (22 partners, 30+ engagements, 44 meetings, 80 program enrollments, financial metrics, funding wallets, tasks, notes). The UI's job is to make that data legible, navigable, and actionable without overwhelming.
+
+**You are not reskinning an existing app. You are solving workflow problems with design.** If a page layout doesn't serve the user's actual workflow, redesign it. If filters are clunky, rethink them. If information hierarchy is wrong, restructure it. The North Star describes the destination. The reference screenshots show the quality bar. But how you get there — the specific layout decisions, interaction patterns, component structures — that's your creative work. Be opinionated. Make choices. Document your reasoning in SKILL.md as you go.
+
+---
+
+## Before You Start
+
+Read these documents in order:
+1. `docs/north-star.md` — The complete vision
+2. `.claude/roadrunner-ui/SKILL.md` — The design system (update it as you establish patterns)
+3. `docs/entity-model.md` — The complete schema
+
+View the reference screenshots in `.claude/references/` and read `.claude/references/references.md`. These are your quality bar — not templates to copy, but standards to meet or exceed.
+
+---
+
+## Verification Sequence (after every task)
+
 1. `npx tsc --noEmit` — zero type errors
 2. `npx vitest run` — all 435+ tests pass
 3. `bash scripts/ui-audit.sh` — all mechanical checks pass
 4. `npx tsx scripts/screenshot.ts` — screenshot every changed page at 1280 and 1440
 5. `npx tsx scripts/interact.ts` — test key interaction flows for the pages you changed
 
-Before starting each task, view the reference screenshots in `.claude/references/` and read `.claude/references/references.md`. Study what makes those products feel professional. Apply those principles — don't copy those layouts.
+---
 
-Before implementing any page, identify every state it can be in: loading, loaded, empty, partial data, error, mid-mutation, unsaved changes. Implement each state deliberately. After implementation, use Playwright to trigger each state and screenshot it. No page is done until every state has been visually verified.
+## Mid-Task Self-Check (run this mentally during every task, not just between tasks)
 
-Work through these tasks in order. Each task has a scope (what you're touching), intent (why it matters and how to think about it), context (specific things to know), and done-when (observable outcomes that must be true before moving on).
+Pause periodically while working on a task and ask yourself:
+
+1. **Am I solving the workflow problem or just moving pixels?** If the user's actual pain point on this page is that they can't find what they need fast enough, no amount of spacing fixes will help. Rethink the layout.
+2. **Would this page make sense to someone seeing it for the first time?** Labels, hierarchy, and flow should be self-explanatory. If it needs a tutorial, it needs a redesign.
+3. **Have I identified every state this page can be in?** Loading, loaded, empty, partial data, error, mid-mutation, unsaved changes. Each state must be deliberately designed. Use Playwright to trigger and screenshot each state.
+4. **Does this look like the reference screenshots — not in layout, but in quality?** Same level of spacing discipline, typography hierarchy, interaction polish. If your output feels rougher than the references, keep iterating.
+5. **Am I being consistent with patterns I've already established?** Check SKILL.md. If this page introduces a new pattern (how badges look, how lists are spaced, how sections collapse), document it there FIRST, then implement.
+6. **Is there anything on this page that doesn't earn its space?** Every element must serve a purpose. If you can remove something without losing functionality or clarity, remove it.
 
 ---
 
@@ -23,6 +57,8 @@ Work through these tasks in order. Each task has a scope (what you're touching),
 **Scope:** Sidebar component, root layout, app frame.
 
 **Intent:** The sidebar currently has 4 zones with 8 items, flattening everything to equal weight. The user's mental model is hierarchical: Today and Partners are daily drivers, Inbox is a triage queue, Tasks and Meetings are secondary views, Programs and Events are reference catalogs. The sidebar should reflect that hierarchy through visual weight — not just ordering, but how prominently each item presents itself. This is the skeleton everything else hangs on. Get it right first.
+
+Think about what the sidebar communicates at a glance. When the user opens the app between meetings, the sidebar should orient them: "Here's where you go." Primary items should feel like destinations. Secondary items should feel like tools. Tertiary items should feel like reference shelves. The visual treatment must make this hierarchy obvious without labels or explanations.
 
 **Context:**
 - Target structure per North Star Part 4: Primary (Today, Partners, Inbox with badge), Secondary (Tasks, Meetings), Tertiary (Programs, Events)
@@ -33,7 +69,7 @@ Work through these tasks in order. Each task has a scope (what you're touching),
 
 **Done-when:**
 - Sidebar has exactly 7 items in 3 visual tiers
-- Primary items are visually dominant, secondary items are present but subordinate, tertiary items are accessible but quiet
+- The hierarchy is obvious without reading labels — visual weight alone communicates primary vs. secondary vs. tertiary
 - Active state is visually unambiguous on every item
 - Inbox badge renders with count
 - Layout shell is stable at 1280, 1440, and 1920 viewport widths
@@ -47,7 +83,11 @@ Work through these tasks in order. Each task has a scope (what you're touching),
 
 **Scope:** Root page (`/`), the app landing page.
 
-**Intent:** This is where the user starts every day. It's a launchpad, not a dashboard — the user should spend 10 seconds here, see what needs doing, and click into the thing. Design around the usage hierarchy: meetings first (one click to notes is the #1 interaction in the entire app), then tasks, then inbox signal, then upcoming meetings. Sections with no content should collapse gracefully, not show empty states that waste space.
+**Intent:** This is where the user starts every day. It's a launchpad, not a dashboard — the user should spend 10 seconds here, see what needs doing, and click into the thing. The user has 15 minutes between meetings. This page must answer "what do I need to do right now?" instantly.
+
+Think about how a busy person scans a page. Their eyes go to the most visually prominent element first. That element must be today's meetings, because one-click-to-notes is the #1 interaction. Then tasks — what do I owe people? Then inbox — is anything waiting? Then upcoming — what's coming this week? The visual hierarchy must enforce this scanning order.
+
+Sections with no content should collapse gracefully — not show empty states that waste precious screen space. If there are no meetings today, the tasks section moves up. The page adapts to what's relevant right now.
 
 **Context:**
 - The Today page already exists and is functional — it shows today's meetings and inbox count. You are redesigning it, not wiring data from scratch.
@@ -63,7 +103,7 @@ Work through these tasks in order. Each task has a scope (what you're touching),
 - Clicking a meeting navigates to the meeting detail / note workspace
 - Tasks show with partner context and overdue highlighting
 - Inbox count is visible with clear link to /inbox
-- Page feels like a launchpad — scannable in seconds, not a data dump
+- The page answers "what do I need to do right now?" within 5 seconds of landing
 - Playwright interaction test: click a meeting, verify navigation. Complete a task, verify visual feedback.
 - All 435+ tests pass, tsc clean, audit clean
 
@@ -73,13 +113,14 @@ Work through these tasks in order. Each task has a scope (what you're touching),
 
 **Scope:** Partner list page (`/partners`).
 
-**Intent:** The partner list is the directory — "let me go look at Spacelift." Currently it shows name, focus area, and segment badge. It needs a compact performance indicator so you can see at a glance which partners are performing and which aren't, without leaving the list. Grouped by segment. Search should be fast and obvious.
+**Intent:** The partner list is the directory — "let me go look at Spacelift." The user manages 22 partners across 5 segments. They need to find a partner fast and get a sense of how that partner is doing before clicking in.
+
+Think about what makes a list scannable. It's not just alphabetical order — it's visual rhythm. Consistent row heights, clear group boundaries, a performance signal that you can absorb peripherally without reading numbers. The user should be able to scan 22 partners and know which ones need attention without studying each row.
 
 **Context:**
 - 24 partners, grouped by segment (Security, DevOps, CloudOps, Observability, OT/IoT)
 - Financial fields on partner: mp_tcv_ytd, mp_tcv_goal, larr_ytd, larr_goal
 - TCV attainment = ytd ÷ goal × 100 (computed in UI, not stored)
-- Keep it compact — this is a list you scan, not a page you study
 - North Star Part 2 (Screen 2: Partners) has the spec
 
 **Done-when:**
@@ -87,6 +128,7 @@ Work through these tasks in order. Each task has a scope (what you're touching),
 - Each row shows: name, segment badge, focus area, and a compact TCV attainment indicator
 - Search filters the list in real-time
 - Clicking a partner navigates to partner detail
+- The list is scannable — you can absorb the portfolio health at a glance
 - Empty search state is clean
 - Playwright screenshot at 1440 confirms information density is balanced — tight but readable
 - All 435+ tests pass, tsc clean, audit clean
@@ -97,7 +139,11 @@ Work through these tasks in order. Each task has a scope (what you're touching),
 
 **Scope:** Partner detail page (`/partners/[id]`) and engagement detail page (`/engagements/[id]`).
 
-**Intent:** Partner detail is the convergence point — the dossier. You open it and immediately orient: who is this partner, what's happening, how are they performing. Then you scroll to whatever layer you need. The current implementation has all the data wired but is deliberately unstyled. Your job is layout, visual hierarchy, and interaction design. This is the most complex page in the app — 12+ sections, each with its own data shape. The engagement detail page is accessed as a drill-through from partner detail and needs the same enterprise polish.
+**Intent:** Partner detail is the convergence point — the dossier. The user opens it between meetings and needs to absorb the situation in 10 seconds: who is this partner, what's happening, how are they performing. Then they scroll to whatever layer needs attention.
+
+This is the most complex page in the app — 12+ sections, each with its own data shape. The challenge isn't showing all the data — it's already wired. The challenge is creating a visual hierarchy so clear that the user's eyes naturally flow from the most important information to the least important, and they can stop scrolling the moment they've found what they need.
+
+Think about information architecture, not just layout. The identity bar and synthesis paragraph orient you ("who is this, what's the story"). The financial snapshot gives you the quantitative picture ("how are they doing"). Everything below the fold is progressive detail you access on demand. The page should feel like peeling layers, not scrolling through a dump.
 
 **Context — Partner Detail:**
 - Fixed Identity Bar at top: partner name, segment badge, SPMS ID (small, muted). Always visible.
@@ -116,6 +162,7 @@ Work through these tasks in order. Each task has a scope (what you're touching),
 
 **Done-when:**
 - Partner detail has a clear visual hierarchy: identity bar → synthesis → financial snapshot → scrollable sections
+- A user can orient on a partner in 10 seconds by reading the synthesis and scanning the financial snapshot
 - BrainSynthesis renders a plain paragraph, not parsed sections
 - PartnerReferencePanel slide-over is dissolved into inline scrollable sections
 - Financial data displays consistently using extracted fmtCurrency utility
@@ -132,7 +179,11 @@ Work through these tasks in order. Each task has a scope (what you're touching),
 
 **Scope:** Meeting detail page (`/meetings/[id]`), NoteWorkspace component, related note components.
 
-**Intent:** Meeting notes is the #1 interaction with Roadrunner. The user opens it in a meeting, types notes, clicks Generate Summary, reviews the AI output, edits extracted tasks, and saves. This flow must be frictionless and professional. The current implementation works but has hobby-project rough edges — loading states that don't communicate progress, no navigation safety, ambiguous button labels. Elevate this to enterprise grade. Every state transition should be obvious. The user should never wonder "did it save?" or "what happens if I leave?"
+**Intent:** Meeting notes is the #1 interaction with Roadrunner. The user opens it mid-meeting, types notes, clicks Generate Summary, reviews the AI output, edits extracted tasks, and saves. This flow must be frictionless and professional.
+
+Think about what "frictionless" means for someone in a meeting. They have a browser tab open, they're half-listening, they're typing bullet points. They don't want to think about the tool — they want to think about the meeting. Every interaction must be obvious. Every state transition must be instant and clear. Every button must say exactly what it does. If the user ever pauses to wonder "what happens if I click this?" — that's a failure.
+
+The current implementation works but has rough edges — loading states that don't communicate progress, no navigation safety, ambiguous button labels. These aren't cosmetic issues. A user who loses meeting notes because they navigated away without saving will stop trusting the tool.
 
 **Context:**
 - Three modes: Writing (textarea + context sidebar) → Review (AI summary + TaskEditor) → Saved (read-only + tasks)
@@ -152,40 +203,44 @@ Work through these tasks in order. Each task has a scope (what you're touching),
 - Navigating away with unsaved changes triggers confirmation dialog
 - Error states show retry button
 - All three modes are visually distinct — user always knows which mode they're in
+- The entire flow feels like it was designed for someone who's simultaneously in a conversation
 - Playwright interaction test: type notes → click Generate Summary → verify loading state appears → verify summary renders → click Save & Lock → verify confirmation → navigate away and verify dialog appears
 - All 435+ tests pass, tsc clean, audit clean
 
 ---
 
-## Task 6: Tasks + Inbox Polish
+## Task 6: Tasks + Inbox
 
 **Scope:** Tasks page (`/tasks`) and Inbox page (`/inbox`).
 
-**Intent:** These pages are mostly functional. The work here is enterprise polish — consistent spacing, proper loading states, confirmation on destructive actions, inline interactions that feel responsive. Don't reimagine these pages; elevate them.
+**Intent — Tasks:** The user has 36+ open tasks across 22 partners. The current page is a flat scrollable list with owner filters and a "Group by partner" toggle. This works for 10 tasks. It does not work for 36. The user's real questions are: "What do I owe people this week?" and "What's overdue?" and "What did I promise Spacelift?" The page must make these questions answerable at a glance, not through scrolling and squinting.
+
+Rethink how tasks are organized and surfaced. Consider whether the current filter model (owner tabs) is the right primary axis, or whether due-date urgency or partner grouping serves the workflow better. Consider what information each task row needs — is the current layout too sparse or too dense? Consider whether overdue tasks should be visually separated, not just color-coded. The North Star describes the destination; you design the path.
+
+**Intent — Inbox:** The inbox triage flow is functional but needs enterprise polish. The user routes emails quickly — see it, decide, move on. Every action should have clear visual feedback. Destructive actions need confirmation. The flow should feel decisive and fast.
 
 **Context — Tasks:**
-- 36 open tasks, filtered by owner (Me/Internal/Partner/Third Party), "Group by partner" toggle
-- Checkbox to complete inline — needs visual feedback on state change
-- Delete needs confirmation dialog
-- Inline description edit exists — verify it saves cleanly with visual confirmation
-- Due dates should highlight overdue and approaching
-- Scrolling through 36 tasks should be smooth — consider if grouping or pagination helps
+- 36 open tasks across 22 partners
+- Current filters: All, Me, Internal, Partner, Third Party (owner tabs)
+- "Group by partner" toggle exists
+- Each task has: description, owner, partner_id, engagement_id, meeting_note_id, due_date, status, origin
+- Checkbox to complete, delete with confirmation, inline description edit
+- Tasks with engagement_id show engagement provenance; tasks from meetings show meeting provenance
+- Due dates exist but aren't prominently surfaced in the current UI
 
 **Context — Inbox:**
 - Assign/create/discard workflow is functional
 - "Pick Partner" flow for unknown partners works
-- Discard needs confirmation dialog
-- Routing to engagement should show visual feedback
 - Inbox badge in sidebar should update after routing
 
 **Done-when:**
-- Every button has hover/active/disabled states
-- Completing a task has immediate visual feedback (checkbox animation or state change)
-- Deleting a task shows confirmation dialog
-- Discarding inbox items shows confirmation dialog
-- No layout shift on any state change
-- Task filtering and grouping works smoothly
-- Due date highlighting is clear (overdue = prominent, approaching = subtle)
+- Tasks page makes "what's overdue?" and "what do I owe this partner?" answerable without scrolling through everything
+- Task organization serves the workflow — whatever structure you choose, it must be faster than the current flat list
+- Every task interaction has visual feedback (complete, delete, edit)
+- Due date urgency is visually prominent — overdue items are impossible to miss
+- Filters or grouping feel natural, not clunky
+- Inbox actions have confirmation on destructive operations and visual feedback on routing
+- Inbox badge updates after routing
 - Playwright interaction test: complete a task, verify visual feedback. Delete a task, verify confirmation. Route an inbox item, verify feedback.
 - Playwright screenshots confirm visual consistency with the redesigned pages from Tasks 1-5
 - All 435+ tests pass, tsc clean, audit clean
@@ -196,7 +251,9 @@ Work through these tasks in order. Each task has a scope (what you're touching),
 
 **Scope:** The entire application.
 
-**Intent:** After individual pages are done, zoom out. Look at the app as a whole. Are badges consistent across every context? Are loading patterns the same everywhere? Is spacing uniform? Are there pages touched early that now look inconsistent with decisions made later? This is the "walk through the house after the furniture is placed" pass. Also handle the structural removals: delete the list pages that are no longer in the sidebar, audit for orphaned components.
+**Intent:** After individual pages are done, zoom out. Look at the app as a whole. Walk through every page in sequence as if you're the user moving through a real workday: open the app (Today), check a partner (Partner List → Partner Detail), take meeting notes (Meeting Detail), manage tasks (Tasks), triage inbox (Inbox). Does the experience feel cohesive? Does every page feel like it belongs to the same product? Are there visual decisions made early that feel inconsistent with decisions made later?
+
+This is also where structural cleanup happens: deleting pages that are no longer in the sidebar, auditing for orphaned components, documenting the design system patterns you established.
 
 **Context:**
 - Delete `/engagements` list page (route + page component). Engagement detail `/engagements/[id]` stays.
@@ -208,6 +265,7 @@ Work through these tasks in order. Each task has a scope (what you're touching),
 
 **Done-when:**
 - Deleted pages are fully removed — no dead routes, no orphaned imports
+- A walkthrough of the full user flow (Today → Partner → Notes → Tasks → Inbox) feels like a single cohesive product
 - Every badge (status, pillar, type, segment) looks identical across every page it appears on
 - Every loading pattern is the same everywhere
 - Spacing is uniform — no page feels tighter or looser than another
