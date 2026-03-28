@@ -7,27 +7,44 @@ import PillarBadge from "@/components/shared/PillarBadge";
 import BrainSynthesis from "@/components/partners/BrainSynthesis";
 import PartnerScratchpad from "@/components/partners/PartnerScratchpad";
 import { cleanMeetingTitle, stripPartnerPrefix } from "@/lib/format-utils";
-import { getPartner, getSupabaseClient, getRelationshipsByPartner, getMeetingNotesByPartner, getTasksByPartner, getPartnerContext, getContactsByPartner, getContactsByRelationshipBulk, getPartnerGoals, getPartnerProgramEnrollments, getPartnerEventParticipations, getPartnerMpoppFunding, getPartnerMdfFunding } from "@/lib/db";
-import PartnerReferencePanel from "@/components/partners/PartnerReferencePanel";
-import { USER_CONFIG } from "@/lib/user-config";
-import type { Engagement, Meeting, MeetingNoteWithTasks } from "@/lib/types";
+import {
+  getPartner,
+  getSupabaseClient,
+  getRelationshipsByPartner,
+  getMeetingNotesByPartner,
+  getTasksByPartner,
+  getPartnerContext,
+  getContactsByPartner,
+  getPartnerGoals,
+  getPartnerProgramEnrollments,
+  getPartnerEventParticipations,
+  getPartnerMpoppFunding,
+  getPartnerMdfFunding,
+} from "@/lib/db";
+import type { Engagement, Meeting } from "@/lib/types";
 
-// Currency formatting helper
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
+
 function fmtCurrency(val: number | null | undefined): string {
-  if (val === null || val === undefined) return "—";
+  if (val === null || val === undefined) return "\u2014";
   if (val >= 1_000_000) return `$${(val / 1_000_000).toFixed(1)}M`;
   if (val >= 1_000) return `$${Math.round(val / 1_000)}k`;
   return `$${Math.round(val)}`;
 }
 
-// Status dot color map
-const statusDotColor: Record<string, string> = {
-  active: "bg-emerald-500",
-  planned: "bg-blue-400",
-  blocked: "bg-amber-500",
-  completed: "bg-violet-500",
-  archived: "bg-zinc-500",
-};
+function shortDate(d: string | null): string {
+  if (!d) return "\u2014";
+  return new Date(d + "T12:00:00").toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/*  Page                                                               */
+/* ------------------------------------------------------------------ */
 
 export default async function PartnerDetailPage({
   params,
@@ -35,16 +52,12 @@ export default async function PartnerDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-
   const partner = await getPartner(id);
   if (!partner) notFound();
 
-  // Extract role contacts from canonical participants registry
+  const db = getSupabaseClient();
   const contacts = await getContactsByPartner(id);
 
-  const db = getSupabaseClient();
-
-  // Fetch by partner_id FK
   const [{ data: engagements }, { data: meetings }] = await Promise.all([
     db
       .from("engagements")
@@ -62,7 +75,17 @@ export default async function PartnerDetailPage({
   const linkedEngagements = (engagements ?? []) as Engagement[];
   const linkedMeetings = (meetings ?? []) as Meeting[];
 
-  const [linkedRelationships, partnerNotes, openTasks, partnerContextEntries, partnerGoals, programEnrollments, eventParticipations, mpoppFunding, mdfFunding] = await Promise.all([
+  const [
+    linkedRelationships,
+    partnerNotes,
+    openTasks,
+    partnerContextEntries,
+    partnerGoals,
+    programEnrollments,
+    eventParticipations,
+    mpoppFunding,
+    mdfFunding,
+  ] = await Promise.all([
     getRelationshipsByPartner(id),
     getMeetingNotesByPartner(id),
     getTasksByPartner(id, { status: "open" }),
@@ -74,17 +97,7 @@ export default async function PartnerDetailPage({
     getPartnerMdfFunding(id),
   ]);
 
-  // Bulk-fetch relationship contacts and pre-compute lead names for slide-over panel
-  const relContactsMap = await getContactsByRelationshipBulk(
-    linkedRelationships.map((r) => r.id)
-  );
-  const relationshipsWithLeads = linkedRelationships.map((rel) => ({
-    id: rel.id,
-    name: rel.name,
-    leadName: relContactsMap.get(rel.id)?.find(c => c.role === 'Lead Contact')?.name || relContactsMap.get(rel.id)?.[0]?.name || null,
-  }));
-
-  // Build condensed digest map for meeting rows
+  /* Condensed digests for meeting rows */
   const condensedByMeetingId = new Map<string, string>();
   for (const note of partnerNotes) {
     if (note.meeting_id && note.condensed) {
@@ -92,13 +105,12 @@ export default async function PartnerDetailPage({
     }
   }
 
-  // Build note → meeting resolution for tasks
+  /* Task context resolution */
   const noteMeetingMap = new Map<string, string | null>();
   for (const note of partnerNotes) {
     noteMeetingMap.set(note.id, note.meeting_id ?? null);
   }
 
-  // Resolve meeting titles for tasks
   const taskMeetingIds = new Set<string>();
   for (const t of openTasks) {
     if (t.meeting_note_id) {
@@ -108,791 +120,653 @@ export default async function PartnerDetailPage({
   }
   const meetingTitleMap = new Map<string, string>();
   if (taskMeetingIds.size > 0) {
-    const { data: mtgRows } = await db.from("meetings").select("id, title").in("id", [...taskMeetingIds]);
+    const { data: mtgRows } = await db
+      .from("meetings")
+      .select("id, title")
+      .in("id", [...taskMeetingIds]);
     for (const m of (mtgRows ?? []) as { id: string; title: string | null }[]) {
       meetingTitleMap.set(m.id, m.title ?? "Untitled");
     }
   }
-
-  // Resolve engagement names for tasks
-  const taskEngIds = [...new Set(openTasks.map(t => t.engagement_id).filter((id): id is string => id !== null))];
+  const taskEngIds = [
+    ...new Set(
+      openTasks
+        .map((t) => t.engagement_id)
+        .filter((x): x is string => x !== null)
+    ),
+  ];
   const engNameMap = new Map<string, string>();
   if (taskEngIds.length > 0) {
-    const { data: engRows } = await db.from("engagements").select("id, name").in("id", taskEngIds);
-    for (const e of (engRows ?? []) as { id: string; name: string | null }[]) {
+    const { data: engRows } = await db
+      .from("engagements")
+      .select("id, name")
+      .in("id", taskEngIds);
+    for (const e of (engRows ?? []) as {
+      id: string;
+      name: string | null;
+    }[]) {
       engNameMap.set(e.id, e.name ?? "Untitled");
     }
   }
-
   const tasksWithContext = openTasks.map((t) => {
-    const meetingId = t.meeting_note_id ? noteMeetingMap.get(t.meeting_note_id) ?? null : null;
+    const meetingId = t.meeting_note_id
+      ? (noteMeetingMap.get(t.meeting_note_id) ?? null)
+      : null;
     return {
       ...t,
-      meeting_title: meetingId ? meetingTitleMap.get(meetingId) ?? null : null,
-      engagement_name: t.engagement_id ? engNameMap.get(t.engagement_id) ?? null : null,
+      meeting_title: meetingId
+        ? (meetingTitleMap.get(meetingId) ?? null)
+        : null,
+      engagement_name: t.engagement_id
+        ? (engNameMap.get(t.engagement_id) ?? null)
+        : null,
     };
   });
 
-  // Split partner context: brain synthesis vs scratchpad entries
-  const brainEntry = partnerContextEntries.find((e) => e.source === "ai_synthesis") ?? null;
+  /* Partner context split */
+  const brainEntry =
+    partnerContextEntries.find((e) => e.source === "ai_synthesis") ?? null;
   const scratchpadEntries = partnerContextEntries.filter(
     (e) => e.source === "scratchpad" || e.source === "seed_dump"
   );
-  const scratchpadLastUpdated = scratchpadEntries.length > 0
-    ? scratchpadEntries.reduce((latest, e) => e.created_at > latest ? e.created_at : latest, scratchpadEntries[0].created_at)
-    : null;
+  const scratchpadLastUpdated =
+    scratchpadEntries.length > 0
+      ? scratchpadEntries.reduce(
+          (latest, e) => (e.created_at > latest ? e.created_at : latest),
+          scratchpadEntries[0].created_at
+        )
+      : null;
 
-  // Owner label map for inline task display
-  const ownerLabels: Record<string, { label: string; color: string }> = {
-    me: { label: "Me", color: "bg-accent/10 text-accent" },
-    internal: { label: "Internal", color: "bg-amber-500/10 text-amber-400" },
-    partner: { label: "Partner", color: "bg-emerald-500/10 text-emerald-400" },
-    third_party: { label: "3rd Party", color: "bg-purple-500/10 text-purple-400" },
-  };
-
-  // Recent meetings — last 90 days + upcoming
+  /* Recent meetings — last 90 days */
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 90);
-  const recentMeetings = linkedMeetings.filter((m) => {
-    if (!m.meeting_date) return false;
-    const d = new Date(m.meeting_date + "T00:00:00");
-    return d >= cutoff;
-  }).slice(0, 15);
+  const recentMeetings = linkedMeetings
+    .filter(
+      (m) => m.meeting_date && new Date(m.meeting_date + "T00:00:00") >= cutoff
+    )
+    .slice(0, 15);
+
+  /* Financial data */
+  const fin = {
+    mp_tcv_ytd: partner.mp_tcv_ytd ?? null,
+    mp_tcv_goal: partner.mp_tcv_goal ?? null,
+    larr_ytd: partner.larr_ytd ?? null,
+    larr_goal: partner.larr_goal ?? null,
+    mp_tcv_2024: partner.mp_tcv_2024 ?? null,
+    larr_2024: partner.larr_2024 ?? null,
+    mp_tcv_2025: partner.mp_tcv_2025 ?? null,
+    larr_2025: partner.larr_2025 ?? null,
+    mp_tcv_target_2025: partner.mp_tcv_target_2025 ?? null,
+    mp_tcv_projected_annual: partner.mp_tcv_projected_annual ?? null,
+    larr_projected_annual: partner.larr_projected_annual ?? null,
+  };
+  const hasFinancials = Object.values(fin).some((v) => v !== null);
+
+  function attPct(
+    ytd: number | null,
+    goal: number | null
+  ): string | null {
+    if (ytd === null || goal === null || goal <= 0) return null;
+    return `${Math.round((ytd / goal) * 100)}%`;
+  }
+
+  /* Contacts grouped */
+  const awsTeam = contacts.filter((c) => c.org_type === "internal");
+  const partnerTeam = contacts.filter((c) => c.org_type === "partner");
+
+  /* Owner label map */
+  const ownerLabels: Record<string, { label: string; cls: string }> = {
+    me: { label: "Me", cls: "bg-accent/10 text-accent" },
+    internal: { label: "Internal", cls: "bg-status-blocked/10 text-status-blocked" },
+    partner: { label: "Partner", cls: "bg-status-active/10 text-status-active" },
+    third_party: { label: "3rd Party", cls: "bg-status-completed/10 text-status-completed" },
+  };
+
+  /* ---------------------------------------------------------------- */
+  /*  Render                                                           */
+  /* ---------------------------------------------------------------- */
 
   return (
-    <div className="mx-auto max-w-7xl p-6 lg:p-8">
+    <div className="mx-auto max-w-5xl p-6 lg:p-8">
+      {/* Back link */}
       <Link
         href="/partners"
-        className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
+        className="mb-4 inline-flex items-center gap-1 text-xs text-muted hover:text-foreground transition-colors"
       >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M10 4l-4 4 4 4" />
         </svg>
-        Back to Partners
+        Partners
       </Link>
 
       {/* ═══ IDENTITY BAR ═══ */}
-      <div className="flex items-center gap-3 pb-4 mb-6 border-b border-border/30">
-        <h1 className="text-2xl font-semibold text-foreground">{partner.name}</h1>
+      <div className="mb-6 flex items-center gap-3">
+        <h1 className="text-xl font-semibold text-foreground">{partner.name}</h1>
         {partner.segment && (
-          <span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent capitalize">
+          <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-medium text-accent/70">
             {partner.segment}
           </span>
         )}
         {partner.spms_id && (
-          <span className="text-sm text-muted ml-1">SPMS {partner.spms_id}</span>
+          <span className="text-xs text-muted/60">SPMS {partner.spms_id}</span>
         )}
-        <div className="ml-auto flex items-center gap-3">
-          <PartnerReferencePanel
-            partner={{
-              what_they_do: partner.what_they_do,
-              aws_stickiness: partner.aws_stickiness,
-              key_aws_services: partner.key_aws_services,
-              architecture: partner.architecture ?? null,
-              listing_types: partner.listing_types ?? null,
-              pricing_model: partner.pricing_model ?? null,
-              isva_status: partner.isva_status ?? null,
-              deployed_on_aws: partner.deployed_on_aws ?? null,
-              prm_status: partner.prm_status ?? null,
-              crm_platform: partner.crm_platform ?? null,
-              joint_value_proposition: partner.joint_value_proposition ?? null,
-              crm_notes: partner.crm_notes ?? null,
-            }}
-            contacts={contacts}
-            currentUserEmail={USER_CONFIG.email}
-            relationships={relationshipsWithLeads}
-          />
-        </div>
       </div>
 
-      {/* ═══ MAIN CONTENT ═══ */}
-      <div className="space-y-10">
+      {/* ═══ SYNTHESIS ═══ */}
+      <section className="mb-8">
+        <BrainSynthesis
+          partnerId={id}
+          initialContent={brainEntry?.content ?? null}
+          initialDate={brainEntry?.created_at ?? null}
+          scratchpadLastUpdated={scratchpadLastUpdated}
+        />
+      </section>
 
-          {/* Brain Synthesis */}
-          <section>
-            <BrainSynthesis
-              partnerId={id}
-              initialContent={brainEntry?.content ?? null}
-              initialDate={brainEntry?.created_at ?? null}
-              scratchpadLastUpdated={scratchpadLastUpdated}
-            />
-          </section>
-
-          {/* Scratchpad */}
-          <section>
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
-              Scratchpad
-              {scratchpadEntries.length > 0 && (
-                <span className="ml-1.5 font-normal text-muted">{scratchpadEntries.length}</span>
-              )}
-            </h2>
-            <div className="rounded-lg border border-border/20 bg-surface/50 p-4">
-              <PartnerScratchpad partnerId={id} initialEntries={scratchpadEntries} compact />
-            </div>
-          </section>
-
-          {/* Co-Sell Performance */}
-          {(() => {
-            const fin = {
-              mp_tcv_ytd: partner.mp_tcv_ytd ?? null,
-              mp_tcv_goal: partner.mp_tcv_goal ?? null,
-              larr_ytd: partner.larr_ytd ?? null,
-              larr_goal: partner.larr_goal ?? null,
-              mp_tcv_2024: partner.mp_tcv_2024 ?? null,
-              larr_2024: partner.larr_2024 ?? null,
-              mp_tcv_2025: partner.mp_tcv_2025 ?? null,
-              larr_2025: partner.larr_2025 ?? null,
-              mp_tcv_target_2025: partner.mp_tcv_target_2025 ?? null,
-              mp_tcv_projected_annual: partner.mp_tcv_projected_annual ?? null,
-              larr_projected_annual: partner.larr_projected_annual ?? null,
-            };
-            const hasAny = Object.values(fin).some((v) => v !== null);
-            if (!hasAny) return null;
-
-            function attainmentPct(ytd: number | null, goal: number | null): string | null {
-              if (ytd === null || goal === null || goal <= 0) return null;
-              return `${Math.round((ytd / goal) * 100)}%`;
-            }
-
-            const mpAttain = attainmentPct(fin.mp_tcv_ytd, fin.mp_tcv_goal);
-            const larrAttain = attainmentPct(fin.larr_ytd, fin.larr_goal);
-
-            const priorRows: { label: string; mp: number | null; larr: number | null }[] = [
-              { label: "2025 Actuals", mp: fin.mp_tcv_2025, larr: fin.larr_2025 },
-              { label: "2024 Actuals", mp: fin.mp_tcv_2024, larr: fin.larr_2024 },
-            ];
-            const hasPrior = priorRows.some((r) => r.mp !== null || r.larr !== null);
-
-            return (
-              <section>
-                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
-                  Co-Sell Performance
-                </h2>
-                <div className="rounded-lg border border-border/20 bg-surface/50 p-4 space-y-4">
-                  {/* Primary metrics: MP TCV and LARR */}
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* MP TCV */}
-                    <div>
-                      <div className="text-xs text-muted mb-1">MP TCV</div>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-lg font-semibold text-foreground">{fmtCurrency(fin.mp_tcv_ytd)}</span>
-                        {fin.mp_tcv_goal !== null && (
-                          <span className="text-xs text-muted">/ {fmtCurrency(fin.mp_tcv_goal)} goal</span>
-                        )}
-                      </div>
-                      {mpAttain && (
-                        <div className="mt-0.5 text-sm font-medium text-accent">{mpAttain} attainment</div>
-                      )}
-                    </div>
-                    {/* LARR */}
-                    <div>
-                      <div className="text-xs text-muted mb-1">LARR</div>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-lg font-semibold text-foreground">{fmtCurrency(fin.larr_ytd)}</span>
-                        {fin.larr_goal !== null && (
-                          <span className="text-xs text-muted">/ {fmtCurrency(fin.larr_goal)} goal</span>
-                        )}
-                      </div>
-                      {larrAttain && (
-                        <div className="mt-0.5 text-sm font-medium text-accent">{larrAttain} attainment</div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Prior year + projections */}
-                  {(hasPrior || fin.mp_tcv_target_2025 !== null || fin.mp_tcv_projected_annual !== null || fin.larr_projected_annual !== null) && (
-                    <div className="border-t border-border/20 pt-3">
-                      <div className="grid grid-cols-[auto_1fr_1fr] gap-x-4 gap-y-1.5 text-sm">
-                        {/* Column headers */}
-                        <div className="text-xs text-muted/50" />
-                        <div className="text-xs text-muted/50">MP TCV</div>
-                        <div className="text-xs text-muted/50">LARR</div>
-
-                        {/* Prior year rows */}
-                        {priorRows.map((row) => {
-                          if (row.mp === null && row.larr === null) return null;
-                          return (
-                            <Fragment key={row.label}>
-                              <div className="text-xs text-muted">{row.label}</div>
-                              <div className="text-sm text-foreground/80">{fmtCurrency(row.mp)}</div>
-                              <div className="text-sm text-foreground/80">{fmtCurrency(row.larr)}</div>
-                            </Fragment>
-                          );
-                        })}
-
-                        {/* 2025 Target */}
-                        {fin.mp_tcv_target_2025 !== null && (
-                          <>
-                            <div className="text-xs text-muted">2025 Target</div>
-                            <div className="text-sm text-foreground/80">{fmtCurrency(fin.mp_tcv_target_2025)}</div>
-                            <div className="text-sm text-foreground/80">—</div>
-                          </>
-                        )}
-
-                        {/* Projected Annual */}
-                        {(fin.mp_tcv_projected_annual !== null || fin.larr_projected_annual !== null) && (
-                          <>
-                            <div className="text-xs text-muted">Projected Annual</div>
-                            <div className="text-sm text-foreground/80">{fmtCurrency(fin.mp_tcv_projected_annual)}</div>
-                            <div className="text-sm text-foreground/80">{fmtCurrency(fin.larr_projected_annual)}</div>
-                          </>
-                        )}
-                      </div>
-                    </div>
+      {/* ═══ CO-SELL PERFORMANCE ═══ */}
+      {hasFinancials && (
+        <section className="mb-8">
+          <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-muted/60">
+            Co-Sell Performance
+          </h2>
+          <div className="rounded-lg border border-border/50 bg-surface p-4">
+            <div className="grid grid-cols-2 gap-6">
+              {/* MP TCV */}
+              <div>
+                <div className="text-xs text-muted mb-1">MP TCV</div>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-mono text-lg font-semibold text-foreground">
+                    {fmtCurrency(fin.mp_tcv_ytd)}
+                  </span>
+                  {fin.mp_tcv_goal !== null && (
+                    <span className="text-xs text-muted">
+                      / {fmtCurrency(fin.mp_tcv_goal)}
+                    </span>
+                  )}
+                  {attPct(fin.mp_tcv_ytd, fin.mp_tcv_goal) && (
+                    <span className="font-mono text-xs text-accent">
+                      {attPct(fin.mp_tcv_ytd, fin.mp_tcv_goal)}
+                    </span>
                   )}
                 </div>
-              </section>
-            );
-          })()}
-
-          {/* Open Tasks */}
-          {tasksWithContext.length > 0 && (() => {
-            const TASK_VISIBLE = 5;
-            const TASK_THRESHOLD = 8;
-            const showAllTasks = tasksWithContext.length < TASK_THRESHOLD;
-            const visibleTasks = showAllTasks ? tasksWithContext : tasksWithContext.slice(0, TASK_VISIBLE);
-
-            return (
-              <section>
-                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
-                  Open tasks
-                  <span className="ml-1.5 font-normal text-muted">{tasksWithContext.length}</span>
-                </h2>
-                <div>
-                  {visibleTasks.map((t) => {
-                    const owner = ownerLabels[t.owner] ?? ownerLabels.me;
-                    const contextLabel = t.engagement_name
-                      ? t.engagement_name
-                      : t.meeting_title
-                        ? stripPartnerPrefix(t.meeting_title, partner.name)
-                        : null;
-                    return (
-                      <div
-                        key={t.id}
-                        className="border-b border-border/20 px-3 py-3 text-sm"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className={`min-w-0 flex-1 truncate ${t.owner === "me" ? "text-foreground" : "text-muted"}`}>{t.description}</span>
-                          {t.due_date && (
-                            <span className="shrink-0 text-xs text-muted">
-                              {new Date(t.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                            </span>
-                          )}
-                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${owner.color}`}>
-                            {owner.label}
-                          </span>
-                        </div>
-                        {contextLabel && (
-                          <span className="mt-0.5 block text-xs text-muted/50 truncate">{contextLabel}</span>
-                        )}
-                      </div>
-                    );
-                  })}
+              </div>
+              {/* LARR */}
+              <div>
+                <div className="text-xs text-muted mb-1">LARR</div>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-mono text-lg font-semibold text-foreground">
+                    {fmtCurrency(fin.larr_ytd)}
+                  </span>
+                  {fin.larr_goal !== null && (
+                    <span className="text-xs text-muted">
+                      / {fmtCurrency(fin.larr_goal)}
+                    </span>
+                  )}
+                  {attPct(fin.larr_ytd, fin.larr_goal) && (
+                    <span className="font-mono text-xs text-accent">
+                      {attPct(fin.larr_ytd, fin.larr_goal)}
+                    </span>
+                  )}
                 </div>
-                {!showAllTasks && (
-                  <Link
-                    href="/tasks"
-                    className="mt-2 inline-block text-sm text-accent hover:underline"
-                  >
-                    View all {tasksWithContext.length} tasks →
-                  </Link>
-                )}
-              </section>
-            );
-          })()}
+              </div>
+            </div>
 
-          {/* Engagements */}
-          {linkedEngagements.length > 0 && (() => {
-            const VISIBLE_COUNT = 5;
-            const SHOW_ALL_THRESHOLD = 8;
-            const needsExpander = linkedEngagements.length >= SHOW_ALL_THRESHOLD;
-            const visibleEngagements = needsExpander ? linkedEngagements.slice(0, VISIBLE_COUNT) : linkedEngagements;
-            const overflowEngagements = needsExpander ? linkedEngagements.slice(VISIBLE_COUNT) : [];
+            {/* Prior year + projections */}
+            {(() => {
+              const rows: { label: string; mp: number | null; larr: number | null }[] = [
+                { label: "2025", mp: fin.mp_tcv_2025, larr: fin.larr_2025 },
+                { label: "2024", mp: fin.mp_tcv_2024, larr: fin.larr_2024 },
+              ].filter((r) => r.mp !== null || r.larr !== null);
+              const hasProj = fin.mp_tcv_projected_annual !== null || fin.larr_projected_annual !== null;
+              if (rows.length === 0 && !hasProj) return null;
+              return (
+                <div className="mt-4 border-t border-border/30 pt-3">
+                  <div className="grid grid-cols-[auto_1fr_1fr] gap-x-6 gap-y-1 text-xs">
+                    <div className="text-muted/40" />
+                    <div className="text-muted/40">MP TCV</div>
+                    <div className="text-muted/40">LARR</div>
+                    {rows.map((r) => (
+                      <Fragment key={r.label}>
+                        <div className="text-muted">{r.label}</div>
+                        <div className="font-mono text-foreground/70">{fmtCurrency(r.mp)}</div>
+                        <div className="font-mono text-foreground/70">{fmtCurrency(r.larr)}</div>
+                      </Fragment>
+                    ))}
+                    {hasProj && (
+                      <>
+                        <div className="text-muted">Projected</div>
+                        <div className="font-mono text-foreground/70">{fmtCurrency(fin.mp_tcv_projected_annual)}</div>
+                        <div className="font-mono text-foreground/70">{fmtCurrency(fin.larr_projected_annual)}</div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </section>
+      )}
 
-            function renderEngagementRow(eng: Engagement) {
-              const dotColor = statusDotColor[eng.status] ?? "bg-zinc-500";
+      {/* ═══ BELOW THE FOLD — Progressive sections ═══ */}
+      <div className="space-y-6">
+        {/* Active Engagements */}
+        {linkedEngagements.length > 0 && (
+          <Section title="Engagements" count={linkedEngagements.length}>
+            {linkedEngagements.slice(0, 8).map((eng) => {
               const preview = eng.condensed
-                ? eng.condensed.split("\n").filter(Boolean).slice(0, 3).join(" · ")
+                ? eng.condensed.split("\n").filter(Boolean).slice(0, 2).join(" \u00b7 ")
                 : eng.topic ?? null;
               return (
                 <Link
                   key={eng.id}
                   href={`/engagements/${eng.id}`}
-                  className="block border-b border-border/20 px-3 py-3 transition-colors hover:bg-surface/50"
+                  className="flex items-start gap-3 border-b border-border/30 px-4 py-3 transition-colors hover:bg-surface-hover last:border-b-0"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                      {eng.name}
-                    </span>
-                    {eng.pillar && (
-                      <span className="shrink-0">
-                        <PillarBadge pillar={eng.pillar} />
+                  <StatusDot status={eng.status} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-foreground truncate">
+                        {eng.name}
                       </span>
-                    )}
-                    {eng.status !== "active" && (
-                      <span className={`shrink-0 h-1.5 w-1.5 rounded-full ${dotColor}`} title={eng.status} />
+                      {eng.pillar && <PillarBadge pillar={eng.pillar} />}
+                    </div>
+                    {preview && (
+                      <p className="mt-0.5 text-xs text-muted truncate">{preview}</p>
                     )}
                   </div>
-                  {preview && (
-                    <p className="mt-1 text-sm text-muted line-clamp-2">{preview}</p>
-                  )}
                 </Link>
               );
-            }
+            })}
+            {linkedEngagements.length > 8 && (
+              <div className="px-4 py-2 text-xs text-muted">
+                +{linkedEngagements.length - 8} more
+              </div>
+            )}
+          </Section>
+        )}
 
-            return (
-              <section>
-                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
-                  Engagements
-                  <span className="ml-1.5 font-normal text-muted">{linkedEngagements.length}</span>
-                </h2>
-                <div>
-                  {visibleEngagements.map(renderEngagementRow)}
-                  {overflowEngagements.length > 0 && (
-                    <details className="group">
-                      <summary className="flex cursor-pointer list-none items-center gap-1 px-3 py-2.5 text-sm text-accent hover:underline [&::-webkit-details-marker]:hidden">
-                        Show all {linkedEngagements.length} engagements
-                        <svg
-                          width="14" height="14" viewBox="0 0 16 16"
-                          fill="none" stroke="currentColor" strokeWidth="1.5"
-                          className="shrink-0 transition-transform group-open:rotate-90"
-                        >
-                          <path d="M6 4l4 4-4 4" />
-                        </svg>
-                      </summary>
-                      {overflowEngagements.map(renderEngagementRow)}
-                    </details>
-                  )}
-                </div>
-              </section>
-            );
-          })()}
-
-          {/* Recent Meetings */}
-          {recentMeetings.length > 0 && (() => {
-            const MTG_VISIBLE = 5;
-            const visibleMeetings = recentMeetings.slice(0, MTG_VISIBLE);
-
-            return (
-              <section>
-                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
-                  Recent meetings
-                  <span className="ml-1.5 font-normal text-muted">{recentMeetings.length}</span>
-                </h2>
-                <div>
-                  {visibleMeetings.map((m) => {
-                    const shortDate = m.meeting_date
-                      ? new Date(m.meeting_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                      : "TBD";
-                    const condensedPreview = condensedByMeetingId.get(m.id);
-                    const firstLine = condensedPreview
-                      ? condensedPreview.split("\n").find((l) => l.trim()) ?? null
-                      : null;
-
-                    return (
-                      <Link
-                        key={m.id}
-                        href={`/meetings/${m.id}`}
-                        className="block border-b border-border/20 px-3 py-3 transition-colors hover:bg-surface/50"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="w-14 shrink-0 text-xs text-muted">{shortDate}</span>
-                          <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                            {cleanMeetingTitle(m.title)}
-                          </span>
-                        </div>
-                        {firstLine && (
-                          <p className="mt-1 ml-[calc(3.5rem+0.75rem)] text-sm text-muted truncate">{firstLine}</p>
-                        )}
-                      </Link>
-                    );
-                  })}
-                </div>
-                {recentMeetings.length > MTG_VISIBLE && (
-                  <Link
-                    href="/meetings"
-                    className="mt-2 inline-block text-sm text-accent hover:underline"
-                  >
-                    View all {recentMeetings.length} meetings →
-                  </Link>
-                )}
-              </section>
-            );
-          })()}
-
-          {/* Program Enrollments */}
-          {programEnrollments.length > 0 && (() => {
-            const ENROLL_VISIBLE = 5;
-            const ENROLL_THRESHOLD = 8;
-            const needsExpander = programEnrollments.length >= ENROLL_THRESHOLD;
-            const visibleEnrollments = needsExpander ? programEnrollments.slice(0, ENROLL_VISIBLE) : programEnrollments;
-            const overflowEnrollments = needsExpander ? programEnrollments.slice(ENROLL_VISIBLE) : [];
-
-            const typeColors: Record<string, string> = {
-              "Competency": "bg-violet-500/10 text-violet-400",
-              "Service Ready": "bg-emerald-500/10 text-emerald-400",
-              "Program": "bg-blue-500/10 text-blue-400",
-              "Credit Program": "bg-amber-500/10 text-amber-400",
-            };
-
-            const statusColors: Record<string, string> = {
-              "Approved": "text-emerald-400",
-              "In Progress": "text-amber-400",
-              "Not Started": "text-muted",
-              "Expired": "text-red-400",
-            };
-
-            function renderEnrollmentRow(enroll: typeof programEnrollments[number]) {
-              const typeClass = (enroll.type && typeColors[enroll.type]) ?? "bg-zinc-500/10 text-zinc-400";
-              const statusClass = (enroll.status && statusColors[enroll.status]) ?? "text-muted";
-              const achieved = enroll.date_achieved
-                ? new Date(enroll.date_achieved + "T00:00:00").toLocaleDateString("en-US", { month: "short", year: "numeric" })
-                : null;
-              const hasNotes = enroll.notes && enroll.notes.trim().length > 0;
-
+        {/* Open Tasks */}
+        {tasksWithContext.length > 0 && (
+          <Section title="Open Tasks" count={tasksWithContext.length} viewAllHref="/tasks">
+            {tasksWithContext.slice(0, 6).map((t) => {
+              const owner = ownerLabels[t.owner] ?? ownerLabels.me;
+              const ctx = t.engagement_name ?? (t.meeting_title ? stripPartnerPrefix(t.meeting_title, partner.name) : null);
               return (
-                <div
-                  key={enroll.id}
-                  className="border-b border-border/20 px-3 py-3"
+                <div key={t.id} className="border-b border-border/30 px-4 py-2.5 last:border-b-0">
+                  <div className="flex items-center gap-3">
+                    <span className={`min-w-0 flex-1 truncate text-sm ${t.owner === "me" ? "text-foreground/80" : "text-muted"}`}>
+                      {t.description}
+                    </span>
+                    {t.due_date && (
+                      <span className="shrink-0 text-[11px] text-muted">{shortDate(t.due_date)}</span>
+                    )}
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${owner.cls}`}>
+                      {owner.label}
+                    </span>
+                  </div>
+                  {ctx && <span className="mt-0.5 block text-[11px] text-muted/40 truncate">{ctx}</span>}
+                </div>
+              );
+            })}
+          </Section>
+        )}
+
+        {/* Recent Meetings */}
+        {recentMeetings.length > 0 && (
+          <Section title="Recent Meetings" count={recentMeetings.length}>
+            {recentMeetings.slice(0, 8).map((m) => {
+              const firstLine = condensedByMeetingId.get(m.id)?.split("\n").find((l) => l.trim()) ?? null;
+              return (
+                <Link
+                  key={m.id}
+                  href={`/meetings/${m.id}`}
+                  className="flex items-start gap-3 border-b border-border/30 px-4 py-2.5 transition-colors hover:bg-surface-hover last:border-b-0"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                      {enroll.program_name ?? "Unlinked Program"}
+                  <span className="w-16 shrink-0 pt-0.5 text-xs text-muted">{shortDate(m.meeting_date)}</span>
+                  <div className="min-w-0 flex-1">
+                    <span className="text-sm text-foreground/80 truncate block">
+                      {cleanMeetingTitle(m.title)}
                     </span>
-                    {enroll.type && (
-                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${typeClass}`}>
-                        {enroll.type}
-                      </span>
-                    )}
-                    {enroll.status && (
-                      <span className={`shrink-0 text-xs ${statusClass}`}>
-                        {enroll.status}
-                      </span>
-                    )}
-                    {achieved && (
-                      <span className="shrink-0 text-xs text-muted">Achieved {achieved}</span>
+                    {firstLine && (
+                      <span className="mt-0.5 text-xs text-muted/60 truncate block">{firstLine}</span>
                     )}
                   </div>
-                  {hasNotes && (
-                    <span className="mt-0.5 block text-xs text-muted/50 truncate">{enroll.notes}</span>
-                  )}
-                </div>
+                </Link>
               );
-            }
+            })}
+          </Section>
+        )}
 
-            return (
-              <section>
-                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
-                  Program Enrollments
-                  <span className="ml-1.5 font-normal text-muted">{programEnrollments.length}</span>
-                </h2>
-                <div>
-                  {visibleEnrollments.map(renderEnrollmentRow)}
-                  {overflowEnrollments.length > 0 && (
-                    <details className="group">
-                      <summary className="flex cursor-pointer list-none items-center gap-1 px-3 py-2.5 text-sm text-accent hover:underline [&::-webkit-details-marker]:hidden">
-                        Show all {programEnrollments.length} enrollments
-                        <svg
-                          width="14" height="14" viewBox="0 0 16 16"
-                          fill="none" stroke="currentColor" strokeWidth="1.5"
-                          className="shrink-0 transition-transform group-open:rotate-90"
-                        >
-                          <path d="M6 4l4 4-4 4" />
-                        </svg>
-                      </summary>
-                      {overflowEnrollments.map(renderEnrollmentRow)}
-                    </details>
-                  )}
-                </div>
-              </section>
-            );
-          })()}
-
-          {/* Funding (MPOPP + MDF) */}
-          {(mpoppFunding.length > 0 || mdfFunding.length > 0) && (() => {
-            const totalFunding = mpoppFunding.length + mdfFunding.length;
-
-            const mpoppStatusColor: Record<string, string> = {
-              "Approved": "text-emerald-400",
-              "Pending": "text-amber-400",
-            };
-
-            return (
-              <section>
-                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
-                  Funding
-                  <span className="ml-1.5 font-normal text-muted">{totalFunding}</span>
-                </h2>
-                <div className="space-y-4">
-
-                  {/* MPOPP */}
-                  {mpoppFunding.length > 0 && (
-                    <div>
-                      <div className="mb-1 px-3 text-xs font-medium text-muted">MPOPP</div>
-                      <div>
-                        {mpoppFunding.map((f) => {
-                          const remaining = (f.allocated ?? 0) - (f.spent ?? 0);
-                          const hasNotes = f.notes && f.notes.trim().length > 0;
-                          const statusClass = (f.status && mpoppStatusColor[f.status]) ?? "text-muted";
-
-                          return (
-                            <div key={f.id} className="border-b border-border/20 px-3 py-3">
-                              <div className="flex items-center gap-3">
-                                {f.status && (
-                                  <span className={`shrink-0 text-xs ${statusClass}`}>{f.status}</span>
-                                )}
-                                {f.half && (
-                                  <span className="shrink-0 text-xs text-muted">{f.half.toUpperCase()}</span>
-                                )}
-                                <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-                                  {f.track ?? "—"}
-                                </span>
-                                <span className="shrink-0 text-xs text-muted">
-                                  {fmtCurrency(f.allocated)}
-                                </span>
-                                <span className="shrink-0 text-xs text-muted">
-                                  spent {fmtCurrency(f.spent)}
-                                </span>
-                                <span className={`shrink-0 text-xs font-medium ${remaining > 0 ? "text-amber-400" : "text-muted"}`}>
-                                  {fmtCurrency(remaining)} left
-                                </span>
-                              </div>
-                              {hasNotes && (
-                                <span className="mt-0.5 block text-xs text-muted/50 truncate">{f.notes}</span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* MDF */}
-                  {mdfFunding.length > 0 && (
-                    <div>
-                      <div className="mb-1 px-3 text-xs font-medium text-muted">MDF</div>
-                      <div>
-                        {mdfFunding.map((f) => {
-                          const remaining = (f.allocated ?? 0) - (f.utilized ?? 0);
-                          const hasNotes = f.notes && f.notes.trim().length > 0;
-
-                          return (
-                            <div key={f.id} className="border-b border-border/20 px-3 py-3">
-                              <div className="flex items-center gap-3">
-                                <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-                                  {f.record_name ?? "—"}
-                                </span>
-                                <span className="shrink-0 text-xs text-muted">
-                                  {fmtCurrency(f.allocated)}
-                                </span>
-                                <span className="shrink-0 text-xs text-muted">
-                                  used {fmtCurrency(f.utilized)}
-                                </span>
-                                <span className={`shrink-0 text-xs font-medium ${remaining > 0 ? "text-amber-400" : "text-muted"}`}>
-                                  {fmtCurrency(remaining)} left
-                                </span>
-                                {f.source && (
-                                  <span className="shrink-0 text-xs text-muted">{f.source}</span>
-                                )}
-                                {f.recurrence && (
-                                  <span className="shrink-0 text-xs text-muted">{f.recurrence}</span>
-                                )}
-                              </div>
-                              {hasNotes && (
-                                <span className="mt-0.5 block text-xs text-muted/50 truncate">{f.notes}</span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                </div>
-              </section>
-            );
-          })()}
-
-          {/* Strategic Goals */}
-          {(() => {
-            const GOAL_VISIBLE = 5;
-            const GOAL_THRESHOLD = 8;
-            const needsExpander = partnerGoals.length >= GOAL_THRESHOLD;
-            const visibleGoals = needsExpander ? partnerGoals.slice(0, GOAL_VISIBLE) : partnerGoals;
-            const overflowGoals = needsExpander ? partnerGoals.slice(GOAL_VISIBLE) : [];
-
-            const categoryColors: Record<string, string> = {
-              co_sell: "bg-blue-500/10 text-blue-400",
-              co_build: "bg-violet-500/10 text-violet-400",
-              co_market: "bg-emerald-500/10 text-emerald-400",
-              program: "bg-amber-500/10 text-amber-400",
-              operational: "bg-zinc-500/10 text-zinc-400",
-              compliance: "bg-red-500/10 text-red-400",
-              vertical: "bg-cyan-500/10 text-cyan-400",
-            };
-
-            const categoryLabels: Record<string, string> = {
-              co_sell: "Co-Sell",
-              co_build: "Co-Build",
-              co_market: "Co-Market",
-              program: "Program",
-              operational: "Operational",
-              compliance: "Compliance",
-              vertical: "Vertical",
-            };
-
-            const statusColors: Record<string, string> = {
-              in_progress: "text-emerald-400",
-              not_started: "text-blue-400",
-              completed: "text-violet-400",
-              deferred: "text-amber-400",
-            };
-
-            const statusLabels: Record<string, string> = {
-              in_progress: "Active",
-              not_started: "Planned",
-              completed: "Completed",
-              deferred: "Blocked",
-            };
-
-            function renderGoalRow(g: typeof partnerGoals[number]) {
-              const catClass = (g.category && categoryColors[g.category]) ?? "bg-zinc-500/10 text-zinc-400";
-              const catLabel = (g.category && categoryLabels[g.category]) ?? g.category ?? "";
-              const statClass = (g.status && statusColors[g.status]) ?? "text-muted";
-              const statLabel = (g.status && statusLabels[g.status]) ?? g.status ?? "";
-              const hasNotes = g.notes && g.notes.trim().length > 0;
-
-              return (
-                <div key={g.id} className="border-b border-border/20 px-3 py-3">
-                  <div className="flex items-center gap-3">
-                    <span className="min-w-0 flex-1 text-sm text-foreground">{g.goal}</span>
-                    {catLabel && (
-                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${catClass}`}>
-                        {catLabel}
-                      </span>
-                    )}
-                    {statLabel && (
-                      <span className={`shrink-0 text-xs ${statClass}`}>{statLabel}</span>
-                    )}
-                    {g.year && (
-                      <span className="shrink-0 text-xs text-muted">{g.year}</span>
-                    )}
-                  </div>
-                  {hasNotes && (
-                    <span className="mt-0.5 block text-xs text-muted/50 truncate">{g.notes}</span>
-                  )}
-                </div>
-              );
-            }
-
-            return (
-              <section>
-                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
-                  Strategic Goals
-                  {partnerGoals.length > 0 && (
-                    <span className="ml-1.5 font-normal text-muted">{partnerGoals.length}</span>
-                  )}
-                </h2>
-                {partnerGoals.length === 0 ? (
-                  <div className="rounded-lg border border-border/20 bg-surface/50 p-4">
-                    <p className="text-sm text-muted">No goals set for this partner yet.</p>
-                  </div>
-                ) : (
-                  <div>
-                    {visibleGoals.map(renderGoalRow)}
-                    {overflowGoals.length > 0 && (
-                      <details className="group">
-                        <summary className="flex cursor-pointer list-none items-center gap-1 px-3 py-2.5 text-sm text-accent hover:underline [&::-webkit-details-marker]:hidden">
-                          Show all {partnerGoals.length} goals
-                          <svg
-                            width="14" height="14" viewBox="0 0 16 16"
-                            fill="none" stroke="currentColor" strokeWidth="1.5"
-                            className="shrink-0 transition-transform group-open:rotate-90"
-                          >
-                            <path d="M6 4l4 4-4 4" />
-                          </svg>
-                        </summary>
-                        {overflowGoals.map(renderGoalRow)}
-                      </details>
-                    )}
-                  </div>
+        {/* Program Enrollments */}
+        {programEnrollments.length > 0 && (
+          <Section title="Program Enrollments" count={programEnrollments.length}>
+            {programEnrollments.map((e) => (
+              <div key={e.id} className="flex items-center gap-3 border-b border-border/30 px-4 py-2.5 last:border-b-0">
+                <span className="min-w-0 flex-1 truncate text-sm text-foreground/80">
+                  {e.program_name ?? "Unlinked"}
+                </span>
+                {e.type && (
+                  <span className="shrink-0 rounded-full bg-accent/8 px-2 py-0.5 text-[11px] font-medium text-accent/70">
+                    {e.type}
+                  </span>
                 )}
-              </section>
-            );
-          })()}
+                {e.status && (
+                  <span className={`shrink-0 text-[11px] ${
+                    e.status === "Approved" ? "text-status-active" :
+                    e.status === "In Progress" ? "text-status-blocked" :
+                    "text-muted"
+                  }`}>
+                    {e.status}
+                  </span>
+                )}
+                {e.date_achieved && (
+                  <span className="shrink-0 text-[11px] text-muted/60">{shortDate(e.date_achieved)}</span>
+                )}
+              </div>
+            ))}
+          </Section>
+        )}
 
-          {/* Event Participations */}
-          {eventParticipations.length > 0 && (() => {
-            const EVT_VISIBLE = 5;
-            const EVT_THRESHOLD = 8;
-            const needsExpander = eventParticipations.length >= EVT_THRESHOLD;
-            const visibleEvents = needsExpander ? eventParticipations.slice(0, EVT_VISIBLE) : eventParticipations;
-            const overflowEvents = needsExpander ? eventParticipations.slice(EVT_VISIBLE) : [];
+        {/* Strategic Goals */}
+        <Section title="Strategic Goals" count={partnerGoals.length}>
+          {partnerGoals.length === 0 ? (
+            <div className="px-4 py-4 text-sm text-muted/60">
+              No strategic goals set
+            </div>
+          ) : (
+            partnerGoals.map((g) => (
+              <div key={g.id} className="flex items-center gap-3 border-b border-border/30 px-4 py-2.5 last:border-b-0">
+                <span className="min-w-0 flex-1 text-sm text-foreground/80">{g.goal}</span>
+                {g.category && (
+                  <span className="shrink-0 rounded-full bg-accent/8 px-2 py-0.5 text-[11px] font-medium text-accent/70">
+                    {g.category.replace(/_/g, " ")}
+                  </span>
+                )}
+                {g.status && (
+                  <span className={`shrink-0 text-[11px] ${
+                    g.status === "in_progress" ? "text-status-active" :
+                    g.status === "completed" ? "text-status-completed" :
+                    g.status === "deferred" ? "text-status-blocked" :
+                    "text-muted"
+                  }`}>
+                    {g.status === "in_progress" ? "Active" :
+                     g.status === "not_started" ? "Planned" :
+                     g.status === "completed" ? "Done" :
+                     g.status === "deferred" ? "Blocked" : g.status}
+                  </span>
+                )}
+              </div>
+            ))
+          )}
+        </Section>
 
-            const statusColors: Record<string, string> = {
-              "Registered": "text-emerald-400",
-              "Interested": "text-blue-400",
-              "Attended": "text-violet-400",
-            };
+        {/* Funding */}
+        {(mpoppFunding.length > 0 || mdfFunding.length > 0) && (
+          <Section title="Funding" count={mpoppFunding.length + mdfFunding.length}>
+            {mpoppFunding.length > 0 && (
+              <>
+                <div className="px-4 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted/40">MPOPP</div>
+                {mpoppFunding.map((f) => {
+                  const remaining = (f.allocated ?? 0) - (f.spent ?? 0);
+                  return (
+                    <div key={f.id} className="flex items-center gap-3 border-b border-border/30 px-4 py-2.5 last:border-b-0">
+                      {f.status && (
+                        <span className={`shrink-0 text-[11px] ${f.status === "Approved" ? "text-status-active" : "text-status-blocked"}`}>
+                          {f.status}
+                        </span>
+                      )}
+                      {f.half && <span className="shrink-0 text-[11px] text-muted">{f.half.toUpperCase()}</span>}
+                      <span className="min-w-0 flex-1 truncate text-sm text-foreground/80">{f.track ?? "\u2014"}</span>
+                      <span className="shrink-0 font-mono text-xs text-muted">{fmtCurrency(f.allocated)}</span>
+                      <span className="shrink-0 font-mono text-xs text-muted">spent {fmtCurrency(f.spent)}</span>
+                      <span className={`shrink-0 font-mono text-xs font-medium ${remaining > 0 ? "text-status-blocked" : "text-muted"}`}>
+                        {fmtCurrency(remaining)} left
+                      </span>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+            {mdfFunding.length > 0 && (
+              <>
+                <div className="px-4 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted/40">MDF</div>
+                {mdfFunding.map((f) => {
+                  const remaining = (f.allocated ?? 0) - (f.utilized ?? 0);
+                  return (
+                    <div key={f.id} className="flex items-center gap-3 border-b border-border/30 px-4 py-2.5 last:border-b-0">
+                      <span className="min-w-0 flex-1 truncate text-sm text-foreground/80">{f.record_name ?? "\u2014"}</span>
+                      <span className="shrink-0 font-mono text-xs text-muted">{fmtCurrency(f.allocated)}</span>
+                      <span className="shrink-0 font-mono text-xs text-muted">used {fmtCurrency(f.utilized)}</span>
+                      <span className={`shrink-0 font-mono text-xs font-medium ${remaining > 0 ? "text-status-blocked" : "text-muted"}`}>
+                        {fmtCurrency(remaining)} left
+                      </span>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </Section>
+        )}
 
-            function renderEventRow(ep: typeof eventParticipations[number]) {
-              const statClass = (ep.status && statusColors[ep.status]) ?? "text-muted";
-              const dateStr = ep.event_start_date
-                ? new Date(ep.event_start_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-                : null;
-              const hasNotes = ep.notes && ep.notes.trim().length > 0;
+        {/* Event Participations */}
+        {eventParticipations.length > 0 && (
+          <Section title="Events" count={eventParticipations.length}>
+            {eventParticipations.map((e) => (
+              <div key={e.id} className="flex items-center gap-3 border-b border-border/30 px-4 py-2.5 last:border-b-0">
+                <span className="min-w-0 flex-1 truncate text-sm text-foreground/80">
+                  {e.event_name ?? "Unknown Event"}
+                </span>
+                {e.status && (
+                  <span className={`shrink-0 text-[11px] ${
+                    e.status === "Attended" ? "text-status-completed" :
+                    e.status === "Registered" ? "text-status-active" :
+                    "text-muted"
+                  }`}>
+                    {e.status}
+                  </span>
+                )}
+              </div>
+            ))}
+          </Section>
+        )}
 
-              return (
-                <div key={ep.id} className="border-b border-border/20 px-3 py-3">
-                  <div className="flex items-center gap-3">
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                      {ep.event_name ?? "Unknown Event"}
-                    </span>
-                    {dateStr && (
-                      <span className="shrink-0 text-xs text-muted">{dateStr}</span>
-                    )}
-                    {ep.status && (
-                      <span className={`shrink-0 text-xs ${statClass}`}>{ep.status}</span>
-                    )}
-                    {ep.contacts_attending && ep.contacts_attending.trim().length > 0 && (
-                      <span className="shrink-0 text-xs text-muted">{ep.contacts_attending}</span>
-                    )}
+        {/* People */}
+        {(awsTeam.length > 0 || partnerTeam.length > 0 || linkedRelationships.length > 0) && (
+          <Section title="People">
+            {awsTeam.length > 0 && (
+              <>
+                <div className="px-4 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted/40">AWS Team</div>
+                {awsTeam.map((c, i) => (
+                  <div key={i} className="flex items-center gap-3 border-b border-border/30 px-4 py-2 last:border-b-0">
+                    <span className="text-sm text-foreground/80">{c.name ?? c.email}</span>
+                    {c.role && <span className="text-[11px] text-muted">{c.role}</span>}
+                    {c.email && c.name && <span className="text-[11px] text-muted/40">{c.email}</span>}
                   </div>
-                  {hasNotes && (
-                    <span className="mt-0.5 block text-xs text-muted/50 truncate">{ep.notes}</span>
-                  )}
-                </div>
-              );
-            }
+                ))}
+              </>
+            )}
+            {partnerTeam.length > 0 && (
+              <>
+                <div className="px-4 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted/40">Partner Team</div>
+                {partnerTeam.map((c, i) => (
+                  <div key={i} className="flex items-center gap-3 border-b border-border/30 px-4 py-2 last:border-b-0">
+                    <span className="text-sm text-foreground/80">{c.name ?? c.email}</span>
+                    {c.role && <span className="text-[11px] text-muted">{c.role}</span>}
+                    {c.email && c.name && <span className="text-[11px] text-muted/40">{c.email}</span>}
+                  </div>
+                ))}
+              </>
+            )}
+            {linkedRelationships.length > 0 && (
+              <>
+                <div className="px-4 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted/40">AWS Relationships</div>
+                {linkedRelationships.map((r) => (
+                  <Link
+                    key={r.id}
+                    href={`/relationships/${r.id}`}
+                    className="flex items-center gap-3 border-b border-border/30 px-4 py-2 transition-colors hover:bg-surface-hover last:border-b-0"
+                  >
+                    <span className="text-sm text-foreground/80">{r.name}</span>
+                    {r.org && <span className="text-[11px] text-muted">{r.org}</span>}
+                  </Link>
+                ))}
+              </>
+            )}
+          </Section>
+        )}
 
-            return (
-              <section>
-                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
-                  Event Participations
-                  <span className="ml-1.5 font-normal text-muted">{eventParticipations.length}</span>
-                </h2>
+        {/* Solution Profile */}
+        {(partner.what_they_do || partner.joint_value_proposition || partner.architecture) && (
+          <Section title="Solution Profile">
+            <div className="space-y-3 px-4 py-3">
+              {partner.what_they_do && (
                 <div>
-                  {visibleEvents.map(renderEventRow)}
-                  {overflowEvents.length > 0 && (
-                    <details className="group">
-                      <summary className="flex cursor-pointer list-none items-center gap-1 px-3 py-2.5 text-sm text-accent hover:underline [&::-webkit-details-marker]:hidden">
-                        Show all {eventParticipations.length} participations
-                        <svg
-                          width="14" height="14" viewBox="0 0 16 16"
-                          fill="none" stroke="currentColor" strokeWidth="1.5"
-                          className="shrink-0 transition-transform group-open:rotate-90"
-                        >
-                          <path d="M6 4l4 4-4 4" />
-                        </svg>
-                      </summary>
-                      {overflowEvents.map(renderEventRow)}
-                    </details>
-                  )}
+                  <div className="text-[11px] font-medium text-muted/60 mb-0.5">What They Do</div>
+                  <p className="text-sm text-foreground/70">{partner.what_they_do}</p>
                 </div>
-              </section>
-            );
-          })()}
+              )}
+              {partner.joint_value_proposition && (
+                <div>
+                  <div className="text-[11px] font-medium text-muted/60 mb-0.5">Joint Value Proposition</div>
+                  <p className="text-sm text-foreground/70">{partner.joint_value_proposition}</p>
+                </div>
+              )}
+              {partner.architecture && (
+                <div>
+                  <div className="text-[11px] font-medium text-muted/60 mb-0.5">Architecture</div>
+                  <p className="text-sm text-foreground/70">{partner.architecture}</p>
+                </div>
+              )}
+              {partner.listing_types && partner.listing_types.length > 0 && (
+                <div>
+                  <div className="text-[11px] font-medium text-muted/60 mb-0.5">Listing Types</div>
+                  <p className="text-sm text-foreground/70">{partner.listing_types.join(", ")}</p>
+                </div>
+              )}
+              {partner.pricing_model && partner.pricing_model.length > 0 && (
+                <div>
+                  <div className="text-[11px] font-medium text-muted/60 mb-0.5">Pricing Model</div>
+                  <p className="text-sm text-foreground/70">{partner.pricing_model.join(", ")}</p>
+                </div>
+              )}
+              {partner.aws_stickiness && (
+                <div>
+                  <div className="text-[11px] font-medium text-muted/60 mb-0.5">AWS Stickiness</div>
+                  <p className="text-sm text-foreground/70">{partner.aws_stickiness}</p>
+                </div>
+              )}
+              {partner.key_aws_services.length > 0 && (
+                <div>
+                  <div className="text-[11px] font-medium text-muted/60 mb-0.5">Key AWS Services</div>
+                  <p className="text-sm text-foreground/70">{partner.key_aws_services.join(", ")}</p>
+                </div>
+              )}
+            </div>
+          </Section>
+        )}
+
+        {/* Operational Status */}
+        {(partner.isva_status || partner.deployed_on_aws || partner.prm_status || partner.crm_platform) && (
+          <Section title="Operational Status">
+            <div className="grid grid-cols-2 gap-3 px-4 py-3">
+              {partner.isva_status && (
+                <div>
+                  <div className="text-[11px] text-muted/60">ISVa Status</div>
+                  <div className="text-sm text-foreground/70">{partner.isva_status}</div>
+                </div>
+              )}
+              {partner.deployed_on_aws && (
+                <div>
+                  <div className="text-[11px] text-muted/60">Deployed on AWS</div>
+                  <div className="text-sm text-foreground/70">{partner.deployed_on_aws}</div>
+                </div>
+              )}
+              {partner.prm_status && (
+                <div>
+                  <div className="text-[11px] text-muted/60">PRM Status</div>
+                  <div className="text-sm text-foreground/70">{partner.prm_status}</div>
+                </div>
+              )}
+              {partner.crm_platform && (
+                <div>
+                  <div className="text-[11px] text-muted/60">CRM Platform</div>
+                  <div className="text-sm text-foreground/70">{partner.crm_platform}</div>
+                </div>
+              )}
+              {partner.crm_notes && (
+                <div className="col-span-2">
+                  <div className="text-[11px] text-muted/60">CRM Notes</div>
+                  <div className="text-sm text-foreground/70">{partner.crm_notes}</div>
+                </div>
+              )}
+            </div>
+          </Section>
+        )}
+
+        {/* Scratchpad — always at bottom */}
+        <section>
+          <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-muted/60">
+            Scratchpad
+          </h2>
+          <div className="rounded-lg border border-border/50 bg-surface p-4">
+            <PartnerScratchpad partnerId={id} initialEntries={scratchpadEntries} compact />
+          </div>
+        </section>
       </div>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Shared sub-components                                              */
+/* ------------------------------------------------------------------ */
+
+function Section({
+  title,
+  count,
+  viewAllHref,
+  children,
+}: {
+  title: string;
+  count?: number;
+  viewAllHref?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h2 className="text-xs font-medium uppercase tracking-wider text-muted/60">
+            {title}
+          </h2>
+          {count !== undefined && count > 0 && (
+            <span className="text-xs text-muted/40">{count}</span>
+          )}
+        </div>
+        {viewAllHref && (
+          <Link href={viewAllHref} className="text-xs text-muted hover:text-foreground transition-colors">
+            View all
+          </Link>
+        )}
+      </div>
+      <div className="rounded-lg border border-border/50 bg-surface overflow-hidden">
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function StatusDot({ status }: { status: string }) {
+  const colors: Record<string, string> = {
+    active: "bg-status-active",
+    planned: "bg-accent",
+    blocked: "bg-status-blocked",
+    completed: "bg-status-completed",
+    archived: "bg-status-archived",
+  };
+  return (
+    <span
+      className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${colors[status] ?? "bg-muted"}`}
+      title={status}
+    />
   );
 }

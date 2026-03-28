@@ -4,84 +4,84 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
+/* ------------------------------------------------------------------ */
+/*  Nav structure — 3 tiers, 7 items                                  */
+/* ------------------------------------------------------------------ */
+
 interface NavItem {
   href: string;
   label: string;
   icon: React.ReactNode;
-  showBadge?: boolean;
+  badge?: boolean;
 }
 
-// — Review: what needs attention
-const reviewItems: NavItem[] = [
+const primaryItems: NavItem[] = [
   {
-    href: "/inbox",
-    label: "Inbox",
+    href: "/",
+    label: "Today",
     icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <rect x="2" y="3" width="16" height="14" rx="2" />
-        <path d="M2 10h5l2 3h2l2-3h5" />
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="9" cy="9" r="7" />
+        <path d="M9 5.5v3.5l2.5 1.5" />
       </svg>
     ),
-    showBadge: true,
   },
-];
-
-// — Work: core portfolio views
-const workItems: NavItem[] = [
   {
     href: "/partners",
     label: "Partners",
     icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M3 3h6v6H3zM11 3h6v6h-6zM3 11h6v6H3zM11 11h6v6h-6z" />
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="2" width="5.5" height="5.5" rx="1.5" />
+        <rect x="10.5" y="2" width="5.5" height="5.5" rx="1.5" />
+        <rect x="2" y="10.5" width="5.5" height="5.5" rx="1.5" />
+        <rect x="10.5" y="10.5" width="5.5" height="5.5" rx="1.5" />
       </svg>
     ),
   },
   {
-    href: "/engagements",
-    label: "Engagements",
+    href: "/inbox",
+    label: "Inbox",
+    badge: true,
     icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M4 5h12M4 10h12M4 15h8" />
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M2.5 10h3.5l1.5 2.5h3L12 10h3.5" />
+        <path d="M4 4.5h10a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5V6A1.5 1.5 0 0 1 4 4.5z" />
       </svg>
     ),
   },
 ];
 
-// — Activity: meetings & tasks
-const activityItems: NavItem[] = [
-  {
-    href: "/meetings",
-    label: "Meetings",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <rect x="3" y="5" width="14" height="11" rx="2" />
-        <path d="M7 5V3M13 5V3M3 9h14" />
-        <circle cx="10" cy="12.5" r="1" fill="currentColor" />
-      </svg>
-    ),
-  },
+const secondaryItems: NavItem[] = [
   {
     href: "/tasks",
     label: "Tasks",
     icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <rect x="3" y="3" width="14" height="14" rx="2" />
-        <path d="M7 10l2 2 4-4" />
+      <svg width="17" height="17" viewBox="0 0 17 17" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2.5" y="2.5" width="12" height="12" rx="2" />
+        <path d="M6 8.5l1.5 1.5L11 7" />
+      </svg>
+    ),
+  },
+  {
+    href: "/meetings",
+    label: "Meetings",
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 17 17" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2.5" y="4" width="12" height="10.5" rx="2" />
+        <path d="M5.5 4V2M11.5 4V2M2.5 7.5h12" />
       </svg>
     ),
   },
 ];
 
-// — Reference: catalog browsing
-const referenceItems: NavItem[] = [
+const tertiaryItems: NavItem[] = [
   {
     href: "/programs",
     label: "Programs",
     icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <rect x="3" y="3" width="14" height="14" rx="2" />
-        <path d="M7 7h6M7 10h6M7 13h4" />
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 2.5h10a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H3A1.5 1.5 0 0 1 1.5 12V4A1.5 1.5 0 0 1 3 2.5z" />
+        <path d="M5 6h6M5 8.5h6M5 11h3.5" />
       </svg>
     ),
   },
@@ -89,27 +89,38 @@ const referenceItems: NavItem[] = [
     href: "/events",
     label: "Events",
     icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <rect x="3" y="4" width="14" height="13" rx="2" />
-        <path d="M3 8h14M7 2v4M13 2v4" />
-      </svg>
-    ),
-  },
-  {
-    href: "/relationships",
-    label: "Relationships",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <circle cx="7" cy="7" r="2.5" />
-        <circle cx="13" cy="7" r="2.5" />
-        <path d="M2 16c0-2.5 2-4 5-4M13 12c3 0 5 1.5 5 4" />
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 3.5h10a1.5 1.5 0 0 1 1.5 1.5v7.5a1.5 1.5 0 0 1-1.5 1.5H3A1.5 1.5 0 0 1 1.5 12.5V5A1.5 1.5 0 0 1 3 3.5z" />
+        <path d="M1.5 7h13M5 2v3M11 2v3" />
       </svg>
     ),
   },
 ];
 
-const IDLE_STYLE = "text-zinc-400 hover:bg-surface-hover hover:text-foreground";
-const ACTIVE_STYLE = "bg-accent/10 text-accent font-medium";
+/* ------------------------------------------------------------------ */
+/*  Tier styling — hierarchy through brightness, not labels           */
+/* ------------------------------------------------------------------ */
+
+const tiers = {
+  primary: {
+    idle: "text-foreground/80 hover:text-foreground hover:bg-white/[0.04]",
+    active: "text-accent bg-accent/[0.08]",
+  },
+  secondary: {
+    idle: "text-muted hover:text-foreground/70 hover:bg-white/[0.04]",
+    active: "text-accent bg-accent/[0.08]",
+  },
+  tertiary: {
+    idle: "text-muted/60 hover:text-muted hover:bg-white/[0.04]",
+    active: "text-accent bg-accent/[0.08]",
+  },
+} as const;
+
+type Tier = keyof typeof tiers;
+
+/* ------------------------------------------------------------------ */
+/*  Component                                                          */
+/* ------------------------------------------------------------------ */
 
 export default function Sidebar({
   initialBadgeCount,
@@ -120,7 +131,7 @@ export default function Sidebar({
   const [badgeCount, setBadgeCount] = useState(initialBadgeCount);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Poll for inbox count every 30s
+  /* Poll inbox count every 30s */
   useEffect(() => {
     const poll = async () => {
       try {
@@ -130,15 +141,13 @@ export default function Sidebar({
           setBadgeCount(data.count);
         }
       } catch {
-        // silently fail — stale count is fine
+        /* stale count is fine */
       }
     };
-
-    const interval = setInterval(poll, 30000);
-    return () => clearInterval(interval);
+    const id = setInterval(poll, 30_000);
+    return () => clearInterval(id);
   }, []);
 
-  // Sync with initialBadgeCount when it changes (after server-side refresh)
   useEffect(() => {
     setBadgeCount(initialBadgeCount);
   }, [initialBadgeCount]);
@@ -149,21 +158,26 @@ export default function Sidebar({
     return pathname.startsWith(href);
   };
 
-  function renderItem(item: NavItem) {
+  /* ---- render helpers ---- */
+
+  function renderItem(item: NavItem, tier: Tier) {
     const active = isActive(item.href);
+    const style = tiers[tier];
+
     return (
       <Link
         key={item.href}
         href={item.href}
         onClick={() => setMobileOpen(false)}
-        className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
-          active ? ACTIVE_STYLE : IDLE_STYLE
+        className={`flex items-center gap-2.5 rounded-md px-3 py-1.5 text-[13px] transition-colors ${
+          active ? style.active : style.idle
         }`}
       >
         {item.icon}
         <span>{item.label}</span>
-        {item.showBadge && badgeCount > 0 && (
-          <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-bold text-white">
+
+        {item.badge && badgeCount > 0 && (
+          <span className="ml-auto flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-white">
             {badgeCount}
           </span>
         )}
@@ -171,50 +185,45 @@ export default function Sidebar({
     );
   }
 
+  function renderTier(items: NavItem[], tier: Tier) {
+    return (
+      <div className="flex flex-col gap-0.5">
+        {items.map((item) => renderItem(item, tier))}
+      </div>
+    );
+  }
+
+  /* ---- nav tree ---- */
+
   const nav = (
-    <nav className="flex h-full flex-col px-3 py-4">
+    <nav className="flex h-full flex-col px-3 pt-5">
       {/* Brand */}
-      <div className="mb-4 px-3 py-2">
-        <span className="text-base font-bold text-accent">Relay</span>
+      <div className="mb-8 px-3">
+        <span className="text-[15px] font-semibold tracking-tight text-foreground">
+          Roadrunner
+        </span>
       </div>
 
-      {/* Zone 1 — Review */}
-      <div>
-        <div className="px-3 mb-1 text-[10px] font-medium uppercase tracking-[0.1em] text-muted/40">Review</div>
-        <div className="flex flex-col gap-1">
-          {reviewItems.map((item) => renderItem(item))}
-        </div>
-      </div>
+      {/* Primary — daily workflow */}
+      {renderTier(primaryItems, "primary")}
 
-      {/* Zone 2 — Work */}
+      {/* Secondary — tools */}
       <div className="mt-6">
-        <div className="px-3 mb-1 text-[10px] font-medium uppercase tracking-[0.1em] text-muted/40">Work</div>
-        <div className="flex flex-col gap-1">
-          {workItems.map((item) => renderItem(item))}
-        </div>
+        {renderTier(secondaryItems, "secondary")}
       </div>
 
-      {/* Zone 3 — Activity */}
+      {/* Tertiary — reference catalogs */}
       <div className="mt-6">
-        <div className="px-3 mb-1 text-[10px] font-medium uppercase tracking-[0.1em] text-muted/40">Activity</div>
-        <div className="flex flex-col gap-1">
-          {activityItems.map((item) => renderItem(item))}
-        </div>
-      </div>
-
-      {/* Zone 4 — Reference */}
-      <div className="mt-6">
-        <div className="px-3 mb-1 text-[10px] font-medium uppercase tracking-[0.1em] text-muted/40">Reference</div>
-        <div className="flex flex-col gap-1">
-          {referenceItems.map((item) => renderItem(item))}
-        </div>
+        {renderTier(tertiaryItems, "tertiary")}
       </div>
     </nav>
   );
 
+  /* ---- shell ---- */
+
   return (
     <>
-      {/* Mobile hamburger */}
+      {/* Mobile toggle */}
       <button
         className="fixed left-4 top-4 z-50 rounded-lg bg-surface p-2 text-foreground lg:hidden"
         onClick={() => setMobileOpen(!mobileOpen)}
@@ -239,7 +248,7 @@ export default function Sidebar({
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 z-40 h-full w-64 transition-transform lg:static lg:translate-x-0 ${
+        className={`fixed top-0 left-0 z-40 h-full w-56 border-r border-border/40 bg-surface transition-transform lg:static lg:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >

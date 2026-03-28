@@ -33,7 +33,7 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
   const [tasks, setTasks] = useState(initialTasks);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string | null>("me");
-  const [groupByPartner, setGroupByPartner] = useState(false);
+  const [groupByPartner, setGroupByPartner] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -389,16 +389,20 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
             </div>
           )}
         </div>
-        <span className="w-16 shrink-0 text-right text-xs text-muted">
+        <span className={`w-16 shrink-0 text-right text-xs font-medium ${
+          task.due_date && task.due_date < new Date().toISOString().slice(0, 10) && task.status === "open"
+            ? "text-status-blocked"
+            : "text-muted"
+        }`}>
           {task.due_date
             ? new Date(task.due_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
             : ""}
         </span>
-        <span className={`w-20 shrink-0 text-center rounded-full px-2 py-0.5 text-xs font-medium ${
+        <span className={`w-20 shrink-0 text-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
           task.owner === "me" ? "bg-accent/10 text-accent" :
-          task.owner === "partner" ? "bg-emerald-500/10 text-emerald-400" :
-          task.owner === "third_party" ? "bg-purple-500/10 text-purple-400" :
-          "bg-amber-500/10 text-amber-400"
+          task.owner === "partner" ? "bg-status-active/10 text-status-active" :
+          task.owner === "third_party" ? "bg-status-completed/10 text-status-completed" :
+          "bg-status-blocked/10 text-status-blocked"
         }`}>
           {task.owner === "me" ? "Me" : task.owner === "partner" ? "Partner" : task.owner === "third_party" ? "3rd Party" : "Internal"}
         </span>
@@ -416,12 +420,12 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
   }
 
   return (
-    <div className="mx-auto max-w-7xl p-6 lg:p-8">
+    <div className="mx-auto max-w-5xl p-6 lg:p-8">
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <PageHeader
             title="Tasks"
-            subtitle={`${openCount} open task${openCount !== 1 ? "s" : ""}${tasks.length - openCount > 0 ? ` · ${tasks.length - openCount} done` : ""}`}
+            subtitle={`${openCount} open task${openCount !== 1 ? "s" : ""}${tasks.length - openCount > 0 ? ` \u00b7 ${tasks.length - openCount} done` : ""}`}
           />
           {tasks.length - openCount > 0 && (
             <button
