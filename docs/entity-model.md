@@ -987,12 +987,12 @@ UNIQUE index on `(participant_id, entity_type, entity_id)`
 | ~~Brain synthesis (AI Call 3)~~ | **Done** — brain-synthesizer.ts, Decision #191 | ✅ |
 | ~~Seed notes elimination~~ | **Done** — migration 063, Decision #195 | ✅ |
 | ~~Manual task creation~~ | **Done** — POST handler + inline form, Decision #196 | ✅ |
-| Intake pipeline redesign (human-guided routing) | Planned (decisions #223-232) | Next |
+| Intake pipeline redesign (human-guided routing) | **Done** — decisions #223-249 | ✅ |
 | entity_links → typed junctions | **Done** — migration 065, decisions #221-222 | ✅ |
 | Ring 3 pull sync (Partner Programs, Events, Partner Goals, MPOPP, MDF) | **Done** — migrations 072-074, decisions #318-338 | ✅ |
 | Financial fields on partners table | **Done** — migration 072, 8 NUMERIC columns | ✅ |
 | CRM restructure (crm_status→crm_platform) | **Done** — migration 072, decision #331 | ✅ |
-| Partner page tab redesign for Ring 3 data | Planned (decision #324) | Next |
+| Partner page tab redesign for Ring 3 data | **Done** — Ring 3 sections wired to partner detail (decisions #318-338) | ✅ |
 | Slot registry v1 | Not started | Later |
 | ~~Tasks on partner detail~~ | ~~Query by partner_id~~ | **Done** |
 | ~~Open tasks in writing sidebar~~ | ~~Query by partner_id, status=open~~ | **Done** |
