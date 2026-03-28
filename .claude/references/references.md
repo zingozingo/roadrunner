@@ -26,6 +26,11 @@ Before starting each task, view the relevant reference screenshots (use `view` t
 ### windsurf_sleekness.png
 **What to learn:** Navigation structure and content organization. Notice the three-column layout: nav sidebar, content area, contextual sidebar. The sidebar sections are clearly grouped with subtle headers. Active states are prominent. The content area has good typography hierarchy — headings, body text, and cards each have distinct visual weight. Apply to: Partner detail page layout, meeting detail page layout, any page with both navigation and content.
 
+### ui-ux-best-practices.md
+**What this is:** A comprehensive guide to enterprise-grade interaction patterns — button states, loading indicators, error handling, destructive action safety, navigation guards, dark theme rules, typography, spacing, forms, and feedback timing. These are concrete rules, not inspiration.
+**When to read it:** Before any UI work. Reference specific sections when implementing buttons, loading states, error handling, forms, or any interactive behavior.
+**Key sections:** Button States (7 states every button needs), Loading States (matched to duration), Destructive Actions & Undo (soft delete, undo patterns), Navigation Safety (unsaved changes), Dark Theme Patterns, Spacing & Layout (4px scale rules), Confirmation & Feedback (every action gets feedback), Interaction Feedback Timing (response time thresholds).
+
 ## Universal Principles Across All References
 
 These patterns appear in every reference and should be applied everywhere in Roadrunner:

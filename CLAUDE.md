@@ -1,62 +1,93 @@
-## UI Overhaul — Agent Context
+## How We Work
 
-**Before any UI work, read these documents in order:**
-1. `docs/north-star.md` — The complete vision: what Roadrunner should become, data architecture, interaction flows, enterprise UX standards
-2. `.claude/roadrunner-ui/SKILL.md` — The design system: tokens, components, pages, patterns. This is a LIVING document — update it as you establish new patterns
-3. `docs/entity-model.md` — The complete schema: all 23 tables, FK cascades, Airtable field IDs, ring model. This is your data reference for what fields exist and how entities connect
+### Two Modes
 
-**Path-level guardrails:**
+**Interactive mode:** Steven directs work in real-time. Normal session flow — diagnose, plan, implement one chunk at a time, verify. Steven provides context, makes judgment calls, and steers priorities. Work happens in chunks with verification after each.
 
-READ-ONLY — do not modify any files in these paths:
+**Task mode:** Steven has prepared a task plan document (typically `docs/agent-tasks.md`). Read the full plan first, then execute tasks in order. Each task has scope, intent, context, and done-when criteria. Verify after each task. Git commit after each task with a message describing what was done. Do not skip ahead — complete and verify one task before starting the next.
+
+In both modes, all rules below apply.
+
+### Before Any UI/UX Work
+
+Read these documents in this order before touching any UI code:
+1. `docs/north-star.md` — The vision: what Roadrunner should become, page specs, UX standards, design principles, anti-patterns
+2. `.claude/roadrunner-ui/SKILL.md` — The design system: tokens, components, patterns. This is a LIVING document — update it as you establish new patterns during implementation
+3. `docs/entity-model.md` — The schema: all 23 tables, FK cascades, Airtable field IDs, ring model. This is your reference for what data exists and how entities connect
+4. `.claude/references/ui-ux-best-practices.md` — Interaction patterns: button states, loading, errors, undo, navigation safety, dark theme, spacing, feedback timing
+
+### Path Guardrails
+
+These apply in ALL modes, ALL sessions:
+
+**READ-ONLY — do not modify any files in these paths:**
 - `src/lib/` — all database, sync, AI, parsing, and utility modules
 - `src/app/api/` — all API routes
 - `supabase/migrations/` — never create migrations
 - `src/lib/__tests__/` — never modify existing tests
 - `.env`, `.env.local` — never touch environment config
 
-WRITE-ALLOWED:
+**WRITE-ALLOWED:**
 - `src/app/` (page components, layouts — but NOT `src/app/api/`)
 - `src/components/` — UI components
 - `src/app/globals.css` — styling
-- `scripts/` — audit and screenshot tooling
+- `scripts/` — tooling
 - `docs/` — documentation updates
 - `.claude/` — design system docs, references, screenshots
 
-The agent may READ anything in src/lib/ to understand data shapes, types, and existing query functions. It must not WRITE to those files. If a page needs data in a shape the existing API doesn't provide, filter or transform client-side.
+The agent may READ anything in `src/lib/` to understand data shapes, types, and existing query functions. It must not WRITE to those files. If a page needs data in a shape the existing API doesn't provide, filter or transform client-side.
 
-**Visual verification tools:**
+### Verification Tools
 
-After every page change, use these tools to verify your work:
+These tools are available for visual and mechanical verification of UI work:
 
-- `npx tsx scripts/screenshot.ts /path 1440` — Screenshots a page at the given viewport width. Saves PNG to `.claude/screenshots/`. Use to visually verify layout, spacing, and content rendering. Screenshot at both 1280 and 1440 after each page.
-- `npx tsx scripts/interact.ts '[...]'` — Runs a JSON interaction sequence (goto, click, fill, wait, assert_visible, assert_hidden, assert_text, assert_url, screenshot). Use to test UX flows: button clicks, loading states, navigation safety, form behavior. On failure, captures error screenshot automatically.
-- `bash scripts/ui-audit.sh` — Mechanical code checks: no hardcoded hex colors, no off-scale spacing (4/8/12/16/24/32 only), no inline styles, no console.log, no TODO/FIXME. Must pass clean after every task.
+- `npx tsx scripts/screenshot.ts /path 1440` — Screenshots a page at the given viewport width. Saves PNG to `.claude/screenshots/`. Use to visually verify layout, spacing, and content rendering.
+- `npx tsx scripts/interact.ts '[...]'` — Runs a JSON interaction sequence against localhost:3000. Supported actions: `goto`, `click`, `fill`, `wait`, `wait_for`, `screenshot`, `assert_visible`, `assert_hidden`, `assert_text`, `assert_url`. Use to test UX flows: button clicks, loading states, navigation safety, form behavior. Auto-screenshots on failure.
+- `bash scripts/ui-audit.sh` — Mechanical code checks scoped to `src/app/` and `src/components/`: no hardcoded hex colors, no off-scale spacing (only 4/8/12/16/24/32), no inline styles, no console.log, no TODO/FIXME. Must pass clean after every task.
 
-**Verification sequence after every task:**
+### Verification Sequence
+
+Run this after every task (task mode) or after every significant chunk (interactive mode):
+
 1. `npx tsc --noEmit` — zero type errors
-2. `npx vitest run` — all 435+ tests pass
+2. `npx vitest run` — all tests pass
 3. `bash scripts/ui-audit.sh` — all mechanical checks pass
 4. `npx tsx scripts/screenshot.ts` — visual verification at 1280 and 1440
-5. `npx tsx scripts/interact.ts` — test key interaction flows for the page
+5. `npx tsx scripts/interact.ts` — test key interaction flows for changed pages
 
-**Agent working rules:**
-- Read the North Star FIRST. Understand the vision before touching code.
-- Read SKILL.md SECOND. Understand the design system before creating components.
-- Read entity-model.md THIRD. Understand what data exists before building pages.
-- When you establish a new UI pattern (e.g., how financial data is displayed, how loading states work, how performance bars look), DOCUMENT IT IN SKILL.md BEFORE reusing it across multiple pages. Consistency comes from documenting patterns, not from memory.
-- Before implementing any page, identify every state that page can be in — loading, loaded, empty, partial data, error, mid-mutation, unsaved changes. Implement each one deliberately. If you can't articulate what the user sees in a given state, that's a bug.
-- After EVERY page change: run the full verification sequence above.
-- Enterprise UX is non-negotiable: explicit loading states, navigation safety for unsaved changes, confirmation dialogs for destructive actions, professional button labels. See North Star Part 7.
-- Dark theme only. All colors use CSS custom properties defined in globals.css. See SKILL.md for token reference.
-- Data fetching: use server components with parallel Supabase queries (existing pattern). Don't create new API routes for read operations unless there's a specific need.
-- All spacing uses the 4px scale: 4/8/12/16/24/32. No other values.
-- Delete, don't stub. When removing a page or component, delete the file entirely. No dead code, no "removed" comments.
+### Screenshot Organization
 
-**What to rebuild:** Sidebar, Today screen (new landing page), Partner list + detail, Meeting detail, Tasks page, Inbox page. See North Star Parts 2-4.
+At the start of any task-based run, create a dated subfolder in `.claude/screenshots/`:
+`.claude/screenshots/{YYYY-MM-DD}-{description}/`
+All screenshots for that run go in the subfolder. Never delete previous run folders — they serve as "before" comparisons for future passes.
 
-**What to remove:** Standalone engagements/programs/events/relationships list pages, slide-over panel on partner page, 4-section brain accordion. See North Star Part 10.
+### Reference Material
 
-**What to preserve:** Sync layer, AI pipeline, email/ICS parsers, database modules, test files, Mailgun webhook, meeting recurrence engine. See North Star Part 10.
+`.claude/references/` contains permanent design inspiration — screenshots from enterprise apps and best-practice documentation. Read `.claude/references/references.md` for guidance on what to learn from each reference.
+
+Before any UI work, view the reference screenshots to calibrate your quality bar. These are inspiration, not templates — learn the principles, don't copy layouts.
+
+### UI/UX Working Principles
+
+These apply to all UI work in both modes:
+
+- **Before implementing any page**, identify every state it can be in: loading, loaded, empty, partial data, error, mid-mutation, unsaved changes. Implement each state deliberately.
+- **All spacing uses the 4px scale:** 4/8/12/16/24/32. No other values.
+- **Dark theme only.** All colors use CSS custom properties defined in `globals.css`.
+- **Data fetching:** use server components with parallel Supabase queries (existing pattern). Don't create new API routes for read operations.
+- **Delete, don't stub.** When removing a page or component, delete the file entirely. No dead code.
+- **Document new patterns.** When you establish a new UI pattern (financial data display, loading states, performance bars), document it in SKILL.md BEFORE reusing across multiple pages.
+- **Enterprise UX is non-negotiable:** explicit loading states, navigation safety for unsaved changes, confirmation dialogs for destructive actions, professional button labels. See North Star Part 7.
+
+### Task Plans
+
+When operating in task mode, the current task plan lives at `docs/agent-tasks.md`. This document is replaced each time a new plan is created. It contains:
+- Business context — who uses the app and how
+- Ordered task list with scope, intent, context, and done-when criteria per task
+- Mid-task self-check protocol
+- Verification requirements
+
+Not every session uses task mode. When working interactively, ignore `docs/agent-tasks.md` unless Steven specifically references it.
 
 ---
 
