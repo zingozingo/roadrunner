@@ -61,6 +61,8 @@ At the start of any task-based run, create a dated subfolder in `.claude/screens
 `.claude/screenshots/{YYYY-MM-DD}-{description}/`
 All screenshots for that run go in the subfolder. Never delete previous run folders — they serve as "before" comparisons for future passes.
 
+All screenshots go in `.claude/screenshots/` — never create other directories like `.claude/audit/` or `.claude/captures/`. One location, always organized by dated subfolders.
+
 ### Reference Material
 
 `.claude/references/` contains permanent design inspiration — screenshots from enterprise apps and best-practice documentation. Read `.claude/references/references.md` for guidance on what to learn from each reference.
