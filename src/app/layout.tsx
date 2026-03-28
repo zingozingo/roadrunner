@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Relay — Engagement Tracker",
-  description: "AI-powered engagement tracker for AWS Partner Development",
+  title: "Roadrunner",
+  description: "Partner intelligence platform for AWS PDMs",
 };
 
 export default async function RootLayout({
@@ -36,9 +36,9 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <div className="flex min-h-screen">
+        <div className="flex min-h-screen bg-background">
           <Sidebar initialBadgeCount={badgeCount} />
-          <main className="flex-1 overflow-y-auto lg:ml-0">
+          <main className="flex-1 overflow-y-auto">
             {children}
           </main>
         </div>

@@ -1,174 +1,292 @@
 ---
 name: roadrunner-ui
-description: UI design system reference for Roadrunner. Covers existing tokens, components, pages, and data patterns. Read docs/north-star.md FIRST for vision and design decisions.
+description: UI design system reference for Roadrunner. Covers tokens, components, pages, patterns, and interaction standards. Read docs/north-star.md FIRST for vision and design decisions.
 ---
 
 # Roadrunner UI Design System
 
-This is the design system reference for Roadrunner — what exists in the codebase right now.
-Read `docs/north-star.md` FIRST. That document defines the vision, UX standards, interaction flows, and anti-patterns.
-This doc covers: tokens, components, pages, and data-fetching patterns as they exist today.
-This is a LIVING document — update it as you establish new patterns during the UI overhaul.
+This is the living design system for Roadrunner. Every UI component references this document.
+Read `docs/north-star.md` FIRST for vision, UX standards, and anti-patterns.
+Update this document as new patterns are established.
+
+---
+
+## Design Philosophy
+
+**Restraint over decoration.** Every pixel must earn its place. If removing an element doesn't reduce clarity, remove it.
+
+**Typography does the work.** Size, weight, and brightness create hierarchy — not color, borders, or icons. Color is reserved for status and interaction.
+
+**Surfaces create depth.** Three elevation levels (background → surface → elevated) replace visible borders. When a border is needed, it's barely there.
+
+**Dark theme is native.** Not a light theme with inverted colors. Surfaces are warm dark grays with slight blue undertone. Text has three clear brightness tiers. Accent color (indigo) is used sparingly — for active states, badges, and primary actions only.
+
+**Density is earned.** Dense pages work because every element has a purpose. Spacing is the primary organizational tool — consistent gaps create visual grouping without explicit dividers.
 
 ---
 
 ## Design Tokens
 
-Dark theme only. All colors are CSS custom properties defined in `src/app/globals.css` and exposed to Tailwind via `@theme inline`.
-
 ### Core Colors
 
-| Token | Value | Tailwind Class | Usage |
-|-------|-------|---------------|-------|
-| --background | #0f1117 | bg-background | Page background |
-| --foreground | #e4e4e7 | text-foreground | Primary text |
-| --surface | #1a1b23 | bg-surface | Cards, panels |
-| --surface-hover | #22232d | bg-surface-hover | Hover states |
-| --border | #2a2b35 | border-border | Borders, dividers |
-| --muted | #71717a | text-muted | Secondary text, labels |
-| --accent | #6366f1 | text-accent, bg-accent | Links, badges, actions |
-| --accent-hover | #818cf8 | text-accent-hover | Hover on accent elements |
+| Token | Value | Tailwind | Usage |
+|-------|-------|----------|-------|
+| `--background` | `#0f1117` | `bg-background` | Page background, deepest level |
+| `--foreground` | `#e4e4e7` | `text-foreground` | Primary text, headings |
+| `--surface` | `#1a1b23` | `bg-surface` | Cards, sidebar, panels |
+| `--surface-hover` | `#22232d` | `bg-surface-hover` | Hover states on surfaces |
+| `--border` | `#2a2b35` | `border-border` | Borders (use at reduced opacity) |
+| `--muted` | `#71717a` | `text-muted` | Secondary text, labels, captions |
+| `--accent` | `#6366f1` | `text-accent` / `bg-accent` | Active states, badges, primary CTA |
+| `--accent-hover` | `#818cf8` | `text-accent-hover` | Hover on accent elements |
+
+### Text Brightness Scale
+
+Three tiers of text brightness create hierarchy without changing font size:
+
+| Level | Class | Usage |
+|-------|-------|-------|
+| **Primary** | `text-foreground` | Page titles, important labels |
+| **Secondary** | `text-foreground/70` | Body text, nav items, descriptions |
+| **Tertiary** | `text-muted` | Labels, timestamps, metadata |
+| **Quaternary** | `text-muted/60` | Subordinate items, disabled-adjacent |
 
 ### Status Colors
 
 | Token | Value | Usage |
 |-------|-------|-------|
-| --status-active | #22c55e | Active engagements/tasks |
-| --status-blocked | #f59e0b | Blocked items |
-| --status-completed | #8b5cf6 | Completed items |
-| --status-archived | #6b7280 | Archived items |
+| `--status-active` | `#22c55e` | Active / on-track |
+| `--status-blocked` | `#f59e0b` | Blocked / at-risk / overdue |
+| `--status-completed` | `#8b5cf6` | Completed / done |
+| `--status-archived` | `#6b7280` | Archived / inactive |
 
 ### Semantic Colors
 
-Program types, event types, and confidence levels each have dedicated tokens in globals.css (e.g., `--program-competency: #3b82f6`, `--event-conference: #8b5cf6`, `--confidence-high: #22c55e`). See the CSS file for the full list.
+Program types, event types, and confidence levels have dedicated tokens in `globals.css`. See the CSS file for the full list.
 
 ### Typography
 
-- **Sans:** Geist Sans (`font-sans`) — all body text
-- **Mono:** Geist Mono (`font-mono`) — financial data, numbers, code
-- **Sizing:** `text-xs` for labels/badges, `text-sm` for body, `text-[15px]` for prose content
-- **Section labels:** `text-xs font-semibold uppercase tracking-wider text-muted`
+| Element | Classes | Notes |
+|---------|---------|-------|
+| Page title | `text-xl font-semibold text-foreground` | One per page, top-left |
+| Page subtitle | `text-sm text-muted` | Below title, counts/context |
+| Section header | `text-xs font-medium uppercase tracking-wider text-muted/60` | Collapsible sections |
+| Body text | `text-sm text-foreground/70` | Default readable text |
+| Label | `text-xs text-muted` | Form labels, metadata keys |
+| Financial data | `font-mono text-sm` | Numbers, currency, percentages |
+| Badge text | `text-[11px] font-medium` | Inside badges |
+| Nav item | `text-[13px]` | Sidebar navigation |
+
+**Fonts:** Geist Sans (body), Geist Mono (financial data, numbers, code)
 
 ---
 
-## Existing Components
+## Spacing System
 
-### src/components/shared/ (13 files)
+All spacing uses the 4px scale. No exceptions.
 
-| Component | Purpose |
-|-----------|---------|
-| SlideOverPanel | Right-side sliding panel with tab support |
-| PillarBadge | Co-Sell / Co-Build / Co-Market badge |
-| StatusBadge | Engagement status badge (active/blocked/completed/etc.) |
-| TypeBadge | Exports: ProgramTypeBadge, EventTypeBadge, RelationshipTypeBadge, MeetingStatusBadge |
-| ContactGroup | Grouped contact display with role-priority sorting |
-| ContactRow | Single contact row with email/title |
-| EngagementLinker | Dropdown to link meetings to engagements (includes "Create new") |
-| RecurrenceEditor | Recurrence pattern picker for meetings |
-| ConfirmDialog | Modal confirmation for destructive actions |
-| CollapsibleEmails | Expandable email thread display |
-| CollapsibleParticipants | Expandable participant list |
-| ParticipantList | Full participant list with role badges |
-| Timeline | Meeting timeline display |
-
-### src/components/partners/ (3 files)
-
-| Component | Purpose |
-|-----------|---------|
-| BrainSynthesis | Client component — displays/triggers AI brain synthesis |
-| PartnerScratchpad | Client component — editable tribal knowledge notepad |
-| PartnerReferencePanel | Slide-over with Profile/Status/People tabs |
-
-### src/components/notes/ (5 files)
-
-| Component | Purpose |
-|-----------|---------|
-| NoteWorkspace | 3-mode meeting notes (editing → review → saved) |
-| ContextSidebar | Partner context sidebar for note-taking |
-| PreviousNotes | Previous meeting digests (3-tier cascade) |
-| TaskEditor | Inline task creation/editing |
-| MeetingNotesSection | Notes section wrapper for meeting detail |
-
-### src/components/layout/ (4 files)
-
-| Component | Purpose |
-|-----------|---------|
-| Sidebar | App navigation sidebar |
-| PageHeader | Page title + action bar |
-| FilterBar | Filter controls for list pages |
-| EmptyState | Empty state display |
-
-### src/components/actions/ (6 files)
-
-Entity-specific action button groups: EngagementActions, MeetingActions, ProgramActions, EventActions, RelationshipActions, MergeButton.
-
-### src/components/inbox/ (1 file)
-
-InboxClient — full inbox triage UI (assign/create/discard).
+| Value | Tailwind | Usage |
+|-------|----------|-------|
+| 4px | `gap-1`, `p-1` | Tight inline spacing (badge padding, icon gaps) |
+| 8px | `gap-2`, `p-2` | Default item spacing within groups |
+| 12px | `gap-3`, `p-3` | Compact card padding, section internal spacing |
+| 16px | `gap-4`, `p-4` | Standard card padding, section margins |
+| 24px | `gap-6`, `mt-6` | Major section breaks, tier separation |
+| 32px | `gap-8`, `mt-8` | Page-level section spacing |
 
 ---
 
-## Pages (18 routes)
+## Surface Elevation
 
-| Route | Description | Notes |
-|-------|-------------|-------|
-| `/` | Today page | NEW — basic meetings + inbox signal. Redesign target. |
-| `/partners` | Partner list | Needs performance indicators |
-| `/partners/[id]` | Partner detail | Ring 3 sections wired. Pre-redesign layout. |
-| `/engagements` | Engagement list | Grouped by partner. North Star says: remove standalone page |
-| `/engagements/[id]` | Engagement detail | Condensed digest + connected meetings |
-| `/meetings` | Meeting list | Includes quick-capture modal |
-| `/meetings/[id]` | Meeting detail | Inline NoteWorkspace. Needs enterprise UX polish |
-| `/programs` | Program list | North Star says: remove standalone page |
-| `/programs/[id]` | Program detail | |
-| `/events` | Event list | North Star says: remove standalone page |
-| `/events/[id]` | Event detail | |
-| `/relationships` | Relationship list | North Star says: remove standalone page |
-| `/relationships/[id]` | Relationship detail | |
-| `/tasks` | Task dashboard | Me-filtered, grouped by partner |
-| `/inbox` | Inbox triage | Assign/create/discard workflow |
-| `/notes` | Notes redirect | Legacy route |
-| `/notes/[id]` | Note detail | Legacy route |
-| `/notes/new` | New note | Legacy route |
+Three levels of elevation create depth without visible borders:
+
+| Level | Token | Usage |
+|-------|-------|-------|
+| **Ground** | `bg-background` | Page background |
+| **Surface** | `bg-surface` | Sidebar, cards, panels, rows |
+| **Elevated** | `bg-surface-hover` | Modals, dropdowns, hover states |
+
+When borders are needed, use `border-border/50` (half opacity). Full-opacity borders (`border-border`) are reserved for explicit visual boundaries like the sidebar edge.
+
+---
+
+## Component Patterns
+
+### Sidebar
+
+Three-tier navigation without section labels. Hierarchy communicated through text brightness alone.
+
+- **Width:** 224px (`w-56`)
+- **Background:** `bg-surface` with `border-r border-border/40`
+- **Brand:** `text-[15px] font-semibold tracking-tight text-foreground`
+- **Tier spacing:** 24px (`mt-6`) between tiers
+- **Item spacing:** 2px (`gap-0.5`) within tiers
+- **Item padding:** `px-3 py-1.5` (32px row height)
+- **Item shape:** `rounded-md`
+
+| Tier | Items | Idle text | Hover | Active |
+|------|-------|-----------|-------|--------|
+| Primary | Today, Partners, Inbox | `text-foreground/80` | `text-foreground bg-white/[0.04]` | `text-accent bg-accent/[0.08]` |
+| Secondary | Tasks, Meetings | `text-muted` | `text-foreground/70 bg-white/[0.04]` | `text-accent bg-accent/[0.08]` |
+| Tertiary | Programs, Events | `text-muted/60` | `text-muted bg-white/[0.04]` | `text-accent bg-accent/[0.08]` |
+
+Badge (Inbox count): `h-[18px] min-w-[18px] rounded-full bg-accent text-[10px] font-semibold text-white`
+
+### Page Header
+
+Every page has a consistent header pattern:
+
+```
+[Title]                              [Actions]
+[Subtitle / count]
+```
+
+- Title: `text-xl font-semibold text-foreground`
+- Subtitle: `text-sm text-muted mt-1`
+- Actions: right-aligned, accent-colored primary CTA
+- Bottom margin: 32px before content
+
+### Card
+
+The default container for grouped content:
+
+- `bg-surface rounded-lg border border-border/50`
+- Padding: `p-4` standard, `p-3` compact
+- No shadow (shadows don't work well on dark themes)
+
+### List Row
+
+Scannable rows for partners, tasks, meetings, etc:
+
+- Full-width click target
+- `hover:bg-surface-hover transition-colors`
+- Row height: consistent within a list (40-44px typical)
+- Layout: title left-aligned, metadata right-aligned
+- Separator: `border-b border-border/30` between rows, or no separator if bg alternation is used
+
+### Badge
+
+Consistent across all pages:
+
+- Shape: `rounded-full` for status, `rounded-md` for type/category
+- Size: `text-[11px] font-medium px-2 py-0.5`
+- Color: semantic background at 15% opacity + full semantic text
+- Example: `bg-status-active/15 text-status-active`
+
+### Section (Collapsible)
+
+Used on detail pages for progressive disclosure:
+
+- Header: `text-xs font-medium uppercase tracking-wider text-muted/60` with optional count
+- Chevron icon for expand/collapse
+- Content padding: `pt-3` below header
+- Section gap: `mt-6` between sections
+
+### Empty State
+
+Clean, not broken-looking:
+
+- Centered text in the section area
+- `text-sm text-muted/60`
+- No icons, no illustrations — just a brief message
+- Example: "No strategic goals set" or "No upcoming events"
+
+---
+
+## Interactive States
+
+### Buttons
+
+| Type | Idle | Hover | Disabled |
+|------|------|-------|----------|
+| Primary | `bg-accent text-white rounded-md px-4 py-2 text-sm font-medium` | `bg-accent-hover` | `opacity-50 cursor-not-allowed` |
+| Secondary | `bg-surface border border-border/50 text-foreground/70 rounded-md px-4 py-2 text-sm` | `bg-surface-hover text-foreground` | `opacity-50 cursor-not-allowed` |
+| Ghost | `text-muted text-sm` | `text-foreground` | `opacity-50` |
+| Danger | `text-red-400 text-sm` | `text-red-300 bg-red-500/10` | `opacity-50` |
+
+**Labels are verbs:** "Generate Summary", "Save & Lock", "Route to Engagement", "Create Engagement". Never "Submit", "Go", "OK".
+
+### Loading States
+
+- **Short (<1s):** Subtle inline spinner, 16px, `text-muted`
+- **Medium (1-5s):** Contextual message + spinner ("Generating summary...")
+- **Long (5s+):** Progress indicator with steps
+- **Button loading:** Replace label with spinner, keep button width stable, `pointer-events-none`
+
+### Confirmation Dialogs
+
+For destructive actions (delete, discard, complete):
+
+- Modal overlay: `bg-black/50`
+- Dialog: `bg-surface rounded-lg border border-border/50 p-6 max-w-md`
+- Title: clear action description
+- Body: consequences of the action
+- Actions: Cancel (secondary) + Confirm (danger or primary)
+
+### Navigation Safety
+
+If unsaved changes exist:
+- Block navigation with `beforeunload` + Next.js route interception
+- Modal: "You have unsaved changes. Leave anyway?"
+- Actions: "Stay" (primary) + "Leave" (ghost/danger)
 
 ---
 
 ## Data Fetching Patterns
 
-**Server components (reads):** Pages query Supabase directly via `db/` functions with `Promise.all` for parallel fetches. This is the standard pattern — do not create API routes for read operations.
+**Server components (reads):** Query Supabase directly via `db/` functions with `Promise.all`:
 
 ```typescript
-const [{ data: meetings }, { data: engagements }, goals, enrollments] = await Promise.all([
+const [{ data: meetings }, { data: engagements }] = await Promise.all([
   db.from("meetings").select("*").eq("partner_id", id),
   db.from("engagements").select("*").eq("partner_id", id),
-  getPartnerGoals(id),
-  getPartnerProgramEnrollments(id),
 ]);
 ```
 
-**Ring 3 data:** Import query functions from `@/lib/db` — `getPartnerGoals`, `getPartnerProgramEnrollments`, `getPartnerEventParticipations`, `getPartnerMpoppFunding`, `getPartnerMdfFunding`.
+**Ring 3 data:** Import from `@/lib/db`: `getPartnerGoals`, `getPartnerProgramEnrollments`, `getPartnerEventParticipations`, `getPartnerMpoppFunding`, `getPartnerMdfFunding`.
 
-**Client components (writes):** Interactive features (BrainSynthesis, PartnerScratchpad, InboxClient, NoteWorkspace) use API routes for mutations. Actions use `fetch()` to API routes under `/api/`.
+**Client components (writes):** Use `fetch()` to API routes. Interactive components (BrainSynthesis, NoteWorkspace, InboxClient) handle their own mutations.
 
-**Financial data:** 11 numeric columns on partners table (mp_tcv_goal, larr_goal, mp_tcv_ytd, larr_ytd, mp_tcv_2024, larr_2024, mp_tcv_2025, larr_2025, mp_tcv_target_2025, mp_tcv_projected_annual, larr_projected_annual). Attainment % and YoY growth are computed in UI, not stored.
+**Financial data:** 11 numeric columns on partners. Attainment % and YoY growth computed in UI. Use `font-mono` for all numbers.
 
----
-
-## Agent Guidelines
-
-1. **North Star is the authority.** `docs/north-star.md` defines what every page should become. Read it before touching UI code.
-2. **Document new patterns here.** When you establish a pattern (e.g., financial display format, loading states, performance bars), add it to this file before reusing across pages.
-3. **Verify after every change.** Run `npx tsc --noEmit` and `npx vitest run`. Fix breaks before moving on.
-4. **Do NOT modify** without explicit direction: `src/lib/sync/*`, `src/lib/email-parser.ts`, `src/lib/ics-parser.ts`, `src/lib/classifier.ts`, `src/lib/phase2-prompt.ts`, `src/lib/meeting-recurrence.ts`, `src/lib/brain-synthesizer.ts`, `src/lib/notes-context.ts`, `src/app/api/inbound/route.ts`, `src/lib/db/*`, `src/lib/__tests__/*`.
-5. **No separate CSS/JS files.** Single-file components with inline Tailwind. All colors via CSS custom properties.
-6. **Delete, don't stub.** When removing a page or component, delete the file entirely. No dead code, no "removed" comments.
-7. **Force-dynamic on all pages.** Every page.tsx should export `const dynamic = "force-dynamic"` for real-time data.
-8. **Design autonomy.** Color choices, layout patterns, and component structures are yours to design. The only constraints are: dark theme only (--background: #0f1117 base), the Geist Sans / Geist Mono font pairing, and the design principles in north-star.md Part 8. Build a cohesive visual system — document your color decisions and patterns in this file as you go.
+**Force-dynamic:** Every page exports `export const dynamic = "force-dynamic"` for real-time data.
 
 ---
 
-## Patterns Established During Overhaul
+## Pages
 
-*Add new patterns here as you create them. Format: pattern name, where it's used, the specific implementation.*
+| Route | Purpose | Status |
+|-------|---------|--------|
+| `/` | Today — daily launchpad | Redesigning |
+| `/partners` | Partner directory by segment | Redesigning |
+| `/partners/[id]` | Partner dossier | Redesigning |
+| `/engagements/[id]` | Engagement detail (via partner) | Redesigning |
+| `/meetings` | Cross-partner meetings | Redesigning |
+| `/meetings/[id]` | Meeting detail + notes workspace | Redesigning |
+| `/tasks` | Cross-partner task management | Redesigning |
+| `/inbox` | Email/invite triage | Polish pass |
+| `/programs` | Program catalog | Light refresh |
+| `/programs/[id]` | Program detail | Light refresh |
+| `/events` | Event catalog | Light refresh |
+| `/events/[id]` | Event detail | Light refresh |
 
-*(none yet — this section will grow during the agent session)*
+**Deleted:** `/engagements` (list), `/relationships` (list), `/notes/*` (legacy)
+**Preserved:** `/relationships/[id]` (detail, accessed via partner people section)
+
+---
+
+## Anti-Patterns (Never Do These)
+
+- Gradient text or backgrounds
+- Skeleton loaders that flash < 200ms
+- Toast notifications that auto-dismiss before readable
+- Modals on top of modals
+- Horizontal scrolling in data tables
+- Truncated text without expand/tooltip
+- Color as the only differentiator (always pair with text)
+- Raw "..." as loading indicator
+- `console.log` in production components
+- Inline styles
+- Hardcoded hex colors (use CSS variables)
+- Spacing values outside the 4px scale
+- Section labels that say "No data" with broken-looking empty UI

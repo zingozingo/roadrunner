@@ -1,87 +1,252 @@
 import Link from "next/link";
-import { getSupabaseClient } from "@/lib/db";
-import { getInboxCount } from "@/lib/db/inbox";
+import {
+  getUpcomingMeetings,
+  getOpenTasks,
+  getInboxGroupCount,
+} from "@/lib/db";
 import { cleanMeetingTitle } from "@/lib/format-utils";
+import TodayTasks from "./TodayTasks";
+import type { Meeting } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
+type EnrichedMeeting = Meeting & {
+  engagement_name: string | null;
+  partner_name: string | null;
+};
+
 export default async function TodayPage() {
-  const db = getSupabaseClient();
   const today = new Date().toISOString().slice(0, 10);
 
-  const [{ data: meetings }, inboxCount] = await Promise.all([
-    db
-      .from("meetings")
-      .select("id, title, meeting_type, meeting_date, partner_id, partners(name)")
-      .eq("meeting_date", today)
-      .order("meeting_date", { ascending: true }),
-    getInboxCount(),
+  const [allMeetings, allTasks, inboxCount] = await Promise.all([
+    getUpcomingMeetings(7),
+    getOpenTasks(),
+    getInboxGroupCount(),
   ]);
 
-  const todaysMeetings = meetings ?? [];
+  const todaysMeetings = allMeetings.filter(
+    (m) => m.meeting_date === today
+  );
+  const upcomingMeetings = allMeetings.filter(
+    (m) => m.meeting_date && m.meeting_date > today
+  );
+  const myTasks = allTasks.filter((t) => t.owner === "me");
+
+  /* Sort tasks: overdue first → due soonest → no due date last */
+  myTasks.sort((a, b) => {
+    const aOver = a.due_date && a.due_date < today ? 1 : 0;
+    const bOver = b.due_date && b.due_date < today ? 1 : 0;
+    if (aOver !== bOver) return bOver - aOver; // overdue first
+    if (a.due_date && b.due_date) return a.due_date.localeCompare(b.due_date);
+    if (a.due_date) return -1;
+    if (b.due_date) return 1;
+    return 0;
+  });
+
+  const dateLabel = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+
+  /* Group upcoming meetings by date */
+  const upcomingByDate: [string, EnrichedMeeting[]][] = [];
+  for (const m of upcomingMeetings) {
+    const d = m.meeting_date ?? "";
+    const last = upcomingByDate[upcomingByDate.length - 1];
+    if (last && last[0] === d) {
+      last[1].push(m);
+    } else {
+      upcomingByDate.push([d, [m]]);
+    }
+  }
+
+  const hasContent =
+    todaysMeetings.length > 0 ||
+    myTasks.length > 0 ||
+    inboxCount > 0 ||
+    upcomingMeetings.length > 0;
 
   return (
-    <main className="mx-auto max-w-7xl p-6 lg:p-8">
-      <h1 className="text-2xl font-semibold text-foreground mb-8">Today</h1>
+    <div className="mx-auto max-w-4xl p-6 lg:p-8">
+      {/* ---- Header ---- */}
+      <div className="mb-8 flex items-baseline justify-between">
+        <h1 className="text-xl font-semibold text-foreground">Today</h1>
+        <span className="text-sm text-muted">{dateLabel}</span>
+      </div>
 
-      {/* Today's Meetings */}
-      <section className="mb-8">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
-          Today&apos;s Meetings{" "}
-          {todaysMeetings.length > 0 && (
-            <span className="text-muted/60">({todaysMeetings.length})</span>
-          )}
-        </h2>
-        {todaysMeetings.length > 0 ? (
-          <div className="rounded-lg border border-border/30 bg-surface overflow-hidden">
-            {todaysMeetings.map((m: any) => (
-              <div
+      {!hasContent && (
+        <p className="text-sm text-muted/60 mt-16 text-center">
+          All clear for today.
+        </p>
+      )}
+
+      {/* ---- Today's Meetings ---- */}
+      {todaysMeetings.length > 0 && (
+        <section className="mb-8">
+          <SectionHeader label="Today's Meetings" count={todaysMeetings.length} />
+          <div className="rounded-lg border border-border/50 bg-surface overflow-hidden">
+            {todaysMeetings.map((m, i) => (
+              <MeetingRow
                 key={m.id}
-                className="flex items-center justify-between px-3 py-3 border-b border-border/20 last:border-b-0"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-sm font-medium text-foreground truncate">
-                    {m.partners?.name ?? "Unknown"}
-                  </span>
-                  <span className="text-sm text-muted truncate">
-                    {cleanMeetingTitle(m.title)}
-                  </span>
-                  {m.meeting_type && (
-                    <span className="text-xs rounded-full bg-accent/10 px-2 py-0.5 text-accent capitalize whitespace-nowrap">
-                      {m.meeting_type.replace(/_/g, " ")}
-                    </span>
-                  )}
-                </div>
-                <Link
-                  href={`/meetings/${m.id}`}
-                  className="text-xs text-accent hover:underline whitespace-nowrap ml-3"
-                >
-                  Open
-                </Link>
-              </div>
+                meeting={m}
+                showDate={false}
+                isLast={i === todaysMeetings.length - 1}
+              />
             ))}
           </div>
-        ) : (
-          <p className="text-sm text-muted">No meetings scheduled for today.</p>
-        )}
-      </section>
+        </section>
+      )}
 
-      {/* Inbox signal */}
-      <section>
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
-          Inbox
-        </h2>
-        {inboxCount > 0 ? (
+      {/* ---- My Tasks ---- */}
+      {myTasks.length > 0 && (
+        <section className="mb-8">
+          <div className="mb-3 flex items-center justify-between">
+            <SectionHeader label="My Tasks" count={myTasks.length} inline />
+            <Link
+              href="/tasks"
+              className="text-xs text-muted hover:text-foreground transition-colors"
+            >
+              View all
+            </Link>
+          </div>
+          <TodayTasks tasks={myTasks.slice(0, 10)} today={today} />
+        </section>
+      )}
+
+      {/* ---- Inbox Signal ---- */}
+      {inboxCount > 0 && (
+        <section className="mb-8">
+          <SectionHeader label="Inbox" />
           <Link
             href="/inbox"
-            className="text-sm text-accent hover:underline"
+            className="flex items-center justify-between rounded-lg border border-border/50 bg-surface px-4 py-3 transition-colors hover:bg-surface-hover group"
           >
-            {inboxCount} {inboxCount === 1 ? "item" : "items"} in inbox
+            <span className="text-sm text-foreground/70">
+              <span className="font-medium text-foreground">{inboxCount}</span>{" "}
+              {inboxCount === 1 ? "item" : "items"} waiting for triage
+            </span>
+            <span className="text-xs text-accent opacity-70 group-hover:opacity-100 transition-opacity">
+              Go to Inbox
+            </span>
           </Link>
-        ) : (
-          <p className="text-sm text-muted">Inbox is clear.</p>
-        )}
-      </section>
-    </main>
+        </section>
+      )}
+
+      {/* ---- Upcoming Meetings ---- */}
+      {upcomingMeetings.length > 0 && (
+        <section>
+          <SectionHeader label="Upcoming" count={upcomingMeetings.length} />
+          <div className="rounded-lg border border-border/50 bg-surface overflow-hidden">
+            {upcomingByDate.map(([date, meetings], gi) =>
+              meetings.map((m, i) => (
+                <MeetingRow
+                  key={m.id}
+                  meeting={m}
+                  showDate={i === 0}
+                  dateLabel={formatDateShort(date)}
+                  isLast={
+                    gi === upcomingByDate.length - 1 &&
+                    i === meetings.length - 1
+                  }
+                />
+              ))
+            )}
+          </div>
+        </section>
+      )}
+    </div>
   );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Sub-components                                                     */
+/* ------------------------------------------------------------------ */
+
+function SectionHeader({
+  label,
+  count,
+  inline,
+}: {
+  label: string;
+  count?: number;
+  inline?: boolean;
+}) {
+  return (
+    <div className={`flex items-center gap-2 ${inline ? "" : "mb-3"}`}>
+      <h2 className="text-xs font-medium uppercase tracking-wider text-muted/60">
+        {label}
+      </h2>
+      {count !== undefined && count > 0 && (
+        <span className="text-xs text-muted/40">{count}</span>
+      )}
+    </div>
+  );
+}
+
+function MeetingRow({
+  meeting,
+  showDate,
+  dateLabel,
+  isLast,
+}: {
+  meeting: EnrichedMeeting;
+  showDate: boolean;
+  dateLabel?: string;
+  isLast: boolean;
+}) {
+  return (
+    <Link
+      href={`/meetings/${meeting.id}`}
+      className={`flex items-center px-4 py-3 transition-colors hover:bg-surface-hover ${
+        !isLast ? "border-b border-border/30" : ""
+      }`}
+    >
+      {/* Date column (for upcoming) */}
+      {dateLabel !== undefined && (
+        <span className="w-24 shrink-0 text-xs text-muted">
+          {showDate ? dateLabel : ""}
+        </span>
+      )}
+
+      {/* Partner + title */}
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        <span className="text-sm font-medium text-foreground truncate">
+          {meeting.partner_name ?? "Unknown"}
+        </span>
+        <span className="text-sm text-muted truncate">
+          {cleanMeetingTitle(meeting.title)}
+        </span>
+      </div>
+
+      {/* Type badge + action */}
+      <div className="flex items-center gap-3 shrink-0 ml-4">
+        {meeting.meeting_type && (
+          <span className="text-[11px] font-medium rounded-full bg-accent/10 px-2 py-0.5 text-accent/70 capitalize">
+            {meeting.meeting_type.replace(/_/g, " ")}
+          </span>
+        )}
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          className="text-muted/40"
+        >
+          <path d="M6 4l4 4-4 4" />
+        </svg>
+      </div>
+    </Link>
+  );
+}
+
+function formatDateShort(date: string): string {
+  const d = new Date(date + "T12:00:00");
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
 }

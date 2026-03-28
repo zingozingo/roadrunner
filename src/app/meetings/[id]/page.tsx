@@ -21,12 +21,11 @@ import EngagementLinker from "@/components/shared/EngagementLinker";
 import RecurrenceEditor from "@/components/shared/RecurrenceEditor";
 import type { DisplayContext } from "@/lib/types";
 
-// Status dot color map
 const statusDotColor: Record<string, string> = {
-  scheduled: "bg-blue-400",
-  completed: "bg-emerald-500",
-  cancelled: "bg-zinc-500",
-  no_show: "bg-red-400",
+  scheduled: "bg-accent",
+  completed: "bg-status-active",
+  cancelled: "bg-status-archived",
+  no_show: "bg-status-blocked",
 };
 
 function formatDate(dateStr: string | null): string {
@@ -135,17 +134,17 @@ export default async function MeetingDetailPage({
     <div className="mx-auto max-w-7xl p-6 lg:p-8">
       <Link
         href="/meetings"
-        className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
+        className="mb-4 inline-flex items-center gap-1 text-xs text-muted hover:text-foreground transition-colors"
       >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M10 4l-4 4 4 4" />
         </svg>
-        Back to Meetings
+        Meetings
       </Link>
 
       {/* ═══ IDENTITY BAR ═══ */}
-      <div className="flex items-center gap-3 pb-4 mb-6 border-b border-border/30">
-        <h1 className="text-2xl font-semibold text-foreground">{cleanMeetingTitle(meeting.title)}</h1>
+      <div className="flex items-center gap-3 mb-6">
+        <h1 className="text-xl font-semibold text-foreground">{cleanMeetingTitle(meeting.title)}</h1>
         <span className={`shrink-0 h-2 w-2 rounded-full ${dotColor}`} title={meeting.status} />
         {partner && (
           <Link href={`/partners/${partner.id}`} className="text-sm font-medium text-accent hover:underline">
