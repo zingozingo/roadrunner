@@ -76,6 +76,22 @@ export async function POST(request: NextRequest) {
       .select("id");
     console.log(`Moved ${movedMeetings?.length ?? 0} meetings`);
 
+    // 2b. Update meeting_notes engagement_id (follows meetings)
+    const { data: movedNotes } = await db
+      .from("meeting_notes")
+      .update({ engagement_id: target_id })
+      .eq("engagement_id", source_id)
+      .select("id");
+    console.log(`Moved ${movedNotes?.length ?? 0} meeting notes`);
+
+    // 2c. Update tasks engagement_id (follows meetings)
+    const { data: movedTasks } = await db
+      .from("tasks")
+      .update({ engagement_id: target_id })
+      .eq("engagement_id", source_id)
+      .select("id");
+    console.log(`Moved ${movedTasks?.length ?? 0} tasks`);
+
     // 3. Move engagement_programs (dedup via ON CONFLICT)
     const { data: sourcePrograms } = await db
       .from("engagement_programs")
@@ -164,6 +180,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 6c. Enrich target's current_state with source context before deletion
+    // The re-synthesis in step 8 reads this as its anchor via getEngagementHistory,
+    // produces a unified synthesis, and overwrites with a clean result.
+    if (sourceEng.current_state) {
+      const enrichedAnchor = targetEng.current_state
+        ? `${targetEng.current_state}\n\n[MERGED FROM "${sourceEng.name}"]\n${sourceEng.current_state}`
+        : sourceEng.current_state;
+      await db
+        .from("engagements")
+        .update({ current_state: enrichedAnchor })
+        .eq("id", target_id);
+      console.log(`Enriched target current_state with source context`);
+    }
+
     // 7. Delete source engagement (CASCADE cleans up its junction table rows)
     await db.from("engagements").delete().eq("id", source_id);
     console.log(`Deleted source engagement ${source_id}`);
@@ -226,6 +256,8 @@ export async function POST(request: NextRequest) {
       moved: {
         messages: movedMessages?.length ?? 0,
         meetings: movedMeetings?.length ?? 0,
+        notes: movedNotes?.length ?? 0,
+        tasks: movedTasks?.length ?? 0,
         programs: sourcePrograms?.length ?? 0,
         events: sourceEvents?.length ?? 0,
         participants: sourceParticipants?.length ?? 0,
