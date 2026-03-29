@@ -1,7 +1,7 @@
 # Roadrunner Entity Model
 
-> **Last updated**: 2026-03-27 (Ring 3 data wired to UI, brain prompt rewritten, merge route fixed)
-> 23 active tables · 75 migrations · Ring 3 pull sync operational
+> **Last updated**: 2026-03-29 (dissolved engagement junctions + relationships, program_name column, CI email index)
+> 17 active tables · 81 migrations · Ring 3 pull sync operational
 
 ---
 
@@ -25,7 +25,6 @@ graph TB
         PARTNERS[Partners]
         PROGRAMS[Programs]
         EVENTS[Events]
-        RELATIONSHIPS[Relationships]
     end
 
     subgraph RING2["Ring 2: Activity (RR-owned)"]
@@ -43,13 +42,6 @@ graph TB
         PP[partner_participants]
         MP[meeting_participants]
         EP[engagement_participants]
-        RP[relationship_participants]
-    end
-
-    subgraph JUNCTIONS["Connections (cross-cutting)"]
-        ELP[Engagement Programs]
-        ELE[Engagement Events]
-        ER[Engagement Relationships]
     end
 
     subgraph RING3["Ring 3: Posture (AT → RR)"]
@@ -61,11 +53,7 @@ graph TB
     end
 
     PARTNERS --- RING2
-    PARTICIPANTS --- PP & MP & EP & RP
-    ELP --- RING1
-    ELE --- RING1
-    ELP --- RING2
-    ELE --- RING2
+    PARTICIPANTS --- PP & MP & EP
     RING3 --- PARTNERS
     RING3 --- RING1
 ```
@@ -97,13 +85,6 @@ erDiagram
         text type
         date start_date
         text geo
-        text airtable_record_id UK
-    }
-    RELATIONSHIPS {
-        uuid id PK
-        text name
-        text relationship_type
-        text org_type
         text airtable_record_id UK
     }
 ```
@@ -222,34 +203,6 @@ erDiagram
 
 ---
 
-### RELATIONSHIPS (Synced — AT-owned catalog, pulled into RR)
-
-**Airtable Table:** `tblqVBssFsUeAt9bj` · **Sync constant:** `RF`
-
-*Table renamed from `aws_relationships` in migration 058. Columns `aws_org` → `org`, `aws_service` → `service` (Decision #173).*
-
-| Field | SB Type | AT Type | Owner | Sync | AT Field ID | UI |
-|-------|---------|---------|-------|------|-------------|-----|
-| id | uuid PK | — | RR | — | — | relationship detail |
-| name | text NOT NULL | singleLineText | AT | ← AT | fldeiFljVC5L61c3v | relationship list, detail |
-| org | text | singleLineText | AT | ← AT | fldKSmvO7Lhr5v9Fy | relationship detail |
-| service | text | singleLineText | AT | ← AT | fldiieBBkkAFYDOJC | relationship detail |
-| relationship_type | text CHECK (4 options) | singleSelect (4 options) | AT | ← AT | fld2cjVCECNIPGw2d | relationship detail |
-| org_type | text CHECK (internal, third_party) | singleSelect (Internal, Third Party) | AT | ← AT | fldmShxggHOAuioR4 | relationship detail |
-| notes | text | multilineText | AT | ← AT | fldOcbNUrtfxjqiW5 | — |
-| airtable_record_id | text UNIQUE | — | RR | — | — | — |
-| created_at | timestamptz | — | RR | — | — | — |
-| updated_at | timestamptz | — | RR | — | — | — |
-
-**AT fields NOT in Supabase:**
-
-| AT Field | AT Type | AT Field ID | Plan |
-|----------|---------|-------------|------|
-| Partner Engagements | linkedRecord → Engagements | fldPU8tywD13QLWtV | computed (reverse link) — no action needed |
-| Roadrunner ID | singleLineText | fldfZksUDfLbvVQMT | exists but not currently pushed |
-
----
-
 ## Ring 2: Activity (Roadrunner-owned)
 
 The PDM's daily work. Fast-changing, RR-owned, pushed to Airtable. Engagement is the hub that organizes work streams; meetings are temporal events; notes and tasks are the outputs.
@@ -365,8 +318,6 @@ erDiagram
 | AWS Stakeholders | multilineText | fldLVPbg7iyz0Nli9 | computed from engagement_participants (role=aws) |
 | Partner Stakeholders | multilineText | fldj6vaWwDKJy6aci | computed from engagement_participants (role=partner) |
 | Third Parties | multilineText | flduajBotnT6x5ZXD | computed from engagement_participants (role=third_party) |
-| AWS Relationships | linkedRecord → Relationships | fldhVQTAP2wucnzNC | pushed from engagement_relationships junction |
-| Event | linkedRecord → Events | fldscmkRoT65oa6Oy | pushed from engagement_events junction |
 | Meetings | linkedRecord → Meetings | fldqM0QO5VWjhmvw3 | computed (reverse link from Meetings.Engagement) |
 
 ---
@@ -413,7 +364,6 @@ erDiagram
 | Third Parties | multilineText | fldhU8nE7uGE1agML | computed from meeting_participants registry |
 | Event (from Engagement) | lookup | fldAP7a1eRiunKFta | AT lookup through Engagement link |
 | Program (from Engagement) | lookup | fldVsQxvytcpw0XmB | AT lookup through Engagement link |
-| AWS Relationships (from Engagement) | lookup | fldBFEFAWK2SXghpo | AT lookup through Engagement link |
 | Partner (from Engagement) | lookup | fldnhuK2el6fsBjVd | AT lookup through Engagement link |
 
 ### Attendee Bucketing Logic (used for AT stakeholder fields)
@@ -528,24 +478,16 @@ Indexes: `idx_partner_context_partner` (partner_id), `idx_partner_context_source
 
 ## People & Connections (Cross-Cutting)
 
-The participant registry is the single source of truth for every person in the system. 4 dedicated join tables connect people to entities with FK CASCADE enforcement. Typed junction tables (engagement_programs, engagement_events, engagement_relationships) connect Activity to Catalog at the engagement level.
+The participant registry is the single source of truth for every person in the system. 3 dedicated join tables connect people to entities with FK CASCADE enforcement. Programs and events link at the partner level via Ring 3 tables, not at the engagement level.
 
 ```mermaid
 erDiagram
     PARTICIPANTS ||--o{ PARTNER_PARTICIPANTS : "linked"
     PARTICIPANTS ||--o{ MEETING_PARTICIPANTS : "attended"
     PARTICIPANTS ||--o{ ENGAGEMENT_PARTICIPANTS : "involved"
-    PARTICIPANTS ||--o{ RELATIONSHIP_PARTICIPANTS : "member"
     PARTNERS ||--o{ PARTNER_PARTICIPANTS : "team"
     MEETINGS ||--o{ MEETING_PARTICIPANTS : "attendees"
     ENGAGEMENTS ||--o{ ENGAGEMENT_PARTICIPANTS : "stakeholders"
-    RELATIONSHIPS ||--o{ RELATIONSHIP_PARTICIPANTS : "contacts"
-    ENGAGEMENTS ||--o{ ENGAGEMENT_PROGRAMS : "works on"
-    PROGRAMS ||--o{ ENGAGEMENT_PROGRAMS : "linked from"
-    ENGAGEMENTS ||--o{ ENGAGEMENT_EVENTS : "targets"
-    EVENTS ||--o{ ENGAGEMENT_EVENTS : "linked from"
-    ENGAGEMENTS ||--o{ ENGAGEMENT_RELATIONSHIPS : "junction"
-    RELATIONSHIPS ||--o{ ENGAGEMENT_RELATIONSHIPS : "junction"
 
     PARTICIPANTS {
         uuid id PK
@@ -574,28 +516,6 @@ erDiagram
         uuid participant_id FK
         text role
     }
-    RELATIONSHIP_PARTICIPANTS {
-        uuid id PK
-        uuid relationship_id FK
-        uuid participant_id FK
-        text role
-    }
-    ENGAGEMENT_PROGRAMS {
-        uuid id PK
-        uuid engagement_id FK
-        uuid program_id FK
-        text context
-    }
-    ENGAGEMENT_EVENTS {
-        uuid id PK
-        uuid engagement_id FK
-        uuid event_id FK
-        text context
-    }
-    ENGAGEMENT_RELATIONSHIPS {
-        uuid engagement_id PK
-        uuid relationship_id PK
-    }
 ```
 
 ---
@@ -607,7 +527,7 @@ erDiagram
 | Field | SB Type | Owner | UI |
 |-------|---------|-------|-----|
 | id | uuid PK | RR | — |
-| email | text UNIQUE | RR | — |
+| email | text | RR | case-insensitive unique index: `UNIQUE (lower(email))` (migration 080) |
 | name | text | RR | — |
 | organization | text | RR | — |
 | title | text | RR | — |
@@ -616,6 +536,8 @@ erDiagram
 | notes | text | RR | — |
 | created_at | timestamptz | RR | — |
 | updated_at | timestamptz | RR | — |
+
+All insertion paths normalize email to lowercase before insert (migration 080 + app-level normalization).
 
 ---
 
@@ -667,70 +589,9 @@ UNIQUE constraint: `(engagement_id, participant_id)`
 
 ---
 
-### RELATIONSHIP_PARTICIPANTS (Roadrunner-only — contact registry join)
-
-*New table added in migration 057 (Decision #176).*
-
-| Field | SB Type | Owner | Notes |
-|-------|---------|-------|-------|
-| id | uuid PK | RR | — |
-| relationship_id | uuid NOT NULL FK → relationships (CASCADE) | RR | — |
-| participant_id | uuid NOT NULL FK → participants (CASCADE) | RR | — |
-| role | text | RR | Lead Contact, Team Contact |
-| created_at | timestamptz | RR | — |
-
-UNIQUE constraint: `(relationship_id, participant_id)`
-
----
-
-### ENGAGEMENT_PROGRAMS (Roadrunner-only — typed junction)
-
-*New table added in migration 065 (Decision #221). Replaces entity_links for engagement→program connections.*
-
-| Field | SB Type | Owner | Notes |
-|-------|---------|-------|-------|
-| id | uuid PK | RR | — |
-| engagement_id | uuid NOT NULL FK → engagements (CASCADE) | RR | — |
-| program_id | uuid NOT NULL FK → programs (CASCADE) | RR | — |
-| context | text | RR | optional free-text context |
-| created_by | text NOT NULL DEFAULT 'ai' CHECK (ai, user) | RR | — |
-| created_at | timestamptz | RR | — |
-
-UNIQUE constraint: `(engagement_id, program_id)`
-
----
-
-### ENGAGEMENT_EVENTS (Roadrunner-only — typed junction)
-
-*New table added in migration 065 (Decision #221). Replaces entity_links for engagement→event connections.*
-
-| Field | SB Type | Owner | Notes |
-|-------|---------|-------|-------|
-| id | uuid PK | RR | — |
-| engagement_id | uuid NOT NULL FK → engagements (CASCADE) | RR | — |
-| event_id | uuid NOT NULL FK → events (CASCADE) | RR | — |
-| context | text | RR | optional free-text context |
-| created_by | text NOT NULL DEFAULT 'ai' CHECK (ai, user) | RR | — |
-| created_at | timestamptz | RR | — |
-
-UNIQUE constraint: `(engagement_id, event_id)`
-
----
-
-### ENGAGEMENT_RELATIONSHIPS (Roadrunner-only — junction)
-
-*Renamed from `engagement_aws_relationships` in migration 058. Column `aws_relationship_id` → `relationship_id` (Decision #173).*
-
-| Field | SB Type | Owner | Notes |
-|-------|---------|-------|-------|
-| engagement_id | uuid PK FK → engagements (CASCADE) | RR | composite PK |
-| relationship_id | uuid PK FK → relationships (CASCADE) | RR | composite PK |
-
----
-
 ## Ring 3: Posture (AT → RR Pull Sync)
 
-Where each partner stands — program achievements, event participation, revenue goals, and funding. Pulled from Airtable into Supabase via syncAllCatalogs(). These connect partners to catalog entities (Programs, Events) with per-partner status, unlike engagement_programs/engagement_events which connect engagements to catalog entities. Co-Sell Goals 2026 table dissolved into partner columns (decision #318). Partner financial fields (goals + actuals) live on the partners table.
+Where each partner stands — program achievements, event participation, revenue goals, and funding. Pulled from Airtable into Supabase via syncAllCatalogs(). These connect partners to catalog entities (Programs, Events) with per-partner status. Co-Sell Goals 2026 table dissolved into partner columns (decision #318). Partner financial fields (goals + actuals) live on the partners table.
 
 ```mermaid
 erDiagram
@@ -745,6 +606,7 @@ erDiagram
     PARTNER_PROGRAMS {
         uuid partner_id FK
         uuid program_id FK
+        text program_name
         text type
         text status
         date date_achieved
@@ -781,18 +643,22 @@ erDiagram
 
 ### PARTNER_PROGRAM_ENROLLMENTS (AT → RR pull sync)
 
-**Airtable Table:** `tbl1CPtbVzQvRN8LA`
+**Airtable Table:** `tbl1CPtbVzQvRN8LA` · **Supabase Table:** `partner_program_enrollments`
 
-| AT Field | AT Type | AT Field ID | Future RR Role |
-|----------|---------|-------------|----------------|
-| Program ID | multilineText | fldmaD6ZTY7XvXkjw | identifier |
-| Partner | singleLineText | fldXXpf6zyDLLAKOz | FK → partners |
-| Type | singleSelect (4 options: Competency, Service Ready, Program, Credit Program) | fldu4oNGIHu7h5et5 | type |
-| Status | singleSelect (7 options: Not Started, In Progress, Submitted, Approved, Interested, Denied, Expired) | flddDihdNtRaLgYqn | status tracking |
-| Date Achieved | date | fldJNF6KO3Osq2AWg | completion date |
-| AWS Stakeholder | multilineText | fldi0bBVH4VHkjIM3 | contacts |
-| Notes | multilineText | fldqpulJjUKcro1xM | notes |
-| 2026 Co-Sell Goals | linkedRecord → Co-Sell Goals | fldI8TaeHhb8Hk1bI | plan linking |
+| AT Field | AT Type | AT Field ID | Supabase Column |
+|----------|---------|-------------|-----------------|
+| Program ID | multilineText | fldmaD6ZTY7XvXkjw | program_name TEXT — primary display label |
+| Program | linkedRecord → Programs | flduk1vdlcOFmAnaa | program_id UUID FK SET NULL (optional click-through) |
+| Partner | linkedRecord → Partners | fldXXpf6zyDLLAKOz | partner_id UUID FK CASCADE |
+| Type | singleSelect (4 options: Competency, Service Ready, Program, Credit Program) | fldu4oNGIHu7h5et5 | type TEXT |
+| Status | singleSelect (7 options: Not Started, In Progress, Submitted, Approved, Interested, Denied, Expired) | flddDihdNtRaLgYqn | status TEXT |
+| Date Achieved | date | fldJNF6KO3Osq2AWg | date_achieved TEXT |
+| AWS Stakeholder | multilineText | fldi0bBVH4VHkjIM3 | aws_stakeholder TEXT |
+| Notes | multilineText | fldqpulJjUKcro1xM | notes TEXT |
+
+Additional Supabase columns: airtable_id TEXT UNIQUE (sync dedup key).
+
+`program_name` is always populated from AT "Program ID" text field. `program_id` FK resolves when AT has a linked record to the Programs table (22/80 currently). UI shows program_name as primary label; if program_id is resolved, the name is a clickable link to the program detail page.
 
 ---
 
@@ -914,7 +780,7 @@ UNIQUE index on `(participant_id, entity_type, entity_id)`
 
 ### ENTITY_LINKS (LEGACY — DROPPED)
 
-**DROPPED** in migration 065. Replaced by two typed junction tables: `engagement_programs` and `engagement_events` (Decisions #221-222). Was a polymorphic junction table (`source_type`, `source_id`, `target_type`, `target_id`) with no FK constraints. In practice only used for engagement→program and engagement→event links.
+**DROPPED** in migration 065 (Decisions #221-222). Was a polymorphic junction table (`source_type`, `source_id`, `target_type`, `target_id`) with no FK constraints. Replaced by typed junction tables which were themselves dissolved in migration 081 — programs and events now link at the partner level via Ring 3 tables.
 
 | Field | SB Type | Owner | Notes |
 |-------|---------|-------|-------|
@@ -956,14 +822,6 @@ UNIQUE index on `(participant_id, entity_type, entity_id)`
 | meeting_participants | participant_id | participants | CASCADE | Both sides cascade |
 | engagement_participants | engagement_id | engagements | CASCADE | Both sides cascade |
 | engagement_participants | participant_id | participants | CASCADE | Both sides cascade |
-| relationship_participants | relationship_id | relationships | CASCADE | Both sides cascade |
-| relationship_participants | participant_id | participants | CASCADE | Both sides cascade |
-| engagement_relationships | engagement_id | engagements | CASCADE | Both sides cascade |
-| engagement_relationships | relationship_id | relationships | CASCADE | Both sides cascade |
-| engagement_programs | engagement_id | engagements | CASCADE | Both sides cascade |
-| engagement_programs | program_id | programs | CASCADE | Both sides cascade |
-| engagement_events | engagement_id | engagements | CASCADE | Both sides cascade |
-| engagement_events | event_id | events | CASCADE | Both sides cascade |
 | partner_goals | partner_id | partners | CASCADE | Partner is gravity |
 | partner_goals | linked_program_id | programs | SET NULL | Goal survives program cleanup |
 | partner_goals | engagement_id | engagements | SET NULL | Goal survives engagement close |
