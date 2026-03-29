@@ -425,7 +425,13 @@ export default async function PartnerDetailPage({
                 >
                   <span className="w-16 shrink-0 pt-0.5 text-xs text-muted">{shortDate(m.meeting_date)}</span>
                   <div className="min-w-0 flex-1">
-                    <span className="text-sm text-foreground/80 truncate block">
+                    <span className="flex items-center gap-1.5 text-sm text-foreground/80 truncate">
+                      {(m.recurrence_pattern || m.series_id) && (
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted/50 shrink-0">
+                          <path d="M2 8a6 6 0 0 1 10.47-4M14 8a6 6 0 0 1-10.47 4" />
+                          <path d="M14 2v4h-4M2 14v-4h4" />
+                        </svg>
+                      )}
                       {cleanMeetingTitle(m.title)}
                     </span>
                     {firstLine && (
