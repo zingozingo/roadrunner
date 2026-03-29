@@ -1,7 +1,7 @@
 # Roadrunner Entity Model
 
 > **Last updated**: 2026-03-29 (dissolved engagement junctions + relationships, program_name column, CI email index)
-> 17 active tables · 81 migrations · Ring 3 pull sync operational
+> 17 active tables · 82 migrations · Ring 3 pull sync operational
 
 ---
 
@@ -350,6 +350,7 @@ erDiagram
 | recurrence_pattern | text | — | RR | — | — | meeting detail (RecurrenceEditor) |
 | recurrence_end | date | — | RR | — | — | meeting detail (RecurrenceEditor) |
 | series_id | uuid FK → meetings (self-ref, SET NULL) | — | RR | — | — | meeting detail (series nav) |
+| anchor_day | smallint | — | RR | — | — | meeting detail (series display, recurrence snap) |
 | notes | text | multilineText | RR | → AT | fldzGUipu36EA9rax | meeting detail |
 | airtable_record_id | text UNIQUE | — | RR | — | — | — |
 | created_at | timestamptz | — | RR | — | — | — |
