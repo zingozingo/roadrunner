@@ -15,9 +15,9 @@
    c. `bash scripts/ui-audit.sh` — must pass clean
    d. If the task involved ANY UI changes: create a dated screenshot subfolder (`.claude/screenshots/{date}-{phase-or-task}/`), screenshot all changed pages at 1440, VIEW each screenshot, compare against `.claude/references/` for quality bar, and report what looks good, what looks off, and what you fixed. If something looks off, fix it before committing.
    e. If the task involved interactive behavior changes: run interaction tests via `scripts/interact.ts` to verify flows work
-   f. `git commit` with a descriptive message
+   f. Review what you built — if you established a reusable pattern, update SKILL.md with the pattern name, implementation, where it's used, and why it works. If you improved on an existing SKILL.md pattern, update it in place.
+   g. `git commit` with a descriptive message
 5. Do not skip ahead — complete and verify one task before starting the next
-6. Update SKILL.md as you establish new patterns
 
 **Never skip step 4. The verification sequence and visual review are not optional. A task is not complete until all checks pass and any visual issues are fixed.**
 
@@ -95,7 +95,7 @@ These apply to all UI work in both modes:
 - **Dark theme only.** All colors use CSS custom properties defined in `globals.css`.
 - **Data fetching:** use server components with parallel Supabase queries (existing pattern). Don't create new API routes for read operations.
 - **Delete, don't stub.** When removing a page or component, delete the file entirely. No dead code.
-- **Document new patterns.** When you establish a new UI pattern (financial data display, loading states, performance bars), document it in SKILL.md BEFORE reusing across multiple pages.
+- **Evolve the design system.** After every task that touches UI, review what you built and ask: "Did I establish a pattern that should be reused?" If yes, write it into SKILL.md as a named pattern with: what it is, where it's used, the specific implementation (classes, spacing, structure), and WHY it works that way. If you found a better way to do something than what SKILL.md currently describes, UPDATE the existing pattern — don't just add a new one. SKILL.md should get smarter and more opinionated with every task, not just longer. The next person (or agent) reading SKILL.md should inherit your design reasoning, not just your code.
 - **Enterprise UX is non-negotiable:** explicit loading states, navigation safety for unsaved changes, confirmation dialogs for destructive actions, professional button labels. See North Star Part 7.
 
 ### Task Plans
@@ -205,7 +205,7 @@ roadrunner/
 │       │   ├── deep-diagnostic.md
 │       │   └── claude-ai-session.md
 │       └── summaries/             #     Session summaries (one per session)
-├── decisions.md                   # Append-only architectural decision log (350 entries)
+├── decisions.md                   # Append-only architectural decision log (360 entries)
 ├── src/
 │   ├── app/                       # Next.js App Router
 │   │   ├── api/                   #   API routes (31 route files, grouped by entity)
@@ -525,7 +525,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-075). New migratio
 | `docs/plans/active.md` | Current task plan (empty when no plan active) | Task mode |
 | `docs/sessions/templates/` | Session templates — diagnostics and Claude.ai session prompt | Reference when needed |
 | `docs/sessions/summaries/` | Session summaries — one per session, latest is handoff for next session | Session start (paste latest into Claude.ai) |
-| `decisions.md` | Append-only architectural decision log (350 entries) | When you need "why" |
+| `decisions.md` | Append-only architectural decision log (360 entries) | When you need "why" |
 
 ---
 

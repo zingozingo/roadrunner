@@ -6508,3 +6508,133 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** Part 10 updated to match: 2 list pages deleted (engagements, relationships), 2 preserved as tertiary (programs, events), all detail pages preserved as drill-through targets.
 
 ---
+
+### #351 — Two-mode CLAUDE.md architecture
+
+**Date:** 2026-03-29
+**Status:** ✅ Implemented
+
+**Decision:** Restructured CLAUDE.md as permanent two-mode project bible: interactive mode (Steven directs) and task mode (agent executes plan from docs/plans/active.md). Agent-specific workflow content moved to task plans. Path guardrails, verification tools, session management, UI/UX principles all permanent sections.
+
+**Rationale:** Previous CLAUDE.md mixed volatile session instructions with permanent project architecture. Separating modes makes the doc stable across sessions while supporting both human-guided and agent-autonomous workflows.
+
+**Impact:** CLAUDE.md is now ~530 lines of stable project context. Task plans live in docs/plans/ with an active/archive lifecycle.
+
+---
+
+### #352 — Session management system
+
+**Date:** 2026-03-29
+**Status:** ✅ Implemented
+
+**Decision:** Created docs/sessions/ with templates/ (quick-diagnostic.md, deep-diagnostic.md, claude-ai-session.md) and summaries/ (one per session). Claude Code reads diagnostic templates on command ("run the quick diagnostic"). Claude.ai session prompt contains both startup and end-of-session protocol.
+
+**Rationale:** Sessions were ad-hoc — no structured way to start, diagnose, or hand off. Templates make diagnostics repeatable. Summaries provide handoff context for the next session.
+
+**Impact:** "Run the quick diagnostic" and "run the deep diagnostic" are now standardized commands. Session summaries accumulate project history.
+
+---
+
+### #353 — Doc structure cleanup
+
+**Date:** 2026-03-29
+**Status:** ✅ Implemented
+
+**Decision:** Deleted CLASSIFICATION.md (stale, content already in ai-call-map.md). Created docs/plans/ directory with active.md lifecycle and archive/. Created docs/sessions/ with templates/ and summaries/.
+
+**Rationale:** CLASSIFICATION.md described a pipeline that no longer existed. Plans and sessions needed structured homes instead of ad-hoc files.
+
+**Impact:** 6 clean doc files total. Plans have lifecycle (active → archive). Sessions have templates and summaries.
+
+---
+
+### #354 — Playwright visual verification enforcement
+
+**Date:** 2026-03-29
+**Status:** ✅ Implemented
+
+**Decision:** Installed screenshot.ts, interact.ts, ui-audit.sh as verification tools. After any UI task: screenshot changed pages → view each screenshot → compare to .claude/references/ → fix issues → commit. Made mandatory step 4d in task mode protocol.
+
+**Rationale:** Code-only review misses visual regressions. Recurrence icons were initially invisible (12px at text-muted/50) — only caught by screenshot review. Visual verification caught and fixed this before commit.
+
+**Impact:** Every UI task now requires screenshot evidence. Screenshots organized in dated subfolders. Reference screenshots in .claude/references/ set the quality bar.
+
+---
+
+### #355 — UI/UX best practices reference
+
+**Date:** 2026-03-29
+**Status:** ✅ Implemented
+
+**Decision:** Created .claude/references/ui-ux-best-practices.md (13 sections: button states, loading, errors, undo, navigation safety, dark theme, spacing, forms, feedback timing). Added as 4th doc in CLAUDE.md's "Before Any UI/UX Work" reading order.
+
+**Rationale:** Enterprise UX patterns (7-state buttons, loading duration matching, navigation safety) were described in the North Star but not actionable enough for an agent to implement consistently. Concrete rules with specific thresholds.
+
+**Impact:** Agent reads concrete interaction rules before any UI work. "Every button must have 7 states" is more actionable than "enterprise UX."
+
+---
+
+### #356 — SKILL.md as evolving design system
+
+**Date:** 2026-03-29
+**Status:** ✅ Implemented
+
+**Decision:** Changed SKILL.md from passive pattern logging to active design system evolution. Agent must evaluate patterns after every UI task, write rationale, update existing patterns in-place. Design intelligence should compound across sessions.
+
+**Rationale:** Previous instruction was "document new patterns" — too passive. Patterns were established (grouped-by-partner tasks, anchor day preview, series navigation bar) but not captured. The next agent inherits code but not reasoning.
+
+**Impact:** Step 4f in task mode requires SKILL.md review. UI/UX Working Principles bullet upgraded from "document" to "evolve."
+
+---
+
+### #357 — Plan completion protocol
+
+**Date:** 2026-03-29
+**Status:** ✅ Implemented
+
+**Decision:** When a task plan is fully completed: append Completion Summary (stats change, accomplishments, issues noted), move to archive, replace with placeholder, update goal-state.md and CLAUDE.md stats.
+
+**Rationale:** Plans were archived but without a completion record. Stats drifted. The summary captures what changed and what's left, making the archive useful for future reference.
+
+**Impact:** Archived plans now contain their own completion summary. Stats stay accurate across sessions.
+
+---
+
+### #358 — Separation of concerns for doc freshness
+
+**Date:** 2026-03-29
+**Status:** ✅ Implemented
+
+**Decision:** Volatile stats (test count, migration count, decision count, page count) live only in goal-state.md and CLAUDE.md. North Star and other vision/reference docs never contain drifting numbers — they reference goal-state.md for current stats.
+
+**Rationale:** North Star v3 was rewritten to remove volatile numbers. Previously, stats appeared in 4+ docs and drifted independently.
+
+**Impact:** North Star is stable vision. goal-state.md and CLAUDE.md are the two sources for current numbers.
+
+---
+
+### #359 — Guardrail adjustment protocol
+
+**Date:** 2026-03-29
+**Status:** ✅ Implemented
+
+**Decision:** Default READ-ONLY paths (src/lib/, src/app/api/, supabase/migrations/) expandable per-session by Steven for backend/sync/schema work. Agent confirms before modifying any restricted path. Task plans that require restricted-path changes get explicit permission per-phase.
+
+**Rationale:** Phase 1-3 of the task plan required modifying src/lib/ (sync, participants, meetings, types). Rigid guardrails would have blocked legitimate planned work. Flexible with explicit grant is safer than either rigid or unrestricted.
+
+**Impact:** Agent can work on backend tasks when given explicit permission. Default guardrails still protect against accidental modifications.
+
+---
+
+### #360 — Claude Code -p mode insufficient for creative UI iteration
+
+**Date:** 2026-03-29
+**Status:** ✅ Observed
+
+**Decision:** Single-turn autonomous execution (claude code -p) doesn't produce quality iteration loops for UI work. Interactive task mode (human as quality gate after each task) works well. Future: Pydantic agent harness with structured loops.
+
+**Rationale:** UI quality requires visual judgment, comparison to references, and iterative refinement. A single autonomous pass misses visual regressions and design system evolution. The screenshot → review → fix loop is inherently interactive.
+
+**Impact:** Task mode with human quality gates is the current best approach for UI work. -p mode reserved for mechanical tasks (migrations, data wiring, test fixes).
+
+---

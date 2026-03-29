@@ -12,7 +12,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 - AI Brain Overhaul Phases 1-3 complete (decisions #260-269): goal field eliminated (migration 069), condensed columns on engagements + meeting_notes (migration 068), meeting summarization restructured with scoped context builder, structured output (Discussion/Decisions/Key Context), condensed 3-5 bullet digest, non-redundancy with tasks
 - Phase D cleanup complete: dead tests deleted, stale assertions fixed, dead types/routes removed
 - Entity model fully rewritten with ring architecture (Catalog → Activity → People → Posture) in docs/entity-model.md
-- Documentation consolidated: 6 docs total (CLAUDE.md master orientation, entity-model.md schema reference, ai-call-map.md AI call reference, north-star.md vision spec, goal-state.md status, decisions.md through #350)
+- Documentation consolidated: 6 docs total (CLAUDE.md master orientation, entity-model.md schema reference, ai-call-map.md AI call reference, north-star.md vision spec, goal-state.md status, decisions.md through #360)
 - Dead weight cleaned: notes table dropped (migration 061), orphaned components removed (PillGrid, CalendarCard, TableList, SyncStatus), decisions.md merged from two files into one
 - Zero polymorphic tables: entity_links replaced with engagement_programs + engagement_events (migration 065, decisions #221-222)
 - Contact registry complete: 76 participants, 85 partner links, 4 dedicated join tables, sync layer auto-maintains registry — all reads and writes flow through registry, JSONB columns dropped (Decisions #182, #218)
@@ -49,21 +49,23 @@ A system where a PDM forwards an email and Roadrunner:
 
 ## What's Next
 
-### Next Session
-- Navigation safety (unsaved changes warnings on note workspace)
-- Enterprise loading states on all async operations
-- Mobile sidebar behavior
-- Programs page pagination or progressive disclosure (80+ items)
+### Immediate
+- SKILL.md needs retroactive population with patterns from this plan execution (grouped-by-partner tasks, anchor day preview, series navigation bar, engagement contributors collapsible, recurrence icon pattern)
+- Pre-existing bugs noted during visual review: Cloudaware QBR redundant engagement name text (data quality), meeting_type backfill for 16 older meetings (pre-meeting-type era, all have type=null)
 
 ### Soon
-- CLASSIFICATION.md full rewrite to document current pipeline
-- meeting_type backfill for 16 older meetings (pre-meeting-type era, all have type=null)
-- SKILL.md rewrite for agent session
-- Docs checkpoint (entity-model.md field updates)
+- Second UI polish pass with stronger SKILL.md enforcement
+- Navigation safety (unsaved changes warnings on note workspace)
+- Enterprise loading states on all async operations
+- Brain synthesis prompt refinement with Ring 3 data
+- Docs checkpoint (entity-model.md field updates for dissolved relationships, new anchor_day column)
 
 ### Later
-- Ring 3 CRUD UI (flip from pull-only to push when ready)
-- Partner Goals population from business plans — AT table created but empty
+- Pydantic agent harness for structured autonomous loops
+- Airtable exit path (flip tables from pull to push)
+- Ring 3 CRUD UI
+- Mobile sidebar behavior
+- Programs page pagination or progressive disclosure (80+ items)
 - Finish program enrollment linking — 58/80 enrollments have null program_id (need AT linked records populated)
 - Pre-meeting briefing (AI-generated)
 - 41-task engagement backfill — link meetings to engagements so cascade populates task.engagement_id
