@@ -9,7 +9,26 @@ This is the living design system for Roadrunner. Every UI component references t
 Read `docs/north-star.md` FIRST for vision, UX standards, and anti-patterns.
 Update this document as new patterns are established.
 
+**Structure:** Layer 1 (visual foundations) → Layer 2 (interaction patterns) → Layer 3 (data visualization patterns).
+
+### How to Document a Pattern
+
+When you establish a new interaction or visualization pattern, add it to the appropriate layer:
+
+```
+### Pattern Name
+
+**Component:** `ComponentName` (`path/to/file.tsx`)
+**Used on:** List of pages/contexts where this pattern appears
+**Behavior:** What it does, how it responds to user input
+**Design rationale:** Why this approach was chosen over alternatives
+**CSS variables / tokens:** Any theme variables this pattern uses
+**Constraints:** What NOT to do — anti-patterns for this component
+```
+
 ---
+
+# Layer 1: Visual Foundations
 
 ## Design Philosophy
 
@@ -270,8 +289,7 @@ const [{ data: meetings }, { data: engagements }] = await Promise.all([
 | `/events` | Event catalog | Light refresh |
 | `/events/[id]` | Event detail | Light refresh |
 
-**Deleted:** `/engagements` (list), `/relationships` (list), `/notes/*` (legacy)
-**Preserved:** `/relationships/[id]` (detail, accessed via partner people section)
+**Deleted:** `/engagements` (list), `/relationships` (dissolved), `/notes/*` (legacy)
 
 ---
 
@@ -290,3 +308,75 @@ const [{ data: meetings }, { data: engagements }] = await Promise.all([
 - Hardcoded hex colors (use CSS variables)
 - Spacing values outside the 4px scale
 - Section labels that say "No data" with broken-looking empty UI
+
+---
+
+# Layer 2: Interaction Patterns
+
+Reusable behavior patterns for interactive elements. Any pattern established here applies system-wide — not just the page where it was first built.
+
+## Search
+
+How search bars behave: debounce timing, placeholder text conventions, empty/zero-result states, keyboard shortcuts.
+
+*Not yet documented — will be populated as patterns are established in Plan 2.*
+
+## Filters
+
+How filter controls compose: toggle buttons vs dropdowns, how filters stack with search, active filter indication, clear/reset behavior.
+
+*Not yet documented — will be populated as patterns are established in Plan 2.*
+
+## List Capping & Pagination
+
+How long lists are truncated: "View all" pattern, default cap counts, progressive disclosure for collapsed sections.
+
+*Not yet documented — will be populated as patterns are established in Plan 2.*
+
+## Confirmation & Destructive Actions
+
+When to show confirmation dialogs, visual treatment of destructive vs safe actions, "undo" vs "are you sure" patterns.
+
+*Not yet documented — will be populated as patterns are established in Plan 2.*
+
+## Forms & Creation
+
+Modal vs inline creation, required field indication, validation messaging, duplicate detection display.
+
+*Not yet documented — will be populated as patterns are established in Plan 2.*
+
+## Navigation & Linking
+
+Clickable entity references (partners, engagements, meetings), how breadcrumbs work, how "back" behavior works.
+
+*Not yet documented — will be populated as patterns are established in Plan 2.*
+
+---
+
+# Layer 3: Data Visualization Patterns
+
+Patterns for rendering complex information visually. Status indicators, timelines, financial displays, and any component whose purpose is to help the user see patterns in data.
+
+## Status Indicators
+
+Badges, dots, color coding for entity states. How shifted/rescheduled occurrences display. How overdue items highlight.
+
+*Not yet documented — will be populated as patterns are established in Plan 2.*
+
+## Series & Timeline Visualization
+
+How recurring meeting series render as visual strips. Dot/block representations of occurrences over time. Color coding: completed, scheduled, skipped, rescheduled.
+
+*Not yet documented — will be populated as patterns are established in Plan 2.*
+
+## Financial Displays
+
+Number formatting, currency display, attainment percentages, trend indicators, goal-vs-actual presentation.
+
+*Not yet documented — will be populated as patterns are established in Plan 2.*
+
+## Grouped Displays
+
+How entities group (tasks by partner, enrollments by type, engagements by pillar). Header treatment, collapse behavior, count badges.
+
+*Not yet documented — will be populated as patterns are established in Plan 2.*
