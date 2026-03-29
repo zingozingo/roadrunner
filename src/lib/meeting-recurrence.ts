@@ -166,12 +166,25 @@ export async function getOverdueRecurringMeetings(): Promise<Meeting[]> {
 export async function spawnNextOccurrence(meeting: Meeting): Promise<Meeting | null> {
   if (!meeting.recurrence_pattern || !meeting.series_id) return null;
 
-  const nextDate = calculateNextDate(meeting.meeting_date!, meeting.recurrence_pattern);
+  const supabase = getSupabaseClient();
+
+  // Look up anchor_day from the series root meeting
+  let anchorDay: number | undefined;
+  if (meeting.series_id !== meeting.id) {
+    const { data: root } = await supabase
+      .from("meetings")
+      .select("anchor_day")
+      .eq("id", meeting.series_id)
+      .maybeSingle();
+    anchorDay = root?.anchor_day ?? undefined;
+  } else {
+    anchorDay = meeting.anchor_day ?? undefined;
+  }
+
+  const nextDate = calculateNextDate(meeting.meeting_date!, meeting.recurrence_pattern, anchorDay);
 
   // Series has ended
   if (meeting.recurrence_end && nextDate > meeting.recurrence_end) return null;
-
-  const supabase = getSupabaseClient();
 
   try {
     // Insert the new occurrence
@@ -185,6 +198,7 @@ export async function spawnNextOccurrence(meeting: Meeting): Promise<Meeting | n
         recurrence_pattern: meeting.recurrence_pattern,
         recurrence_end: meeting.recurrence_end,
         series_id: meeting.series_id,
+        anchor_day: anchorDay ?? null,
         meeting_date: nextDate,
         status: "scheduled",
         source: "auto",
