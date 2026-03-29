@@ -6638,3 +6638,83 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** Task mode with human quality gates is the current best approach for UI work. -p mode reserved for mechanical tasks (migrations, data wiring, test fixes).
 
 ---
+
+## 2026-03-29: Plan 1 Residuals & Plan 2 Creation
+
+### #361 — Case-insensitive email uniqueness at database level
+
+**Date:** 2026-03-29
+**Status:** ✅ Implemented
+
+**Decision:** Migration 080 replaced case-sensitive UNIQUE on participants.email with UNIQUE(lower(email)) index. All three insertion paths (AT sync, classifier, UI create) normalize to lowercase before insert. DB constraint is the architectural guarantee; app normalization is hygiene.
+
+**Rationale:** The classifier insertion path didn't normalize emails, creating case-mismatched duplicates (e.g., nikolay.nikolaev vs Nikolay.Nikolaev). 4 existing duplicates merged (NinjaOne x3, Progress x1). The curated-ID exclusion in getEngagementContributors() couldn't match records with different UUIDs for the same person.
+
+**Impact:** Prevents future case-mismatch duplicate participant records. Engagement contributor dedup now works correctly for all contacts.
+
+---
+
+### #362 — PDM excluded from engagement contributors
+
+**Date:** 2026-03-29
+**Status:** ✅ Implemented
+
+**Decision:** isUserEmail() filter added to getEngagementContributors() alongside existing curatedIds exclusion. PDM appears on every engagement via classifier — seeing yourself listed adds zero information.
+
+**Rationale:** Steven (PDM) was listed under every engagement's contributor section because the classifier adds the forwarder as a participant. The curated-ID filter couldn't catch him because he's not in partner_participants. Filter is query-side; data preserved in engagement_participants for integrity.
+
+**Impact:** Cleaner engagement contributor sections on partner detail pages. PDM data preserved for AI context and Airtable push.
+
+---
+
+### #363 — Engagement-level program/event junctions dissolved
+
+**Date:** 2026-03-29
+**Status:** ✅ Implemented
+
+**Decision:** engagement_programs (9 rows), engagement_events (1 row), engagement_relationships (2 orphaned rows) dropped in migration 081. Programs and events connect at partner level only via partner_program_enrollments and partner_event_participations (Ring 3).
+
+**Rationale:** The engagement-level junctions were created by the AI classifier during synthesis, but the classifier no longer writes to them. 9+1 rows were frozen data with no active write path. Programs and events are fundamentally partner-level concerns, not engagement-level. The link/unlink CRUD functions in engagement-links.ts were dead code (exported but never imported).
+
+**Impact:** Tables: 20 → 17. engagement-links.ts deleted (8 functions). 14 files cleaned of junction references. Engagement detail, merge route, push sync, and AI context all simplified.
+
+---
+
+### #364 — program_name as primary enrollment display label
+
+**Date:** 2026-03-29
+**Status:** ✅ Implemented
+
+**Decision:** Added program_name column to partner_program_enrollments (migration 081), synced from AT "Program ID" text field (fldmaD6ZTY7XvXkjw). UI uses program_name as primary label; program_id FK is optional for click-through navigation.
+
+**Rationale:** 58/80 enrollment records had null program_id because AT linked records aren't populated. These displayed as "Unlinked" — useless to the PDM. The AT text field has meaningful names for all 80 records. The notes-field fallback ("[Program: X]") was a workaround that polluted the notes column.
+
+**Impact:** Every enrollment record now has a displayable name. Enrollments with resolved program_id render as clickable links; without it, plain text. Notes field clean.
+
+---
+
+### #365 — Meeting naming convention standardized to "Partner — Type"
+
+**Date:** 2026-03-29
+**Status:** ✅ Implemented
+
+**Decision:** All "Partner Sync" titles renamed to "Partner Cadence" (12 meetings across 8 partners). Convention for recurring meetings: "Partner — Meeting Type". One-off meetings keep descriptive titles. 11 null meeting_types backfilled (6 partner_cadence, 2 internal, 3 ad_hoc). 2 test Cloudaware QBR records deleted.
+
+**Rationale:** "Partner Sync" and "Partner Cadence" described the same meeting type. Standardizing on "Partner Cadence" aligns with the meeting_type enum value and eliminates naming ambiguity. All 49 meetings now have consistent types.
+
+**Impact:** Zero null meeting_types. Consistent naming across all partners. 49 meetings (was 51 — 2 test records removed).
+
+---
+
+### #366 — SKILL.md three-layer design system architecture
+
+**Date:** 2026-03-29
+**Status:** ✅ Implemented
+
+**Decision:** Restructured SKILL.md from visual-only to three layers: Layer 1 Visual Foundations (existing content), Layer 2 Interaction Patterns (search, filters, list capping, confirmation, forms, navigation), Layer 3 Data Visualization Patterns (status indicators, series timelines, financial displays, grouped displays).
+
+**Rationale:** Plan 2 introduces interaction and visualization patterns that don't fit the existing visual-only structure. Establishing the skeleton framework before Plan 2 execution gives the agent clear categories from task 1. Standardized pattern documentation format included.
+
+**Impact:** Agent has clear structure for documenting new patterns as they're built. Three-layer hierarchy prevents SKILL.md from becoming a flat list of unrelated patterns.
+
+---

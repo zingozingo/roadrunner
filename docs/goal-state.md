@@ -6,13 +6,13 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 79 migrations, 20 active tables, 29 API routes, 12 UI pages, 435 passing tests (0 failures), tsc --noEmit passes clean
+- 81 migrations, 17 active tables, 29 API routes, 12 UI pages, 435 passing tests (0 failures), tsc --noEmit passes clean
 - Human-guided intake pipeline fully operational: webhook → mechanical partner detection → ICS partner backfill → inbox triage (with unknown partner picker) → single-phase AI synthesis (decisions #223-252)
 - Meetings Motion complete (decisions #253-259): 10 interaction-based meeting types, recurring meeting engine with auto-spawn, series tracking via self-referential FK, RecurrenceEditor UI, synthesis-on-link, conference boilerplate pre-split fix, ICS multi-VEVENT guardrail confirmed
 - AI Brain Overhaul Phases 1-3 complete (decisions #260-269): goal field eliminated (migration 069), condensed columns on engagements + meeting_notes (migration 068), meeting summarization restructured with scoped context builder, structured output (Discussion/Decisions/Key Context), condensed 3-5 bullet digest, non-redundancy with tasks
 - Phase D cleanup complete: dead tests deleted, stale assertions fixed, dead types/routes removed
 - Entity model fully rewritten with ring architecture (Catalog → Activity → People → Posture) in docs/entity-model.md
-- Documentation consolidated: 6 docs total (CLAUDE.md master orientation, entity-model.md schema reference, ai-call-map.md AI call reference, north-star.md vision spec, goal-state.md status, decisions.md through #360)
+- Documentation consolidated: 6 docs total (CLAUDE.md master orientation, entity-model.md schema reference, ai-call-map.md AI call reference, north-star.md vision spec, goal-state.md status, decisions.md through #366)
 - Dead weight cleaned: notes table dropped (migration 061), orphaned components removed (PillGrid, CalendarCard, TableList, SyncStatus), decisions.md merged from two files into one
 - Zero polymorphic tables: entity_links replaced with engagement_programs + engagement_events (migration 065, decisions #221-222)
 - Contact registry complete: 76 participants, 85 partner links, 4 dedicated join tables, sync layer auto-maintains registry — all reads and writes flow through registry, JSONB columns dropped (Decisions #182, #218)
@@ -36,6 +36,13 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 - Today page restructured: "Open Notes" action on today's meetings, tasks grouped by partner
 - Breadcrumb 404s fixed (engagement → partner), meeting type formatting via MEETING_TYPE_DISPLAY map, meeting source labels mapped
 - CLAUDE.md updated with enforced verification protocol, flexible guardrails, plan completion protocol
+- Plan 2 created (16 tasks, 4 phases: Foundation, Recurrence Overhaul, People Page, Today Layout). 3 engagement junction tables dissolved (migration 081, decision #363). Email uniqueness enforced at DB level (migration 080, decision #361). Meeting data fully standardized (decision #365)
+- Case-insensitive email uniqueness enforced at DB level (migration 080, UNIQUE(lower(email)), decision #361). All 3 insertion paths normalize to lowercase
+- PDM excluded from engagement contributors via isUserEmail() filter (decision #362)
+- Engagement-level program/event junctions dissolved (migration 081, decision #363). Tables: 20 → 17. Programs/events connect at partner level only via Ring 3
+- program_name synced to enrollment records from AT text field (decision #364). Primary display label; eliminates "Unlinked" on 58/80 records
+- Meeting types backfilled (11 nulls → 0) and names standardized — "Partner Sync" → "Partner Cadence" across 12 meetings (decision #365). 2 test records deleted (49 meetings)
+- SKILL.md restructured into three-layer design system: Visual Foundations, Interaction Patterns, Data Visualization Patterns (decision #366)
 - 5 active engagements processing real email data (Nozomi Networks, Spacelift x3, Qualys)
 - All Airtable push/delete calls awaited (no fire-and-forget)
 
@@ -50,15 +57,15 @@ A system where a PDM forwards an email and Roadrunner:
 ## What's Next
 
 ### Immediate
-- SKILL.md needs retroactive population with patterns from this plan execution (grouped-by-partner tasks, anchor day preview, series navigation bar, engagement contributors collapsible, recurrence icon pattern)
-- Pre-existing bugs noted during visual review: Cloudaware QBR redundant engagement name text (data quality), meeting_type backfill for 16 older meetings (pre-meeting-type era, all have type=null)
+- Execute Plan 2: Recurrence Experience, People Page, Today Layout (docs/plans/active.md — 16 tasks, 4 phases)
+- anchor_day column must be created — migrations 078/079 tracked but DDL never ran (Plan 2 Task 1.1 is the critical foundation)
 
 ### Soon
-- Second UI polish pass with stronger SKILL.md enforcement
+- Post-Plan 2 meeting data cleanup session — merge Vasion duplicate series, convert standalones to series roots, sort out series ownership using new recurrence tooling
+- Calendar/timeline view for cross-partner meeting history (identified during planning, deferred)
 - Navigation safety (unsaved changes warnings on note workspace)
 - Enterprise loading states on all async operations
 - Brain synthesis prompt refinement with Ring 3 data
-- Docs checkpoint (entity-model.md field updates for dissolved relationships, new anchor_day column)
 
 ### Later
 - Pydantic agent harness for structured autonomous loops
@@ -134,6 +141,12 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~Brain context enriched with Ring 3~~ ✅: buildBrainContext now includes financial fields (11), program enrollments, funding wallets (MPOPP/MDF), strategic goals, activity signals
 - ~~Batch re-synthesis~~ ✅: All 24 partners re-synthesized with new prompt format (2026-03-27)
 - ~~Merge route fix~~ ✅: meeting_notes + tasks engagement_id now cascaded during merge, source current_state enriched into target before deletion
+- ~~Case-insensitive email uniqueness~~ ✅ (migration 080, decision #361): UNIQUE(lower(email)), 4 duplicates merged, all insertion paths normalize
+- ~~PDM excluded from engagement contributors~~ ✅ (decision #362): isUserEmail() filter in getEngagementContributors()
+- ~~Engagement-level junctions dissolved~~ ✅ (migration 081, decision #363): engagement_programs, engagement_events, engagement_relationships dropped. Tables: 20 → 17
+- ~~program_name synced to enrollments~~ ✅ (decision #364): AT text field → program_name column, primary display label, "Unlinked" eliminated
+- ~~Meeting types backfilled and names standardized~~ ✅ (decision #365): 11 nulls → 0, 12 renames, 2 test records deleted
+- ~~SKILL.md three-layer design system~~ ✅ (decision #366): Visual Foundations + Interaction Patterns + Data Visualization Patterns
 
 ## Architecture Principles
 

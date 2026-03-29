@@ -28,7 +28,7 @@ In both modes, all rules below apply.
 Read these documents in this order before touching any UI code:
 1. `docs/north-star.md` — The vision: what Roadrunner should become, page specs, UX standards, design principles, anti-patterns
 2. `.claude/roadrunner-ui/SKILL.md` — The design system: tokens, components, patterns. This is a LIVING document — update it as you establish new patterns during implementation
-3. `docs/entity-model.md` — The schema: all 20 tables, FK cascades, Airtable field IDs, ring model. This is your reference for what data exists and how entities connect
+3. `docs/entity-model.md` — The schema: all 17 tables, FK cascades, Airtable field IDs, ring model. This is your reference for what data exists and how entities connect
 4. `.claude/references/ui-ux-best-practices.md` — Interaction patterns: button states, loading, errors, undo, navigation safety, dark theme, spacing, feedback timing
 
 ### Path Guardrails
@@ -174,7 +174,7 @@ docs/sessions/
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → human-guided routing → AI synthesis → structured engagements → Airtable sync.
-> 79 migrations · 20 tables · 29 API routes · 12 UI pages · 435 passing tests
+> 81 migrations �� 17 tables · 29 API routes · 12 UI pages · 435 passing tests
 
 ---
 
@@ -235,7 +235,7 @@ roadrunner/
 │       │   ├── session-start.md     #   Claude.ai: session startup context
 │       │   └── session-end.md       #   Claude.ai: wrap-up protocol
 │       └── summaries/             #     Session summaries (one per session)
-├── decisions.md                   # Append-only architectural decision log (360 entries)
+├── decisions.md                   # Append-only architectural decision log (366 entries)
 ├── src/
 │   ├── app/                       # Next.js App Router
 │   │   ├── api/                   #   API routes (31 route files, grouped by entity)
@@ -295,7 +295,6 @@ roadrunner/
 │       │   ├── partners.ts        #     Partner queries (read-only)
 │       │   ├── partner-context.ts #     Scratchpad CRUD
 │       │   ├── catalog.ts         #     Events + Programs CRUD
-│       │   ├── engagement-links.ts #     Engagement↔program/event junction queries
 │       │   ├── participants.ts    #     Participant upsert + registry joins
 │       │   ├── inbox.ts           #     Inbox queries, grouped count, set-partner, INBOX_GROUP_WINDOW_MS
 │       │   ├── ring3.ts           #     Ring 3 upsert + queries (goals, enrollments, funding)
@@ -379,7 +378,7 @@ roadrunner/
 
 ## Data Ownership
 
-Airtable owns **catalog** (Ring 1: Partners, Programs, Events) and **posture** (Ring 3: Partner Goals, Program Enrollments, Event Participations, MPOPP Funding, MDF Funding). Roadrunner owns **activity** (Ring 2: Engagements, Meetings, Notes, Tasks, Messages, Participants, Partner Context). See `docs/entity-model.md` for the complete schema with all 20 tables, FK cascade behaviors, and Airtable field IDs.
+Airtable owns **catalog** (Ring 1: Partners, Programs, Events) and **posture** (Ring 3: Partner Goals, Program Enrollments, Event Participations, MPOPP Funding, MDF Funding). Roadrunner owns **activity** (Ring 2: Engagements, Meetings, Notes, Tasks, Messages, Participants, Partner Context). See `docs/entity-model.md` for the complete schema with all 17 tables, FK cascade behaviors, and Airtable field IDs.
 
 ---
 
@@ -535,7 +534,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-075). New migratio
 
 **Sync:** `sync/pull.ts` / `sync/push.ts` → `sync/field-maps.ts` → `sync/utils.ts`
 
-**Data layer:** `db/index.ts` → `db/engagements.ts` → `db/messages.ts` → `db/meetings.ts` → `db/meeting-notes.ts` → `db/participants.ts` → `db/partner-context.ts` → `db/catalog.ts` → `db/engagement-links.ts` → `db/partners.ts` → `db/inbox.ts` → `db/ring3.ts`
+**Data layer:** `db/index.ts` → `db/engagements.ts` → `db/messages.ts` → `db/meetings.ts` → `db/meeting-notes.ts` → `db/participants.ts` → `db/partner-context.ts` → `db/catalog.ts` → `db/partners.ts` → `db/inbox.ts` → `db/ring3.ts`
 
 **Email:** `email-parser.ts` → `ics-parser.ts` → `name-resolver.ts` → `contact-parser.ts` → `format-utils.ts` · Recurrence: `meeting-recurrence.ts`
 
@@ -548,14 +547,14 @@ Sequential numbering in `supabase/migrations/` (currently 001-075). New migratio
 | Doc | Purpose | When to Read |
 |-----|---------|--------------|
 | `CLAUDE.md` | This file — project overview, architecture, development | Start of every session |
-| `docs/entity-model.md` | Complete schema — 20 tables, all FKs, AT field IDs, ring model | Schema/data work |
+| `docs/entity-model.md` | Complete schema — 17 tables, all FKs, AT field IDs, ring model | Schema/data work |
 | `docs/north-star.md` | UI vision spec — page specs, UX standards, design principles | UI/UX work |
 | `docs/ai-call-map.md` | AI call reference — 3 calls: synthesis, summarization, brain | AI/prompt work |
 | `docs/goal-state.md` | Living status — current state + what's next | Session planning |
 | `docs/plans/active.md` | Current task plan (empty when no plan active) | Task mode |
 | `docs/sessions/templates/` | Session templates — diagnostics and Claude.ai session prompt | Reference when needed |
 | `docs/sessions/summaries/` | Session summaries — one per session, latest is handoff for next session | Session start (paste latest into Claude.ai) |
-| `decisions.md` | Append-only architectural decision log (360 entries) | When you need "why" |
+| `decisions.md` | Append-only architectural decision log (366 entries) | When you need "why" |
 
 ---
 
