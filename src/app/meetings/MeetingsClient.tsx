@@ -35,6 +35,27 @@ const RECURRENCE_OPTIONS = [
   { label: "Quarterly", value: "quarterly" },
 ];
 
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/** Compute next N occurrence dates for preview (client-side, no today-awareness needed). */
+function previewDates(startDate: string, pattern: string, count: number): string[] {
+  const dates: string[] = [];
+  let current = startDate;
+  for (let i = 0; i < count; i++) {
+    const [y, m, d] = current.split("-").map(Number);
+    const date = new Date(y, m - 1, d);
+    switch (pattern) {
+      case "weekly": date.setDate(date.getDate() + 7); break;
+      case "biweekly": date.setDate(date.getDate() + 14); break;
+      case "monthly": date.setMonth(date.getMonth() + 1); break;
+      case "quarterly": date.setMonth(date.getMonth() + 3); break;
+    }
+    current = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    dates.push(current);
+  }
+  return dates;
+}
+
 interface MeetingsClientProps {
   meetings: MeetingWithNames[];
   partners: Partner[];
@@ -133,6 +154,9 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
     if (isRecurring) {
       body.recurrence_pattern = recurrencePattern;
       body.recurrence_end = recurrenceEnd || null;
+      // Compute anchor_day from meeting date (day of week: 0=Sun..6=Sat)
+      const [ay, am, ad] = meetingDate.split("-").map(Number);
+      body.anchor_day = new Date(ay, am - 1, ad).getDay();
     }
 
     try {
@@ -427,23 +451,37 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
                   Recurring meeting
                 </label>
                 {isRecurring && (
-                  <div className="mt-2 flex items-center gap-3 pl-6">
-                    <select
-                      value={recurrencePattern}
-                      onChange={(e) => setRecurrencePattern(e.target.value)}
-                      className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
-                    >
-                      {RECURRENCE_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </select>
-                    <input
-                      type="date"
-                      value={recurrenceEnd}
-                      onChange={(e) => setRecurrenceEnd(e.target.value)}
-                      placeholder="End date (optional)"
-                      className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
-                    />
+                  <div className="mt-2 space-y-3 pl-6">
+                    <div className="flex items-center gap-3">
+                      <select
+                        value={recurrencePattern}
+                        onChange={(e) => setRecurrencePattern(e.target.value)}
+                        className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
+                      >
+                        {RECURRENCE_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="date"
+                        value={recurrenceEnd}
+                        onChange={(e) => setRecurrenceEnd(e.target.value)}
+                        placeholder="End date (optional)"
+                        className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
+                      />
+                    </div>
+                    {meetingDate && (
+                      <div className="space-y-1">
+                        <div className="text-xs text-muted">
+                          Anchor: <span className="text-foreground/70">{DAY_NAMES[new Date(meetingDate + "T12:00:00").getDay()]}s</span>
+                        </div>
+                        <div className="text-[11px] text-muted/60">
+                          Next 4: {previewDates(meetingDate, recurrencePattern, 4).map((d) =>
+                            new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                          ).join(" → ")}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

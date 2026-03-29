@@ -40,7 +40,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { title, engagement_id, partner_id: rawPartnerId, partner_name, meeting_type, status, meeting_date, start_time, end_time, location, attendees, notes, recurrence_pattern, recurrence_end } = body;
+    const { title, engagement_id, partner_id: rawPartnerId, partner_name, meeting_type, status, meeting_date, start_time, end_time, location, attendees, notes, recurrence_pattern, recurrence_end, anchor_day } = body;
 
     if (!title || typeof title !== "string" || !title.trim()) {
       return NextResponse.json(
@@ -108,6 +108,7 @@ export async function POST(request: NextRequest) {
       source: "manual",
       recurrence_pattern: recurrence_pattern || null,
       recurrence_end: recurrence_end || null,
+      anchor_day: typeof anchor_day === "number" ? anchor_day : null,
     });
 
     return NextResponse.json({ meeting }, { status: 201 });
