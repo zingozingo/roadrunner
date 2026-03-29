@@ -174,7 +174,7 @@ docs/sessions/
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → human-guided routing → AI synthesis → structured engagements → Airtable sync.
-> 81 migrations �� 17 tables · 29 API routes · 12 UI pages · 435 passing tests
+> 82 migrations · 17 tables · 29 API routes · 12 UI pages · 435 passing tests
 
 ---
 
@@ -306,7 +306,7 @@ roadrunner/
 │       │   └── utils.ts           #     Coercion helpers + validation
 │       └── __tests__/             #   435 passing tests across 14 test files
 ├── supabase/
-│   ├── migrations/                # 79 migration files (001-079)
+│   ├── migrations/                # 82 migration files (001-082)
 │   └── (authoritative schema lives in migrations/)
 ├── scripts/
 │   ├── screenshot.ts              # Playwright: screenshot a page at given viewport width
@@ -464,7 +464,7 @@ npx tsc --noEmit                   # TypeScript check (must pass with zero error
 
 ### Migrations
 
-Sequential numbering in `supabase/migrations/` (currently 001-075). New migrations get the next number (076, 077, ...). Write idempotent SQL where possible.
+Sequential numbering in `supabase/migrations/` (currently 001-082). New migrations get the next number (083, 084, ...). Write idempotent SQL where possible.
 
 ### Key Conventions
 
