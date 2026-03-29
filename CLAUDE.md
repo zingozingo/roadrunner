@@ -95,8 +95,38 @@ These apply to all UI work in both modes:
 - **Dark theme only.** All colors use CSS custom properties defined in `globals.css`.
 - **Data fetching:** use server components with parallel Supabase queries (existing pattern). Don't create new API routes for read operations.
 - **Delete, don't stub.** When removing a page or component, delete the file entirely. No dead code.
-- **Evolve the design system.** After every task that touches UI, review what you built and ask: "Did I establish a pattern that should be reused?" If yes, write it into SKILL.md as a named pattern with: what it is, where it's used, the specific implementation (classes, spacing, structure), and WHY it works that way. If you found a better way to do something than what SKILL.md currently describes, UPDATE the existing pattern — don't just add a new one. SKILL.md should get smarter and more opinionated with every task, not just longer. The next person (or agent) reading SKILL.md should inherit your design reasoning, not just your code.
+- **The design system drives everything.** SKILL.md is not documentation — it's the authority on how things look and behave. There are two modes of working with it:
+
+  **When a task is structural or creative** (redesigning a page layout, rethinking how data is presented, building a new interaction pattern): Think about the design system FIRST. Before writing code, ask: "What pattern am I establishing here? Is there an existing pattern in SKILL.md I should follow, or does this task require a new/better one?" If you're creating something new, write the pattern into SKILL.md BEFORE implementing it across pages. If you find a better approach than what SKILL.md currently describes, UPDATE the existing pattern in-place with the improvement and your reasoning. The goal is patterns that are as universal as possible — a pattern for "how collapsible sections work" should apply everywhere sections collapse, not just on one page.
+
+  **When a task is a minor fix or routine change** (fixing a typo, adjusting a number, swapping a label): Follow SKILL.md exactly. Don't innovate. Match the existing patterns precisely. Consistency is the goal, not creativity. If something looks wrong but matches SKILL.md, flag it — don't silently deviate.
+
+  **The test:** After every task, SKILL.md should either be unchanged (because you followed existing patterns) or better (because you evolved a pattern with reasoning). It should never be stale — if you built something that doesn't match what SKILL.md says, either your code or SKILL.md is wrong. Fix whichever one is wrong.
 - **Enterprise UX is non-negotiable:** explicit loading states, navigation safety for unsaved changes, confirmation dialogs for destructive actions, professional button labels. See North Star Part 7.
+
+### Tool Usage Expectations
+
+These tools exist in the project. Use them proactively — don't wait to be asked.
+
+**Playwright Screenshots (`scripts/screenshot.ts`):**
+- After ANY task that changes what a page looks like: screenshot it at 1440. View the screenshot. Compare against `.claude/references/` for quality bar.
+- When debugging a visual issue: screenshot before and after to confirm the fix.
+- Screenshots go in `.claude/screenshots/{date}-{description}/` — create the subfolder at the start of each task run.
+
+**Playwright Interaction Tests (`scripts/interact.ts`):**
+- After ANY task that changes interactive behavior (button clicks, form submissions, navigation, loading states): write and run an interaction test.
+- Test the happy path AND the edge cases (what happens on error? what happens if you click twice? what happens if you navigate away?).
+- If a test fails, it auto-screenshots the failure state. View that screenshot to diagnose.
+
+**UI Audit (`scripts/ui-audit.sh`):**
+- Run after EVERY task that touches UI code. No exceptions.
+- If it flags violations, fix them before committing. Zero violations is the baseline.
+
+**Reference Material (`.claude/references/`):**
+- Before starting UI work: view at least 2 reference screenshots and read `ui-ux-best-practices.md`.
+- These set the quality bar. If your output doesn't feel as polished as the references, keep iterating.
+
+**The principle:** These tools are not optional verification steps — they're how you do the work. A task that changes UI without screenshots is incomplete. A task that changes interactions without testing is incomplete. Build the habit of using them as part of implementation, not as an afterthought.
 
 ### Task Plans
 
