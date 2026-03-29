@@ -223,7 +223,7 @@ function MeetingRow({
       {/* Recurrence indicator + type badge + action */}
       <div className="flex items-center gap-3 shrink-0 ml-4">
         {(meeting.recurrence_pattern || meeting.series_id) && (
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted/50">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted/70">
             <path d="M2 8a6 6 0 0 1 10.47-4M14 8a6 6 0 0 1-10.47 4" />
             <path d="M14 2v4h-4M2 14v-4h4" />
           </svg>
