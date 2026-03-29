@@ -21,6 +21,7 @@ import {
   getPartnerMpoppFunding,
   getPartnerMdfFunding,
 } from "@/lib/db";
+import { getEngagementContributors } from "@/lib/db/participants";
 import type { Engagement, Meeting } from "@/lib/types";
 
 /* ------------------------------------------------------------------ */
@@ -85,6 +86,7 @@ export default async function PartnerDetailPage({
     eventParticipations,
     mpoppFunding,
     mdfFunding,
+    engagementContributors,
   ] = await Promise.all([
     getRelationshipsByPartner(id),
     getMeetingNotesByPartner(id),
@@ -95,6 +97,7 @@ export default async function PartnerDetailPage({
     getPartnerEventParticipations(id),
     getPartnerMpoppFunding(id),
     getPartnerMdfFunding(id),
+    getEngagementContributors(id),
   ]);
 
   /* Condensed digests for meeting rows */
@@ -213,6 +216,8 @@ export default async function PartnerDetailPage({
   /* Contacts grouped */
   const awsTeam = contacts.filter((c) => c.org_type === "internal");
   const partnerTeam = contacts.filter((c) => c.org_type === "partner");
+  const thirdParties = contacts.filter((c) => c.org_type === "third_party");
+  const hasPeople = awsTeam.length > 0 || partnerTeam.length > 0 || thirdParties.length > 0 || engagementContributors.totalPeople > 0;
 
   /* Owner label map */
   const ownerLabels: Record<string, { label: string; cls: string }> = {
@@ -570,7 +575,7 @@ export default async function PartnerDetailPage({
         )}
 
         {/* People */}
-        {(awsTeam.length > 0 || partnerTeam.length > 0 || linkedRelationships.length > 0) && (
+        {hasPeople && (
           <Section title="People">
             {awsTeam.length > 0 && (
               <>
@@ -596,20 +601,48 @@ export default async function PartnerDetailPage({
                 ))}
               </>
             )}
-            {linkedRelationships.length > 0 && (
+            {thirdParties.length > 0 && (
               <>
-                <div className="px-4 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted/40">AWS Relationships</div>
-                {linkedRelationships.map((r) => (
-                  <Link
-                    key={r.id}
-                    href={`/relationships/${r.id}`}
-                    className="flex items-center gap-3 border-b border-border/30 px-4 py-2 transition-colors hover:bg-surface-hover last:border-b-0"
-                  >
-                    <span className="text-sm text-foreground/80">{r.name}</span>
-                    {r.org && <span className="text-[11px] text-muted">{r.org}</span>}
-                  </Link>
+                <div className="px-4 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted/40">Third Parties</div>
+                {thirdParties.map((c, i) => (
+                  <div key={i} className="flex items-center gap-3 border-b border-border/30 px-4 py-2 last:border-b-0">
+                    <span className="text-sm text-foreground/80">{c.name ?? c.email}</span>
+                    {c.role && <span className="text-[11px] text-muted">{c.role}</span>}
+                    {c.email && c.name && <span className="text-[11px] text-muted/40">{c.email}</span>}
+                  </div>
                 ))}
               </>
+            )}
+            {engagementContributors.totalPeople > 0 && (
+              <details className="border-t border-border/30">
+                <summary className="cursor-pointer select-none px-4 py-2 text-[11px] font-medium uppercase tracking-wider text-muted/40 hover:text-muted/60 transition-colors">
+                  Engagement Contributors ({engagementContributors.totalPeople} people across {engagementContributors.groups.length} engagement{engagementContributors.groups.length !== 1 ? "s" : ""})
+                </summary>
+                <div className="px-4 pb-3">
+                  {engagementContributors.groups.map((group) => (
+                    <div key={group.engagement_id} className="mt-3 first:mt-1">
+                      <div className="text-[11px] font-medium text-muted/50 mb-1">{group.engagement_name}</div>
+                      {group.contributors.map((c) => (
+                        <div key={c.id} className="flex items-center gap-3 py-1">
+                          <span className="text-sm text-foreground/70">{c.name ?? c.email}</span>
+                          {c.org_type && (
+                            <span className={`text-[10px] font-medium rounded-full px-2 py-0.5 ${
+                              c.org_type === "internal"
+                                ? "bg-accent/10 text-accent"
+                                : c.org_type === "partner"
+                                ? "bg-status-active/10 text-status-active"
+                                : "bg-status-completed/10 text-status-completed"
+                            }`}>
+                              {c.org_type === "internal" ? "AWS" : c.org_type === "partner" ? "Partner" : "3rd Party"}
+                            </span>
+                          )}
+                          {c.email && c.name && <span className="text-[11px] text-muted/40">{c.email}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </details>
             )}
           </Section>
         )}
