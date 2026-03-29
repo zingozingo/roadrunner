@@ -967,3 +967,120 @@ export async function getPartnerContactDomains(): Promise<Map<string, { partnerI
   return result;
 }
 
+// ============================================================
+// Engagement Contributors
+// ============================================================
+
+export interface EngagementContributor {
+  id: string;
+  email: string;
+  name: string | null;
+  organization: string | null;
+  title: string | null;
+  org_type: string | null;
+}
+
+export interface EngagementContributorGroup {
+  engagement_id: string;
+  engagement_name: string;
+  contributors: EngagementContributor[];
+}
+
+/**
+ * Get all participants from a partner's engagements and meetings,
+ * deduplicated, excluding anyone already in the curated partner_participants tier.
+ * Returns grouped by engagement.
+ */
+export async function getEngagementContributors(
+  partnerId: string
+): Promise<{ groups: EngagementContributorGroup[]; totalPeople: number }> {
+  const db = getSupabaseClient();
+
+  try {
+    // 1. Get curated participant IDs to exclude
+    const { data: curated } = await db
+      .from("partner_participants")
+      .select("participant_id")
+      .eq("partner_id", partnerId);
+    const curatedIds = new Set((curated ?? []).map((r) => r.participant_id));
+
+    // 2. Get engagement participants with engagement context
+    const { data: epRows } = await db
+      .from("engagement_participants")
+      .select("engagement_id, participant:participants(id, email, name, organization, title, org_type), engagement:engagements!inner(id, name, partner_id)")
+      .eq("engagement.partner_id", partnerId);
+
+    // 3. Get meeting participants with engagement context (meetings may link to engagements)
+    const { data: mpRows } = await db
+      .from("meeting_participants")
+      .select("participant:participants(id, email, name, organization, title, org_type), meeting:meetings!inner(id, partner_id, engagement_id, engagement:engagements(id, name))")
+      .eq("meeting.partner_id", partnerId);
+
+    // 4. Build grouped map: engagement_id → { name, participants (deduplicated) }
+    const groupMap = new Map<string, { name: string; participantMap: Map<string, EngagementContributor> }>();
+    const allParticipantIds = new Set<string>();
+
+    function addToGroup(engagementId: string, engagementName: string, p: EngagementContributor) {
+      if (curatedIds.has(p.id)) return;
+      if (!groupMap.has(engagementId)) {
+        groupMap.set(engagementId, { name: engagementName, participantMap: new Map() });
+      }
+      const group = groupMap.get(engagementId)!;
+      if (!group.participantMap.has(p.id)) {
+        group.participantMap.set(p.id, p);
+        allParticipantIds.add(p.id);
+      }
+    }
+
+    // Process engagement_participants
+    for (const row of epRows ?? []) {
+      const r = row as unknown as {
+        engagement_id: string;
+        participant: { id: string; email: string; name: string | null; organization: string | null; title: string | null; org_type: string | null };
+        engagement: { id: string; name: string; partner_id: string };
+      };
+      if (!r.participant || !r.engagement) continue;
+      addToGroup(r.engagement.id, r.engagement.name ?? "Unnamed Engagement", {
+        id: r.participant.id,
+        email: r.participant.email,
+        name: r.participant.name,
+        organization: r.participant.organization,
+        title: r.participant.title,
+        org_type: r.participant.org_type,
+      });
+    }
+
+    // Process meeting_participants (only those with an engagement link)
+    for (const row of mpRows ?? []) {
+      const r = row as unknown as {
+        participant: { id: string; email: string; name: string | null; organization: string | null; title: string | null; org_type: string | null };
+        meeting: { id: string; partner_id: string; engagement_id: string | null; engagement: { id: string; name: string } | null };
+      };
+      if (!r.participant || !r.meeting?.engagement) continue;
+      addToGroup(r.meeting.engagement.id, r.meeting.engagement.name ?? "Unnamed Engagement", {
+        id: r.participant.id,
+        email: r.participant.email,
+        name: r.participant.name,
+        organization: r.participant.organization,
+        title: r.participant.title,
+        org_type: r.participant.org_type,
+      });
+    }
+
+    // 5. Convert to output format
+    const groups: EngagementContributorGroup[] = [];
+    for (const [engagementId, { name, participantMap }] of groupMap) {
+      groups.push({
+        engagement_id: engagementId,
+        engagement_name: name,
+        contributors: Array.from(participantMap.values()),
+      });
+    }
+
+    return { groups, totalPeople: allParticipantIds.size };
+  } catch (err) {
+    console.error("getEngagementContributors error:", err instanceof Error ? err.message : err);
+    return { groups: [], totalPeople: 0 };
+  }
+}
+
