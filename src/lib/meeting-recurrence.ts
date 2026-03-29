@@ -10,8 +10,14 @@ import { pushMeetingToAirtable } from "./sync/push";
 /**
  * Calculate the next occurrence date for a recurring meeting.
  * If multiple occurrences are overdue, advances repeatedly until the result >= today.
+ * If anchorDay is provided, snaps the result to the correct day of week (weekly/biweekly)
+ * or day of month (monthly/quarterly) to prevent drift from rescheduled occurrences.
  */
-export function calculateNextDate(currentDate: string, pattern: RecurrencePattern): string {
+export function calculateNextDate(
+  currentDate: string,
+  pattern: RecurrencePattern,
+  anchorDay?: number
+): string {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -22,7 +28,45 @@ export function calculateNextDate(currentDate: string, pattern: RecurrencePatter
     next = advanceOnce(next, pattern);
   }
 
+  // Snap to anchor day if provided
+  if (anchorDay !== undefined && anchorDay !== null) {
+    next = snapToAnchor(next, pattern, anchorDay);
+
+    // After snapping, if we landed before today, advance one more interval and re-snap
+    while (new Date(next + "T00:00:00") < today) {
+      next = advanceOnce(next, pattern);
+      next = snapToAnchor(next, pattern, anchorDay);
+    }
+  }
+
   return next;
+}
+
+/**
+ * Snap a date to the anchor day for the given pattern.
+ * Weekly/biweekly: adjust to the correct day of week within the same week.
+ * Monthly/quarterly: adjust to the correct day of month (clamped to month length).
+ */
+function snapToAnchor(dateStr: string, pattern: RecurrencePattern, anchorDay: number): string {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+
+  if (pattern === "weekly" || pattern === "biweekly") {
+    // anchorDay is day-of-week (0=Sun..6=Sat)
+    const currentDow = date.getDay();
+    const diff = anchorDay - currentDow;
+    date.setDate(date.getDate() + diff);
+    return formatDate(date);
+  }
+
+  if (pattern === "monthly" || pattern === "quarterly") {
+    // anchorDay is day-of-month (1-31)
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const clampedDay = Math.min(anchorDay, daysInMonth);
+    return `${year}-${String(month).padStart(2, "0")}-${String(clampedDay).padStart(2, "0")}`;
+  }
+
+  return dateStr;
 }
 
 /** Advance a date by one interval of the given pattern. */
