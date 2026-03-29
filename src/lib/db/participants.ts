@@ -67,12 +67,15 @@ export async function createParticipantWithLink(
   let participantId: string;
   let participantRecord: Participant;
 
+  // Normalize email to lowercase to prevent case-sensitive duplicates
+  const normalizedEmail = participant.email?.toLowerCase().trim() ?? null;
+
   // Try to find existing by email
-  if (participant.email) {
+  if (normalizedEmail) {
     const { data: existing } = await db
       .from("participants")
       .select("*")
-      .eq("email", participant.email)
+      .eq("email", normalizedEmail)
       .limit(1);
 
     if (existing && existing.length > 0) {
@@ -83,7 +86,7 @@ export async function createParticipantWithLink(
         .from("participants")
         .insert({
           name: participant.name,
-          email: participant.email,
+          email: normalizedEmail,
           title: participant.title ?? null,
           organization: participant.organization ?? null,
         })
@@ -190,6 +193,11 @@ export async function upsertParticipants(
 
   for (const participant of participants) {
     if (!participant.email && !participant.name) continue;
+
+    // Normalize email to lowercase to prevent case-sensitive duplicates
+    if (participant.email) {
+      participant.email = participant.email.toLowerCase().trim();
+    }
 
     // Detect if this participant is the system user (PDM)
     const isUser = participant.email ? isUserEmail(participant.email) : false;
