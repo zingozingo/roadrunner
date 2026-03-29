@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { RecurrencePattern } from "@/lib/types";
 
 const PATTERN_LABELS: Record<RecurrencePattern, string> = {
@@ -10,11 +11,14 @@ const PATTERN_LABELS: Record<RecurrencePattern, string> = {
   quarterly: "Quarterly",
 };
 
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
 interface RecurrenceEditorProps {
   meetingId: string;
   initialPattern: RecurrencePattern | null;
   initialEnd: string | null;
   initialSeriesId: string | null;
+  initialAnchorDay?: number | null;
 }
 
 export default function RecurrenceEditor({
@@ -22,20 +26,25 @@ export default function RecurrenceEditor({
   initialPattern,
   initialEnd,
   initialSeriesId,
+  initialAnchorDay,
 }: RecurrenceEditorProps) {
+  const router = useRouter();
   const [pattern, setPattern] = useState<RecurrencePattern | null>(initialPattern);
   const [endDate, setEndDate] = useState<string | null>(initialEnd);
   const [seriesId, setSeriesId] = useState<string | null>(initialSeriesId);
+  const [anchorDay, setAnchorDay] = useState<number | null>(initialAnchorDay ?? null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Form state for editing
   const [formPattern, setFormPattern] = useState<RecurrencePattern>("weekly");
   const [formEnd, setFormEnd] = useState("");
+  const [formAnchorDay, setFormAnchorDay] = useState<number>(0);
 
   function openEditor() {
     setFormPattern(pattern ?? "weekly");
     setFormEnd(endDate ?? "");
+    setFormAnchorDay(anchorDay ?? 0);
     setEditing(true);
   }
 
@@ -45,6 +54,7 @@ export default function RecurrenceEditor({
       const body: Record<string, unknown> = {
         recurrence_pattern: formPattern,
         recurrence_end: formEnd || null,
+        anchor_day: formAnchorDay,
       };
       // If no series_id yet, set it to the meeting's own id (first in series)
       if (!seriesId) {
@@ -60,11 +70,30 @@ export default function RecurrenceEditor({
       if (res.ok) {
         setPattern(formPattern);
         setEndDate(formEnd || null);
+        setAnchorDay(formAnchorDay);
         if (!seriesId) setSeriesId(meetingId);
         setEditing(false);
       }
     } catch (err) {
       console.error("Failed to save recurrence:", err);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function skipThisOne() {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/meetings/${meetingId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "cancelled" }),
+      });
+      if (res.ok) {
+        router.refresh();
+      }
+    } catch (err) {
+      console.error("Failed to skip meeting:", err);
     } finally {
       setSaving(false);
     }
@@ -116,6 +145,17 @@ export default function RecurrenceEditor({
             <option key={val} value={val}>{label}</option>
           ))}
         </select>
+        {(formPattern === "weekly" || formPattern === "biweekly") && (
+          <select
+            value={formAnchorDay}
+            onChange={(e) => setFormAnchorDay(Number(e.target.value))}
+            className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
+          >
+            {DAY_NAMES.map((name, i) => (
+              <option key={i} value={i}>{name}</option>
+            ))}
+          </select>
+        )}
         <input
           type="date"
           value={formEnd}
@@ -144,13 +184,16 @@ export default function RecurrenceEditor({
             <path d="M2 8a6 6 0 0 1 10.47-4M14 8a6 6 0 0 1-10.47 4" />
             <path d="M14 2v4h-4M2 14v-4h4" />
           </svg>
-          <span className="text-sm text-foreground">{PATTERN_LABELS[pattern]}</span>
+          <span className="text-sm text-foreground">
+            {PATTERN_LABELS[pattern]}
+            {anchorDay !== null && (pattern === "weekly" || pattern === "biweekly") ? ` on ${DAY_NAMES[anchorDay]}s` : ""}
+          </span>
           <button
             onClick={openEditor}
             className="text-xs text-muted hover:text-accent transition-colors ml-1"
-            title="Edit recurrence"
+            title="Edit series"
           >
-            Edit
+            Edit Series
           </button>
         </div>
         <p className="text-xs text-muted/60 pl-5">
@@ -158,13 +201,22 @@ export default function RecurrenceEditor({
             ? `Until ${new Date(endDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
             : "No end date"}
         </p>
-        <button
-          onClick={stopRecurrence}
-          disabled={saving}
-          className="text-xs text-muted hover:text-red-400 transition-colors pl-5 disabled:opacity-50"
-        >
-          {saving ? "Stopping..." : "Stop recurring"}
-        </button>
+        <div className="flex items-center gap-3 pl-5">
+          <button
+            onClick={skipThisOne}
+            disabled={saving}
+            className="text-xs text-muted hover:text-status-blocked transition-colors disabled:opacity-50"
+          >
+            {saving ? "..." : "Skip This One"}
+          </button>
+          <button
+            onClick={stopRecurrence}
+            disabled={saving}
+            className="text-xs text-muted hover:text-red-400 transition-colors disabled:opacity-50"
+          >
+            {saving ? "..." : "End Series"}
+          </button>
+        </div>
       </div>
     );
   }
