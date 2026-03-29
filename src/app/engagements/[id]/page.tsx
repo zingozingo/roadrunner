@@ -12,7 +12,6 @@ import {
   getMessagesByEngagement,
   getMeetingsByEngagement,
   getParticipantsByEngagement,
-  getRelationshipsByEngagement,
   getPartner,
 } from "@/lib/db";
 import { getSupabaseClient } from "@/lib/db/client";
@@ -39,13 +38,12 @@ export default async function EngagementDetailPage({
   const engagement = await getEngagementById(id);
   if (!engagement) notFound();
 
-  const [messages, meetings, participants, linkedPrograms, linkedEvents, relationships, partner] = await Promise.all([
+  const [messages, meetings, participants, linkedPrograms, linkedEvents, partner] = await Promise.all([
     getMessagesByEngagement(id),
     getMeetingsByEngagement(id),
     getParticipantsByEngagement(id),
     getEngagementPrograms(id),
     getEngagementEvents(id),
-    getRelationshipsByEngagement(id),
     engagement.partner_id ? getPartner(engagement.partner_id) : null,
   ]);
 
@@ -87,8 +85,8 @@ export default async function EngagementDetailPage({
   }
   timelineItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  const hasConnections = relationships.length > 0 || linkedPrograms.length > 0 || linkedEvents.length > 0;
-  const connectionCount = relationships.length + linkedPrograms.length + linkedEvents.length;
+  const hasConnections = linkedPrograms.length > 0 || linkedEvents.length > 0;
+  const connectionCount = linkedPrograms.length + linkedEvents.length;
 
   const dotColor = statusDotColor[engagement.status] ?? "bg-zinc-500";
 
@@ -282,21 +280,6 @@ export default async function EngagementDetailPage({
                 <span className="ml-1.5 font-normal text-muted/50">{connectionCount}</span>
               </h2>
               <div className="space-y-0.5">
-                {relationships.map((rel) => (
-                  <Link
-                    key={rel.id}
-                    href={`/relationships/${rel.id}`}
-                    className="flex items-center gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{rel.name}</span>
-                    {rel.service && (
-                      <span className="shrink-0 text-xs text-muted">{rel.service}</span>
-                    )}
-                    {rel.org && (
-                      <span className="shrink-0 text-xs text-muted/60">{rel.org}</span>
-                    )}
-                  </Link>
-                ))}
                 {linkedPrograms.map((lp) => (
                   <Link
                     key={lp.id}

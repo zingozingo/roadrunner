@@ -10,7 +10,6 @@ import { cleanMeetingTitle, stripPartnerPrefix } from "@/lib/format-utils";
 import {
   getPartner,
   getSupabaseClient,
-  getRelationshipsByPartner,
   getMeetingNotesByPartner,
   getTasksByPartner,
   getPartnerContext,
@@ -77,7 +76,6 @@ export default async function PartnerDetailPage({
   const linkedMeetings = (meetings ?? []) as Meeting[];
 
   const [
-    linkedRelationships,
     partnerNotes,
     openTasks,
     partnerContextEntries,
@@ -88,7 +86,6 @@ export default async function PartnerDetailPage({
     mdfFunding,
     engagementContributors,
   ] = await Promise.all([
-    getRelationshipsByPartner(id),
     getMeetingNotesByPartner(id),
     getTasksByPartner(id, { status: "open" }),
     getPartnerContext(id),

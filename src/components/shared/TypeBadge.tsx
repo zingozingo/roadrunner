@@ -1,4 +1,4 @@
-import { ProgramType, RelationshipType, MeetingStatus } from "@/lib/types";
+import { ProgramType, MeetingStatus } from "@/lib/types";
 import { Event } from "@/lib/types";
 
 const programTypeColors: Record<ProgramType, string> = {
@@ -38,23 +38,6 @@ export function EventTypeBadge({ type }: { type: Event["type"] }) {
   return (
     <span className={`rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${colors}`}>
       {type.replace("_", " ")}
-    </span>
-  );
-}
-
-const relationshipTypeColors: Record<RelationshipType, string> = {
-  "Exec/Leader": "bg-purple-500/20 text-purple-400",
-  "Product Team": "bg-blue-500/20 text-blue-400",
-  "Program Team": "bg-teal-500/20 text-teal-400",
-  Seller: "bg-orange-500/20 text-orange-400",
-};
-
-export function RelationshipTypeBadge({ type }: { type: RelationshipType | null }) {
-  if (!type) return null;
-  const colors = relationshipTypeColors[type] ?? "bg-border text-muted";
-  return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${colors}`}>
-      {type}
     </span>
   );
 }

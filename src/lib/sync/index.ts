@@ -8,7 +8,6 @@ export {
   type SyncAllResult,
   syncPrograms,
   syncEvents,
-  syncRelationships,
   syncPartners,
   syncAllCatalogs,
   syncEntity,
@@ -30,8 +29,8 @@ export { mapMeetingStatus } from "./utils";
 
 // Field maps (re-export for consumers that need table/field IDs)
 export {
-  PROGRAMS_TABLE, EVENTS_TABLE, RELATIONSHIPS_TABLE, PARTNERS_TABLE,
+  PROGRAMS_TABLE, EVENTS_TABLE, PARTNERS_TABLE,
   ENGAGEMENTS_TABLE, MEETINGS_TABLE,
-  PF, EF, RF, PTRF, ENF, MF,
+  PF, EF, PTRF, ENF, MF,
   NOTES_MARKER, NOTES_FOOTER,
 } from "./field-maps";

@@ -11,11 +11,10 @@ import {
 import { getSupabaseClient } from "../db";
 import {
   syncPartnerContactsToRegistry,
-  syncRelationshipContactsToRegistry,
 } from "../db/participants";
 import {
-  PROGRAMS_TABLE, EVENTS_TABLE, RELATIONSHIPS_TABLE, PARTNERS_TABLE,
-  PF, EF, RF, PTRF,
+  PROGRAMS_TABLE, EVENTS_TABLE, PARTNERS_TABLE,
+  PF, EF, PTRF,
   RING3_TABLES,
   PARTNER_GOALS_FIELDS, PARTNER_PROGRAMS_FIELDS, PARTNER_EVENTS_FIELDS,
   MPOPP_FIELDS, MDF_FIELDS,
@@ -23,7 +22,7 @@ import {
 import {
   str, strArr, arr, selectName,
   hasChanges,
-  VALID_PROGRAM_TYPES, VALID_EVENT_TYPES, VALID_RELATIONSHIP_TYPES, VALID_LIFECYCLE_TYPES,
+  VALID_PROGRAM_TYPES, VALID_EVENT_TYPES, VALID_LIFECYCLE_TYPES,
 } from "./utils";
 import { parseRoleContact, parseContactList } from "../contact-parser";
 import type { RoleContact } from "../types";
@@ -48,7 +47,6 @@ export interface SyncAllResult {
   partners?: SyncResult;
   programs?: SyncResult;
   events?: SyncResult;
-  relationships?: SyncResult;
   engagements?: SyncResult;
   meetings?: SyncResult;
   partnerGoals?: SyncResult;
@@ -104,36 +102,6 @@ function mapEvent(rec: AirtableRecord): Record<string, unknown> | null {
     sponsor_option: !!rec.fields[EF.sponsorOption],
     partner_day: !!rec.fields[EF.partnerDay],
     partner_day_date: str(rec.fields[EF.partnerDayDate]) || null,
-  };
-}
-
-function mapRelationship(
-  rec: AirtableRecord
-): Record<string, unknown> | null {
-  const name = str(rec.fields[RF.name]);
-  if (!name) return null;
-
-  const rawType = str(rec.fields[RF.type]);
-  const relationshipType = rawType && VALID_RELATIONSHIP_TYPES.has(rawType) ? rawType : null;
-
-  // Parse contacts from AT fields (used for registry sync only — no JSONB column)
-  const contacts: RoleContact[] = [];
-  const leadRaw = str(rec.fields[RF.leadContact]);
-  if (leadRaw) contacts.push(parseRoleContact(leadRaw, "Lead Contact"));
-  const teamRaw = str(rec.fields[RF.teamContacts]);
-  if (teamRaw) contacts.push(...parseContactList(teamRaw, "Team Member"));
-
-  const rawOrgType = str(rec.fields[RF.orgType]);
-  const orgType = rawOrgType === "Third Party" ? "third_party" : "internal";
-
-  return {
-    name,
-    relationship_type: relationshipType,
-    org: str(rec.fields[RF.awsOrg]),
-    service: str(rec.fields[RF.awsService]),
-    notes: str(rec.fields[RF.notes]),
-    org_type: orgType,
-    _contacts: contacts, // transient — used for registry sync, not written to DB
   };
 }
 
@@ -384,108 +352,6 @@ export async function syncEvents(): Promise<SyncResult> {
       }
     } catch (err) {
       result.errors.push(`Delete orphaned event "${orphan.name}": ${err instanceof Error ? err.message : "Unknown error"}`);
-    }
-  }
-
-  return result;
-}
-
-export async function syncRelationships(): Promise<SyncResult> {
-  const result: SyncResult = { inserted: 0, updated: 0, unchanged: 0, deleted: 0, errors: [] };
-  const supabase = getSupabaseClient();
-
-  const [atRecords, { data: dbRows, error: fetchErr }] = await Promise.all([
-    fetchAllRecords(RELATIONSHIPS_TABLE),
-    supabase.from("relationships").select("*"),
-  ]);
-
-  if (fetchErr) throw new Error(`Failed to fetch relationships: ${fetchErr.message}`);
-  const existing = dbRows ?? [];
-
-  const byAtId = new Map(existing.filter((r) => r.airtable_record_id).map((r) => [r.airtable_record_id, r]));
-  const byName = new Map(existing.map((r) => [r.name.toLowerCase(), r]));
-
-  for (const rec of atRecords) {
-    try {
-      const mapped = mapRelationship(rec);
-      if (!mapped) {
-        result.errors.push(`Skipped record ${rec.id}: missing name`);
-        continue;
-      }
-
-      // Extract transient contacts before DB write
-      const registryContacts = (mapped._contacts as RoleContact[]) ?? [];
-      delete mapped._contacts;
-
-      const match = byAtId.get(rec.id) ?? byName.get((mapped.name as string).toLowerCase());
-
-      let relationshipId: string | null = null;
-
-      if (match) {
-        const updateFields: Record<string, unknown> = { ...mapped, airtable_record_id: rec.id };
-
-        if (!hasChanges(updateFields, match)) {
-          relationshipId = match.id;
-          result.unchanged++;
-        } else {
-          const { error } = await supabase
-            .from("relationships")
-            .update(updateFields)
-            .eq("id", match.id);
-
-          if (error) {
-            result.errors.push(`Update relationship "${mapped.name}": ${error.message}`);
-          } else {
-            relationshipId = match.id;
-            result.updated++;
-          }
-        }
-      } else {
-        const { data: inserted, error } = await supabase
-          .from("relationships")
-          .insert({ ...mapped, airtable_record_id: rec.id })
-          .select("id")
-          .single();
-
-        if (error) {
-          result.errors.push(`Insert relationship "${mapped.name}": ${error.message}`);
-        } else {
-          relationshipId = inserted.id;
-          result.inserted++;
-        }
-      }
-
-      // Sync contacts to registry (additive, non-blocking)
-      if (relationshipId) {
-        try {
-          await syncRelationshipContactsToRegistry(
-            relationshipId,
-            registryContacts
-          );
-        } catch (regErr) {
-          console.error(`Registry sync failed for relationship "${mapped.name}":`, regErr);
-        }
-      }
-    } catch (err) {
-      result.errors.push(`Record ${rec.id}: ${err instanceof Error ? err.message : "Unknown error"}`);
-    }
-  }
-
-  const atIds = new Set(atRecords.map((r) => r.id));
-  const orphans = existing.filter(
-    (r) => r.airtable_record_id && !atIds.has(r.airtable_record_id)
-  );
-  for (const orphan of orphans) {
-    try {
-      const { error } = await supabase.from("relationships").delete().eq("id", orphan.id);
-      if (error) {
-        result.errors.push(`Delete orphaned relationship "${orphan.name}": ${error.message}`);
-      } else {
-        console.log(`Deleted orphaned relationship: ${orphan.name} (airtable_record_id: ${orphan.airtable_record_id})`);
-        result.deleted++;
-      }
-    } catch (err) {
-      result.errors.push(`Delete orphaned relationship "${orphan.name}": ${err instanceof Error ? err.message : "Unknown error"}`);
     }
   }
 
@@ -875,7 +741,6 @@ export async function syncAllCatalogs(): Promise<SyncAllResult> {
   const partners = await syncPartners();
   const programs = await syncPrograms();
   const events = await syncEvents();
-  const relationships = await syncRelationships();
 
   // Ring 3: posture data (depends on partners, programs, events being synced)
   const partnerGoals = await syncPartnerGoals();
@@ -888,7 +753,6 @@ export async function syncAllCatalogs(): Promise<SyncAllResult> {
     partners,
     programs,
     events,
-    relationships,
     partnerGoals,
     partnerProgramEnrollments,
     partnerEventParticipations,
@@ -899,7 +763,7 @@ export async function syncAllCatalogs(): Promise<SyncAllResult> {
 }
 
 export async function syncEntity(
-  entity: "partners" | "programs" | "events" | "relationships" | "engagements" | "meetings"
+  entity: "partners" | "programs" | "events" | "engagements" | "meetings"
 ): Promise<SyncAllResult> {
   const start = Date.now();
   const result: SyncAllResult = { duration_ms: 0 };
@@ -907,7 +771,6 @@ export async function syncEntity(
   if (entity === "partners") result.partners = await syncPartners();
   else if (entity === "programs") result.programs = await syncPrograms();
   else if (entity === "events") result.events = await syncEvents();
-  else if (entity === "relationships") result.relationships = await syncRelationships();
   else if (entity === "engagements") result.engagements = await syncEngagementsToAirtable();
   else if (entity === "meetings") result.meetings = await syncMeetingsToAirtable();
 

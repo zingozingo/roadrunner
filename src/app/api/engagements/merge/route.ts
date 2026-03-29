@@ -151,25 +151,7 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    // 6. Merge engagement_relationships
-    const { data: sourceRels } = await db
-      .from("engagement_relationships")
-      .select("relationship_id")
-      .eq("engagement_id", source_id);
-
-    for (const sr of sourceRels ?? []) {
-      await db
-        .from("engagement_relationships")
-        .upsert(
-          {
-            engagement_id: target_id,
-            relationship_id: sr.relationship_id,
-          },
-          { onConflict: "engagement_id,relationship_id" }
-        );
-    }
-
-    // 6b. Delete source engagement from Airtable
+    // 6. Delete source engagement from Airtable
     if (sourceEng.airtable_record_id) {
       try {
         const { deleteEngagementFromAirtable } = await import("@/lib/sync");
@@ -261,7 +243,6 @@ export async function POST(request: NextRequest) {
         programs: sourcePrograms?.length ?? 0,
         events: sourceEvents?.length ?? 0,
         participants: sourceParticipants?.length ?? 0,
-        relationships: sourceRels?.length ?? 0,
       },
     });
   } catch (error) {

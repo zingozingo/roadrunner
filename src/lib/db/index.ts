@@ -37,7 +37,6 @@ export {
   deleteMeeting,
   createMeetingFromICS,
   linkMeetingToEngagement,
-  linkEngagementRelationship,
   cascadeEngagementToTasks,
 } from "./meetings";
 
@@ -58,17 +57,6 @@ export {
   updateProgram,
   deleteProgram,
 } from "./catalog";
-
-// Relationships
-export {
-  getRelationships,
-  getRelationshipsWithCounts,
-  getRelationship,
-  getEngagementsByRelationship,
-  updateRelationship,
-  getRelationshipsByEngagement,
-  getRelationshipsByPartner,
-} from "./relationships";
 
 // Engagement Links (programs + events)
 export {
@@ -92,15 +80,11 @@ export {
   backfillMessageSenderNames,
   upsertContactToRegistry,
   linkPartnerParticipant,
-  linkRelationshipParticipant,
   syncPartnerContactsToRegistry,
-  syncRelationshipContactsToRegistry,
   syncMeetingAttendeesToRegistry,
   replaceMeetingParticipants,
   getContactsByPartner,
   getContactsByPartnerBulk,
-  getContactsByRelationship,
-  getContactsByRelationshipBulk,
   getContactsByMeeting,
   getPartnerContactDomains,
 } from "./participants";

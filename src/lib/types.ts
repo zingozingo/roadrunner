@@ -69,21 +69,6 @@ export interface Program {
   created_at: string;
 }
 
-export type RelationshipType = "Exec/Leader" | "Product Team" | "Program Team" | "Seller";
-
-export interface Relationship {
-  id: string;
-  name: string;
-  org: string | null;
-  service: string | null;
-  org_type: "internal" | "third_party" | null;
-  relationship_type: RelationshipType | null;
-  notes: string | null;
-  airtable_record_id: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface Partner {
   id: string;
   name: string;

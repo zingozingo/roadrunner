@@ -500,22 +500,6 @@ export async function linkPartnerParticipant(
   }
 }
 
-/**
- * Link a participant to a relationship. Idempotent — skips on UNIQUE violation.
- */
-export async function linkRelationshipParticipant(
-  relationshipId: string,
-  participantId: string,
-  role: string | null
-): Promise<void> {
-  const { error } = await getSupabaseClient()
-    .from("relationship_participants")
-    .insert({ relationship_id: relationshipId, participant_id: participantId, role });
-
-  if (error && error.code !== "23505") {
-    console.error(`Failed to link relationship_participant: ${error.message}`);
-  }
-}
 
 /**
  * Sync a partner's contacts into the contact registry.
@@ -573,30 +557,6 @@ export async function syncPartnerContactsToRegistry(
     );
     if (participantId) {
       await linkPartnerParticipant(partnerId, participantId, contact.role);
-    }
-  }
-}
-
-/**
- * Sync a relationship's contacts into the contact registry.
- */
-export async function syncRelationshipContactsToRegistry(
-  relationshipId: string,
-  contacts: RoleContact[]
-): Promise<void> {
-  for (const contact of contacts) {
-    if (!isValidEmail(contact.email)) continue;
-    const orgType = isAmazonEmail(contact.email!) ? "internal" as const : "third_party" as const;
-    const participantId = await upsertContactToRegistry(
-      contact.email!,
-      contact.name,
-      contact.title,
-      null,
-      orgType,
-      "airtable_sync"
-    );
-    if (participantId) {
-      await linkRelationshipParticipant(relationshipId, participantId, contact.role);
     }
   }
 }
@@ -751,39 +711,6 @@ export async function getContactsByPartner(partnerId: string): Promise<RegistryC
 }
 
 /**
- * Get all contacts linked to a relationship via relationship_participants join table.
- */
-export async function getContactsByRelationship(relationshipId: string): Promise<RegistryContact[]> {
-  try {
-    const { data, error } = await getSupabaseClient()
-      .from("relationship_participants")
-      .select("role, participant:participants(id, email, name, organization, title, org_type)")
-      .eq("relationship_id", relationshipId);
-
-    if (error) {
-      console.error(`Failed to fetch contacts for relationship ${relationshipId}: ${error.message}`);
-      return [];
-    }
-
-    return (data ?? []).map((row) => {
-      const p = (row as unknown as { role: string | null; participant: { id: string; email: string; name: string | null; organization: string | null; title: string | null; org_type: string | null } }).participant;
-      return {
-        id: p.id,
-        email: p.email,
-        name: p.name,
-        organization: p.organization,
-        title: p.title,
-        org_type: p.org_type,
-        role: (row as unknown as { role: string | null }).role,
-      };
-    });
-  } catch (err) {
-    console.error("getContactsByRelationship error:", err instanceof Error ? err.message : err);
-    return [];
-  }
-}
-
-/**
  * Get all contacts linked to a meeting via meeting_participants join table.
  */
 export async function getContactsByMeeting(meetingId: string): Promise<RegistryContact[]> {
@@ -852,47 +779,6 @@ export async function getContactsByPartnerBulk(partnerIds: string[]): Promise<Ma
     }
   } catch (err) {
     console.error("getContactsByPartnerBulk error:", err instanceof Error ? err.message : err);
-  }
-
-  return result;
-}
-
-/**
- * Bulk-fetch contacts for multiple relationships in a single query.
- * Returns a Map of relationshipId → RegistryContact[].
- */
-export async function getContactsByRelationshipBulk(relationshipIds: string[]): Promise<Map<string, RegistryContact[]>> {
-  const result = new Map<string, RegistryContact[]>();
-  if (relationshipIds.length === 0) return result;
-
-  try {
-    const { data, error } = await getSupabaseClient()
-      .from("relationship_participants")
-      .select("relationship_id, role, participant:participants(id, email, name, organization, title, org_type)")
-      .in("relationship_id", relationshipIds);
-
-    if (error) {
-      console.error(`Failed to bulk-fetch relationship contacts: ${error.message}`);
-      return result;
-    }
-
-    for (const row of data ?? []) {
-      const r = row as unknown as { relationship_id: string; role: string | null; participant: { id: string; email: string; name: string | null; organization: string | null; title: string | null; org_type: string | null } };
-      const contact: RegistryContact = {
-        id: r.participant.id,
-        email: r.participant.email,
-        name: r.participant.name,
-        organization: r.participant.organization,
-        title: r.participant.title,
-        org_type: r.participant.org_type,
-        role: r.role,
-      };
-      const existing = result.get(r.relationship_id) ?? [];
-      existing.push(contact);
-      result.set(r.relationship_id, existing);
-    }
-  } catch (err) {
-    console.error("getContactsByRelationshipBulk error:", err instanceof Error ? err.message : err);
   }
 
   return result;
