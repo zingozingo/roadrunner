@@ -88,12 +88,38 @@ export default async function TodayPage() {
           <SectionHeader label="Today's Meetings" count={todaysMeetings.length} />
           <div className="rounded-lg border border-border/50 bg-surface overflow-hidden">
             {todaysMeetings.map((m, i) => (
-              <MeetingRow
+              <Link
                 key={m.id}
-                meeting={m}
-                showDate={false}
-                isLast={i === todaysMeetings.length - 1}
-              />
+                href={`/meetings/${m.id}`}
+                className={`flex items-center px-4 py-3 transition-colors hover:bg-surface-hover ${
+                  i < todaysMeetings.length - 1 ? "border-b border-border/30" : ""
+                }`}
+              >
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <span className="text-sm font-medium text-foreground truncate">
+                    {m.partner_name ?? "Unknown"}
+                  </span>
+                  <span className="text-sm text-muted truncate">
+                    {cleanMeetingTitle(m.title)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 shrink-0 ml-4">
+                  {(m.recurrence_pattern || m.series_id) && (
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted/70">
+                      <path d="M2 8a6 6 0 0 1 10.47-4M14 8a6 6 0 0 1-10.47 4" />
+                      <path d="M14 2v4h-4M2 14v-4h4" />
+                    </svg>
+                  )}
+                  {m.meeting_type && (
+                    <span className="text-[11px] font-medium rounded-full bg-accent/10 px-2 py-0.5 text-accent/70">
+                      {MEETING_TYPE_DISPLAY[m.meeting_type] ?? m.meeting_type.replace(/_/g, " ")}
+                    </span>
+                  )}
+                  <span className="text-xs font-medium text-accent">
+                    Open Notes
+                  </span>
+                </div>
+              </Link>
             ))}
           </div>
         </section>
