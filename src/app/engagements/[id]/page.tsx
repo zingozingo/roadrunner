@@ -98,13 +98,13 @@ export default async function EngagementDetailPage({
   return (
     <div className="mx-auto max-w-7xl p-6 lg:p-8">
       <Link
-        href="/engagements"
+        href={engagement.partner_id ? `/partners/${engagement.partner_id}` : "/partners"}
         className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M10 4l-4 4 4 4" />
         </svg>
-        Back to Engagements
+        {partnerName ? `Back to ${partnerName}` : "Back to Partners"}
       </Link>
 
       {/* ═══ IDENTITY BAR ═══ */}
