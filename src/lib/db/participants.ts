@@ -525,7 +525,8 @@ export async function syncPartnerContactsToRegistry(
   partnerId: string,
   partnerName: string,
   awsTeam: RoleContact[],
-  partnerContacts: RoleContact[]
+  partnerContacts: RoleContact[],
+  thirdPartyContacts: RoleContact[] = []
 ): Promise<void> {
   // AWS team → internal
   for (const contact of awsTeam) {
@@ -552,6 +553,22 @@ export async function syncPartnerContactsToRegistry(
       contact.title,
       partnerName,
       orgType,
+      "airtable_sync"
+    );
+    if (participantId) {
+      await linkPartnerParticipant(partnerId, participantId, contact.role);
+    }
+  }
+
+  // Third-party contacts → third_party (CRM contacts, etc.)
+  for (const contact of thirdPartyContacts) {
+    if (!isValidEmail(contact.email)) continue;
+    const participantId = await upsertContactToRegistry(
+      contact.email!,
+      contact.name,
+      contact.title,
+      null,
+      "third_party",
       "airtable_sync"
     );
     if (participantId) {

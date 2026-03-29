@@ -154,6 +154,7 @@ function mapPartner(rec: AirtableRecord): Record<string, unknown> | null {
   // Parse contacts from AT fields (used for registry sync only — no JSONB columns)
   const partnerContacts: RoleContact[] = [];
   const awsTeam: RoleContact[] = [];
+  const thirdPartyContacts: RoleContact[] = [];
 
   // Alliance Lead → partner contacts (partner-side role)
   const allianceLeadRaw = str(rec.fields[PTRF.allianceLead]);
@@ -175,12 +176,17 @@ function mapPartner(rec: AirtableRecord): Record<string, unknown> | null {
   const pmmRaw = str(rec.fields[PTRF.pmm]);
   if (pmmRaw) awsTeam.push(parseRoleContact(pmmRaw, "PMM"));
 
+  // CRM Contact → third party
+  const crmContactRaw = str(rec.fields[PTRF.crmContact]);
+  if (crmContactRaw) thirdPartyContacts.push(parseRoleContact(crmContactRaw, "CRM Contact"));
+
   return {
     name,
     segment,
     focus_area: arr(rec.fields[PTRF.focusArea]),
     _awsTeam: awsTeam, // transient — used for registry sync, not written to DB
     _partnerContacts: partnerContacts, // transient — used for registry sync, not written to DB
+    _thirdPartyContacts: thirdPartyContacts, // transient — used for registry sync, not written to DB
     aws_stickiness: str(rec.fields[PTRF.awsStickiness]),
     key_aws_services: arr(rec.fields[PTRF.keyAwsServices]),
     what_they_do: str(rec.fields[PTRF.whatTheyDo]),
@@ -504,8 +510,10 @@ export async function syncPartners(): Promise<SyncResult> {
       // Extract transient contacts before DB write
       const awsTeam = (mapped._awsTeam as RoleContact[]) ?? [];
       const partnerContacts = (mapped._partnerContacts as RoleContact[]) ?? [];
+      const thirdPartyContacts = (mapped._thirdPartyContacts as RoleContact[]) ?? [];
       delete mapped._awsTeam;
       delete mapped._partnerContacts;
+      delete mapped._thirdPartyContacts;
 
       const match = byAtId.get(rec.id) ?? byName.get((mapped.name as string).toLowerCase());
 
@@ -552,7 +560,8 @@ export async function syncPartners(): Promise<SyncResult> {
             partnerId,
             mapped.name as string,
             awsTeam,
-            partnerContacts
+            partnerContacts,
+            thirdPartyContacts
           );
         } catch (regErr) {
           console.error(`Registry sync failed for partner "${mapped.name}":`, regErr);
