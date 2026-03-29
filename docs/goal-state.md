@@ -6,7 +6,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 77 migrations, 20 active tables, 29 API routes, 12 UI pages, 435 passing tests (0 failures), tsc --noEmit passes clean
+- 79 migrations, 20 active tables, 29 API routes, 12 UI pages, 435 passing tests (0 failures), tsc --noEmit passes clean
 - Human-guided intake pipeline fully operational: webhook → mechanical partner detection → ICS partner backfill → inbox triage (with unknown partner picker) → single-phase AI synthesis (decisions #223-252)
 - Meetings Motion complete (decisions #253-259): 10 interaction-based meeting types, recurring meeting engine with auto-spawn, series tracking via self-referential FK, RecurrenceEditor UI, synthesis-on-link, conference boilerplate pre-split fix, ICS multi-VEVENT guardrail confirmed
 - AI Brain Overhaul Phases 1-3 complete (decisions #260-269): goal field eliminated (migration 069), condensed columns on engagements + meeting_notes (migration 068), meeting summarization restructured with scoped context builder, structured output (Discussion/Decisions/Key Context), condensed 3-5 bullet digest, non-redundancy with tasks
@@ -30,6 +30,12 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 - Task provenance redesigned (decisions #316-317): adaptive display shows engagement name (preferred) or cleaned meeting title (partner prefix stripped), partner detail gains provenance subtitles, quiet "+ eng" affordance
 - Ring 3 data architecture complete (decisions #318-338): 5 new tables (partner_goals, partner_program_enrollments, partner_event_participations, partner_funding_mpopp, partner_funding_mdf), 11 new partner columns (8 financial, JVP, crm_platform, crm_notes), 5 pull sync functions, full AT field mapping. First sync: 80 program enrollments, 18 MPOPP, 8 MDF. Co-Sell Goals dissolved into partner columns. CRM restructured (crm_status→crm_platform + CHECK constraint)
 - Dead component cleanup (decision #328): unused components removed. Relationships dissolved (migration 077): tables dropped, pages/routes/components deleted. Current component count: 30
+- People architecture complete: 3 new AT contact fields wired (CRM Contact, AWS Contacts, Third Party Contacts), partner page People section with 3 curated groups + engagement contributors
+- Relationships dissolved (migration 077): 3 tables dropped, all code removed, contacts preserved in participants
+- Meeting recurrence engine: anchor_day column (migrations 078-079), calculateNextDate with anchor snapping, series management UI (Edit/Skip/End), ↻ visual indicators, create flow with anchor preview
+- Today page restructured: "Open Notes" action on today's meetings, tasks grouped by partner
+- Breadcrumb 404s fixed (engagement → partner), meeting type formatting via MEETING_TYPE_DISPLAY map, meeting source labels mapped
+- CLAUDE.md updated with enforced verification protocol, flexible guardrails, plan completion protocol
 - 5 active engagements processing real email data (Nozomi Networks, Spacelift x3, Qualys)
 - All Airtable push/delete calls awaited (no fire-and-forget)
 
@@ -43,19 +49,14 @@ A system where a PDM forwards an email and Roadrunner:
 
 ## What's Next
 
-### Next Session — UI Overhaul (Agent)
-- Today page (new landing — replaces redirect-to-partners)
-- Partner list page (add performance indicators)
-- Partner detail page (visual refinement — data already wired)
-- Meeting detail page (enterprise loading states, button labels, navigation safety)
-- Tasks page (visual refinement)
-- Inbox page (enterprise UX polish)
-- Sidebar simplification
-- See docs/north-star.md for full spec
+### Next Session
+- Navigation safety (unsaved changes warnings on note workspace)
+- Enterprise loading states on all async operations
+- Mobile sidebar behavior
+- Programs page pagination or progressive disclosure (80+ items)
 
 ### Soon
 - CLASSIFICATION.md full rewrite to document current pipeline
-- is_recurring column drop migration (app code done, column unused)
 - meeting_type backfill for 16 older meetings (pre-meeting-type era, all have type=null)
 - SKILL.md rewrite for agent session
 - Docs checkpoint (entity-model.md field updates)

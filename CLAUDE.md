@@ -145,7 +145,7 @@ docs/sessions/
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → human-guided routing → AI synthesis → structured engagements → Airtable sync.
-> 77 migrations · 20 tables · 29 API routes · 12 UI pages · 435 passing tests
+> 79 migrations · 20 tables · 29 API routes · 12 UI pages · 435 passing tests
 
 ---
 
@@ -277,7 +277,7 @@ roadrunner/
 │       │   └── utils.ts           #     Coercion helpers + validation
 │       └── __tests__/             #   435 passing tests across 14 test files
 ├── supabase/
-│   ├── migrations/                # 77 migration files (001-077)
+│   ├── migrations/                # 79 migration files (001-079)
 │   └── (authoritative schema lives in migrations/)
 ├── scripts/
 │   ├── screenshot.ts              # Playwright: screenshot a page at given viewport width
