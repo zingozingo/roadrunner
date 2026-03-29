@@ -155,20 +155,19 @@ Session templates and summaries live in `docs/sessions/`:
 ```
 docs/sessions/
 ├── templates/
-│   ├── quick-diagnostic.md       # "Run the quick diagnostic" — read and execute this
-│   ├── deep-diagnostic.md        # "Run the deep diagnostic" — read and execute this
-│   └── claude-ai-session.md      # Steven pastes this into Claude.ai planning sessions
+│   ├── quick-diagnostic.md       # "Run the quick diagnostic" — Claude Code reads and executes
+│   ├── deep-diagnostic.md        # "Run the deep diagnostic" — Claude Code reads and executes
+│   ├── session-start.md          # Steven pastes into Claude.ai at session start
+│   └── session-end.md            # Steven pastes into Claude.ai when wrapping up
 └── summaries/
     └── {date}-{name}.md          # One per session, written during session end
 ```
 
-**When Steven says "run the quick diagnostic":** Read `docs/sessions/templates/quick-diagnostic.md` and execute every step in it. Output the results in the format specified.
+**When Steven says "run the quick diagnostic":** Read `docs/sessions/templates/quick-diagnostic.md` and execute every step. Output results in the format specified.
 
-**When Steven says "run the deep diagnostic":** Read `docs/sessions/templates/deep-diagnostic.md` and execute every step in it. Output the results in the format specified.
+**When Steven says "run the deep diagnostic":** Read `docs/sessions/templates/deep-diagnostic.md` and execute every step. Output results in the format specified.
 
-**When running an end-of-session command:** Write the session summary to `docs/sessions/summaries/{date}-{name}.md`. The summary format is specified in the command Steven provides.
-
-`docs/sessions/templates/claude-ai-session.md` is the Claude.ai planning session prompt — Steven pastes this into Claude.ai, not into Claude Code.
+**When running an end-of-session command:** Write the session summary to `docs/sessions/summaries/{date}-{name}.md`. The summary format and content requirements are specified in the command Steven provides.
 
 ---
 
@@ -230,10 +229,11 @@ roadrunner/
 │   │   ├── active.md              #     Current task plan (empty when no plan active)
 │   │   └── archive/               #     Completed plans for reference
 │   └── sessions/                  #   Session management
-│       ├── templates/             #     Diagnostic + session prompts
-│       │   ├── quick-diagnostic.md
-│       │   ├── deep-diagnostic.md
-│       │   └── claude-ai-session.md
+│       ├── templates/             #     Session management prompts
+│       │   ├── quick-diagnostic.md  #   Claude Code: quick health check
+│       │   ├── deep-diagnostic.md   #   Claude Code: full diagnostic
+│       │   ├── session-start.md     #   Claude.ai: session startup context
+│       │   └── session-end.md       #   Claude.ai: wrap-up protocol
 │       └── summaries/             #     Session summaries (one per session)
 ├── decisions.md                   # Append-only architectural decision log (360 entries)
 ├── src/
