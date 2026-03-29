@@ -20,6 +20,7 @@ import { USER_CONFIG } from "@/lib/user-config";
 import EngagementLinker from "@/components/shared/EngagementLinker";
 import RecurrenceEditor from "@/components/shared/RecurrenceEditor";
 import type { DisplayContext } from "@/lib/types";
+import { MEETING_TYPE_DISPLAY } from "@/lib/sync/field-maps";
 
 const statusDotColor: Record<string, string> = {
   scheduled: "bg-accent",
@@ -245,7 +246,7 @@ export default async function MeetingDetailPage({
               {meeting.meeting_type && (
                 <div>
                   <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Type</span>
-                  <span className="text-sm text-foreground capitalize">{meeting.meeting_type}</span>
+                  <span className="text-sm text-foreground">{MEETING_TYPE_DISPLAY[meeting.meeting_type] ?? meeting.meeting_type}</span>
                 </div>
               )}
               <div>

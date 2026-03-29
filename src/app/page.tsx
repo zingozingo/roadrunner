@@ -5,6 +5,7 @@ import {
   getInboxGroupCount,
 } from "@/lib/db";
 import { cleanMeetingTitle } from "@/lib/format-utils";
+import { MEETING_TYPE_DISPLAY } from "@/lib/sync/field-maps";
 import TodayTasks from "./TodayTasks";
 import type { Meeting } from "@/lib/types";
 
@@ -222,8 +223,8 @@ function MeetingRow({
       {/* Type badge + action */}
       <div className="flex items-center gap-3 shrink-0 ml-4">
         {meeting.meeting_type && (
-          <span className="text-[11px] font-medium rounded-full bg-accent/10 px-2 py-0.5 text-accent/70 capitalize">
-            {meeting.meeting_type.replace(/_/g, " ")}
+          <span className="text-[11px] font-medium rounded-full bg-accent/10 px-2 py-0.5 text-accent/70">
+            {MEETING_TYPE_DISPLAY[meeting.meeting_type] ?? meeting.meeting_type.replace(/_/g, " ")}
           </span>
         )}
         <svg
