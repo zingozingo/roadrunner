@@ -176,9 +176,17 @@ function mapPartner(rec: AirtableRecord): Record<string, unknown> | null {
   const pmmRaw = str(rec.fields[PTRF.pmm]);
   if (pmmRaw) awsTeam.push(parseRoleContact(pmmRaw, "PMM"));
 
+  // AWS Contacts (multi-person) → AWS team
+  const awsContactsRaw = str(rec.fields[PTRF.awsContacts]);
+  if (awsContactsRaw) awsTeam.push(...parseContactList(awsContactsRaw, "AWS Contact"));
+
   // CRM Contact → third party
   const crmContactRaw = str(rec.fields[PTRF.crmContact]);
   if (crmContactRaw) thirdPartyContacts.push(parseRoleContact(crmContactRaw, "CRM Contact"));
+
+  // Third Party Contacts (multi-person) → third party
+  const thirdPartyRaw = str(rec.fields[PTRF.thirdPartyContacts]);
+  if (thirdPartyRaw) thirdPartyContacts.push(...parseContactList(thirdPartyRaw, "Third Party"));
 
   return {
     name,

@@ -74,6 +74,8 @@ export const PTRF = {
   crmPlatform: "fldkeO2nFpHoQIrLw",
   crmNotes: "fldyCmV4tyza0DNN8",
   crmContact: "fldq6edTVHpkupPVx",
+  awsContacts: "fldlVCqjgWbXtd6ev",
+  thirdPartyContacts: "fldWxSyo2pMcoXcpL",
   mpTcvGoal: "fldwOBjfqMJVz5KB0",
   larrGoal: "fldrKEYguCUVk3eAo",
   jointValueProposition: "fldxiGwoIWPDtAk7z",
