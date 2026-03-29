@@ -75,6 +75,15 @@ End of session. {1-sentence summary of what was done}
 - List decisions added
 - List docs updated and what changed
 - List docs checked but not changed
+
+### When a Plan Completes
+
+If the active task plan was fully completed during this session, the session end command should also:
+- Append a "## Completion Summary" to the plan before archiving (what was accomplished, stats change, decisions logged, issues noted for future)
+- Move docs/plans/active.md to docs/plans/archive/{date}-{name}.md
+- Replace active.md with the placeholder
+- Include this in the same command — don't generate a separate command for plan completion
+
 Step 3: Session Handoff
 Brief notes for the next session — not a massive artifact. Just enough to pick up where you left off.
 ## Session Handoff — {date}

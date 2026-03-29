@@ -4,7 +4,22 @@
 
 **Interactive mode:** Steven directs work in real-time. Normal session flow — diagnose, plan, implement one chunk at a time, verify. Steven provides context, makes judgment calls, and steers priorities. Work happens in chunks with verification after each.
 
-**Task mode:** Steven has prepared a task plan document (typically `docs/agent-tasks.md`). Read the full plan first, then execute tasks in order. Each task has scope, intent, context, and done-when criteria. Verify after each task. Git commit after each task with a message describing what was done. Do not skip ahead — complete and verify one task before starting the next.
+**Task mode:** Steven has prepared a task plan document. Task mode activation:
+
+1. Read `docs/plans/active.md` — it contains the full task list
+2. Read all docs listed in "Before Any UI/UX Work" section above
+3. Work through tasks in order — each task has scope, intent, context, and done-when
+4. After EVERY task, before reporting ready for the next task:
+   a. `npx tsc --noEmit` — must pass clean
+   b. `npx vitest run` — all tests must pass
+   c. `bash scripts/ui-audit.sh` — must pass clean
+   d. If the task involved ANY UI changes: create a dated screenshot subfolder (`.claude/screenshots/{date}-{phase-or-task}/`), screenshot all changed pages at 1440, VIEW each screenshot, compare against `.claude/references/` for quality bar, and report what looks good, what looks off, and what you fixed. If something looks off, fix it before committing.
+   e. If the task involved interactive behavior changes: run interaction tests via `scripts/interact.ts` to verify flows work
+   f. `git commit` with a descriptive message
+5. Do not skip ahead — complete and verify one task before starting the next
+6. Update SKILL.md as you establish new patterns
+
+**Never skip step 4. The verification sequence and visual review are not optional. A task is not complete until all checks pass and any visual issues are fixed.**
 
 In both modes, all rules below apply.
 
@@ -36,6 +51,8 @@ These apply in ALL modes, ALL sessions:
 - `.claude/` — design system docs, references, screenshots
 
 The agent may READ anything in `src/lib/` to understand data shapes, types, and existing query functions. It must not WRITE to those files. If a page needs data in a shape the existing API doesn't provide, filter or transform client-side.
+
+**Guardrail adjustments:** These are the DEFAULT guardrails. For sessions involving backend, sync, or schema work, Steven will expand the write-allowed paths at session start. Always confirm with Steven before modifying any file in a READ-ONLY path. If a task plan requires changes to src/lib/ or src/app/api/, Steven will grant explicit permission per-task or per-phase.
 
 ### Verification Tools
 
@@ -91,7 +108,15 @@ When operating in task mode, the current task plan lives at `docs/plans/active.m
 
 Not every session uses task mode. When working interactively, ignore `docs/plans/active.md` unless Steven specifically references it.
 
-When a plan is completed, move `active.md` to `docs/plans/archive/{date}-{description}.md` and replace `active.md` with the empty placeholder. Completed plans are kept for reference but never re-executed.
+**When a plan is fully completed:**
+1. Run the final verification sequence across the entire app
+2. Append a "## Completion Summary" section to the active plan file: what was accomplished across all phases, total stats change (before/after), total decisions logged, pre-existing issues noted for future work
+3. Move `docs/plans/active.md` to `docs/plans/archive/{date}-{name}.md`
+4. Replace `docs/plans/active.md` with the empty placeholder
+5. Update `docs/goal-state.md` with the new current state
+6. Update CLAUDE.md stats if they changed
+
+Completed plans are kept for reference but never re-executed.
 
 ### Session Management
 
