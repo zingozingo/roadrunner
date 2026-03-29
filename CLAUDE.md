@@ -83,13 +83,37 @@ These apply to all UI work in both modes:
 
 ### Task Plans
 
-When operating in task mode, the current task plan lives at `docs/agent-tasks.md`. This document is replaced each time a new plan is created. It contains:
+When operating in task mode, the current task plan lives at `docs/plans/active.md`. This document is replaced each time a new plan is created. It contains:
 - Business context — who uses the app and how
 - Ordered task list with scope, intent, context, and done-when criteria per task
 - Mid-task self-check protocol
 - Verification requirements
 
-Not every session uses task mode. When working interactively, ignore `docs/agent-tasks.md` unless Steven specifically references it.
+Not every session uses task mode. When working interactively, ignore `docs/plans/active.md` unless Steven specifically references it.
+
+When a plan is completed, move `active.md` to `docs/plans/archive/{date}-{description}.md` and replace `active.md` with the empty placeholder. Completed plans are kept for reference but never re-executed.
+
+### Session Management
+
+Session templates and summaries live in `docs/sessions/`:
+
+```
+docs/sessions/
+├── templates/
+│   ├── quick-diagnostic.md       # "Run the quick diagnostic" — read and execute this
+│   ├── deep-diagnostic.md        # "Run the deep diagnostic" — read and execute this
+│   └── claude-ai-session.md      # Steven pastes this into Claude.ai planning sessions
+└── summaries/
+    └── {date}-{name}.md          # One per session, written during session end
+```
+
+**When Steven says "run the quick diagnostic":** Read `docs/sessions/templates/quick-diagnostic.md` and execute every step in it. Output the results in the format specified.
+
+**When Steven says "run the deep diagnostic":** Read `docs/sessions/templates/deep-diagnostic.md` and execute every step in it. Output the results in the format specified.
+
+**When running an end-of-session command:** Write the session summary to `docs/sessions/summaries/{date}-{name}.md`. The summary format is specified in the command Steven provides.
+
+`docs/sessions/templates/claude-ai-session.md` is the Claude.ai planning session prompt — Steven pastes this into Claude.ai, not into Claude Code.
 
 ---
 
@@ -142,12 +166,20 @@ Roadrunner turns scattered partner email threads into structured, trackable enga
 
 ```
 roadrunner/
-├── docs/                          # Project documentation (5 files)
-│   ├── CLASSIFICATION.md          #   AI synthesis pipeline documentation (rewrite pending)
+├── docs/                          # Project documentation
 │   ├── ai-call-map.md             #   AI call reference (3 calls: synthesis, summarization, brain)
 │   ├── entity-model.md            #   Canonical schema — ERD + field-level registry + AT field IDs
 │   ├── goal-state.md              #   Living orientation doc — current state & next steps
-│   └── north-star.md              #   UI vision spec — what Roadrunner should become
+│   ├── north-star.md              #   UI vision spec — what Roadrunner should become
+│   ├── plans/                     #   Task plans
+│   │   ├── active.md              #     Current task plan (empty when no plan active)
+│   │   └── archive/               #     Completed plans for reference
+│   └── sessions/                  #   Session management
+│       ├── templates/             #     Diagnostic + session prompts
+│       │   ├── quick-diagnostic.md
+│       │   ├── deep-diagnostic.md
+│       │   └── claude-ai-session.md
+│       └── summaries/             #     Session summaries (one per session)
 ├── decisions.md                   # Append-only architectural decision log (338 entries)
 ├── src/
 │   ├── app/                       # Next.js App Router
@@ -466,9 +498,12 @@ Sequential numbering in `supabase/migrations/` (currently 001-075). New migratio
 |-----|---------|--------------|
 | `CLAUDE.md` | This file — project overview, architecture, development | Start of every session |
 | `docs/entity-model.md` | Complete schema — 23 tables, all FKs, AT field IDs, ring model | Schema/data work |
-| `docs/CLASSIFICATION.md` | AI synthesis pipeline (rewrite pending — Phase 2 docs still accurate) | Prompt/AI work |
+| `docs/north-star.md` | UI vision spec — page specs, UX standards, design principles | UI/UX work |
 | `docs/ai-call-map.md` | AI call reference — 3 calls: synthesis, summarization, brain | AI/prompt work |
 | `docs/goal-state.md` | Living status — current state + what's next | Session planning |
+| `docs/plans/active.md` | Current task plan (empty when no plan active) | Task mode |
+| `docs/sessions/templates/` | Session templates — diagnostics and Claude.ai session prompt | Reference when needed |
+| `docs/sessions/summaries/` | Session summaries — one per session, latest is handoff for next session | Session start (paste latest into Claude.ai) |
 | `decisions.md` | Append-only architectural decision log (338 entries) | When you need "why" |
 
 ---

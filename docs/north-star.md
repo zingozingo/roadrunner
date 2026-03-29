@@ -1,6 +1,6 @@
-# Roadrunner North Star Vision & UI Spec
-**Version 2.0 — 2026-03-26**
-**Purpose:** Living vision document and implementation spec for autonomous agent iteration. Defines what Roadrunner is, what it should become, and how every piece connects.
+# Roadrunner North Star Vision & Spec
+**Version 3.0 — 2026-03-28**
+**Purpose:** Living vision document. Defines what Roadrunner is, what's built, what's next, and how every piece connects. This is vision and intent — not volatile stats. For current system numbers see `goal-state.md` and `CLAUDE.md`.
 
 ---
 
@@ -8,443 +8,288 @@
 
 Roadrunner is a partner intelligence platform for an AWS Partner Development Manager (PDM) managing 10–25 ISV technology partners. It tracks everything about each partner relationship: what they do, what's happening with them, how they're performing financially, what programs they're in, what needs attention, and what was said in every meeting.
 
-**The user's daily reality:** Steven is in meetings all day. He opens Roadrunner most often to take meeting notes. Second most often, he opens it to look at a partner — their numbers, their solution, what's active. Third, he manages tasks and triages inbox items. The UI must be designed around this usage hierarchy.
+**The user's daily reality:** Steven is in meetings all day. He opens Roadrunner most often to take meeting notes. Second most often, he opens it to look at a partner — their numbers, their solution, what's active. Third, he manages tasks and triages inbox items. The UI is designed around this usage hierarchy.
 
-**The data architecture is complete.** 23 Supabase tables, 11 Airtable tables syncing bidirectionally, 75 migrations, 437 tests. The schema is stable. This spec is about making that data visible, usable, and beautiful.
+**The data architecture is complete.** Three rings of data (catalog, activity, posture) sync bidirectionally between Supabase and Airtable. The AI pipeline is refined (3 calls, each with clear scope and rich context). The full UI overhaul has been completed — all pages redesigned, sidebar simplified, Ring 3 data rendering. What remains is data wiring completion (People), engine improvements (meeting recurrence), and professional polish.
 
 ---
 
 ## Part 2: The Three Screens
 
-Roadrunner has three top-level navigation concepts. Everything else is accessed through these.
-
 ### Screen 1: Today
 **Purpose:** "What do I need to do right now?"
 
-This is what you see when you open the app. Not a dashboard. Not charts. An action-oriented view of your day.
+The landing page. Not a dashboard, not charts. An action-oriented view of your day.
 
 **Sections (in order of visual priority):**
 
-1. **Today's Meetings** — List of meetings scheduled for today. Each shows: partner name, meeting type badge, and a prominent "Open Notes" action. One click gets you into the note workspace. This is the #1 interaction in the entire app. If there are no meetings today, this section gracefully collapses — it doesn't show an empty state that wastes space.
+1. **Today's Meetings** — Meetings scheduled for today, prominently displayed. Each shows: partner name, meeting title, type badge, and "Open Notes" action. One click gets you into the note workspace. This is the #1 interaction in the entire app. If there are no meetings today, this section gracefully collapses.
 
-2. **Open Tasks** — Your tasks, filtered to "me" by default. Grouped by partner. Each shows description, due date (highlighted if overdue or approaching), and partner context. Checkbox to complete inline. This is the outflow — what you owe people.
+2. **Open Tasks** — Filtered to "me" by default. Grouped by partner. Each shows description, due date (highlighted if overdue), and partner context. Checkbox to complete inline.
 
-3. **Inbox Items** — Count of unrouted emails/invites waiting for triage. Shows the number prominently with a clear CTA to go triage. Not the full inbox — just the signal that things are waiting.
+3. **Inbox Items** — Count of unrouted items with CTA to triage.
 
-4. **Upcoming Meetings** — Next 7 days. Same format as today but lower visual priority. Lets you prepare for what's coming.
+4. **Upcoming Meetings** — Next 7 days. Same format as today's meetings but lower visual priority.
 
-**Design intent:** Today is a launchpad, not a destination. You land here, see what needs doing, click into the thing, and go. Minimal time on this screen. Maximum clarity about what's next.
+**Design intent:** Today is a launchpad, not a destination. Land here, see what needs doing, click into the thing, and go.
 
 ### Screen 2: Partners
 **Purpose:** "Let me go look at Spacelift."
 
-The partner list, grouped by segment. Each partner row shows: name, segment badge, and a compact performance indicator (TCV attainment as a simple fraction or percentage). Clicking a partner opens the partner detail page.
+Partner list grouped by segment with performance bars showing TCV attainment. Clicking opens partner detail.
 
 **Partner Detail Page:**
 
-The partner card is the convergence point for everything about a partner. It should feel like opening a dossier — you immediately orient, then drill into whatever layer you need.
+The convergence point for everything about a partner. Feels like opening a dossier — you immediately orient, then drill into whatever layer you need.
 
-**Fixed Identity Bar (always visible at top):**
-- Partner name (prominent)
-- Segment badge
-- SPMS ID (small, muted)
+**Sections (in order, single scrollable view):**
 
-**Synthesis Paragraph (always visible, right below identity):**
-A single paragraph generated by the Brain Synthesizer. This is the elevator pitch — if you read nothing else, you know what's going on with this partner. It covers: what they do (one sentence), what's active (engagement mix), performance snapshot (TCV/LARR trajectory), and anything notable. Example:
-
-> "Spacelift is a high-growth IaC orchestration platform pursuing Cloud Ops Competency. They're doing $1M TCV YTD against an $11.2M goal (9% attainment at Q1). Active on co-build (Ops Management Competency) and co-market (Spotlight Series webinar launching April). Weekly partner cadence is healthy. Sai Kotagiri is PSA."
-
-This paragraph replaces the current 4-section accordion brain. It's generated by the same AI call but with a tighter prompt that produces one cohesive paragraph instead of sections.
-
-**Co-Sell Performance Snapshot (always visible, below synthesis):**
-A compact visual showing the key financial numbers:
-- MP TCV: $1,002,228 / $11,200,000 goal (9% attainment)
-- LARR: $0 / $12,750,000 goal (0% attainment)
-- Prior year context: 2025 TCV was $8.4M, 2024 was $4.3M
-- Projected annual (computed from YTD ÷ months elapsed × 12)
-
-No AI opinion on whether this is "at risk" or "critical." The numbers speak. The user interprets.
-
-**Below the fold — progressive sections (scrollable):**
-
-Each section can expand/collapse. The partner page is a single scrollable view, not tabs. Tabs hide information behind clicks. A well-structured scroll lets you scan everything at a glance and stop where you need depth.
-
-**Active Engagements:**
-Grouped by pillar (Co-Sell / Co-Build / Co-Market). Each engagement shows: topic, status badge, last activity date, and condensed digest preview (2-3 lines). The pillar grouping gives instant visibility into the mix — "this partner has 3 co-sell, 1 co-build, 0 co-market" tells you something immediately. Click to expand full engagement detail or navigate to the engagement page.
-
-**Open Tasks:**
-Partner-specific tasks. Same format as Today screen but scoped to this partner. Shows description, owner badge, due date, provenance (which meeting/engagement it came from).
-
-**Recent Meetings:**
-Last 90 days. Each shows: date, meeting type badge, one-line condensed digest. Click to open meeting detail and note workspace.
-
-**Program Enrollments:**
-List of AWS programs this partner is enrolled in. Each shows: program name, type badge (Competency / Service Ready / Program / Credit Program), status badge (color-coded: Approved green, In Progress amber, Not Started gray), date achieved if applicable. This is reference data — "what credentials does this partner have?"
-
-**Strategic Goals:**
-Partner-level goals from the partner_goals table. Grouped or filterable by category (Co-Sell, Co-Build, Co-Market, Program, Operational). Status badge on each. This section will be empty until goals are populated — show a clean empty state with guidance, not a broken-looking blank section.
-
-**Funding Wallets:**
-MPOPP and MDF in compact cards. Each shows: allocated, spent/utilized, remaining (computed from the records, not stored). Status badge. This is "how much money does this partner have available?"
-
-**People:**
-Partner team (Alliance Lead, contacts), AWS team (PSA, AM, PMM), CRM contact. Sourced from participants registry. Compact ContactRow components. This is the "who do I call?" section — needed when needed, not front and center.
-
-**Solution Profile:**
-What They Do, Joint Value Proposition, Architecture, Listing Types, Pricing Model, AWS Stickiness, Key AWS Services. This is relatively static reference data. Below the fold because you don't look at it every day — but when a new AM asks "what does this partner do?", it's all here.
-
-**Operational Status:**
-ISVa Status, Deployed on AWS, PRM Status, CRM Platform + CRM Notes. Small badges/indicators. The "are they in good standing?" check.
-
-**Scratchpad:**
-The notepad for tribal knowledge. "Alliance lead is tough to work with." "They're considering Azure." Feeds brain synthesis. Always editable, always at the bottom where it's accessible but doesn't dominate.
+1. **Identity Bar** — Partner name, segment badge, SPMS ID
+2. **Brain Synthesis** — Single Strategic Posture paragraph. Qualitative assessment of co-sell/co-build/co-market maturity. No dollar amounts, no percentages. The elevator pitch.
+3. **Co-Sell Performance** — Financial snapshot: YTD, goals, attainment %, 2024/2025 actuals, projections. Math, not AI opinion.
+4. **Active Engagements** — Grouped by pillar (Co-Sell/Co-Build/Co-Market) with status badges and condensed digests.
+5. **Open Tasks** — Partner-scoped tasks with descriptions, due dates, provenance.
+6. **Recent Meetings** — Last 90 days with type badges, dates, condensed digests.
+7. **Program Enrollments** — Type/status badges, date achieved, progressive disclosure at 8+.
+8. **Strategic Goals** — Grouped by category. Clean empty state when pending.
+9. **Funding** — MPOPP + MDF with allocated/spent/remaining computed.
+10. **People** — See Part 5 for full architecture. Three curated groups + engagement contributors.
+11. **Solution Profile** — What They Do, JVP, Architecture, Listing Types, Pricing Model, AWS Stickiness, Key AWS Services.
+12. **Operational Status** — ISVa, Deployed on AWS, CRM Platform, CRM Notes.
+13. **Scratchpad** — Editable notepad for tribal knowledge. Feeds brain synthesis.
 
 ### Screen 3: Inbox
 **Purpose:** "Route this email."
 
-Unchanged from current design. Emails and calendar invites arrive, get mechanically matched to partners, and wait for human routing. Actions: assign to existing engagement, create new engagement, discard. AI synthesizes after routing.
+Emails and calendar invites arrive, get mechanically matched to partners, and wait for human routing. Actions: assign to existing engagement, create new engagement, discard. AI synthesizes after routing.
 
 ---
 
 ## Part 3: Meeting Notes — The Primary Workflow
 
-Meeting notes is the most frequent interaction with Roadrunner. The flow must be frictionless and professional.
+Meeting notes is the most frequent interaction. The flow must be frictionless and professional.
 
 **Getting to notes:**
-- From Today screen: one click on any meeting → note workspace opens
-- From partner page: click any meeting in Recent Meetings → note workspace opens
+- From Today screen: one click on any meeting → note workspace
+- From partner page: click any meeting → note workspace
 - From meetings list: click any meeting → meeting detail with note workspace
 
-**The Note Workspace (three modes):**
+**Three modes:**
 
-**Mode 1: Writing**
-Full-width textarea. Previous context displayed in a collapsible sidebar (scoped by the three-tier cascade: same engagement → same series → nothing). The user types their meeting notes as the meeting happens.
+**Mode 1: Writing** — Full-width textarea. Previous context in collapsible sidebar (scoped by cascade: same engagement → same series → nothing).
 
-Action button: "Generate Summary" (not "Summarize with AI" — that's hobby-project language). This button should have clear loading state — a progress indicator, not just three dots. The user must know the system is working.
+**Mode 2: Review** — AI-generated structured summary (Discussion Points, Decisions Made, Key Context). Extracted tasks in interactive TaskEditor. Raw notes collapsed but accessible.
 
-**Mode 2: Review**
-AI-generated structured summary appears: Discussion Points, Decisions Made, Key Context. Below that, extracted tasks in an interactive TaskEditor — the user can trim, edit, add, or remove proposed tasks before committing. Raw notes are collapsed but accessible.
+**Mode 3: Saved** — Summary displayed read-only. Tasks shown. "Edit Notes" to return to Mode 1.
 
-Action buttons: "Save & Lock" (commits summary + tasks) and "Back to Notes" (returns to editing). Clear, unambiguous labels.
-
-**Critical UX requirement:** If the user navigates away during Mode 2 (after summarize but before save), the app must either block navigation with a confirmation dialog ("You have unsummarized changes — leave anyway?") or auto-save. No silent data loss. This is enterprise-grade behavior.
-
-**Mode 3: Saved**
-Summary displayed read-only. Tasks shown in a sidebar or below. "Edit Notes" button to return to Mode 1 for revisions.
-
-**Enterprise UX standards for the entire note flow:**
-- Loading states must be explicit — progress bars or spinners with context ("Generating summary...", "Extracting tasks...")
-- Save operations must confirm visually (brief success indicator)
-- Error states must be clear and actionable ("Summary generation failed — try again" with a retry button)
-- No ambiguous states — the user always knows what mode they're in and what will happen next
+**Enterprise UX standards:**
+- "Generate Summary" with explicit loading state and progress message
+- Save operations confirm visually
+- Error states are clear with retry buttons
+- Navigation away from unsaved changes shows confirmation dialog
+- No ambiguous states
 
 ---
 
 ## Part 4: Navigation & Sidebar
 
-**Current state:** 4 zones with 8 items (Inbox, Partners, Engagements, Meetings, Tasks, Programs, Events, Relationships). This flattens the hierarchy and forces navigation by entity type.
+Three-tier hierarchy:
 
-**Target state:** Simplified sidebar with clear hierarchy.
+**Primary:** Today, Partners, Inbox (with badge)
+**Secondary:** Tasks, Meetings
+**Tertiary:** Programs, Events
 
-**Primary (prominent, daily workflow):**
-- **Today** — the landing page (meetings, tasks, inbox signal)
-- **Partners** — the partner list
-- **Inbox** — the triage queue (with unread count badge)
-
-**Secondary (accessible, visually subordinate):**
-- **Tasks** — cross-partner task view (may eventually merge into Today)
-- **Meetings** — cross-partner meetings list (needed for "show me all meetings this week" outside of Today)
-
-**Tertiary (minimal, catalog browsing):**
-- **Programs** — browse the program catalog ("what programs exist?")
-- **Events** — browse upcoming events ("what's coming up?")
-
-**What gets REMOVED from sidebar:**
-- Engagements — always accessed through partner detail pages. List page (/engagements) is deleted.
-- Relationships — accessed through partner detail people section. List page (/relationships) is deleted. (Relationships are transitioning to a People model.)
-
-**What STAYS but moves to tertiary:**
-- Programs — catalog data the PDM browses independently. List page stays. Detail pages stay.
-- Events — calendar data the PDM browses independently. List page stays. Detail pages stay.
-
-**Sidebar design:**
-- Clean, minimal, dark surface
-- Active state clearly indicated
-- Inbox badge updates in real-time (current 30s polling is fine)
-- Mobile: hamburger toggle with overlay (current pattern is fine)
-- Brand mark at top (currently "Relay" — keep or update to "Roadrunner")
+**Removed:** Engagements list (accessed through partner detail). Relationships list (dissolved).
 
 ---
 
-## Part 5: Data Architecture Reference
+## Part 5: People Architecture
 
-The agent needs to understand what data is available for rendering. This is the complete picture.
+People are organized in a two-tier model. The old Relationships table is dissolved.
 
-### Supabase Tables (23)
+### Tier 1: The Partner Account Team (AT-owned, curated)
 
-**Ring 1 — Catalog (AT → RR pull sync):**
-| Table | Records | Key Fields |
-|-------|---------|------------|
-| partners | 24 | name, segment, focus_area, what_they_do, architecture, listing_types, pricing_model, aws_stickiness, key_aws_services, joint_value_proposition, isva_status, deployed_on_aws, prm_status, crm_platform, crm_notes, mp_tcv_goal, larr_goal, mp_tcv_ytd, larr_ytd, mp_tcv_2024, larr_2024, mp_tcv_2025, larr_2025, mp_tcv_target_2025, mp_tcv_projected_annual, larr_projected_annual |
-| programs | 72 | name, description, type, requirements, what_it_unlocks |
-| events | 44 | name, type, start_date, end_date, location, geo |
-| relationships | 7 | (future: dissolves into People layer) |
+Three groups of curated contacts synced to `partner_participants`:
 
-**Ring 2 — Activity (RR-owned, pushed to AT):**
-| Table | Records | Key Fields |
-|-------|---------|------------|
-| engagements | 30+ | partner_id, topic, pillar, status, current_state, condensed |
-| meetings | 44 | partner_id, engagement_id, meeting_type, meeting_date, source, recurrence_pattern, series_id |
-| meeting_notes | ~17 | meeting_id, raw_notes, summary, condensed, tasks extracted |
-| tasks | ~33 | partner_id, engagement_id, meeting_note_id, description, owner, status, due_date, origin |
-| messages | varies | partner_id, subject, body, sender, received_at |
-| partner_context | 22 | partner_id, type (scratchpad/brain), content |
+**AWS Team:**
+| AT Field | Role | Description |
+|----------|------|-------------|
+| PSA | PSA | AWS technical counterpart |
+| Account Manager | Account Manager | AWS sales rep |
+| PMM | PMM | AWS marketing counterpart |
+| AWS Contacts | AWS Contact | Other important AWS people (secondary PMMs, sales leaders) |
 
-**Ring 3 — Posture (AT → RR pull sync):**
-| Table | Records | Key Fields |
-|-------|---------|------------|
-| partner_goals | 0 (pending) | partner_id, goal, category, status, year, linked_program_id, engagement_id |
-| partner_program_enrollments | 80 | partner_id, program_id, type, status, date_achieved |
-| partner_event_participations | 0 (clean slate) | partner_id, event_id, status, contacts_attending |
-| partner_funding_mpopp | 18 | partner_id, status, half, track, allocated, spent |
-| partner_funding_mdf | 8 | partner_id, record_name, allocated, utilized, source, recurrence |
+**Partner Team:**
+| AT Field | Role | Description |
+|----------|------|-------------|
+| Alliance Lead | Alliance Lead | Partner's #1 person |
+| Partner Contacts | Contact | Partner-side people beyond Alliance Lead |
 
-**Junction Tables:**
-participants, partner_participants, meeting_participants, engagement_participants, relationship_participants, engagement_programs, engagement_events
+**Third Parties:**
+| AT Field | Role | Description |
+|----------|------|-------------|
+| CRM Contact | CRM Contact | Tackle/Labra/Suger platform contact |
+| Third Party Contacts | Third Party | SIs, consultants, agencies with ongoing partner relationships |
 
-### API Routes (31)
-All existing routes are stable and should not be modified without explicit need. The agent should use existing data-fetching patterns (server components with parallel Supabase queries) rather than creating new API endpoints for read operations.
+All multi-person fields use `Name <email> (Title)` format, one per line or semicolon-separated. The parser handles both delimiters.
 
-### What Gets Computed in UI (not stored)
-- TCV/LARR attainment percentage: ytd ÷ goal × 100
-- Performance trend: compare attainment % to expected progress (month ÷ 12 × 100)
-- YoY growth: (current year - prior year) ÷ prior year × 100
-- MDF/MPOPP remaining: allocated - spent/utilized (computed from funding table records per partner)
-- Pillar distribution: count engagements by pillar per partner
-- Projected annual: already computed in AT and synced, but can also be computed client-side
+### Tier 2: Engagement Contributors (activity-derived, discoverable)
+
+Everyone who has appeared on an engagement or meeting for a partner. Accumulated through email parsing and manual entry. Lives in `participants` with links through `engagement_participants` and `meeting_participants`.
+
+Displayed on the partner page collapsed by default, grouped by engagement. Discoverable when needed, not cluttering the account team view.
+
+**Adding people to curated tier:** Edit the AT field. Next sync picks it up. No in-app promotion mechanism.
+
+### Relationships Dissolution
+
+The Relationships table tracked AWS internal teams. Individual contacts exist in `participants` via engagement links. Steps: archive AT records, drop Supabase tables, remove detail page.
 
 ---
 
-## Part 6: AI Calls — What They Do and Don't Do
+## Part 6: Meeting Recurrence System
 
-### Three AI Calls (all use Claude Sonnet via Anthropic API)
+### Current Limitations
+Engine spawns lazily on page load, advances from previous occurrence's date. No anchor day — rescheduling one meeting drifts all future spawns. No series-level editing. No "edit this one" vs "edit series."
 
-**1. Engagement Synthesizer** (classifier.ts, phase2-prompt.ts)
-- Fires when: user routes an inbox item to an engagement
-- Reads: previous current_state + new email + partner profile + scratchpad + condensed meeting digests
-- Produces: evolved current_state + condensed key facts + topic + pillar + participants
-- Don't touch: this pipeline works well
+### Target State
 
-**2. Note Summarizer** (notes-summarizer.ts, notes-context.ts)
-- Fires when: user clicks "Generate Summary" on meeting notes
-- Reads: raw notes + scoped previous notes + partner profile + scratchpad + existing tasks
-- Produces: structured summary (Discussion/Decisions/Key Context) + condensed digest + extracted tasks
-- Don't touch the core pipeline. Minor prompt refinements are fine.
+**Anchor day:** `anchor_day` column on meetings table. Weekly meeting on Wednesday stores `anchor_day: 3`. Rescheduling one occurrence doesn't drift the series.
 
-**3. Brain Synthesizer** (brain-synthesizer.ts, notes-context.ts)
-- Fires when: user clicks "Re-synthesize" on partner page
-- Reads: partner profile (full) + scratchpad + condensed engagement digests + standalone meeting digests + open tasks + activity patterns + financial data (11 fields) + program enrollments + funding wallets (MPOPP/MDF) + strategic goals
-- Produces: single Strategic Posture paragraph (3-6 sentences). No section headers, no bullets, no specific dollar amounts. Qualitative assessment of co-sell/co-build/co-market maturity.
-- Context: 11 sections in buildBrainContext (partner profile, contacts, scratchpad, engagements, standalone meetings, tasks, activity patterns, program enrollments, funding, strategic goals, financial summary)
-- Don't touch: prompt and context pipeline are stable (rewritten 2026-03-27)
+**Spawn logic:** Advance from last occurrence, then snap to anchor day.
+
+**Editing patterns:**
+- "Just this meeting" — changes only this occurrence
+- "This and future meetings" — updates anchor on series root
+- "End series" — stops future spawning
+- "Skip this one" — cancels without breaking chain
+
+**Create flow:** Anchor day picker, preview of next 4 dates, clear visual indication.
+
+**Visual indicators:** ↻ icon on recurring meetings. Series context on detail page. Series management controls.
+
+**Meeting type formatting:** Use `MEETING_TYPE_DISPLAY` map in UI. `partner_cadence` → `Partner Cadence`.
+
+---
+
+## Part 7: AI Calls
+
+### Three AI Calls (Claude Sonnet via Anthropic API)
+
+**1. Engagement Synthesizer** — Fires on inbox routing. Evolves engagement state from new email + context. Stable.
+
+**2. Note Summarizer** — Fires on "Generate Summary." Produces structured summary + tasks. Stable.
+
+**3. Brain Synthesizer** — Fires on "Re-synthesize." Reads 11 context sections. Produces single Strategic Posture paragraph (3-6 sentences). No dollar amounts. Qualitative only. Stable.
 
 ### What AI Does NOT Do
-- No automated "at risk" / "critical" / "on track" labels
-- No automated urgency scoring or prioritization
+- No automated risk labels or urgency scoring
 - No proactive alerts or recommendations
-- No entity matching (programs, events, relationships are always manually linked)
+- No entity matching (manually linked only)
 - Performance assessment is computed math, not AI opinion
 
 ---
 
-## Part 7: Enterprise UX Standards
-
-Every interaction in Roadrunner must meet professional-grade standards. The current implementation has several hobby-project patterns that need upgrading.
+## Part 8: Enterprise UX Standards
 
 ### Loading States
-- **Every async operation** must show a loading indicator appropriate to its duration
-- Short operations (<1s): subtle inline spinner
-- Medium operations (1-5s): contextual loading state with message ("Generating summary...", "Syncing catalogs...")
-- Long operations (5s+): progress bar or step indicator
-- **Never** show raw "..." or leave the user wondering if something is happening
-- **Never** allow double-clicks on action buttons — disable after first click until operation completes
+- Short (<1s): inline spinner. Medium (1-5s): contextual message. Long (5s+): progress bar.
+- Never allow double-clicks — disable after first click.
 
 ### Error Handling
-- Every API call must handle failure gracefully
-- Show clear, actionable error messages ("Failed to save note — try again" with retry button)
-- Network errors should not crash the page — show inline error states
-- Form validation errors should highlight the specific field
+- Graceful failure on every API call. Actionable messages with retry.
 
 ### Navigation Safety
-- If a user has unsaved changes (meeting notes in progress, task edits, scratchpad changes), warn before navigation
-- Use browser beforeunload + Next.js route change interception
-- Modal confirmation: "You have unsaved changes. Leave anyway?"
+- Unsaved changes warn before navigation. Browser beforeunload + route interception.
 
 ### Confirmation & Feedback
-- Destructive actions (delete, discard, complete) require confirmation dialogs
-- Successful operations show brief visual confirmation (toast notification or inline "Saved" indicator)
-- State transitions must be visually clear — the user always knows what mode they're in
+- Destructive actions require confirmation. Success shows visual confirmation.
 
 ### Button Labels
-- Use action-oriented, professional language
-- "Generate Summary" not "Summarize with AI"
-- "Save & Lock" not "Save"
-- "Create Engagement" not "New"
-- "Route to Engagement" not "Assign"
-- Buttons must clearly communicate what will happen when clicked
-
-### Responsive Behavior
-- Desktop-first (this is a work tool, used primarily on laptop/monitor)
-- Tablet: sidebar collapses to icons or hamburger
-- Mobile: functional but not the primary target
+- Professional, action-oriented. "Generate Summary," "Save & Lock," "Create Engagement," "Route to Engagement."
 
 ---
 
-## Part 8: Visual Design System
+## Part 9: Visual Design System
 
 ### Color Palette (dark theme only)
 ```css
---background: #0f1117;    /* Deep dark blue-black */
---foreground: #e4e4e7;    /* Light zinc */
---surface: #1a1b23;       /* Cards, containers */
---border: #2a2b35;        /* Borders, separators */
---muted: #71717a;         /* Secondary text, labels */
---accent: #6366f1;        /* Indigo — primary actions, active states */
+--background: #0f1117;
+--foreground: #e4e4e7;
+--surface: #1a1b23;
+--border: #2a2b35;
+--muted: #71717a;
+--accent: #6366f1;
 ```
 
-### Typography
-- Font: Geist Sans (body), Geist Mono (code/data)
-- Hierarchy: Use size + weight to establish visual importance, not color
-- Numbers and financial data: Geist Mono for alignment and clarity
-
 ### Design Principles
-1. **Information density is intentional.** Show what matters, hide what doesn't. Don't waste space on decoration.
-2. **Progressive disclosure.** Surface → drill. Summary → detail. The first thing you see is the most important thing.
-3. **Consistency over cleverness.** Same patterns everywhere. A badge looks the same on every page. A list behaves the same in every context.
-4. **Dark theme is the only theme.** Design for it natively, not as an afterthought.
-5. **Math, not magic.** Performance data is numbers. Trends are computed. The UI presents; the user interprets.
-6. **Enterprise, not flashy.** No gradients, no glassmorphism, no animated backgrounds. Clean, flat, professional. Think Linear, Notion, or Vercel's dashboard — not Dribbble.
+1. Information density is intentional.
+2. Progressive disclosure. Surface → drill.
+3. Consistency over cleverness.
+4. Dark theme is the only theme.
+5. Math, not magic.
+6. Enterprise, not flashy. Think Linear, Notion, Vercel's dashboard.
 
-### Anti-Patterns (Never Do These)
+### Anti-Patterns
 - Gradient text fades
-- Skeleton loaders that flash and disappear in <200ms (just show content or a real loader)
-- Toast notifications that auto-dismiss before you can read them
-- Modals on top of modals
-- Horizontal scrolling in data tables
-- Truncated text without tooltip or expand
-- Color as the only differentiator (always pair with text/icon)
+- Skeleton loaders that flash <200ms
+- Auto-dismissing toasts
+- Modals on modals
+- Horizontal scroll in tables
+- Truncated text without expand
+- Color as only differentiator
+- Raw enum values in UI
 
 ---
 
-## Part 9: Scalability & Future-Proofing
+## Part 10: Data Architecture Overview
 
-### The Airtable Exit Path
-Every AT table has a corresponding Supabase table with airtable_id for sync. The flip order:
-1. Partner Goals (simple, currently empty) → add CRUD in RR, stop pulling from AT
-2. Partner Events → add CRUD in RR
-3. Partner Programs → add CRUD in RR
-4. Funding tables → add CRUD in RR
-5. Partners (profile data) → add editing in RR, AT becomes read-only
-6. AT becomes MCP-queryable report generator, then decommissioned
+### Three Rings
+**Ring 1 — Catalog (AT → RR):** Partners, Programs, Events, Relationships (pending dissolution).
+**Ring 2 — Activity (RR → AT):** Engagements, Meetings, Notes, Tasks, Messages, Partner Context.
+**Ring 3 — Posture (AT → RR):** Goals, Enrollments, Event Participations, MPOPP, MDF.
 
-### Adding New Data Categories
-The partner page is designed as stackable sections. To add a new category (e.g., "Big Deals", "Opportunity Pipeline"):
-1. Create the Supabase table
-2. Add a sync function (if AT-sourced) or CRUD routes (if RR-owned)
-3. Add a query function in db/
-4. Add a section to the partner page
-5. No rearchitecture needed
+### Contact Sync Status
+| Field | Status |
+|-------|--------|
+| PSA, Account Manager, PMM, Alliance Lead, Partner Contacts | ✅ Syncing |
+| CRM Contact | ❌ Field ID mapped but not wired |
+| AWS Contacts, Third Party Contacts | ❌ New fields, not yet mapped |
+
+### Computed in UI (not stored)
+- Attainment %: ytd ÷ goal × 100
+- Trend: attainment % vs expected (month ÷ 12 × 100)
+- YoY growth: (current - prior) ÷ prior × 100
+- Funding remaining: allocated - spent
+
+---
+
+## Part 11: Scalability & Future-Proofing
+
+### Airtable Exit Path
+1. Partner Goals → CRUD in RR, stop AT pull
+2. Partner Events → CRUD in RR
+3. Partner Programs → CRUD in RR
+4. Funding tables → CRUD in RR
+5. Partners profile → editing in RR, AT read-only
+6. AT decommissioned
 
 ### Future AI Capabilities (design for, don't build yet)
-- **One-click reports:** "Generate transition doc for this partner" → AI reads all partner data, produces a formatted document
-- **Portfolio views:** "Show me all partners below 50% attainment" → filtered table with financial data
-- **Agentic querying:** Natural language questions against the data ("Which partners have unspent MDF?")
-- **Pre-meeting briefing:** Before a partner cadence call, AI generates "here's what to discuss based on recent activity and open tasks"
+- One-click transition docs
+- Portfolio views with financial filtering
+- Pre-meeting briefings from recent activity
+- Cross-partner people search
 
 ---
 
-## Part 10: Agent Implementation Guidelines
+## Part 12: System Reference
 
-### Branch Strategy
-All work happens on a fresh git branch. The main branch is untouched. If the iteration fails, the branch is deleted with zero risk.
+Volatile stats (migrations, tests, decisions, pages, components) live in `goal-state.md` and `CLAUDE.md` — updated every session. This document is vision, not inventory.
 
-### Iteration Approach
-1. Start with the core structure: sidebar simplification, Today screen, partner page layout
-2. Render real data from existing API patterns and Supabase queries
-3. Iterate on visual treatment within the design system constraints
-4. Test each page against the enterprise UX standards
-5. Refine, refine, refine
+**Stack:** Next.js, Supabase PostgreSQL, Vitest, Vercel, Mailgun, Claude Sonnet, Anthropic API, Tailwind v4
 
-### What to Preserve (don't break these)
-- The sync layer (src/lib/sync/) — pull and push functions are stable
-- The AI pipeline (classifier.ts, phase2-prompt.ts, notes-summarizer.ts, brain-synthesizer.ts) — except brain prompt refinement
-- The email/ICS parsing (email-parser.ts, ics-parser.ts)
-- The database modules (src/lib/db/) — stable CRUD operations
-- The meeting recurrence engine (meeting-recurrence.ts)
-- All test files — tests must continue passing
-- The Mailgun webhook (api/inbound) — production email pipeline
-
-### What to Rebuild
-- Sidebar component (3-tier hierarchy: primary/secondary/tertiary)
-- Partner list page (add performance indicators)
-- Partner detail page (new layout with synthesis paragraph, financial snapshot, scrollable sections)
-- Meeting detail page (refine note workspace UX, enterprise loading states)
-- Today screen (new — replaces current redirect-to-partners)
-- Tasks page (refine visual treatment)
-- Inbox page (minimal changes — mostly enterprise UX polish)
-- Engagement detail page (enterprise polish as part of partner drill-through flow)
-- Programs list page (visual refresh with tertiary nav treatment, no structural changes)
-- Events list page (visual refresh with tertiary nav treatment, no structural changes)
-
-### What to Remove
-- Standalone engagements list page (/engagements) → deleted, accessed through partner detail
-- Standalone relationships list page (/relationships) → deleted, accessed through partner detail people section
-- Slide-over panel on partner page → replaced by inline scrollable sections
-- 4-section brain accordion → replaced by synthesis paragraph
-
-All detail pages (/engagements/[id], /programs/[id], /events/[id], /relationships/[id]) are preserved as drill-through targets.
-
-### UI Design System Skill
-The agent must read .claude/roadrunner-ui/SKILL.md before any UI work. This document defines containers, typography, tokens, and patterns. The agent should update SKILL.md as it makes decisions, keeping the design system in sync with implementation.
-
-If the agent needs to establish new patterns (e.g., financial data display, performance bars), it should document them in SKILL.md before implementing across multiple pages.
-
-### Quality Checklist (run after each iteration)
-- [ ] tsc --noEmit passes clean
-- [ ] All 435+ tests pass
-- [ ] No loading states show raw "..." or empty flickering
-- [ ] Every async button disables during operation
-- [ ] Every destructive action has confirmation
-- [ ] Navigation away from unsaved changes shows warning
-- [ ] Financial numbers display consistently (same formatting everywhere)
-- [ ] Badges use consistent colors across all pages
-- [ ] Empty states are clean and helpful, not broken-looking
-- [ ] Dark theme looks intentional, not like light-theme-with-dark-background
-- [ ] Mobile sidebar collapses properly
-- [ ] No horizontal scroll on any page at standard viewport widths
+**Implementation plans** live in `docs/plans/active.md`. Completed plans archived in `docs/plans/archive/`.
 
 ---
 
-## Part 11: System Reference
-
-| Item | Value |
-|------|-------|
-| Supabase tables | 23 |
-| Migrations | 75 |
-| API routes | 31 |
-| UI pages | 18 (will change) |
-| Components | 32 |
-| Lib modules | 16 core + ring3 |
-| DB modules | 14 |
-| Sync modules | 5 |
-| Tests | 437 passing across 14 files |
-| TS errors | 0 |
-| Decisions logged | #338 |
-| AI calls | 3 (Engagement Synthesizer, Note Summarizer, Brain Synthesizer) |
-| Meeting types | 10 (interaction-based) |
-| Airtable tables | 11 active (1 archived) |
-| Stack | Next.js, Supabase PostgreSQL, Vitest, Vercel, Mailgun, Claude Sonnet, Anthropic API, Tailwind v4 |
-
----
-
-*This document is the North Star. It defines the destination. The agent's job is to navigate there, one iteration at a time.*
+*This is the North Star. Vision and architecture. For current stats: goal-state.md. For task plans: docs/plans/active.md.*
