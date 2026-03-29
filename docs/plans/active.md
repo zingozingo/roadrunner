@@ -239,11 +239,12 @@ Roadrunner's data architecture is complete (3 rings, 23 tables, all syncing). A 
 - Mobile sidebar behavior
 - Financial number formatting consistency
 - Any orphaned components or dead imports
+- Use scripts/interact.ts for interaction testing alongside screenshots
 
 **Self-check after each page:**
 - [ ] tsc --noEmit clean
 - [ ] All tests pass
-- [ ] Run `npx ts-node scripts/ui-audit.sh` for mechanical checks
+- [ ] Run `bash scripts/ui-audit.sh` for mechanical checks
 - [ ] Screenshot the page at 1440x900 and compare to design intent
 - [ ] No raw enum values
 - [ ] Every async button disables during operation

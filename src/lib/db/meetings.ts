@@ -178,6 +178,7 @@ export async function createMeeting(data: {
   source?: Meeting["source"];
   recurrence_pattern?: string | null;
   recurrence_end?: string | null;
+  anchor_day?: number | null;
 }): Promise<Meeting> {
   const db = getSupabaseClient();
 
@@ -198,6 +199,7 @@ export async function createMeeting(data: {
       source: data.source ?? "manual",
       recurrence_pattern: data.recurrence_pattern ?? null,
       recurrence_end: data.recurrence_end ?? null,
+      anchor_day: data.anchor_day ?? null,
     })
     .select()
     .single();
@@ -254,6 +256,7 @@ export async function updateMeeting(
     recurrence_pattern?: string | null;
     recurrence_end?: string | null;
     series_id?: string | null;
+    anchor_day?: number | null;
   }
 ): Promise<Meeting> {
   const { data, error } = await getSupabaseClient()

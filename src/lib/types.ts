@@ -136,6 +136,7 @@ export interface Meeting {
   recurrence_pattern: RecurrencePattern | null;
   recurrence_end: string | null;
   series_id: string | null;
+  anchor_day?: number | null;
   notes: string | null;
   airtable_record_id: string | null;
   created_at: string;
