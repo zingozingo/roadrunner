@@ -449,9 +449,15 @@ export default async function PartnerDetailPage({
           <Section title="Program Enrollments" count={programEnrollments.length}>
             {programEnrollments.map((e) => (
               <div key={e.id} className="flex items-center gap-3 border-b border-border/30 px-4 py-2.5 last:border-b-0">
-                <span className="min-w-0 flex-1 truncate text-sm text-foreground/80">
-                  {e.program_name ?? "Unlinked"}
-                </span>
+                {e.program_id ? (
+                  <Link href={`/programs/${e.program_id}`} className="min-w-0 flex-1 truncate text-sm text-accent hover:underline">
+                    {e.program_name ?? "Unknown"}
+                  </Link>
+                ) : (
+                  <span className="min-w-0 flex-1 truncate text-sm text-foreground/80">
+                    {e.program_name ?? "Unknown"}
+                  </span>
+                )}
                 {e.type && (
                   <span className="shrink-0 rounded-full bg-accent/8 px-2 py-0.5 text-[11px] font-medium text-accent/70">
                     {e.type}

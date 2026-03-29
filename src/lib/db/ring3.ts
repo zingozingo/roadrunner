@@ -91,7 +91,7 @@ export async function getPartnerProgramEnrollments(
   if (error) throw new Error(`getPartnerProgramEnrollments: ${error.message}`);
   return (data ?? []).map((row) => ({
     ...row,
-    program_name: (row.programs as { name: string } | null)?.name ?? undefined,
+    program_name: (row.programs as { name: string } | null)?.name ?? row.program_name ?? undefined,
     programs: undefined,
   }));
 }

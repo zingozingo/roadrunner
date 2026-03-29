@@ -592,16 +592,13 @@ export async function syncPartnerProgramEnrollments(): Promise<SyncResult> {
       // Resolve program via linked record field (preferred)
       const programId = resolveLinkedRecord(rec.fields[PARTNER_PROGRAMS_FIELDS.program], programMap);
 
-      // Preserve the legacy text "Program ID" in notes if program not linked
-      const programText = str(rec.fields[PARTNER_PROGRAMS_FIELDS.programId]);
-      const baseNotes = str(rec.fields[PARTNER_PROGRAMS_FIELDS.notes]);
-      const notes = !programId && programText
-        ? [baseNotes, `[Program: ${programText}]`].filter(Boolean).join(" ")
-        : baseNotes;
+      const programName = str(rec.fields[PARTNER_PROGRAMS_FIELDS.programId]);
+      const notes = str(rec.fields[PARTNER_PROGRAMS_FIELDS.notes]);
 
       await upsertPartnerProgramEnrollment({
         partner_id: partnerId,
         program_id: programId,
+        program_name: programName,
         type: toSnake(rec.fields[PARTNER_PROGRAMS_FIELDS.type]),
         status: toSnake(rec.fields[PARTNER_PROGRAMS_FIELDS.status]),
         date_achieved: str(rec.fields[PARTNER_PROGRAMS_FIELDS.dateAchieved]),
