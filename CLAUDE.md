@@ -13,7 +13,7 @@ In both modes, all rules below apply.
 Read these documents in this order before touching any UI code:
 1. `docs/north-star.md` — The vision: what Roadrunner should become, page specs, UX standards, design principles, anti-patterns
 2. `.claude/roadrunner-ui/SKILL.md` — The design system: tokens, components, patterns. This is a LIVING document — update it as you establish new patterns during implementation
-3. `docs/entity-model.md` — The schema: all 23 tables, FK cascades, Airtable field IDs, ring model. This is your reference for what data exists and how entities connect
+3. `docs/entity-model.md` — The schema: all 20 tables, FK cascades, Airtable field IDs, ring model. This is your reference for what data exists and how entities connect
 4. `.claude/references/ui-ux-best-practices.md` — Interaction patterns: button states, loading, errors, undo, navigation safety, dark theme, spacing, feedback timing
 
 ### Path Guardrails
@@ -120,7 +120,7 @@ docs/sessions/
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → human-guided routing → AI synthesis → structured engagements → Airtable sync.
-> 76 migrations · 23 tables · 31 API routes · 18 UI pages · 435 passing tests
+> 77 migrations · 20 tables · 29 API routes · 12 UI pages · 435 passing tests
 
 ---
 
@@ -180,7 +180,7 @@ roadrunner/
 │       │   ├── deep-diagnostic.md
 │       │   └── claude-ai-session.md
 │       └── summaries/             #     Session summaries (one per session)
-├── decisions.md                   # Append-only architectural decision log (338 entries)
+├── decisions.md                   # Append-only architectural decision log (350 entries)
 ├── src/
 │   ├── app/                       # Next.js App Router
 │   │   ├── api/                   #   API routes (31 route files, grouped by entity)
@@ -194,7 +194,6 @@ roadrunner/
 │   │   │   ├── participants/      #     Update participant
 │   │   │   ├── partners/          #     CRUD + partner context
 │   │   │   ├── programs/          #     CRUD
-│   │   │   ├── relationships/     #     CRUD
 │   │   │   ├── reviews/           #     Inbox resolve (assign/create/discard)
 │   │   │   └── sync/              #     Trigger Airtable sync
 │   │   ├── engagements/           #   Engagement list + detail pages
@@ -203,17 +202,16 @@ roadrunner/
 │   │   ├── meetings/              #   Meeting list + detail pages (inline NoteWorkspace)
 │   │   ├── partners/              #   Partner list + detail pages
 │   │   ├── programs/              #   Program list + detail pages
-│   │   ├── relationships/         #   Relationship list + detail pages
 │   │   ├── tasks/                 #   Cross-partner task dashboard
 │   │   ├── layout.tsx             #   Root layout + sidebar
 │   │   └── page.tsx               #   Today page (meetings + inbox signal)
-│   ├── components/                # React components (32 across 6 groups)
-│   │   ├── actions/               #   Entity action buttons + MergeButton (6 files)
+│   ├── components/                # React components (30 across 6 groups)
+│   │   ├── actions/               #   Entity action buttons + MergeButton (5 files)
 │   │   ├── inbox/                 #   Inbox triage UI — InboxClient (1 file)
 │   │   ├── layout/                #   App structure — sidebar, headers (4 files)
 │   │   ├── notes/                 #   NoteWorkspace, ContextSidebar, PreviousNotes, TaskEditor, MeetingNotesSection
-│   │   ├── partners/              #   BrainSynthesis, PartnerReferencePanel, PartnerScratchpad
-│   │   └── shared/                #   Reusable primitives — CompactRow, DetailHeader, EngagementLinker, RecurrenceEditor, SlideOverPanel, badges (15 files)
+│   │   ├── partners/              #   BrainSynthesis, PartnerScratchpad
+│   │   └── shared/                #   Reusable primitives — EngagementLinker, RecurrenceEditor, SlideOverPanel, badges, ContactGroup, Timeline (13 files)
 │   └── lib/                       # Core business logic
 │       ├── classifier.ts          #   Synthesis orchestrator (synthesizeIntoEngagement, persistClassificationResult)
 │       ├── claude.ts              #   Anthropic API client (synthesis calls)
@@ -233,7 +231,7 @@ roadrunner/
 │       ├── types.ts               #   All shared TypeScript interfaces
 │       ├── user-config.ts         #   Canonical user identity config
 │       ├── airtable.ts            #   Airtable REST API client
-│       ├── db/                    #   Database layer (14 modules)
+│       ├── db/                    #   Database layer (13 modules)
 │       │   ├── client.ts          #     Supabase singleton client
 │       │   ├── engagements.ts     #     Engagement CRUD + history
 │       │   ├── messages.ts        #     Message storage + fingerprint dedup
@@ -242,9 +240,8 @@ roadrunner/
 │       │   ├── partners.ts        #     Partner queries (read-only)
 │       │   ├── partner-context.ts #     Scratchpad CRUD
 │       │   ├── catalog.ts         #     Events + Programs CRUD
-│       │   ├── relationships.ts   #     Relationships + junction queries
-│       │   ├── participants.ts    #     Participant upsert + registry joins
 │       │   ├── engagement-links.ts #     Engagement↔program/event junction queries
+│       │   ├── participants.ts    #     Participant upsert + registry joins
 │       │   ├── inbox.ts           #     Inbox queries, grouped count, set-partner, INBOX_GROUP_WINDOW_MS
 │       │   ├── ring3.ts           #     Ring 3 upsert + queries (goals, enrollments, funding)
 │       │   └── index.ts           #     Barrel re-exports
@@ -255,7 +252,7 @@ roadrunner/
 │       │   └── utils.ts           #     Coercion helpers + validation
 │       └── __tests__/             #   435 passing tests across 14 test files
 ├── supabase/
-│   ├── migrations/                # 76 migration files (001-076)
+│   ├── migrations/                # 77 migration files (001-077)
 │   └── (authoritative schema lives in migrations/)
 ├── scripts/
 │   ├── screenshot.ts              # Playwright: screenshot a page at given viewport width
@@ -309,14 +306,14 @@ roadrunner/
    Single function handles assign-existing, create-new, and merge paths:
    - Create or update engagement (current_state, topic, goal, pillar)
    - Upsert participants + link to engagement
-   - Link engagement↔programs, engagement↔events, engagement↔relationships
+   - Link engagement↔programs, engagement↔events
    - Create meetings (if ICS data present)
    - Link message to engagement
    ↓
 10. SYNC TO AIRTABLE (sync/push.ts — awaited)
     Push: engagements → Partner Engagements table
     Push: meetings → Meetings table
-    Pull: partners, programs, events, relationships ← catalog tables
+    Pull: partners, programs, events ← catalog tables
     ↓
 11. DASHBOARD (Next.js pages)
     Server components query Supabase directly
@@ -327,7 +324,7 @@ roadrunner/
 
 ## Data Ownership
 
-Airtable owns **catalog** (Ring 1: Partners, Programs, Events, Relationships) and **posture** (Ring 3: Partner Goals, Program Enrollments, Event Participations, MPOPP Funding, MDF Funding). Roadrunner owns **activity** (Ring 2: Engagements, Meetings, Notes, Tasks, Messages, Participants, Partner Context). See `docs/entity-model.md` for the complete schema with all 23 tables, FK cascade behaviors, and Airtable field IDs.
+Airtable owns **catalog** (Ring 1: Partners, Programs, Events) and **posture** (Ring 3: Partner Goals, Program Enrollments, Event Participations, MPOPP Funding, MDF Funding). Roadrunner owns **activity** (Ring 2: Engagements, Meetings, Notes, Tasks, Messages, Participants, Partner Context). See `docs/entity-model.md` for the complete schema with all 20 tables, FK cascade behaviors, and Airtable field IDs.
 
 ---
 
@@ -339,7 +336,7 @@ These are **NON-NEGOTIABLE**. Every code change must respect these:
 2. **Human routes, AI synthesizes** — The PDM decides where emails go. AI handles deep analysis only after routing.
 3. **Summaries are the product** — Raw emails are stored but never the primary view. `current_state` is the living output.
 4. **Connect, don't create** — The AI is biased toward linking to existing entities, never fabricating new ones. Empty arrays over hallucinated matches.
-5. **AI creates engagements only** — Programs, events, partners, and relationships are human-curated catalog data.
+5. **AI creates engagements only** — Programs, events, and partners are human-curated catalog data.
 6. **Data ownership boundary** — Airtable owns catalogs (pull only). Roadrunner owns activity (push only). Never cross the boundary.
 7. **Single source of truth per concern** — `contact-parser.ts` for contact format, `user-config.ts` for PDM identity, `field-maps.ts` for Airtable field IDs, `types.ts` for TypeScript types. Don't scatter.
 8. **Await all async operations** — No fire-and-forget. Vercel serverless kills processes after HTTP response. An unawaited promise WILL be silently murdered (this happened in production — decisions.md #89).
@@ -447,7 +444,6 @@ Sequential numbering in `supabase/migrations/` (currently 001-075). New migratio
 | PTRF | Partners | AT → RR | tbl9zC6nxfLEp8xUx |
 | PF | Programs | AT → RR | tblpnW8ibVmkWi5Dt |
 | EF | Events | AT → RR | tblPDGUSqSvn8mflJ |
-| RF | Relationships | AT → RR | tblqVBssFsUeAt9bj |
 | ENF | Engagements | RR → AT | tblTC491AUVcrKvq2 |
 | MF | Meetings | RR → AT | tbl6LsEqSvEZgqBdW |
 | PARTNER_GOALS_FIELDS | Partner Goals | AT → RR | tblmboZKyBasfh5pV |
@@ -484,7 +480,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-075). New migratio
 
 **Sync:** `sync/pull.ts` / `sync/push.ts` → `sync/field-maps.ts` → `sync/utils.ts`
 
-**Data layer:** `db/index.ts` → `db/engagements.ts` → `db/messages.ts` → `db/meetings.ts` → `db/meeting-notes.ts` → `db/participants.ts` → `db/partner-context.ts` → `db/catalog.ts` → `db/engagement-links.ts` → `db/relationships.ts` → `db/partners.ts` → `db/inbox.ts` → `db/ring3.ts`
+**Data layer:** `db/index.ts` → `db/engagements.ts` → `db/messages.ts` → `db/meetings.ts` → `db/meeting-notes.ts` → `db/participants.ts` → `db/partner-context.ts` → `db/catalog.ts` → `db/engagement-links.ts` → `db/partners.ts` → `db/inbox.ts` → `db/ring3.ts`
 
 **Email:** `email-parser.ts` → `ics-parser.ts` → `name-resolver.ts` → `contact-parser.ts` → `format-utils.ts` · Recurrence: `meeting-recurrence.ts`
 
@@ -497,14 +493,14 @@ Sequential numbering in `supabase/migrations/` (currently 001-075). New migratio
 | Doc | Purpose | When to Read |
 |-----|---------|--------------|
 | `CLAUDE.md` | This file — project overview, architecture, development | Start of every session |
-| `docs/entity-model.md` | Complete schema — 23 tables, all FKs, AT field IDs, ring model | Schema/data work |
+| `docs/entity-model.md` | Complete schema — 20 tables, all FKs, AT field IDs, ring model | Schema/data work |
 | `docs/north-star.md` | UI vision spec — page specs, UX standards, design principles | UI/UX work |
 | `docs/ai-call-map.md` | AI call reference — 3 calls: synthesis, summarization, brain | AI/prompt work |
 | `docs/goal-state.md` | Living status — current state + what's next | Session planning |
 | `docs/plans/active.md` | Current task plan (empty when no plan active) | Task mode |
 | `docs/sessions/templates/` | Session templates — diagnostics and Claude.ai session prompt | Reference when needed |
 | `docs/sessions/summaries/` | Session summaries — one per session, latest is handoff for next session | Session start (paste latest into Claude.ai) |
-| `decisions.md` | Append-only architectural decision log (338 entries) | When you need "why" |
+| `decisions.md` | Append-only architectural decision log (350 entries) | When you need "why" |
 
 ---
 

@@ -6,30 +6,30 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 75 migrations, 23 active tables, 31 API routes, 18 UI pages, 437 passing tests (0 failures), tsc --noEmit passes clean
+- 77 migrations, 20 active tables, 29 API routes, 12 UI pages, 435 passing tests (0 failures), tsc --noEmit passes clean
 - Human-guided intake pipeline fully operational: webhook → mechanical partner detection → ICS partner backfill → inbox triage (with unknown partner picker) → single-phase AI synthesis (decisions #223-252)
 - Meetings Motion complete (decisions #253-259): 10 interaction-based meeting types, recurring meeting engine with auto-spawn, series tracking via self-referential FK, RecurrenceEditor UI, synthesis-on-link, conference boilerplate pre-split fix, ICS multi-VEVENT guardrail confirmed
 - AI Brain Overhaul Phases 1-3 complete (decisions #260-269): goal field eliminated (migration 069), condensed columns on engagements + meeting_notes (migration 068), meeting summarization restructured with scoped context builder, structured output (Discussion/Decisions/Key Context), condensed 3-5 bullet digest, non-redundancy with tasks
 - Phase D cleanup complete: dead tests deleted, stale assertions fixed, dead types/routes removed
 - Entity model fully rewritten with ring architecture (Catalog → Activity → People → Posture) in docs/entity-model.md
-- Documentation consolidated: 6 docs total (CLAUDE.md master orientation, entity-model.md schema reference, CLASSIFICATION.md pipeline (rewrite pending), ai-call-map.md AI call reference, goal-state.md status, decisions.md through #338)
+- Documentation consolidated: 6 docs total (CLAUDE.md master orientation, entity-model.md schema reference, ai-call-map.md AI call reference, north-star.md vision spec, goal-state.md status, decisions.md through #350)
 - Dead weight cleaned: notes table dropped (migration 061), orphaned components removed (PillGrid, CalendarCard, TableList, SyncStatus), decisions.md merged from two files into one
 - Zero polymorphic tables: entity_links replaced with engagement_programs + engagement_events (migration 065, decisions #221-222)
 - Contact registry complete: 76 participants, 85 partner links, 4 dedicated join tables, sync layer auto-maintains registry — all reads and writes flow through registry, JSONB columns dropped (Decisions #182, #218)
 - Shared contact rendering: ContactRow + ContactGroup components used by every contact surface, with centralized display hierarchy and role-priority sorting (Decisions #213-215)
 - Tasks promoted to partner-level entities with owner_participant_id FK + engagement_id FK (decisions 170-175, 280-281). Tasks page is full command center: checkbox complete/reopen, delete with confirmation, inline description edit, meeting link, engagement linker (decision 279). AI-extracted tasks inherit engagement_id from meeting→engagement chain. Re-summarize is additive — never deletes existing tasks (decision 278). Task extraction prompt rewritten with aggressive forward/backward test (6x improvement, decision 277).
-- Relationships universally renamed from aws_relationships (decision 173)
+- Relationships dissolved: tables dropped (migration 077), all code removed. Individual contacts preserved in participants table
 - Meeting notes: 3-mode workspace (editing → review → saved), AI summarizer with structured output + condensed digest, task extraction, engagement-scoped context, Previous Context three-tier cascade (engagement → series → empty), Re-summarize removed from saved mode (decisions 101-119, 156-167, 265-266, 284-288)
 - Brain synthesis (AI Call 3): single Strategic Posture paragraph (3-6 sentences), dedicated buildBrainContext reads condensed digests + Ring 3 data (financials, enrollments, funding, goals), max_tokens 1,000, manual trigger, stored as partner_context source='ai_synthesis' (decisions 191-193, 274-275). Prompt rewritten 2026-03-27 from 4-section briefing to single paragraph. All 24 partners batch re-synthesized.
 - Seed notes eliminated: note_type CHECK narrowed to 'meeting', historical context lives in scratchpad (decision 195)
 - Manual meeting quick-capture: modal form on /meetings page with partner dropdown, auto-title, meeting type (decision 189)
 - Manual task creation: inline form on partner detail, POST /api/notes/tasks, no meeting note required (decision 196)
-- UI Overhaul complete (decisions 289-307): SKILL.md constitutional rewrite, all detail pages (partner, meeting, engagement) aligned, tasks page redesigned, sidebar minimal treatment, all list pages shell-fixed, ContextSidebar stripped, programs flattened, engagements grouped by partner. 3 new components: BrainSynthesis, PartnerReferencePanel, SlideOverPanel
+- UI Overhaul complete (decisions 289-307): SKILL.md constitutional rewrite, all detail pages (partner, meeting, engagement) aligned, tasks page redesigned, sidebar minimal treatment, all list pages shell-fixed, ContextSidebar stripped, programs flattened, engagements grouped by partner. Key components: BrainSynthesis, SlideOverPanel
 - Recurring meeting system fully operational (decisions #308-312): creation modal with pattern picker + auto-title, spawn engine verified end-to-end (33 meetings: 8 roots + 8 spawned + 17 one-off), is_recurring decommissioned from app code (column remains for backward compat, future migration to drop), migration 071 backfilled 8 orphaned meetings
 - EngagementLinker enhanced with "Create new engagement" (decision #314): meeting detail can create engagements seeded from note condensed digest, task cascade on link/unlink (decisions #313, #315), POST /api/engagements accepts partner_id directly, PUT accepts condensed
 - Task provenance redesigned (decisions #316-317): adaptive display shows engagement name (preferred) or cleaned meeting title (partner prefix stripped), partner detail gains provenance subtitles, quiet "+ eng" affordance
 - Ring 3 data architecture complete (decisions #318-338): 5 new tables (partner_goals, partner_program_enrollments, partner_event_participations, partner_funding_mpopp, partner_funding_mdf), 11 new partner columns (8 financial, JVP, crm_platform, crm_notes), 5 pull sync functions, full AT field mapping. First sync: 80 program enrollments, 18 MPOPP, 8 MDF. Co-Sell Goals dissolved into partner columns. CRM restructured (crm_status→crm_platform + CHECK constraint)
-- Dead component cleanup (decision #328): 4 unused components removed (CurrentStateCard, MeetingTimeline, ExpandableList, PartnerTasksSection), component count 36→32
+- Dead component cleanup (decision #328): unused components removed. Relationships dissolved (migration 077): tables dropped, pages/routes/components deleted. Current component count: 30
 - 5 active engagements processing real email data (Nozomi Networks, Spacelift x3, Qualys)
 - All Airtable push/delete calls awaited (no fire-and-forget)
 
