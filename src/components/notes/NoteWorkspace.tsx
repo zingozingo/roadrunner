@@ -256,7 +256,7 @@ export default function NoteWorkspace({
                   setRawNotes(e.target.value);
                   autoResize();
                 }}
-                placeholder="Start typing your meeting notes\u2026"
+                placeholder="Start typing your meeting notes..."
                 className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none resize-none leading-relaxed"
                 style={{ minHeight: "400px" }}
               />

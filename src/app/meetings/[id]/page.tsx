@@ -274,7 +274,7 @@ export default async function MeetingDetailPage({
               <div>
                 <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Source</span>
                 <span className="text-sm text-foreground">
-                  {meeting.source === "ics_parsed" ? "ICS Parsed" : meeting.source === "manual" ? "Manual" : meeting.source}
+                  {({ ics_parsed: "Calendar Invite", manual: "Manual", auto: "Auto-spawned", body_parsed: "Email Parsed" } as Record<string, string>)[meeting.source] ?? meeting.source}
                 </span>
               </div>
             </div>

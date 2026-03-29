@@ -127,7 +127,7 @@ export default function PartnersClient({ partners, contactsByPartner }: Props) {
       ) : (
         <>
           <FilterBar
-            searchPlaceholder="Search partners\u2026"
+            searchPlaceholder="Search partners..."
             filterOptions={SEGMENT_FILTERS}
             activeFilter={activeFilter}
             onSearchChange={setSearchQuery}
