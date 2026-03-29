@@ -92,47 +92,7 @@ export async function POST(request: NextRequest) {
       .select("id");
     console.log(`Moved ${movedTasks?.length ?? 0} tasks`);
 
-    // 3. Move engagement_programs (dedup via ON CONFLICT)
-    const { data: sourcePrograms } = await db
-      .from("engagement_programs")
-      .select("program_id, context, created_by")
-      .eq("engagement_id", source_id);
-
-    for (const sp of sourcePrograms ?? []) {
-      await db
-        .from("engagement_programs")
-        .upsert(
-          {
-            engagement_id: target_id,
-            program_id: sp.program_id,
-            context: sp.context,
-            created_by: sp.created_by,
-          },
-          { onConflict: "engagement_id,program_id" }
-        );
-    }
-
-    // 4. Move engagement_events (dedup via ON CONFLICT)
-    const { data: sourceEvents } = await db
-      .from("engagement_events")
-      .select("event_id, context, created_by")
-      .eq("engagement_id", source_id);
-
-    for (const se of sourceEvents ?? []) {
-      await db
-        .from("engagement_events")
-        .upsert(
-          {
-            engagement_id: target_id,
-            event_id: se.event_id,
-            context: se.context,
-            created_by: se.created_by,
-          },
-          { onConflict: "engagement_id,event_id" }
-        );
-    }
-
-    // 5. Merge engagement_participants (upsert to target)
+    // 3. Merge engagement_participants (upsert to target)
     const { data: sourceParticipants } = await db
       .from("engagement_participants")
       .select("participant_id, role")
@@ -240,8 +200,6 @@ export async function POST(request: NextRequest) {
         meetings: movedMeetings?.length ?? 0,
         notes: movedNotes?.length ?? 0,
         tasks: movedTasks?.length ?? 0,
-        programs: sourcePrograms?.length ?? 0,
-        events: sourceEvents?.length ?? 0,
         participants: sourceParticipants?.length ?? 0,
       },
     });

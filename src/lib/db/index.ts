@@ -50,25 +50,12 @@ export {
   getAllEventsWithCounts,
   getAllProgramsWithCounts,
   getEventById,
-  getLinkedEngagementsForEntity,
   updateEvent,
   deleteEvent,
   getProgramById,
   updateProgram,
   deleteProgram,
 } from "./catalog";
-
-// Engagement Links (programs + events)
-export {
-  getEngagementPrograms,
-  getProgramEngagements,
-  linkEngagementToProgram,
-  unlinkEngagementFromProgram,
-  getEngagementEvents,
-  getEventEngagements,
-  linkEngagementToEvent,
-  unlinkEngagementFromEvent,
-} from "./engagement-links";
 
 // Participants
 export {

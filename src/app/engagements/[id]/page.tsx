@@ -15,7 +15,6 @@ import {
   getPartner,
 } from "@/lib/db";
 import { getSupabaseClient } from "@/lib/db/client";
-import { getEngagementPrograms, getEngagementEvents } from "@/lib/db/engagement-links";
 import { cleanMeetingTitle, formatFooterDate } from "@/lib/format-utils";
 import type { TimelineItem } from "@/lib/types";
 
@@ -38,12 +37,10 @@ export default async function EngagementDetailPage({
   const engagement = await getEngagementById(id);
   if (!engagement) notFound();
 
-  const [messages, meetings, participants, linkedPrograms, linkedEvents, partner] = await Promise.all([
+  const [messages, meetings, participants, partner] = await Promise.all([
     getMessagesByEngagement(id),
     getMeetingsByEngagement(id),
     getParticipantsByEngagement(id),
-    getEngagementPrograms(id),
-    getEngagementEvents(id),
     engagement.partner_id ? getPartner(engagement.partner_id) : null,
   ]);
 
@@ -84,9 +81,6 @@ export default async function EngagementDetailPage({
     timelineItems.push({ type: "meeting", date, data: mtg });
   }
   timelineItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-  const hasConnections = linkedPrograms.length > 0 || linkedEvents.length > 0;
-  const connectionCount = linkedPrograms.length + linkedEvents.length;
 
   const dotColor = statusDotColor[engagement.status] ?? "bg-zinc-500";
 
@@ -271,46 +265,6 @@ export default async function EngagementDetailPage({
               </div>
             </div>
           </section>
-
-          {/* Connections — relationships + programs + events */}
-          {hasConnections && (
-            <section className="mt-6 pt-6 border-t border-border/20">
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
-                Connections
-                <span className="ml-1.5 font-normal text-muted/50">{connectionCount}</span>
-              </h2>
-              <div className="space-y-0.5">
-                {linkedPrograms.map((lp) => (
-                  <Link
-                    key={lp.id}
-                    href={`/programs/${lp.program_id}`}
-                    className="flex items-center gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
-                  >
-                    <span className="shrink-0 text-[10px] font-semibold uppercase tracking-widest text-muted/50 w-16">
-                      Program
-                    </span>
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                      {lp.program_name ?? "Unknown"}
-                    </span>
-                  </Link>
-                ))}
-                {linkedEvents.map((le) => (
-                  <Link
-                    key={le.id}
-                    href={`/events/${le.event_id}`}
-                    className="flex items-center gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
-                  >
-                    <span className="shrink-0 text-[10px] font-semibold uppercase tracking-widest text-muted/50 w-16">
-                      Event
-                    </span>
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                      {le.event_name ?? "Unknown"}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          )}
 
           {/* Participants — single instance, CollapsibleParticipants handles its own summary */}
           {participants.length > 0 && (

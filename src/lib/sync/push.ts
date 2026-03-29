@@ -161,7 +161,6 @@ interface EngagementLookups {
   partnerDbToAtId: Map<string, string>;
   partnerDbToName: Map<string, string>;
   programDbToAtId: Map<string, string>;
-  engagementEventAtIds: Map<string, string[]>;
 }
 
 function buildEngagementFields(
@@ -192,11 +191,6 @@ function buildEngagementFields(
   if (programId) {
     const atId = lookups.programDbToAtId.get(programId);
     if (atId) fields[ENF.program] = [atId];
-  }
-
-  const eventAtIds = lookups.engagementEventAtIds.get(engagement.id as string);
-  if (eventAtIds && eventAtIds.length > 0) {
-    fields[ENF.event] = eventAtIds;
   }
 
   if (participants && participants.length > 0) {
@@ -276,14 +270,10 @@ export async function pushEngagementToAirtable(
     partnerMaps,
     participantMap,
     { data: programs },
-    { data: eventLinks },
-    { data: events },
   ] = await Promise.all([
     fetchPartnerMaps(),
     fetchEngagementParticipants([engagementId]),
     supabase.from("programs").select("id, airtable_record_id").not("airtable_record_id", "is", null),
-    supabase.from("engagement_events").select("engagement_id, event_id").eq("engagement_id", engagementId),
-    supabase.from("events").select("id, airtable_record_id").not("airtable_record_id", "is", null),
   ]);
 
   const programDbToAtId = new Map<string, string>();
@@ -291,22 +281,7 @@ export async function pushEngagementToAirtable(
     programDbToAtId.set(p.id, p.airtable_record_id);
   }
 
-  const eventDbToAtId = new Map<string, string>();
-  for (const e of (events ?? []) as { id: string; airtable_record_id: string }[]) {
-    eventDbToAtId.set(e.id, e.airtable_record_id);
-  }
-
-  const engagementEventAtIds = new Map<string, string[]>();
-  for (const link of (eventLinks ?? []) as { engagement_id: string; event_id: string }[]) {
-    const atId = eventDbToAtId.get(link.event_id);
-    if (atId) {
-      const existing = engagementEventAtIds.get(link.engagement_id) ?? [];
-      existing.push(atId);
-      engagementEventAtIds.set(link.engagement_id, existing);
-    }
-  }
-
-  const lookups: EngagementLookups = { partnerDbToAtId: partnerMaps.partnerDbToAtId, partnerDbToName: partnerMaps.partnerDbToName, programDbToAtId, engagementEventAtIds };
+  const lookups: EngagementLookups = { partnerDbToAtId: partnerMaps.partnerDbToAtId, partnerDbToName: partnerMaps.partnerDbToName, programDbToAtId };
   const fields = buildEngagementFields(
     engagement, lookups, participantMap.get(engagementId)
   );
@@ -399,16 +374,12 @@ export async function syncEngagementsToAirtable(): Promise<SyncResult> {
     partnerMaps,
     participantMap,
     { data: programs },
-    { data: eventLinks },
-    { data: events },
   ] = await Promise.all([
       supabase.from("engagements").select("*"),
       fetchAllRecords(ENGAGEMENTS_TABLE),
       fetchPartnerMaps(),
       fetchEngagementParticipants(),
       supabase.from("programs").select("id, airtable_record_id").not("airtable_record_id", "is", null),
-      supabase.from("engagement_events").select("engagement_id, event_id"),
-      supabase.from("events").select("id, airtable_record_id").not("airtable_record_id", "is", null),
     ]);
 
   if (fetchErr) throw new Error(`Failed to fetch engagements: ${fetchErr.message}`);
@@ -418,22 +389,7 @@ export async function syncEngagementsToAirtable(): Promise<SyncResult> {
     programDbToAtId.set(p.id, p.airtable_record_id);
   }
 
-  const eventDbToAtId = new Map<string, string>();
-  for (const e of (events ?? []) as { id: string; airtable_record_id: string }[]) {
-    eventDbToAtId.set(e.id, e.airtable_record_id);
-  }
-
-  const engagementEventAtIds = new Map<string, string[]>();
-  for (const link of (eventLinks ?? []) as { engagement_id: string; event_id: string }[]) {
-    const atId = eventDbToAtId.get(link.event_id);
-    if (atId) {
-      const existing = engagementEventAtIds.get(link.engagement_id) ?? [];
-      existing.push(atId);
-      engagementEventAtIds.set(link.engagement_id, existing);
-    }
-  }
-
-  const lookups: EngagementLookups = { partnerDbToAtId: partnerMaps.partnerDbToAtId, partnerDbToName: partnerMaps.partnerDbToName, programDbToAtId, engagementEventAtIds };
+  const lookups: EngagementLookups = { partnerDbToAtId: partnerMaps.partnerDbToAtId, partnerDbToName: partnerMaps.partnerDbToName, programDbToAtId };
 
   const atByRoadrunnerId = new Map<string, AirtableRecord>();
   const atByName = new Map<string, AirtableRecord>();

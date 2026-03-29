@@ -59,9 +59,8 @@ export async function buildPartnerContext(
   const registryContacts = await getContactsByPartner(partnerId);
   const contacts = buildContactsFromRegistry(registryContacts);
 
-  // Resolve program/event names for engagements via typed junction tables
-  const engagementIds = engagements.map((e) => e.id);
-  const entityNames = await resolveEngagementEntities(db, engagementIds);
+  // Program/event names are partner-level (Ring 3), not engagement-level
+  const entityNames = { programs: new Map<string, string>(), events: new Map<string, string>() };
 
   // Fetch previous note summaries with note_type
   const { data: notesWithType } = await db
@@ -712,41 +711,3 @@ function buildContactsFromRegistry(
   };
 }
 
-/**
- * Resolve program and event names linked to engagements via typed junction tables.
- * Returns maps of engagement_id → first program name, engagement_id → first event name.
- */
-async function resolveEngagementEntities(
-  db: ReturnType<typeof getSupabaseClient>,
-  engagementIds: string[]
-): Promise<{ programs: Map<string, string>; events: Map<string, string> }> {
-  const programs = new Map<string, string>();
-  const events = new Map<string, string>();
-  if (engagementIds.length === 0) return { programs, events };
-
-  const [{ data: programLinks }, { data: eventLinks }] = await Promise.all([
-    db
-      .from("engagement_programs")
-      .select("engagement_id, programs(name)")
-      .in("engagement_id", engagementIds),
-    db
-      .from("engagement_events")
-      .select("engagement_id, events(name)")
-      .in("engagement_id", engagementIds),
-  ]);
-
-  // Take first match per engagement
-  for (const link of (programLinks ?? []) as unknown as { engagement_id: string; programs: { name: string } | null }[]) {
-    if (!programs.has(link.engagement_id) && link.programs?.name) {
-      programs.set(link.engagement_id, link.programs.name);
-    }
-  }
-
-  for (const link of (eventLinks ?? []) as unknown as { engagement_id: string; events: { name: string } | null }[]) {
-    if (!events.has(link.engagement_id) && link.events?.name) {
-      events.set(link.engagement_id, link.events.name);
-    }
-  }
-
-  return { programs, events };
-}

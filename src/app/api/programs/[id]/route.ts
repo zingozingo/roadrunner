@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getProgramById,
-  getLinkedEngagementsForEntity,
   updateProgram,
   deleteProgram,
 } from "@/lib/db";
@@ -21,9 +20,7 @@ export async function GET(
       );
     }
 
-    const linkedEngagements = await getLinkedEngagementsForEntity("program", id);
-
-    return NextResponse.json({ program, linkedEngagements });
+    return NextResponse.json({ program });
   } catch (error) {
     console.error("GET /api/programs/[id] error:", error);
     return NextResponse.json(

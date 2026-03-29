@@ -915,7 +915,7 @@ export async function getEngagementContributors(
     const allParticipantIds = new Set<string>();
 
     function addToGroup(engagementId: string, engagementName: string, p: EngagementContributor) {
-      if (curatedIds.has(p.id)) return;
+      if (curatedIds.has(p.id) || (p.email && isUserEmail(p.email))) return;
       if (!groupMap.has(engagementId)) {
         groupMap.set(engagementId, { name: engagementName, participantMap: new Map() });
       }

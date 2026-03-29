@@ -243,8 +243,7 @@ export async function deleteEngagement(id: string): Promise<void> {
     }
   }
 
-  // engagement_programs, engagement_events, engagement_participants
-  // all cascade-deleted via FK ON DELETE CASCADE
+  // engagement_participants cascade-deleted via FK ON DELETE CASCADE
 
   // Delete the engagement — DB cascades handle:
   //    messages.engagement_id → SET NULL

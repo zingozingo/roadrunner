@@ -3,22 +3,9 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProgramTypeBadge } from "@/components/shared/TypeBadge";
-import PillarBadge from "@/components/shared/PillarBadge";
 import ProgramActions from "@/components/actions/ProgramActions";
 import { formatFooterDate } from "@/lib/format-utils";
-import {
-  getProgramById,
-  getLinkedEngagementsForEntity,
-} from "@/lib/db";
-
-// Status dot color map
-const statusDotColor: Record<string, string> = {
-  active: "bg-emerald-500",
-  planned: "bg-blue-400",
-  blocked: "bg-amber-500",
-  completed: "bg-violet-500",
-  archived: "bg-zinc-500",
-};
+import { getProgramById } from "@/lib/db";
 
 export default async function ProgramDetailPage({
   params,
@@ -29,8 +16,6 @@ export default async function ProgramDetailPage({
 
   const program = await getProgramById(id);
   if (!program) notFound();
-
-  const linkedEngagements = await getLinkedEngagementsForEntity("program", id);
 
   return (
     <div className="p-6 lg:p-8">
@@ -103,41 +88,6 @@ export default async function ProgramDetailPage({
                   <span className="text-sm text-foreground">{program.lifecycle_duration}</span>
                 </div>
               )}
-            </div>
-          </section>
-        )}
-
-        {/* Linked Engagements */}
-        {linkedEngagements.length > 0 && (
-          <section className="pt-6 border-t border-border/20">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
-              Linked engagements
-              <span className="ml-1.5 font-normal text-muted/50">{linkedEngagements.length}</span>
-            </h2>
-            <div className="space-y-1.5">
-              {linkedEngagements.map((eng) => {
-                const dotColor = statusDotColor[eng.status] ?? "bg-zinc-500";
-                return (
-                  <Link
-                    key={eng.id}
-                    href={`/engagements/${eng.id}`}
-                    className="flex items-center gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                      {eng.name}
-                    </span>
-                    {eng.partner_name && (
-                      <span className="shrink-0 text-xs text-muted">{eng.partner_name}</span>
-                    )}
-                    {eng.pillar && (
-                      <span className="shrink-0">
-                        <PillarBadge pillar={eng.pillar} />
-                      </span>
-                    )}
-                    <span className={`shrink-0 h-1.5 w-1.5 rounded-full ${dotColor}`} title={eng.status} />
-                  </Link>
-                );
-              })}
             </div>
           </section>
         )}

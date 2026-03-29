@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getEventById,
-  getLinkedEngagementsForEntity,
   updateEvent,
   deleteEvent,
 } from "@/lib/db";
@@ -27,9 +26,7 @@ export async function GET(
       );
     }
 
-    const linkedEngagements = await getLinkedEngagementsForEntity("event", id);
-
-    return NextResponse.json({ event, linkedEngagements });
+    return NextResponse.json({ event });
   } catch (error) {
     console.error("GET /api/events/[id] error:", error);
     return NextResponse.json(

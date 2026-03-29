@@ -166,28 +166,6 @@ export interface ParsedMeeting {
   is_cancellation: boolean;
 }
 
-export interface EngagementProgram {
-  id: string;
-  engagement_id: string;
-  program_id: string;
-  context: string | null;
-  created_by: "ai" | "user";
-  created_at: string;
-  program_name?: string;
-  engagement_name?: string;
-}
-
-export interface EngagementEvent {
-  id: string;
-  engagement_id: string;
-  event_id: string;
-  context: string | null;
-  created_by: "ai" | "user";
-  created_at: string;
-  event_name?: string;
-  engagement_name?: string;
-}
-
 export interface Message {
   id: string;
   engagement_id: string | null;

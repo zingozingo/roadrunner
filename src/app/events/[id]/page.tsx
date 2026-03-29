@@ -3,19 +3,9 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EventTypeBadge } from "@/components/shared/TypeBadge";
-import PillarBadge from "@/components/shared/PillarBadge";
 import EventActions from "@/components/actions/EventActions";
 import { formatFooterDate } from "@/lib/format-utils";
-import { getEventById, getLinkedEngagementsForEntity } from "@/lib/db";
-
-// Status dot color map
-const statusDotColor: Record<string, string> = {
-  active: "bg-emerald-500",
-  planned: "bg-blue-400",
-  blocked: "bg-amber-500",
-  completed: "bg-violet-500",
-  archived: "bg-zinc-500",
-};
+import { getEventById } from "@/lib/db";
 
 function formatDateDisplay(start: string | null, end: string | null): string {
   if (!start) return "Date TBD";
@@ -39,8 +29,6 @@ export default async function EventDetailPage({
 
   const event = await getEventById(id);
   if (!event) notFound();
-
-  const linkedEngagements = await getLinkedEngagementsForEntity("event", id);
 
   return (
     <div className="p-6 lg:p-8">
@@ -103,41 +91,6 @@ export default async function EventDetailPage({
             )}
           </div>
         </section>
-
-        {/* Linked Engagements */}
-        {linkedEngagements.length > 0 && (
-          <section className="pt-6 border-t border-border/20">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
-              Linked engagements
-              <span className="ml-1.5 font-normal text-muted/50">{linkedEngagements.length}</span>
-            </h2>
-            <div className="space-y-1.5">
-              {linkedEngagements.map((eng) => {
-                const dotColor = statusDotColor[eng.status] ?? "bg-zinc-500";
-                return (
-                  <Link
-                    key={eng.id}
-                    href={`/engagements/${eng.id}`}
-                    className="flex items-center gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                      {eng.name}
-                    </span>
-                    {eng.partner_name && (
-                      <span className="shrink-0 text-xs text-muted">{eng.partner_name}</span>
-                    )}
-                    {eng.pillar && (
-                      <span className="shrink-0">
-                        <PillarBadge pillar={eng.pillar} />
-                      </span>
-                    )}
-                    <span className={`shrink-0 h-1.5 w-1.5 rounded-full ${dotColor}`} title={eng.status} />
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
-        )}
 
         {/* Footer */}
         <p className="pt-6 text-xs text-muted">

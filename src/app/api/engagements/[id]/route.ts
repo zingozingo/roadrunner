@@ -7,7 +7,6 @@ import {
   deleteEngagement,
   deleteMessagesByEngagement,
 } from "@/lib/db";
-import { getEngagementPrograms, getEngagementEvents } from "@/lib/db/engagement-links";
 
 export async function GET(
   _request: NextRequest,
@@ -24,19 +23,15 @@ export async function GET(
       );
     }
 
-    const [messages, participants, programs, events] = await Promise.all([
+    const [messages, participants] = await Promise.all([
       getMessagesByEngagement(id),
       getParticipantsByEngagement(id),
-      getEngagementPrograms(id),
-      getEngagementEvents(id),
     ]);
 
     return NextResponse.json({
       engagement,
       messages,
       participants,
-      programs,
-      events,
     });
   } catch (error) {
     console.error("GET /api/engagements/[id] error:", error);
