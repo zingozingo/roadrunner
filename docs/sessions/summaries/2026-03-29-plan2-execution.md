@@ -63,8 +63,10 @@ The decision to build program/event CRUD as Roadrunner-only (no AT push) was the
 
 ## Next Session Priorities
 
-1. **Immediate:** Today page CSS — the right column still clips. Investigate overflow, text-overflow, flex behavior. May need fundamentally different approach to grid proportions or text handling.
-2. **Immediate:** Timeline strip simplification — reduce from 4 visual states to 2 primary (happened/upcoming) with subtle indicators for edge cases. Current encoding is too busy.
+1. **CRITICAL:** Navigation safety for meeting notes — diagnose current state, implement beforeunload + route interception + confirmation dialog
+2. **Recurrence editor diagnostic** — verify PUT route processes all RecurrenceEditor fields (recurrence_pattern, recurrence_end, anchor_day) and fix any gaps
+3. **Immediate:** Today page CSS — the right column still clips. Investigate overflow, text-overflow, flex behavior. May need fundamentally different approach to grid proportions or text handling.
+4. **Immediate:** Timeline strip simplification — reduce from 4 visual states to 2 primary (happened/upcoming) with subtle indicators for edge cases. Current encoding is too busy.
 3. **Soon:** Program enrollment date formatting — show full year for non-current-year dates.
 4. **Soon:** People linkability — participant names clickable across partner pages, meeting detail, engagement detail.
 5. **Soon:** Recurrence display coherence — series info, timeline strip, and management actions should feel unified.
@@ -86,6 +88,8 @@ The decision to build program/event CRUD as Roadrunner-only (no AT push) was the
 - 58/80 program enrollments still have null program_id (display works via program_name)
 - Vasion has duplicate Partner Cadence series needing manual merge
 - KnowBe4, NinjaOne, Cloudaware have standalone cadence meetings that should become series roots
+- CRITICAL: Meeting notes save state has no navigation protection — AI-summarized content can be lost on page refresh or navigation before save & lock. North Star Part 8 explicitly calls for beforeunload + route interception. This is a data loss risk for the #1 daily workflow.
+- RecurrenceEditor save does not persist pattern changes (weekly → biweekly tested, did not save). May be same root cause as the anchor_day bug (PUT route not destructuring/processing the field) or a different issue. Needs diagnostic before building next plan.
 
 ## Docs Updated
 

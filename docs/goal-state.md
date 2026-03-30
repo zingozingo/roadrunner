@@ -58,6 +58,8 @@ A system where a PDM forwards an email and Roadrunner:
 ## What's Next
 
 ### Immediate
+- Navigation safety — CRITICAL: Meeting notes workflow has no unsaved-changes protection. After AI summarization but before save & lock, user can navigate away or refresh and lose all work. Need beforeunload browser event + Next.js route interception + confirmation dialog on all note workspace exits. This is a data loss bug, not a polish item. North Star Part 8 explicitly specifies this.
+- Recurrence editor save broken for pattern changes: Changing recurrence_pattern (e.g., weekly → biweekly) via RecurrenceEditor does not persist. The anchor_day PUT route gap was fixed but pattern changes may have a similar issue or a different bug. Needs diagnostic — check if RecurrenceEditor sends recurrence_pattern in the PUT body and if the route processes it correctly.
 - Today page CSS — right column still clips content, needs viewport/overflow investigation beyond container width
 - Timeline strip visual simplification — reduce competing states/colors to clearer encoding
 - Program enrollment date formatting — show year for non-current-year dates
