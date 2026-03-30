@@ -630,7 +630,25 @@ Patterns for rendering complex information visually. Status indicators, timeline
 **Design rationale:** Subtle but unmissable. Amber is the "attention" color (already used for overdue tasks). Users learn the pattern quickly: amber date = off-rhythm.
 **Constraints:** Only applies to weekly/biweekly patterns (monthly/quarterly have variable day-of-week by nature). Don't use for standalone meetings.
 
-*Series Timeline Strip — will be established in Task 2.7.*
+### Series Timeline Strip
+
+**Component:** `SeriesTimeline` (`src/components/shared/SeriesTimeline.tsx`)
+**Used on:** Meeting detail page (below SeriesDisplay, for series meetings only)
+**Behavior:**
+- Horizontal row of 12px dots (`w-3 h-3 rounded-full`), one per occurrence, chronological
+- Color coding by status:
+  - Completed: solid `bg-status-active` (green)
+  - Scheduled (future): outline `border border-accent/40 bg-transparent`
+  - Cancelled/skipped: `bg-muted/30` with horizontal strikethrough line
+  - Past but not completed: `bg-accent/60`
+- Shifted indicator: amber ring (`ring-2 ring-status-blocked/40`) on dots where day-of-week ≠ anchor
+- Current meeting highlight: `ring-2 ring-foreground/50`
+- Hover: `title` tooltip with date + status + shift info
+- Click: navigates to that meeting's detail page
+- Date labels below dots: shown at adaptive intervals (every dot for ≤6, every 2nd for ≤12, every 4th for ≤20)
+- Horizontal overflow with scroll for very long series
+**Design rationale:** GitHub-contribution-graph inspired. Instantly reveals series rhythm, gaps, and anomalies without taking vertical space. The ring overlay system lets shifted and current indicators stack with any status color.
+**Constraints:** Read-only visualization — no editing from this component. Don't add month/week navigation. Keep dots at 12px — smaller is unclickable, larger wastes space.
 
 ## Financial Displays
 

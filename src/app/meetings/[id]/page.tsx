@@ -20,6 +20,7 @@ import { USER_CONFIG } from "@/lib/user-config";
 import EngagementLinker from "@/components/shared/EngagementLinker";
 import RecurrenceEditor from "@/components/shared/RecurrenceEditor";
 import SeriesDisplay from "@/components/shared/SeriesDisplay";
+import SeriesTimeline from "@/components/shared/SeriesTimeline";
 import type { DisplayContext } from "@/lib/types";
 import { MEETING_TYPE_DISPLAY } from "@/lib/sync/field-maps";
 
@@ -183,6 +184,14 @@ export default async function MeetingDetailPage({
         siblings={seriesSiblings}
         rootAnchorDay={rootAnchorDay}
         rootDate={rootDate}
+      />
+
+      {/* ═══ SERIES TIMELINE ═══ */}
+      <SeriesTimeline
+        siblings={seriesSiblings}
+        rootAnchorDay={rootAnchorDay}
+        currentMeetingId={id}
+        recurrencePattern={meeting.recurrence_pattern}
       />
 
       {/* ═══ TWO-COLUMN LAYOUT ═══ */}
