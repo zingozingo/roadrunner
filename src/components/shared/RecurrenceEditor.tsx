@@ -49,6 +49,10 @@ interface RecurrenceEditorProps {
   initialEnd: string | null;
   initialSeriesId: string | null;
   initialAnchorDay?: number | null;
+  /** Start with the editor form open (used by SeriesActions "Edit Pattern") */
+  startEditing?: boolean;
+  /** Called when the user cancels editing (lets parent handle collapse) */
+  onCancel?: () => void;
 }
 
 export default function RecurrenceEditor({
@@ -58,20 +62,26 @@ export default function RecurrenceEditor({
   initialEnd,
   initialSeriesId,
   initialAnchorDay,
+  startEditing = false,
+  onCancel,
 }: RecurrenceEditorProps) {
   const router = useRouter();
   const [pattern, setPattern] = useState<RecurrencePattern | null>(initialPattern);
   const [endDate, setEndDate] = useState<string | null>(initialEnd);
   const [seriesId, setSeriesId] = useState<string | null>(initialSeriesId);
   const [anchorDay, setAnchorDay] = useState<number | null>(initialAnchorDay ?? null);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(startEditing);
   const [saving, setSaving] = useState(false);
 
-  // Form state for editing
-  const [formPattern, setFormPattern] = useState<RecurrencePattern>("weekly");
-  const [formEnd, setFormEnd] = useState("");
-  const [formAnchorDay, setFormAnchorDay] = useState<number>(0);
-  const [showEndDate, setShowEndDate] = useState(false);
+  // Form state for editing — initialize from props when startEditing is true
+  const [formPattern, setFormPattern] = useState<RecurrencePattern>(startEditing ? (initialPattern ?? "weekly") : "weekly");
+  const [formEnd, setFormEnd] = useState(startEditing ? (initialEnd ?? "") : "");
+  const [formAnchorDay, setFormAnchorDay] = useState<number>(
+    startEditing
+      ? (initialAnchorDay ?? (meetingDate ? new Date(meetingDate + "T12:00:00").getDay() : 0))
+      : 0
+  );
+  const [showEndDate, setShowEndDate] = useState(startEditing ? !!initialEnd : false);
 
   function openEditor() {
     setFormPattern(pattern ?? "weekly");
@@ -135,7 +145,7 @@ export default function RecurrenceEditor({
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium text-foreground/70">Set recurrence</span>
           <button
-            onClick={() => setEditing(false)}
+            onClick={() => { setEditing(false); onCancel?.(); }}
             className="text-xs text-muted hover:text-foreground transition-colors"
           >
             Cancel

@@ -67,7 +67,7 @@ export default function SeriesActions({
     }
   }
 
-  // Editing mode — show RecurrenceEditor inline
+  // Editing mode — show RecurrenceEditor inline, already open
   if (editing) {
     return (
       <div className="mt-3 pt-3 border-t border-border/20">
@@ -78,13 +78,9 @@ export default function SeriesActions({
           initialEnd={recurrenceEnd}
           initialSeriesId={seriesId}
           initialAnchorDay={anchorDay}
+          startEditing
+          onCancel={() => setEditing(false)}
         />
-        <button
-          onClick={() => setEditing(false)}
-          className="mt-2 text-xs text-muted hover:text-foreground transition-colors"
-        >
-          Cancel editing
-        </button>
       </div>
     );
   }
