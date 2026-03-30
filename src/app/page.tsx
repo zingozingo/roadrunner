@@ -103,7 +103,7 @@ export default async function TodayPage() {
     upcomingMeetings.length > 0;
 
   return (
-    <div className="mx-auto max-w-4xl p-6 lg:p-8">
+    <div className="mx-auto max-w-6xl p-6 lg:p-8">
       {/* ---- Header ---- */}
       <div className="mb-8 flex items-baseline justify-between">
         <h1 className="text-xl font-semibold text-foreground">Today</h1>
@@ -116,106 +116,132 @@ export default async function TodayPage() {
         </p>
       )}
 
-      {/* ---- Today's Meetings ---- */}
-      {todaysMeetings.length > 0 && (
-        <section className="mb-8">
-          <SectionHeader label="Today's Meetings" count={todaysMeetings.length} />
-          <div className="rounded-lg border border-border/50 bg-surface overflow-hidden">
-            {todaysMeetings.map((m, i) => (
-              <Link
-                key={m.id}
-                href={`/meetings/${m.id}`}
-                className={`flex items-center px-4 py-3 transition-colors hover:bg-surface-hover ${
-                  i < todaysMeetings.length - 1 ? "border-b border-border/30" : ""
-                }`}
-              >
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <span className="text-sm font-medium text-foreground truncate">
-                    {m.partner_name ?? "Unknown"}
-                  </span>
-                  <span className="text-sm text-muted truncate">
-                    {cleanMeetingTitle(m.title)}
-                  </span>
+      {hasContent && (
+        <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8 lg:gap-12">
+
+          {/* ─── LEFT COLUMN: Schedule ─── */}
+          <div>
+            {/* Today's Meetings */}
+            {todaysMeetings.length > 0 && (
+              <section className="mb-8">
+                <SectionHeader label="Today's Meetings" count={todaysMeetings.length} />
+                <div className="rounded-lg border border-border/50 bg-surface overflow-hidden">
+                  {todaysMeetings.map((m, i) => (
+                    <Link
+                      key={m.id}
+                      href={`/meetings/${m.id}`}
+                      className={`flex items-center px-4 py-3 transition-colors hover:bg-surface-hover ${
+                        i < todaysMeetings.length - 1 ? "border-b border-border/30" : ""
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <span className="text-sm font-medium text-foreground truncate">
+                          {m.partner_name ?? "Unknown"}
+                        </span>
+                        <span className="text-sm text-muted truncate">
+                          {cleanMeetingTitle(m.title)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0 ml-4">
+                        {(m.recurrence_pattern || m.series_id) && (
+                          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted/70">
+                            <path d="M2 8a6 6 0 0 1 10.47-4M14 8a6 6 0 0 1-10.47 4" />
+                            <path d="M14 2v4h-4M2 14v-4h4" />
+                          </svg>
+                        )}
+                        {m.meeting_type && (
+                          <span className="text-[11px] font-medium rounded-full bg-accent/10 px-2 py-0.5 text-accent/70">
+                            {MEETING_TYPE_DISPLAY[m.meeting_type] ?? m.meeting_type.replace(/_/g, " ")}
+                          </span>
+                        )}
+                        <span className="text-xs font-medium text-accent">
+                          Open Notes
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
                 </div>
-                <div className="flex items-center gap-3 shrink-0 ml-4">
-                  {(m.recurrence_pattern || m.series_id) && (
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted/70">
-                      <path d="M2 8a6 6 0 0 1 10.47-4M14 8a6 6 0 0 1-10.47 4" />
-                      <path d="M14 2v4h-4M2 14v-4h4" />
-                    </svg>
+              </section>
+            )}
+
+            {/* Upcoming Meetings */}
+            {upcomingMeetings.length > 0 && (
+              <section>
+                <SectionHeader label="Upcoming" count={upcomingMeetings.length} />
+                <div className="rounded-lg border border-border/50 bg-surface overflow-hidden">
+                  {upcomingByDate.map(([date, meetings], gi) =>
+                    meetings.map((m, i) => (
+                      <MeetingRow
+                        key={m.id}
+                        meeting={m}
+                        showDate={i === 0}
+                        dateLabel={formatDateShort(date)}
+                        shifted={isMeetingShifted(m)}
+                        isLast={
+                          gi === upcomingByDate.length - 1 &&
+                          i === meetings.length - 1
+                        }
+                      />
+                    ))
                   )}
-                  {m.meeting_type && (
-                    <span className="text-[11px] font-medium rounded-full bg-accent/10 px-2 py-0.5 text-accent/70">
-                      {MEETING_TYPE_DISPLAY[m.meeting_type] ?? m.meeting_type.replace(/_/g, " ")}
-                    </span>
-                  )}
-                  <span className="text-xs font-medium text-accent">
-                    Open Notes
-                  </span>
                 </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
+              </section>
+            )}
 
-      {/* ---- My Tasks ---- */}
-      {myTasks.length > 0 && (
-        <section className="mb-8">
-          <div className="mb-3 flex items-center justify-between">
-            <SectionHeader label="My Tasks" count={myTasks.length} inline />
-            <Link
-              href="/tasks"
-              className="text-xs text-muted hover:text-foreground transition-colors"
-            >
-              View all
-            </Link>
-          </div>
-          <TodayTasks tasks={myTasks.slice(0, 10)} today={today} />
-        </section>
-      )}
-
-      {/* ---- Inbox Signal ---- */}
-      {inboxCount > 0 && (
-        <section className="mb-8">
-          <SectionHeader label="Inbox" />
-          <Link
-            href="/inbox"
-            className="flex items-center justify-between rounded-lg border border-border/50 bg-surface px-4 py-3 transition-colors hover:bg-surface-hover group"
-          >
-            <span className="text-sm text-foreground/70">
-              <span className="font-medium text-foreground">{inboxCount}</span>{" "}
-              {inboxCount === 1 ? "item" : "items"} waiting for triage
-            </span>
-            <span className="text-xs text-accent opacity-70 group-hover:opacity-100 transition-opacity">
-              Go to Inbox
-            </span>
-          </Link>
-        </section>
-      )}
-
-      {/* ---- Upcoming Meetings ---- */}
-      {upcomingMeetings.length > 0 && (
-        <section>
-          <SectionHeader label="Upcoming" count={upcomingMeetings.length} />
-          <div className="rounded-lg border border-border/50 bg-surface overflow-hidden">
-            {upcomingByDate.map(([date, meetings], gi) =>
-              meetings.map((m, i) => (
-                <MeetingRow
-                  key={m.id}
-                  meeting={m}
-                  showDate={i === 0}
-                  dateLabel={formatDateShort(date)}
-                  shifted={isMeetingShifted(m)}
-                  isLast={
-                    gi === upcomingByDate.length - 1 &&
-                    i === meetings.length - 1
-                  }
-                />
-              ))
+            {/* No meetings at all — gentle empty state in left column */}
+            {todaysMeetings.length === 0 && upcomingMeetings.length === 0 && (
+              <p className="text-sm text-muted/60 py-4">
+                No meetings scheduled this week.
+              </p>
             )}
           </div>
-        </section>
+
+          {/* ─── RIGHT COLUMN: Tasks + Inbox ─── */}
+          <div className="lg:border-l lg:border-border/20 lg:pl-8">
+            {/* My Tasks */}
+            {myTasks.length > 0 && (
+              <section className="mb-8">
+                <div className="mb-3 flex items-center justify-between">
+                  <SectionHeader label="My Tasks" count={myTasks.length} inline />
+                  <Link
+                    href="/tasks"
+                    className="text-xs text-muted hover:text-foreground transition-colors"
+                  >
+                    View all
+                  </Link>
+                </div>
+                <TodayTasks tasks={myTasks.slice(0, 6)} today={today} />
+                {myTasks.length > 6 && (
+                  <Link
+                    href="/tasks"
+                    className="mt-2 block text-center text-xs text-muted hover:text-foreground transition-colors"
+                  >
+                    +{myTasks.length - 6} more tasks
+                  </Link>
+                )}
+              </section>
+            )}
+
+            {/* Inbox Signal */}
+            {inboxCount > 0 && (
+              <section>
+                <SectionHeader label="Inbox" />
+                <Link
+                  href="/inbox"
+                  className="flex items-center justify-between rounded-lg border border-border/50 bg-surface px-4 py-3 transition-colors hover:bg-surface-hover group"
+                >
+                  <span className="text-sm text-foreground/70">
+                    <span className="font-medium text-foreground">{inboxCount}</span>{" "}
+                    {inboxCount === 1 ? "item" : "items"} waiting for triage
+                  </span>
+                  <span className="text-xs text-accent opacity-70 group-hover:opacity-100 transition-opacity">
+                    Go to Inbox
+                  </span>
+                </Link>
+              </section>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

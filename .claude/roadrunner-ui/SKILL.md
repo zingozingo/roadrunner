@@ -741,16 +741,31 @@ Patterns for rendering complex information visually. Status indicators, timeline
 **Design rationale:** Subgroups organize within a section without creating visual noise. The reduced opacity (/40 vs /60) makes them clearly subordinate to section headers.
 **Constraints:** Max 3-4 subgroups per section. If more, reconsider the section structure.
 
+### Two-Column Launchpad (Today Page)
+
+**Component:** Grid layout on Today page (`src/app/page.tsx`)
+**Used on:** Today page (desktop ≥1024px)
+**Behavior:**
+- `grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8 lg:gap-12`
+- Left column (60%): Today's Meetings + Upcoming Meetings — the schedule
+- Right column (40%): My Tasks (capped at 6) + Inbox signal — what needs attention
+- Right column has `lg:border-l lg:border-border/20 lg:pl-8` separator
+- Stacks to single column on <1024px (meetings first, then tasks + inbox)
+- "+N more tasks" link when tasks exceed cap
+- "No meetings scheduled this week" empty state in left column
+**Design rationale:** Meetings and tasks live side-by-side so neither buries the other. The 3:2 ratio gives meetings more space (they have more metadata per row). The schedule is the hero; tasks are the companion.
+**Constraints:** This is the only two-column launchpad page. Don't apply this layout to list pages (meetings, tasks, partners) — those are single-column with full-width rows.
+
 ### Tasks Grouped by Partner (Today Page)
 
 **Component:** `TodayTasks` client component
-**Used on:** Today page (My Tasks section)
+**Used on:** Today page (My Tasks section, right column)
 **Behavior:**
 - Tasks sorted: overdue first → due soonest → no due date last
 - Grouped by partner name with partner as section header
 - Each task row: checkbox + description + due date (overdue highlighted) + partner context
 - Overdue dates: `text-status-blocked` (amber)
-- "View all" link to /tasks page
-- Capped at 10 items
-**Design rationale:** Grouping by partner matches how the PDM thinks — "what do I owe Spacelift? What do I owe OPSWAT?" The sort order surfaces urgent items first.
+- "View all" link in section header to /tasks page
+- Capped at 6 items with "+N more tasks" link below
+**Design rationale:** Grouping by partner matches how the PDM thinks — "what do I owe Spacelift? What do I owe OPSWAT?" The sort order surfaces urgent items first. Cap at 6 keeps the right column compact.
 **Constraints:** Today page tasks are read-only (no inline editing). Full task management happens on /tasks.
