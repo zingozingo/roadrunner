@@ -1,22 +1,21 @@
 import Link from "next/link";
 import type { Meeting } from "@/lib/types";
+import { cleanMeetingTitle } from "@/lib/format-utils";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-type SeriesSibling = Pick<Meeting, "id" | "meeting_date" | "status" | "anchor_day">;
+type SeriesSibling = Pick<Meeting, "id" | "title" | "meeting_date" | "status" | "anchor_day">;
 
 interface SeriesTimelineProps {
   siblings: SeriesSibling[];
-  /** anchor_day from the series root */
   rootAnchorDay: number | null;
-  /** The currently viewed meeting ID (highlighted) */
   currentMeetingId?: string;
-  /** Recurrence pattern — needed for shifted detection */
   recurrencePattern: string | null;
 }
 
 function formatTipDate(d: string): string {
   return new Date(d + "T12:00:00").toLocaleDateString("en-US", {
+    weekday: "short",
     month: "short",
     day: "numeric",
   });
@@ -29,10 +28,6 @@ function formatLabelDate(d: string): string {
   });
 }
 
-/**
- * Compact horizontal dot strip visualizing a meeting series history.
- * Each dot represents one occurrence, color-coded by status.
- */
 export default function SeriesTimeline({
   siblings,
   rootAnchorDay,
@@ -43,16 +38,39 @@ export default function SeriesTimeline({
 
   const today = new Date().toISOString().slice(0, 10);
 
-  // Determine which date labels to show (avoid crowding)
-  // Show first, last, and every Nth based on count
-  const labelEveryN = siblings.length <= 6 ? 1
-    : siblings.length <= 12 ? 2
-    : siblings.length <= 20 ? 4
+  // Date label strategy: first, last, and every Nth
+  const labelEveryN = siblings.length <= 8 ? 1
+    : siblings.length <= 16 ? 2
+    : siblings.length <= 24 ? 4
     : 6;
 
   return (
     <div className="mb-6">
-      <div className="flex items-end gap-1.5 overflow-x-auto pb-4">
+      {/* Legend */}
+      <div className="flex items-center gap-4 mb-2">
+        <span className="text-[10px] text-muted/40 uppercase tracking-wider">Series</span>
+        <div className="flex items-center gap-3">
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-status-active" />
+            <span className="text-[10px] text-muted/50">Done</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-accent/50" />
+            <span className="text-[10px] text-muted/50">Past</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2.5 h-2.5 rounded-sm border border-accent/40" />
+            <span className="text-[10px] text-muted/50">Scheduled</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-muted/20" />
+            <span className="text-[10px] text-muted/50">Skipped</span>
+          </span>
+        </div>
+      </div>
+
+      {/* Timeline strip */}
+      <div className="flex items-end gap-1 overflow-x-auto pb-1">
         {siblings.map((s, i) => {
           const isShifted = (() => {
             if (rootAnchorDay === null || rootAnchorDay === undefined || !s.meeting_date) return false;
@@ -65,37 +83,37 @@ export default function SeriesTimeline({
           const isCancelled = s.status === "cancelled" || s.status === "did_not_occur";
           const isCompleted = s.status === "completed";
 
-          // Dot color
-          let dotClass = "";
+          // Block styling
+          let blockClass = "";
           if (isCancelled) {
-            dotClass = "bg-muted/30";
+            blockClass = "bg-muted/20";
           } else if (isCompleted) {
-            dotClass = "bg-status-active";
+            blockClass = "bg-status-active";
           } else if (isFuture) {
-            dotClass = "border border-accent/40 bg-transparent";
+            blockClass = "border border-accent/40 bg-transparent";
           } else {
-            // Past but not completed/cancelled — scheduled but past due
-            dotClass = "bg-accent/60";
+            blockClass = "bg-accent/50";
           }
 
-          // Shifted ring
-          const shiftedRing = isShifted ? "ring-2 ring-status-blocked/40" : "";
+          // Current meeting ring
+          const currentClass = isCurrent ? "ring-2 ring-foreground/60 ring-offset-1 ring-offset-background" : "";
 
-          // Current meeting highlight
-          const currentRing = isCurrent ? "ring-2 ring-foreground/50" : "";
+          // Shifted border
+          const shiftedClass = isShifted ? "border-2 border-status-blocked/60" : "";
 
-          // Tooltip text
+          // Tooltip
           const dateStr = s.meeting_date ? formatTipDate(s.meeting_date) : "TBD";
           const statusLabel = isCancelled ? "Skipped"
             : isCompleted ? "Completed"
             : isFuture ? "Scheduled"
-            : "Past";
+            : "Past due";
           const shiftLabel = isShifted && s.meeting_date
             ? ` · Moved to ${DAY_NAMES[new Date(s.meeting_date + "T12:00:00").getDay()]}`
             : "";
-          const tooltip = `${dateStr} — ${statusLabel}${shiftLabel}`;
+          const titleStr = s.title ? cleanMeetingTitle(s.title) : "";
+          const tooltip = `${dateStr} — ${statusLabel}${shiftLabel}${titleStr ? `\n${titleStr}` : ""}`;
 
-          // Show date label?
+          // Date label
           const showLabel = i === 0 || i === siblings.length - 1 || i % labelEveryN === 0;
 
           return (
@@ -103,16 +121,14 @@ export default function SeriesTimeline({
               <Link
                 href={`/meetings/${s.id}`}
                 title={tooltip}
-                className={`block w-3 h-3 rounded-full shrink-0 transition-transform hover:scale-125 ${dotClass} ${shiftedRing} ${currentRing}`}
-              >
-                {isCancelled && (
-                  <span className="block w-full h-px bg-muted/60 mt-[5px]" />
-                )}
-              </Link>
-              {showLabel && s.meeting_date && (
-                <span className="text-[9px] text-muted/40 whitespace-nowrap">
+                className={`block w-4 h-4 rounded-sm shrink-0 transition-all hover:scale-110 hover:brightness-125 ${blockClass} ${currentClass} ${shiftedClass}`}
+              />
+              {showLabel && s.meeting_date ? (
+                <span className="text-[9px] text-muted/40 whitespace-nowrap leading-none">
                   {formatLabelDate(s.meeting_date)}
                 </span>
+              ) : (
+                <span className="text-[9px] leading-none invisible">.</span>
               )}
             </div>
           );
