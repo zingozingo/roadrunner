@@ -746,7 +746,8 @@ Patterns for rendering complex information visually. Status indicators, timeline
 **Component:** Grid layout on Today page (`src/app/page.tsx`)
 **Used on:** Today page (desktop ≥1024px)
 **Behavior:**
-- `grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8 lg:gap-12`
+- Container: `max-w-7xl` (1280px) — matches meeting/engagement detail pages
+- `grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8`
 - Left column (60%): Today's Meetings + Upcoming Meetings — the schedule
 - Right column (40%): My Tasks (capped at 6) + Inbox signal — what needs attention
 - Right column has `lg:border-l lg:border-border/20 lg:pl-8` separator

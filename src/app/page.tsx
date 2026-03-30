@@ -103,7 +103,7 @@ export default async function TodayPage() {
     upcomingMeetings.length > 0;
 
   return (
-    <div className="mx-auto max-w-6xl p-6 lg:p-8">
+    <div className="mx-auto max-w-7xl p-6 lg:p-8">
       {/* ---- Header ---- */}
       <div className="mb-8 flex items-baseline justify-between">
         <h1 className="text-xl font-semibold text-foreground">Today</h1>
@@ -117,7 +117,7 @@ export default async function TodayPage() {
       )}
 
       {hasContent && (
-        <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8 lg:gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8">
 
           {/* ─── LEFT COLUMN: Schedule ─── */}
           <div>
