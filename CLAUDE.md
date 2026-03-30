@@ -174,7 +174,7 @@ docs/sessions/
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → human-guided routing → AI synthesis → structured engagements → Airtable sync.
-> 82 migrations · 17 tables · 30 API routes · 13 UI pages · 444 passing tests
+> 82 migrations · 17 tables · 34 API routes · 13 UI pages · 444 passing tests
 
 ---
 
@@ -235,10 +235,10 @@ roadrunner/
 │       │   ├── session-start.md     #   Claude.ai: session startup context
 │       │   └── session-end.md       #   Claude.ai: wrap-up protocol
 │       └── summaries/             #     Session summaries (one per session)
-├── decisions.md                   # Append-only architectural decision log (366 entries)
+├── decisions.md                   # Append-only architectural decision log (373 entries)
 ├── src/
 │   ├── app/                       # Next.js App Router
-│   │   ├── api/                   #   API routes (31 route files, grouped by entity)
+│   │   ├── api/                   #   API routes (34 route files, grouped by entity)
 │   │   │   ├── engagements/       #     CRUD + merge + participants
 │   │   │   ├── events/            #     CRUD
 │   │   │   ├── health/            #     Health check
@@ -247,7 +247,8 @@ roadrunner/
 │   │   │   ├── meetings/          #     CRUD
 │   │   │   ├── notes/             #     Notes CRUD + summarize + tasks + context
 │   │   │   ├── participants/      #     Update participant
-│   │   │   ├── partners/          #     CRUD + partner context
+│   │   │   ├── partners/          #     CRUD + partner context + enrollments + event-participations
+│   │   │   ├── people/            #     People search + create
 │   │   │   ├── programs/          #     CRUD
 │   │   │   ├── reviews/           #     Inbox resolve (assign/create/discard)
 │   │   │   └── sync/              #     Trigger Airtable sync
@@ -256,17 +257,18 @@ roadrunner/
 │   │   ├── inbox/                 #   Inbox triage UI
 │   │   ├── meetings/              #   Meeting list + detail pages (inline NoteWorkspace)
 │   │   ├── partners/              #   Partner list + detail pages
+│   │   ├── people/                #   Cross-partner people search + create
 │   │   ├── programs/              #   Program list + detail pages
 │   │   ├── tasks/                 #   Cross-partner task dashboard
 │   │   ├── layout.tsx             #   Root layout + sidebar
-│   │   └── page.tsx               #   Today page (meetings + inbox signal)
-│   ├── components/                # React components (30 across 6 groups)
+│   │   └── page.tsx               #   Today page (two-column: meetings + tasks/inbox)
+│   ├── components/                # React components (35 across 6 groups)
 │   │   ├── actions/               #   Entity action buttons + MergeButton (5 files)
 │   │   ├── inbox/                 #   Inbox triage UI — InboxClient (1 file)
 │   │   ├── layout/                #   App structure — sidebar, headers (4 files)
 │   │   ├── notes/                 #   NoteWorkspace, ContextSidebar, PreviousNotes, TaskEditor, MeetingNotesSection
-│   │   ├── partners/              #   BrainSynthesis, PartnerScratchpad
-│   │   └── shared/                #   Reusable primitives — EngagementLinker, RecurrenceEditor, SlideOverPanel, badges, ContactGroup, Timeline (13 files)
+│   │   ├── partners/              #   BrainSynthesis, PartnerScratchpad, EnrollmentSection, EventParticipationSection
+│   │   └── shared/                #   Reusable primitives — EngagementLinker, RecurrenceEditor, SeriesDisplay, SeriesActions, SeriesTimeline, SlideOverPanel, badges, ContactGroup (16 files)
 │   └── lib/                       # Core business logic
 │       ├── classifier.ts          #   Synthesis orchestrator (synthesizeIntoEngagement, persistClassificationResult)
 │       ├── claude.ts              #   Anthropic API client (synthesis calls)
@@ -433,7 +435,7 @@ AIRTABLE_BASE_ID=appy9TT1LRJTAuQ4W
 ```bash
 npm install                        # Install dependencies
 npm run dev                        # Start Next.js dev server on :3000
-npx vitest run --reporter=verbose  # Run tests (435 passing, 0 failures)
+npx vitest run --reporter=verbose  # Run tests (444 passing, 0 failures)
 npx tsc --noEmit                   # TypeScript check (must pass with zero errors)
 ```
 
@@ -451,7 +453,7 @@ npx tsc --noEmit                   # TypeScript check (must pass with zero error
 | ics-parser.test.ts | 32 | ICS calendar parsing (RFC 5545), multi-VEVENT guardrail |
 | name-resolver.test.ts | 27 | Contact name resolution from JSONB columns |
 | partner-detection.test.ts | 25 | Mechanical partner detection via domain matching |
-| meeting-recurrence.test.ts | 18 | Recurring meeting engine (calculateNextDate, overdue detection, spawn) |
+| meeting-recurrence.test.ts | 27 | Recurring meeting engine (calculateNextDate, anchor day snap, overdue detection, spawn) |
 | user-config.test.ts | 18 | User identity matching |
 | meeting-pipeline.test.ts | 13 | Meeting creation, ICS parsing, linking |
 | prompt-builder.test.ts | 3 | Forwarder section builder (buildForwarderSection) |
@@ -554,7 +556,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-082). New migratio
 | `docs/plans/active.md` | Current task plan (empty when no plan active) | Task mode |
 | `docs/sessions/templates/` | Session templates — diagnostics and Claude.ai session prompt | Reference when needed |
 | `docs/sessions/summaries/` | Session summaries — one per session, latest is handoff for next session | Session start (paste latest into Claude.ai) |
-| `decisions.md` | Append-only architectural decision log (366 entries) | When you need "why" |
+| `decisions.md` | Append-only architectural decision log (373 entries) | When you need "why" |
 
 ---
 

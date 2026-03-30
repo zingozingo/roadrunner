@@ -6718,3 +6718,94 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** Agent has clear structure for documenting new patterns as they're built. Three-layer hierarchy prevents SKILL.md from becoming a flat list of unrelated patterns.
 
 ---
+
+### #367 — anchor_day column created via migration 082 (078/079 DDL gap fix)
+
+**Date:** 2026-03-29
+**Status:** ✅ Implemented
+
+**Decision:** Created migration 082 to add the `anchor_day` column to meetings and backfill all 14 series roots. Migrations 078/079 were tracked as applied in the migration tracker but the DDL (ALTER TABLE) never actually executed in production — the column did not exist.
+
+**Rationale:** The recurrence snap logic built in Plan 1 (calculateNextDate with anchorDay parameter, snapToAnchor function) was completely inert without the column it depended on. The migration tracker saying "applied" was not sufficient verification — the actual schema must be checked.
+
+**Impact:** Recurrence snap logic is now live. 14 series roots have correct anchor_day values. Pattern established: always verify DDL actually ran via schema inspection, not just migration tracker status.
+
+---
+
+### #368 — Plan 2: Meeting Recurrence Experience overhaul
+
+**Date:** 2026-03-29
+**Status:** ✅ Implemented
+
+**Decision:** Delivered 7 tasks transforming meeting recurrence from scattered controls into a cohesive experience: SeriesDisplay (unified rhythm + navigation + shifted indicator), RecurrenceEditor (simplified with indefinite default, hidden end date, 3-date preview), SeriesActions (secondary treatment for skip/end/edit with inline confirmation), standalone-to-series conversion ("Make Recurring"), anchor snap verification (9 new tests), and SeriesTimeline strip (color-coded occurrence history).
+
+**Rationale:** The old recurrence UI had two competing displays (nav bar + sidebar field), children didn't show anchor day info, management actions competed visually with informational display, and shifted occurrences were invisible. The overhaul unified all recurrence information into one component hierarchy.
+
+**Impact:** 3 new components (SeriesDisplay, SeriesActions, SeriesTimeline). Shifted occurrences visible via amber dates across all list views. Anchor snap verified for all 4 patterns. Tests: 435 → 444.
+
+---
+
+### #369 — Plan 2: People page as search-first rolodex
+
+**Date:** 2026-03-29
+**Status:** ✅ Implemented
+
+**Decision:** Created /people route with GET/POST API, search across name/email/org/title, org_type filter pills (All/AWS Team/Partner/Third Party), partner dropdown filter, and "Add Person" modal with duplicate email detection. Sidebar entry added in Secondary tier between Meetings and Programs.
+
+**Rationale:** Finding "who was that person on the Nozomi deal?" required navigating to the partner page and searching through engagement contributors. A dedicated cross-partner People page provides instant search access. The three-group sphere (AWS/Partner/Third Party) is the consistent organizing principle, matching the partner detail People section.
+
+**Impact:** 13th page. 30th API route (later expanded to 34). 227 participants searchable. Duplicate email detection returns 409 with existing person info.
+
+---
+
+### #370 — Plan 2: Today page two-column layout
+
+**Date:** 2026-03-29
+**Status:** ✅ Implemented
+
+**Decision:** Restructured Today page from single-column stacked layout to two-column grid on desktop (≥1024px): meetings column (left, 60%) + tasks/inbox column (right, 40%). Tasks capped at 6 (was 10) with "+N more tasks" link. Stacks to single column on narrower viewports.
+
+**Rationale:** 38 tasks were burying meetings — the PDM had to scroll past all tasks to see upcoming meetings. The two-column layout puts schedule and tasks side-by-side so neither buries the other.
+
+**Impact:** Meetings visible without scrolling. Two-column launchpad documented as system pattern in SKILL.md. Container widened from max-w-4xl to max-w-7xl.
+
+---
+
+### #371 — RecurrenceEditor startEditing prop for context-dependent initialization
+
+**Date:** 2026-03-29
+**Status:** ✅ Implemented
+
+**Decision:** Added `startEditing` and `onCancel` props to RecurrenceEditor. When `startEditing=true` (from SeriesActions "Edit Pattern"), the form renders immediately with state initialized from props. When used standalone or in create modal, starts in idle state with "Make recurring" text.
+
+**Rationale:** RecurrenceEditor was rendering "Make recurring" (its idle state) when opened from SeriesActions, because the component always started with `editing=false`. The user had to click "Make recurring" to see the edit form, and two cancel buttons appeared (one from RecurrenceEditor, one from SeriesActions).
+
+**Impact:** Pattern established: components serving multiple contexts should accept initialization props rather than assuming one default state. Single cancel button in all contexts.
+
+---
+
+### #372 — Program enrollment and event participation CRUD — Roadrunner-only
+
+**Date:** 2026-03-29
+**Status:** ✅ Implemented
+
+**Decision:** Built 6 new API endpoints (POST/PUT/DELETE for each table) and 2 new client components (EnrollmentSection, EventParticipationSection) with inline status editing and optimistic updates. Manually-created records coexist with AT-synced records — `airtable_id` left null for manual records. No AT push. Contact text fields (`aws_stakeholder`, `contacts_attending`) excluded from CRUD.
+
+**Rationale:** The PDM needs to track enrollment changes and event participations without waiting for AT sync. Roadrunner-only records are the first step toward the Airtable exit path. Contact fields excluded because the People sphere (participants registry) is the single source of truth for contacts.
+
+**Impact:** 6 new API routes (34 total). 2 new components (35 total). Inline status editing with optimistic updates. Enrollments and event participations now fully manageable in Roadrunner.
+
+---
+
+### #373 — Event participations section always visible with empty state
+
+**Date:** 2026-03-29
+**Status:** ✅ Implemented
+
+**Decision:** Changed event participations section on partner detail page from conditionally rendered (`{eventParticipations.length > 0 && ...}`) to always visible with "No event participations" text and "+ Add" button when empty.
+
+**Rationale:** When a CRUD-enabled section is hidden at zero records, the user can't discover the create action. The "+ Add" button needs to be visible to be useful.
+
+**Impact:** Pattern established: CRUD-enabled sections should always render so the user can discover and use the create action. Applies to any section where the user can add records.
+
+---
