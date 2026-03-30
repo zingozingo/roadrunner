@@ -81,6 +81,8 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrencePattern, setRecurrencePattern] = useState("weekly");
   const [recurrenceEnd, setRecurrenceEnd] = useState("");
+  const [anchorDay, setAnchorDay] = useState(() => new Date().getDay());
+  const [showEndDate, setShowEndDate] = useState(false);
   // Tracks the last auto-generated title so we know when to overwrite
   const [autoTitle, setAutoTitle] = useState("");
 
@@ -106,6 +108,8 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
     setIsRecurring(false);
     setRecurrencePattern("weekly");
     setRecurrenceEnd("");
+    setAnchorDay(new Date().getDay());
+    setShowEndDate(false);
     setAutoTitle("");
     setFormError(null);
     setSubmitting(false);
@@ -154,9 +158,7 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
     if (isRecurring) {
       body.recurrence_pattern = recurrencePattern;
       body.recurrence_end = recurrenceEnd || null;
-      // Compute anchor_day from meeting date (day of week: 0=Sun..6=Sat)
-      const [ay, am, ad] = meetingDate.split("-").map(Number);
-      body.anchor_day = new Date(ay, am - 1, ad).getDay();
+      body.anchor_day = anchorDay;
     }
 
     try {
@@ -463,9 +465,13 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
                     onChange={(e) => {
                       const checked = e.target.checked;
                       setIsRecurring(checked);
+                      if (checked && meetingDate) {
+                        setAnchorDay(new Date(meetingDate + "T12:00:00").getDay());
+                      }
                       if (!checked) {
                         setRecurrencePattern("weekly");
                         setRecurrenceEnd("");
+                        setShowEndDate(false);
                       }
                     }}
                     className="rounded border-border"
@@ -473,35 +479,67 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
                   Recurring meeting
                 </label>
                 {isRecurring && (
-                  <div className="mt-2 space-y-3 pl-6">
-                    <div className="flex items-center gap-3">
+                  <div className="mt-3 space-y-3 pl-6">
+                    {/* Pattern */}
+                    <div>
+                      <label className="block text-[10px] font-medium text-muted/60 mb-1">Pattern</label>
                       <select
                         value={recurrencePattern}
                         onChange={(e) => setRecurrencePattern(e.target.value)}
-                        className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
+                        className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
                       >
                         {RECURRENCE_OPTIONS.map((opt) => (
                           <option key={opt.value} value={opt.value}>{opt.label}</option>
                         ))}
                       </select>
-                      <input
-                        type="date"
-                        value={recurrenceEnd}
-                        onChange={(e) => setRecurrenceEnd(e.target.value)}
-                        placeholder="End date (optional)"
-                        className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
-                      />
                     </div>
+
+                    {/* Day selector */}
+                    {(recurrencePattern === "weekly" || recurrencePattern === "biweekly") && (
+                      <div>
+                        <label className="block text-[10px] font-medium text-muted/60 mb-1">Day</label>
+                        <select
+                          value={anchorDay}
+                          onChange={(e) => setAnchorDay(Number(e.target.value))}
+                          className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
+                        >
+                          {DAY_NAMES.map((name, i) => (
+                            <option key={i} value={i}>{name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Preview */}
                     {meetingDate && (
-                      <div className="space-y-1">
-                        <div className="text-xs text-muted">
-                          Anchor: <span className="text-foreground/70">{DAY_NAMES[new Date(meetingDate + "T12:00:00").getDay()]}s</span>
-                        </div>
-                        <div className="text-[11px] text-muted/60">
-                          Next 4: {previewDates(meetingDate, recurrencePattern, 4).map((d) =>
-                            new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                          ).join(" → ")}
-                        </div>
+                      <div className="text-xs text-muted/60">
+                        Next 3: <span className="text-foreground/60">{previewDates(meetingDate, recurrencePattern, 3).map((d) =>
+                          new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                        ).join(" → ")}</span>
+                      </div>
+                    )}
+
+                    {/* End date — hidden by default */}
+                    {showEndDate ? (
+                      <div>
+                        <label className="block text-[10px] font-medium text-muted/60 mb-1">End date</label>
+                        <input
+                          type="date"
+                          value={recurrenceEnd}
+                          onChange={(e) => setRecurrenceEnd(e.target.value)}
+                          className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted/50">Recurs indefinitely</span>
+                        <button
+                          type="button"
+                          onClick={() => setShowEndDate(true)}
+                          className="text-xs text-accent hover:text-accent-hover transition-colors"
+                        >
+                          Add end date
+                        </button>
                       </div>
                     )}
                   </div>

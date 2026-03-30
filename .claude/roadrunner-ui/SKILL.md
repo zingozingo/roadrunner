@@ -434,8 +434,8 @@ Reusable behavior patterns for interactive elements. Any pattern established her
 - Fixed overlay: `bg-black/50` backdrop + centered modal `bg-surface rounded-lg border`
 - Form fields: Partner dropdown (required) → auto-title from partner + type → meeting type → date → recurrence toggle → pattern/day picker
 - Auto-title: `"{Partner} — {Type}"` generated on partner+type selection, editable
-- Recurrence toggle: checkbox reveals pattern dropdown + day-of-week selector + 3-date preview
-- Preview: shows next 3 occurrence dates, updates live on pattern/day change
+- Recurrence toggle: checkbox reveals RecurrenceEditor inline (pattern + day + preview + end date)
+- See RecurrenceEditor pattern below for editor details
 - Submit: "Create Meeting" button, disabled while submitting, shows "Creating..."
 - Cancel: "Cancel" text button, closes modal
 - Close on backdrop click or Escape key
@@ -469,6 +469,21 @@ Reusable behavior patterns for interactive elements. Any pattern established her
 - Unlink: `text-muted hover:text-red-400` × button, no confirmation (reversible action)
 **Design rationale:** The picker pre-filters by partner because cross-partner engagement linking is never correct. "Create new" at top because new engagements are common when linking meetings.
 **Constraints:** Don't add search within the picker — partner engagement lists are small (<10). Don't show archived engagements.
+
+### Recurrence Editor
+
+**Component:** `RecurrenceEditor` (`src/components/shared/RecurrenceEditor.tsx`)
+**Used on:** Meeting detail page (standalone meetings — "Make recurring"), Create meeting modal (recurring toggle)
+**Behavior:**
+- Pattern dropdown (Weekly/Biweekly/Monthly/Quarterly) with labeled `text-[10px]` header
+- Day selector: day-of-week dropdown for weekly/biweekly, day-of-month number input for monthly/quarterly
+- Day auto-populates from meeting date on open, but is always editable
+- Preview: "Next 3: Apr 6 → Apr 13 → Apr 20" — updates live on pattern/day change
+- End date hidden by default: "Recurs indefinitely" + accent "Add end date" link
+- Save button: full-width accent, shows "Saving..." while in flight
+- On save: sets recurrence_pattern, anchor_day, series_id on the meeting; router.refresh()
+**Design rationale:** The editor shows only what matters (pattern, day, preview) with progressive disclosure for the rare end-date case. Same component works in both create and edit contexts.
+**Constraints:** Don't show the editor for series meetings — SeriesDisplay handles those. The editor is for standalone → series conversion and create flows only.
 
 ## Navigation & Linking
 

@@ -246,6 +246,7 @@ export default async function MeetingDetailPage({
                   <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Recurrence</span>
                   <RecurrenceEditor
                     meetingId={id}
+                    meetingDate={meeting.meeting_date}
                     initialPattern={meeting.recurrence_pattern}
                     initialEnd={meeting.recurrence_end}
                     initialSeriesId={meeting.series_id}
