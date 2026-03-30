@@ -125,6 +125,75 @@ describe("calculateNextDate", () => {
   it("weekly from a date already in the future doesn't over-advance", () => {
     expect(calculateNextDate("2026-03-25", "weekly")).toBe("2026-04-01");
   });
+
+  // ── Anchor day snap tests ──────────────────────────────────
+  describe("anchor day snapping", () => {
+    it("weekly: rescheduled occurrence snaps back to anchor day", () => {
+      // Series anchored on Wednesday (3). Last occurrence was moved to Friday (2026-03-20).
+      // Without snap: 03-20 + 7 = 03-27 (Friday) — DRIFT
+      // With snap (anchor=3/Wed): 03-27 snaps to 03-25 (Wednesday) — CORRECT
+      expect(calculateNextDate("2026-03-20", "weekly", 3)).toBe("2026-03-25");
+    });
+
+    it("weekly: on-schedule occurrence stays on anchor day", () => {
+      // Series anchored on Wednesday (3). Last occurrence was on Wed 2026-03-18.
+      // 03-18 + 7 = 03-25 (Wednesday) — already correct, snap is a no-op
+      expect(calculateNextDate("2026-03-18", "weekly", 3)).toBe("2026-03-25");
+    });
+
+    it("biweekly: rescheduled occurrence snaps back to anchor day", () => {
+      // Series anchored on Tuesday (2). Last occurrence moved to Thursday (2026-03-06).
+      // Without snap: 03-06 + 14 = 03-20 (Friday) — DRIFT
+      // With snap (anchor=2/Tue): 03-20 snaps to 03-17 (Tuesday), but 03-17 < today (03-18)
+      // So advance again: 03-17 + 14 = 03-31, snap to 03-31 (already Tuesday)
+      expect(calculateNextDate("2026-03-06", "biweekly", 2)).toBe("2026-03-31");
+    });
+
+    it("biweekly: on-schedule stays correct", () => {
+      // Anchored on Wednesday (3). Last on Wed 2026-03-18.
+      // 03-18 + 14 = 04-01 (Wednesday) — correct
+      expect(calculateNextDate("2026-03-18", "biweekly", 3)).toBe("2026-04-01");
+    });
+
+    it("monthly: snaps to anchor day-of-month", () => {
+      // Series anchored on the 15th. Last occurrence was on the 10th (rescheduled).
+      // Without snap: advance to April 10
+      // With snap (anchor=15): snaps to April 15
+      vi.setSystemTime(new Date("2026-03-12T12:00:00Z"));
+      expect(calculateNextDate("2026-03-10", "monthly", 15)).toBe("2026-04-15");
+    });
+
+    it("monthly: clamps to month-end for short months", () => {
+      // Series anchored on the 31st. January → February.
+      // February has 28 days → clamp to 28
+      vi.setSystemTime(new Date("2026-02-01T12:00:00Z"));
+      expect(calculateNextDate("2026-01-31", "monthly", 31)).toBe("2026-02-28");
+    });
+
+    it("quarterly: snaps to anchor day-of-month", () => {
+      // Series anchored on the 20th. Last occurrence was on the 18th.
+      vi.setSystemTime(new Date("2026-01-01T12:00:00Z"));
+      expect(calculateNextDate("2026-01-18", "quarterly", 20)).toBe("2026-04-20");
+    });
+
+    it("weekly: multiple missed with anchor snap recovers correctly", () => {
+      // Series anchored on Friday (5). Last occurrence 2026-01-03 (Friday).
+      // Today is 2026-03-18. Need to advance many weeks past today, all snapping to Friday.
+      const result = calculateNextDate("2026-01-03", "weekly", 5);
+      // Should be a Friday >= 2026-03-18. First Friday >= 03-18 is 03-20
+      expect(result).toBe("2026-03-20");
+      // Verify it's actually a Friday
+      expect(new Date(result + "T12:00:00").getDay()).toBe(5);
+    });
+
+    it("weekly: rescheduled to earlier in the week still snaps to anchor", () => {
+      // Anchored on Thursday (4). Last occurrence moved to Monday (2026-03-16).
+      // 03-16 + 7 = 03-23 (Monday), snap to Thursday in same week = 03-26
+      expect(calculateNextDate("2026-03-16", "weekly", 4)).toBe("2026-03-26");
+      // Verify it's actually a Thursday
+      expect(new Date("2026-03-26T12:00:00").getDay()).toBe(4);
+    });
+  });
 });
 
 // ── getOverdueRecurringMeetings ─────────────────────────────
