@@ -177,6 +177,21 @@ export default async function PartnerDetailPage({
         )
       : null;
 
+  /* Root anchor_day map for shifted-occurrence detection in meeting rows */
+  const rootAnchorDays = new Map<string, number>();
+  for (const m of linkedMeetings) {
+    if (m.id === m.series_id && m.anchor_day !== null && m.anchor_day !== undefined) {
+      rootAnchorDays.set(m.id, m.anchor_day);
+    }
+  }
+  function isMeetingShifted(m: Meeting): boolean {
+    if (!m.series_id || !m.meeting_date) return false;
+    const rootAnchor = rootAnchorDays.get(m.series_id);
+    if (rootAnchor === undefined) return false;
+    if (m.recurrence_pattern !== "weekly" && m.recurrence_pattern !== "biweekly") return false;
+    return new Date(m.meeting_date + "T12:00:00").getDay() !== rootAnchor;
+  }
+
   /* Recent meetings — last 90 days */
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 90);
@@ -417,13 +432,14 @@ export default async function PartnerDetailPage({
           <Section title="Recent Meetings" count={recentMeetings.length}>
             {recentMeetings.slice(0, 8).map((m) => {
               const firstLine = condensedByMeetingId.get(m.id)?.split("\n").find((l) => l.trim()) ?? null;
+              const shifted = isMeetingShifted(m);
               return (
                 <Link
                   key={m.id}
                   href={`/meetings/${m.id}`}
                   className="flex items-start gap-3 border-b border-border/30 px-4 py-2.5 transition-colors hover:bg-surface-hover last:border-b-0"
                 >
-                  <span className="w-16 shrink-0 pt-0.5 text-xs text-muted">{shortDate(m.meeting_date)}</span>
+                  <span className={`w-16 shrink-0 pt-0.5 text-xs ${shifted ? "text-status-blocked/70" : "text-muted"}`} title={shifted ? "Rescheduled from regular day" : undefined}>{shortDate(m.meeting_date)}</span>
                   <div className="min-w-0 flex-1">
                     <span className="flex items-center gap-1.5 text-sm text-foreground/80 truncate">
                       {(m.recurrence_pattern || m.series_id) && (

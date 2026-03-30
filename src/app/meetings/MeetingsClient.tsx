@@ -179,6 +179,27 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
     }
   }
 
+  // Build map of series_id → root anchor_day for shifted-occurrence detection
+  const rootAnchorDays = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const m of meetings) {
+      if (m.id === m.series_id && m.anchor_day !== null && m.anchor_day !== undefined) {
+        map.set(m.id, m.anchor_day);
+      }
+    }
+    return map;
+  }, [meetings]);
+
+  function isShifted(m: MeetingWithNames): boolean {
+    if (!m.series_id || !m.meeting_date) return false;
+    const rootAnchor = rootAnchorDays.get(m.series_id);
+    if (rootAnchor === undefined) return false;
+    const pattern = m.recurrence_pattern ?? (meetings.find((r) => r.id === m.series_id)?.recurrence_pattern);
+    if (pattern !== "weekly" && pattern !== "biweekly") return false;
+    const dow = new Date(m.meeting_date + "T12:00:00").getDay();
+    return dow !== rootAnchor;
+  }
+
   const filteredMeetings = useMemo(() => {
     return meetings.filter((m) => {
       if (searchQuery) {
@@ -287,6 +308,7 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
                         const shortDate = m.meeting_date
                           ? new Date(m.meeting_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
                           : "TBD";
+                        const shifted = isShifted(m);
 
                         return (
                           <Link
@@ -294,7 +316,7 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
                             href={`/meetings/${m.id}`}
                             className="flex items-baseline gap-4 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
                           >
-                            <span className="w-24 shrink-0 text-xs text-muted">
+                            <span className={`w-24 shrink-0 text-xs ${shifted ? "text-status-blocked/70" : "text-muted"}`} title={shifted ? "Rescheduled from regular day" : undefined}>
                               {shortDate}
                             </span>
                             <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">

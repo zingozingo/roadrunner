@@ -3,6 +3,7 @@ import {
   getUpcomingMeetings,
   getOpenTasks,
   getInboxGroupCount,
+  getSupabaseClient,
 } from "@/lib/db";
 import { cleanMeetingTitle } from "@/lib/format-utils";
 import { MEETING_TYPE_DISPLAY } from "@/lib/sync/field-maps";
@@ -49,6 +50,39 @@ export default async function TodayPage() {
     month: "long",
     day: "numeric",
   });
+
+  /* Build root anchor_day map for shifted-occurrence detection */
+  const rootAnchorDays = new Map<string, number>();
+  // First pass: get roots from the existing dataset
+  for (const m of allMeetings) {
+    if (m.id === m.series_id && m.anchor_day !== null && m.anchor_day !== undefined) {
+      rootAnchorDays.set(m.id, m.anchor_day);
+    }
+  }
+  // Second pass: batch-fetch any missing roots (root might be outside the 7-day window)
+  const missingRootIds = [...new Set(
+    allMeetings
+      .filter((m) => m.series_id && !rootAnchorDays.has(m.series_id))
+      .map((m) => m.series_id!)
+  )];
+  if (missingRootIds.length > 0) {
+    const db = getSupabaseClient();
+    const { data: roots } = await db
+      .from("meetings")
+      .select("id, anchor_day")
+      .in("id", missingRootIds);
+    for (const r of (roots ?? []) as { id: string; anchor_day: number | null }[]) {
+      if (r.anchor_day !== null) rootAnchorDays.set(r.id, r.anchor_day);
+    }
+  }
+  function isMeetingShifted(m: EnrichedMeeting): boolean {
+    if (!m.series_id || !m.meeting_date) return false;
+    const rootAnchor = rootAnchorDays.get(m.series_id);
+    if (rootAnchor === undefined) return false;
+    const pattern = m.recurrence_pattern;
+    if (pattern !== "weekly" && pattern !== "biweekly") return false;
+    return new Date(m.meeting_date + "T12:00:00").getDay() !== rootAnchor;
+  }
 
   /* Group upcoming meetings by date */
   const upcomingByDate: [string, EnrichedMeeting[]][] = [];
@@ -172,6 +206,7 @@ export default async function TodayPage() {
                   meeting={m}
                   showDate={i === 0}
                   dateLabel={formatDateShort(date)}
+                  shifted={isMeetingShifted(m)}
                   isLast={
                     gi === upcomingByDate.length - 1 &&
                     i === meetings.length - 1
@@ -215,11 +250,13 @@ function MeetingRow({
   meeting,
   showDate,
   dateLabel,
+  shifted,
   isLast,
 }: {
   meeting: EnrichedMeeting;
   showDate: boolean;
   dateLabel?: string;
+  shifted?: boolean;
   isLast: boolean;
 }) {
   return (
@@ -231,7 +268,7 @@ function MeetingRow({
     >
       {/* Date column (for upcoming) */}
       {dateLabel !== undefined && (
-        <span className="w-24 shrink-0 text-xs text-muted">
+        <span className={`w-24 shrink-0 text-xs ${shifted ? "text-status-blocked/70" : "text-muted"}`} title={shifted ? "Rescheduled from regular day" : undefined}>
           {showDate ? dateLabel : ""}
         </span>
       )}

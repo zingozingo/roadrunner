@@ -588,21 +588,34 @@ Patterns for rendering complex information visually. Status indicators, timeline
 
 ## Series & Timeline Visualization
 
-### Series Navigation Bar
+### SeriesDisplay (Unified Series Component)
 
-**Component:** Inline section on meeting detail page
-**Used on:** Meeting detail (for meetings that are part of a series)
+**Component:** `SeriesDisplay` (`src/components/shared/SeriesDisplay.tsx`)
+**Used on:** Meeting detail page (replaces both the old nav bar and sidebar recurrence field)
 **Behavior:**
-- Horizontal bar: `rounded-lg border border-border/20 bg-surface/50 px-4 py-2`
-- Left: "← Previous" link to prior occurrence (disabled if first)
-- Center: "{Pattern} on {Day}s · Occurrence N of M (since {date})"
-- Right: "Next →" link to next occurrence (disabled if last)
-- Pattern label: capitalized recurrence_pattern + anchor day name (e.g., "Weekly on Wednesdays")
-- Anchor day read from meeting.anchor_day (0=Sun..6=Sat)
-**Design rationale:** Series navigation lets the user traverse the meeting history without going back to a list. The centered context text gives rhythm at a glance.
-**Constraints:** Don't show navigation bar for standalone (non-series) meetings. Don't add "Jump to root" — the user can click ← Previous repeatedly.
+- Line 1: ↻ icon + rhythm text + "Since {date}" + optional "Ends {date}" + optional shifted indicator
+- Line 2: ← Previous / Next → navigation (disabled at boundaries)
+- Rhythm text: "Weekly on Fridays", "Biweekly on Wednesdays", "Monthly on the 15th"
+- **Always reads anchor_day from the series root** (resolved server-side), not the current meeting
+- No occurrence count ("N of M") — meaningless for indefinite series
+- Container: `rounded-lg border border-border/20 bg-surface/50 px-4 py-3`
+**Design rationale:** Unifies two previously separate displays (nav bar + sidebar field) into one clean component. The series root resolves rhythm info so children show the correct pattern even though their own anchor_day is null.
+**Constraints:** Don't show for standalone meetings. Don't add occurrence count back.
 
-*Series Timeline Strip — not yet built. Will be established in Plan 2 Phase 2.*
+### Shifted-Occurrence Indicator
+
+**Component:** Inline text in `SeriesDisplay` + date color in list views
+**Used on:** Meeting detail (inside SeriesDisplay), Meetings list, Today page, Partner detail recent meetings
+**Behavior:**
+- **Detail page:** Amber text "Moved to {day}" appended to SeriesDisplay line 1 (`text-status-blocked/70`)
+- **List views:** Date text renders in `text-status-blocked/70` (amber) instead of `text-muted` when day-of-week ≠ root's anchor_day
+- Detection: compare meeting_date day-of-week against root's anchor_day (weekly/biweekly only)
+- Title attribute: "Rescheduled from regular day" on hover
+- Server-side: root anchor_days batch-looked-up for list views that may not include roots in dataset
+**Design rationale:** Subtle but unmissable. Amber is the "attention" color (already used for overdue tasks). Users learn the pattern quickly: amber date = off-rhythm.
+**Constraints:** Only applies to weekly/biweekly patterns (monthly/quarterly have variable day-of-week by nature). Don't use for standalone meetings.
+
+*Series Timeline Strip — will be established in Task 2.7.*
 
 ## Financial Displays
 

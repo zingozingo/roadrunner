@@ -19,6 +19,7 @@ import ContactGroup from "@/components/shared/ContactGroup";
 import { USER_CONFIG } from "@/lib/user-config";
 import EngagementLinker from "@/components/shared/EngagementLinker";
 import RecurrenceEditor from "@/components/shared/RecurrenceEditor";
+import SeriesDisplay from "@/components/shared/SeriesDisplay";
 import type { DisplayContext } from "@/lib/types";
 import { MEETING_TYPE_DISPLAY } from "@/lib/sync/field-maps";
 
@@ -125,6 +126,13 @@ export default async function MeetingDetailPage({
   );
   const totalAttendees = filteredAttendees.length;
 
+  // Resolve series root data for SeriesDisplay
+  const seriesRoot = meeting.series_id
+    ? seriesSiblings.find((s) => s.id === meeting.series_id)
+    : null;
+  const rootAnchorDay = seriesRoot?.anchor_day ?? meeting.anchor_day ?? null;
+  const rootDate = seriesRoot?.meeting_date ?? null;
+
   const dotColor = statusDotColor[meeting.status] ?? "bg-zinc-500";
 
   const shortDate = meeting.meeting_date
@@ -165,45 +173,16 @@ export default async function MeetingDetailPage({
         </div>
       </div>
 
-      {/* ═══ SERIES NAVIGATION ═══ */}
-      {seriesSiblings.length > 1 && (() => {
-        const idx = seriesSiblings.findIndex((s) => s.id === id);
-        const prev = idx > 0 ? seriesSiblings[idx - 1] : null;
-        const next = idx < seriesSiblings.length - 1 ? seriesSiblings[idx + 1] : null;
-        const root = seriesSiblings[0];
-        const anchorLabel = meeting.anchor_day !== null && meeting.anchor_day !== undefined
-          ? ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][meeting.anchor_day]
-          : null;
-        const patternLabel = meeting.recurrence_pattern
-          ? meeting.recurrence_pattern.charAt(0).toUpperCase() + meeting.recurrence_pattern.slice(1)
-          : null;
-        const sinceDate = root?.meeting_date
-          ? new Date(root.meeting_date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
-          : null;
-        return (
-          <div className="mb-6 rounded-lg border border-border/20 bg-surface/50 px-4 py-2">
-            <div className="flex items-center gap-4">
-              {prev ? (
-                <Link href={`/meetings/${prev.id}`} className="text-xs text-muted hover:text-accent transition-colors">
-                  &larr; Previous
-                </Link>
-              ) : (
-                <span className="text-xs text-muted/30">&larr; Previous</span>
-              )}
-              <span className="flex-1 text-center text-xs text-muted">
-                {patternLabel}{anchorLabel ? ` on ${anchorLabel}s` : ""} · Occurrence {idx + 1} of {seriesSiblings.length}{sinceDate ? ` (since ${sinceDate})` : ""}
-              </span>
-              {next ? (
-                <Link href={`/meetings/${next.id}`} className="text-xs text-muted hover:text-accent transition-colors">
-                  Next &rarr;
-                </Link>
-              ) : (
-                <span className="text-xs text-muted/30">Next &rarr;</span>
-              )}
-            </div>
-          </div>
-        );
-      })()}
+      {/* ═══ SERIES DISPLAY ═══ */}
+      <SeriesDisplay
+        meetingId={id}
+        meetingDate={meeting.meeting_date}
+        recurrencePattern={meeting.recurrence_pattern}
+        recurrenceEnd={meeting.recurrence_end}
+        siblings={seriesSiblings}
+        rootAnchorDay={rootAnchorDay}
+        rootDate={rootDate}
+      />
 
       {/* ═══ TWO-COLUMN LAYOUT ═══ */}
       <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8 lg:gap-12">
@@ -261,16 +240,19 @@ export default async function MeetingDetailPage({
                   <span className="text-sm text-foreground">{MEETING_TYPE_DISPLAY[meeting.meeting_type] ?? meeting.meeting_type}</span>
                 </div>
               )}
-              <div>
-                <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Recurrence</span>
-                <RecurrenceEditor
-                  meetingId={id}
-                  initialPattern={meeting.recurrence_pattern}
-                  initialEnd={meeting.recurrence_end}
-                  initialSeriesId={meeting.series_id}
-                  initialAnchorDay={meeting.anchor_day}
-                />
-              </div>
+              {/* Recurrence field only for standalone (non-series) meetings — series meetings use SeriesDisplay above */}
+              {!meeting.series_id && !meeting.recurrence_pattern && (
+                <div>
+                  <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Recurrence</span>
+                  <RecurrenceEditor
+                    meetingId={id}
+                    initialPattern={meeting.recurrence_pattern}
+                    initialEnd={meeting.recurrence_end}
+                    initialSeriesId={meeting.series_id}
+                    initialAnchorDay={meeting.anchor_day}
+                  />
+                </div>
+              )}
               <div>
                 <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Source</span>
                 <span className="text-sm text-foreground">
