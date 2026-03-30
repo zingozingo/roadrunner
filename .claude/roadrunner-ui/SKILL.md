@@ -317,39 +317,199 @@ Reusable behavior patterns for interactive elements. Any pattern established her
 
 ## Search
 
-How search bars behave: debounce timing, placeholder text conventions, empty/zero-result states, keyboard shortcuts.
+### Inline Search Bar
 
-*Not yet documented — will be populated as patterns are established in Plan 2.*
+**Component:** `FilterBar` (`src/components/layout/FilterBar.tsx`) — reusable search + filter bar
+**Used on:** Meetings list, Tasks page
+**Behavior:**
+- Full-width search input with magnifying glass icon
+- `placeholder="Search meetings..."` / `"Search tasks..."` — contextual placeholder
+- Client-side filtering via `useMemo` — dataset is hundreds, not thousands
+- No debounce needed at current scale; add debounce if dataset exceeds ~500
+- Search filters across multiple fields simultaneously (title + partner name for meetings; description + partner name for tasks)
+- Results update instantly as user types
+**Design rationale:** Client-side search is fast enough for a single-user app with <100 entities per list. Server-side search is overhead without benefit at this scale.
+**CSS variables / tokens:** Input uses `bg-surface border-border text-foreground` with `text-sm`
+**Constraints:** Don't add keyboard shortcuts (Cmd+K) until there's a global search context. Don't add "clear" buttons — backspace is universal.
 
 ## Filters
 
-How filter controls compose: toggle buttons vs dropdowns, how filters stack with search, active filter indication, clear/reset behavior.
+### Pill Toggle Filters
 
-*Not yet documented — will be populated as patterns are established in Plan 2.*
+**Component:** Inline filter pills on Meetings list, owner filter on Tasks page
+**Used on:** Meetings list (meeting type filter), Tasks page (owner filter)
+**Behavior:**
+- Row of rounded-full pills: `text-[11px] font-medium px-3 py-1 rounded-full`
+- "All" pill is always first, selected by default
+- Active pill: `bg-accent text-white`; inactive: `bg-surface border border-border/50 text-muted hover:text-foreground`
+- Single-select — clicking one deselects the previous
+- Filters compose with search: search narrows within filtered results
+- Count updates to reflect filtered results (e.g., "49 meetings" → "14 meetings" when filtered)
+**Design rationale:** Pill filters are faster than dropdowns for small option sets (<12 options). The meeting type list (10 types) fits comfortably in one row at 1440px.
+**Constraints:** Don't use pill filters for option sets >12 — switch to a dropdown. Don't allow multi-select (ambiguous UX with no clear "selected count" indicator).
 
-## List Capping & Pagination
+### Flat/Grouped Toggle
 
-How long lists are truncated: "View all" pattern, default cap counts, progressive disclosure for collapsed sections.
+**Component:** Inline toggle on Tasks page
+**Used on:** Tasks page (group by partner vs flat list)
+**Behavior:**
+- Two text buttons side-by-side: "Flat" / "Grouped"
+- Active: `text-foreground`; inactive: `text-muted hover:text-foreground`
+- Persists in component state only (no URL params)
+- Grouped view shows partner name as section header with `text-xs font-medium text-muted/60`
+**Design rationale:** Simple toggle for two modes. No need for a select/dropdown.
+**Constraints:** Don't persist to URL or localStorage — this is a quick toggle, not a saved preference.
 
-*Not yet documented — will be populated as patterns are established in Plan 2.*
+## List Capping & Progressive Disclosure
+
+### Section Cap with "View All"
+
+**Component:** `Section` component on partner detail page
+**Used on:** Partner detail (engagements capped at 8, tasks at 6, meetings at 8)
+**Behavior:**
+- Lists show first N items with `slice(0, N)`
+- If items exceed cap, show `+{remaining} more` text below in `text-xs text-muted`
+- Optional `viewAllHref` prop renders a "View all" link in the section header: `text-xs text-muted hover:text-foreground`
+- Cap counts: engagements 8, tasks 6, meetings 8 (partner detail); tasks 10 (Today page)
+**Design rationale:** Long lists (38 tasks) bury everything below them. Caps keep the page scannable while providing a clear path to the full list.
+**Constraints:** Always provide "View all" for capped lists. Never cap without a path to the full dataset.
+
+### Collapsible Sections (HTML `<details>`)
+
+**Component:** Native `<details>` element with consistent styling
+**Used on:** Meeting detail (Calendar notes), Engagement detail (Timeline when >5 items), Partner detail (Engagement contributors)
+**Behavior:**
+- `<summary>` styled with chevron SVG: `group-open:rotate-90` transition
+- Header: `text-xs font-semibold uppercase tracking-wider text-muted`
+- Chevron: 14x14 SVG, `text-muted/50`, rotates 90° on open
+- Content padding: `mt-2 ml-[22px]` (aligned past chevron)
+- Default state varies: most start closed, Timeline starts open when ≤5 items
+**Design rationale:** Native `<details>` is accessible, needs no JS, and matches the progressive disclosure philosophy. Reserve for secondary content that some users need sometimes, not primary content.
+**Constraints:** Don't nest collapsible inside collapsible. Don't use for primary content — if most users need it, show it by default.
+
+### Upcoming/Past Temporal Groups
+
+**Component:** Inline on Meetings list
+**Used on:** Meetings list page
+**Behavior:**
+- Meetings split into "UPCOMING" (future) and "PAST" sections
+- UPCOMING is open by default; PAST is collapsed by default (via `<details>`)
+- Section header: `text-xs font-medium uppercase tracking-wider text-muted/60` with count badge
+- Within UPCOMING, meetings grouped by date with date shown only on first row of each group
+**Design rationale:** Most visits to /meetings are about upcoming meetings. Past meetings are reference material. Default collapsed keeps the page focused.
+**Constraints:** Always show both sections — even if UPCOMING is empty, show the empty section header.
 
 ## Confirmation & Destructive Actions
 
-When to show confirmation dialogs, visual treatment of destructive vs safe actions, "undo" vs "are you sure" patterns.
+### Browser `window.confirm()` for Destructive Actions
 
-*Not yet documented — will be populated as patterns are established in Plan 2.*
+**Component:** Used directly in client components
+**Used on:** Tasks page (delete task), Inbox (delete message)
+**Behavior:**
+- `window.confirm("Delete task: \"...\""?)` — native browser dialog
+- Returns boolean; action proceeds only on `true`
+- Optimistic UI removal: item removed from state immediately, reverted on API error
+**Design rationale:** Native confirm is sufficient for a single-user app. The cost of a custom modal for confirmation is not justified when native works and is universally understood.
+**CSS variables / tokens:** N/A (native dialog)
+**Constraints:** Use for delete/discard only. Don't use for reversible actions (status toggle, linking). If we need more context in the dialog (showing consequences), upgrade to a custom modal per SKILL.md Layer 1 confirmation dialog spec.
+
+### Danger-Styled Actions
+
+**Component:** Various action buttons across pages
+**Used on:** Engagement detail (Delete button), Meeting detail (MeetingActions), RecurrenceEditor (End Series)
+**Behavior:**
+- Delete/destructive buttons: `text-red-400 hover:text-red-300` or `bg-red-500/10`
+- Positioned separately from primary actions (right side, after safe actions)
+- "End Series" uses `text-muted hover:text-red-400` — escalating visual severity on hover
+**Design rationale:** Destructive actions should be findable but not prominent. The hover color escalation serves as a micro-confirmation.
+**Constraints:** Never make a destructive action the primary (accent-colored) button.
 
 ## Forms & Creation
 
-Modal vs inline creation, required field indication, validation messaging, duplicate detection display.
+### Modal Creation (New Meeting)
 
-*Not yet documented — will be populated as patterns are established in Plan 2.*
+**Component:** Inline modal in `MeetingsClient`
+**Used on:** Meetings list page ("+ New Meeting" button)
+**Behavior:**
+- Fixed overlay: `bg-black/50` backdrop + centered modal `bg-surface rounded-lg border`
+- Form fields: Partner dropdown (required) → auto-title from partner + type → meeting type → date → recurrence toggle → pattern/day picker
+- Auto-title: `"{Partner} — {Type}"` generated on partner+type selection, editable
+- Recurrence toggle: checkbox reveals pattern dropdown + day-of-week selector + 3-date preview
+- Preview: shows next 3 occurrence dates, updates live on pattern/day change
+- Submit: "Create Meeting" button, disabled while submitting, shows "Creating..."
+- Cancel: "Cancel" text button, closes modal
+- Close on backdrop click or Escape key
+**Design rationale:** Modal keeps the user in context on the meetings list. The auto-title convention ensures consistent naming across all meetings.
+**Constraints:** Don't stack modals. Don't auto-close on submit — let the router.refresh() update the list, then close.
+
+### Inline Creation (Tasks, Engagement from EngagementLinker)
+
+**Component:** Inline forms within the page flow
+**Used on:** Tasks page (add task form), EngagementLinker (create new engagement)
+**Behavior:**
+- Form appears inline (not modal) below a trigger button
+- Required fields marked implicitly (submit disabled until filled)
+- Input styling: `rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground`
+- Submit: full-width accent button `bg-accent text-white rounded-lg`
+- Loading state: button text changes to "Creating..." with `disabled:opacity-50`
+- On success: form clears, new item appears in list
+- EngagementLinker has a special "Create & Link" flow: creates engagement → links to meeting → seeds current_state from note condensed
+**Design rationale:** Inline creation avoids modal overhead for simple entities. The EngagementLinker's create flow is intentionally multi-step because it's a rare action that benefits from visibility.
+**Constraints:** Don't add inline creation for entities that need >3 fields. Those should use modals.
+
+### Entity Picker (EngagementLinker)
+
+**Component:** `EngagementLinker` (`src/components/shared/EngagementLinker.tsx`)
+**Used on:** Meeting detail page (engagement field), Tasks page (engagement linker)
+**Behavior:**
+- Three states: unlinked (dashed border button "Link to engagement"), picker open (scrollable list), linked (name link + × unlink)
+- Picker: partner-filtered list of existing engagements + "Create new engagement" option at top with + icon
+- Cache: engagement list fetched once per session via `useRef` cache, invalidated on create/unlink
+- Linked display: accent-colored name link to engagement detail page + small × unlink button
+- Unlink: `text-muted hover:text-red-400` × button, no confirmation (reversible action)
+**Design rationale:** The picker pre-filters by partner because cross-partner engagement linking is never correct. "Create new" at top because new engagements are common when linking meetings.
+**Constraints:** Don't add search within the picker — partner engagement lists are small (<10). Don't show archived engagements.
 
 ## Navigation & Linking
 
-Clickable entity references (partners, engagements, meetings), how breadcrumbs work, how "back" behavior works.
+### Back Links (Breadcrumb)
 
-*Not yet documented — will be populated as patterns are established in Plan 2.*
+**Component:** Inline `<Link>` at top of detail pages
+**Used on:** Meeting detail ("← Meetings"), Engagement detail ("← Back to {Partner}"), Partner detail ("← Partners")
+**Behavior:**
+- Small chevron-left SVG (14x14) + text label
+- `text-xs text-muted hover:text-foreground transition-colors`
+- `mb-4` spacing before the page title
+- Links to the logical parent: meetings → /meetings, engagement → /partners/{id}, partner → /partners
+- Engagement breadcrumb links to the partner page (not an engagements list, which doesn't exist)
+**Design rationale:** Back links provide context ("where did I come from?") without a full breadcrumb trail. Single-level back is sufficient because navigation is shallow (max 3 levels).
+**Constraints:** Always link to the logical parent, not browser history. Don't add multi-level breadcrumbs — the sidebar provides global navigation.
+
+### Entity Reference Links
+
+**Component:** Inline `<Link>` elements throughout the app
+**Used on:** Everywhere entities reference other entities
+**Behavior:**
+- Entity name as accent-colored link: `text-sm font-medium text-accent hover:underline`
+- Partner names on meeting list, engagement list, engagement detail, meeting detail
+- Engagement names on task provenance, meeting detail
+- Clicking navigates to the entity's detail page
+**Design rationale:** Every entity name that refers to another entity should be clickable. The user should never see a name and wonder "can I go there?"
+**Constraints:** Don't make entity names clickable if there's no detail page for that entity type. Don't use `target="_blank"` for internal links.
+
+### Slide-Over Panel
+
+**Component:** `SlideOverPanel` (`src/components/shared/SlideOverPanel.tsx`)
+**Used on:** Partner detail page (Partner Reference Panel — Solution Profile, Operational Status, Scratchpad)
+**Behavior:**
+- Right-aligned panel: `w-[450px] max-w-[90vw]`, slides in from right
+- Backdrop: `bg-black/40`, click to close
+- Escape key to close
+- Tab bar at top: underline-style tabs (`border-b-2 border-accent` on active)
+- Content area: scrollable, `p-6`
+- Portal-rendered via `createPortal(document.body)` to avoid z-index issues
+**Design rationale:** Slide-overs are for reference content that the user wants alongside the main view — not content that replaces the view. Used for "deep reference" sections on partner detail (Solution Profile, Operational Status, Scratchpad) that would make the page too long if inline.
+**Constraints:** Don't put primary actions in slide-overs. Don't nest slide-overs. Max 4 tabs — more than that needs a dedicated page.
 
 ---
 
@@ -359,24 +519,192 @@ Patterns for rendering complex information visually. Status indicators, timeline
 
 ## Status Indicators
 
-Badges, dots, color coding for entity states. How shifted/rescheduled occurrences display. How overdue items highlight.
+### Status Dot
 
-*Not yet documented — will be populated as patterns are established in Plan 2.*
+**Component:** Inline `<span>` with `h-2 w-2 rounded-full` or `h-1.5 w-1.5 rounded-full`
+**Used on:** Meeting detail (identity bar), Engagement detail (identity bar + details), Partner detail (engagement rows)
+**Behavior:**
+- Small colored circle indicating entity status
+- Meeting statuses: scheduled=`bg-accent`, completed=`bg-status-active`, cancelled=`bg-status-archived`, no_show=`bg-status-blocked`
+- Engagement statuses: active=`bg-emerald-500`, planned=`bg-blue-400`, blocked=`bg-amber-500`, completed=`bg-violet-500`, archived=`bg-zinc-500`
+- Paired with `title={status}` for accessibility
+- 2x2px in identity bars, 1.5x1.5px in inline detail displays
+**Design rationale:** Dots provide instant visual status without text label overhead. Color + position (always left of entity name) makes status scannable in lists.
+**Constraints:** Always pair dots with accessible title attribute. Never use dot color as the only status indicator — context (position, section name) provides redundancy.
+
+### Type/Category Badges
+
+**Component:** Inline `<span>` badges
+**Used on:** Meeting list/detail (meeting type), Partner detail (segment, program enrollment type/status), Engagement detail (pillar)
+**Behavior:**
+- Shape: `rounded-full` for all badges
+- Size: `text-[11px] font-medium px-2 py-0.5`
+- Meeting type badges: `bg-accent/10 text-accent/70`
+- Pillar badges: `PillarBadge` component with pillar-specific colors
+- Enrollment status: color-coded text (Approved=`text-status-active`, In Progress=`text-status-blocked`, else `text-muted`)
+- Program enrollment type: `bg-accent/8 px-2 py-0.5 text-[11px] font-medium text-accent/70`
+**Design rationale:** Badges provide categorization without taking vertical space. Consistent size and shape across all badge types creates visual harmony.
+**Constraints:** Don't stack multiple badges next to each other (max 2-3 per row). Don't use badges for long text — if it doesn't fit in ~15 characters, use inline text instead.
+
+### Recurrence Indicator (↻ Icon)
+
+**Component:** Inline SVG (16x16 or 14x14 recurrence arrows)
+**Used on:** Meetings list, Today page (today's meetings + upcoming), Partner detail (recent meetings)
+**Behavior:**
+- SVG with two curved arrow paths, `stroke="currentColor" strokeWidth="1.5"`
+- Color: `text-muted/70` — subtle, not attention-grabbing
+- Truth source: `meeting.recurrence_pattern || meeting.series_id` — shows for both roots and children
+- Positioned left of meeting title or in the right metadata column
+**Design rationale:** The ↻ icon is universally understood as "recurring." Muted color prevents it from competing with meeting titles.
+**Constraints:** Don't add tooltip text — the icon is self-explanatory. Don't change size between contexts (14x14 everywhere).
+
+### Owner Badges (Tasks)
+
+**Component:** Inline colored badges on task rows
+**Used on:** Partner detail tasks, Tasks page
+**Behavior:**
+- Four owner types with distinct colors:
+  - Me: `bg-accent/10 text-accent`
+  - Internal: `bg-status-blocked/10 text-status-blocked`
+  - Partner: `bg-status-active/10 text-status-active`
+  - Third Party: `bg-status-completed/10 text-status-completed`
+- Size: `rounded-full px-2 py-0.5 text-[11px] font-medium`
+- Labels: "Me", "Internal", "Partner", "3rd Party"
+**Design rationale:** Color-coded ownership makes task delegation visible at a glance. The "Me" badge uses accent color because "my tasks" are the primary view.
+**Constraints:** These four categories are fixed. Don't add new owner types without updating the color map everywhere.
+
+### Org Type Badges (People)
+
+**Component:** Inline colored badges on contributor rows
+**Used on:** Partner detail (engagement contributors section)
+**Behavior:**
+- Three org types with consistent colors matching the owner badge palette:
+  - AWS (internal): `bg-accent/10 text-accent`
+  - Partner: `bg-status-active/10 text-status-active`
+  - Third Party: `bg-status-completed/10 text-status-completed`
+- Size: `text-[10px] font-medium rounded-full px-2 py-0.5`
+**Design rationale:** Consistent with owner badge colors so the user learns one color language for "who is this person?"
+**Constraints:** Same colors as owner badges — never diverge.
 
 ## Series & Timeline Visualization
 
-How recurring meeting series render as visual strips. Dot/block representations of occurrences over time. Color coding: completed, scheduled, skipped, rescheduled.
+### Series Navigation Bar
 
-*Not yet documented — will be populated as patterns are established in Plan 2.*
+**Component:** Inline section on meeting detail page
+**Used on:** Meeting detail (for meetings that are part of a series)
+**Behavior:**
+- Horizontal bar: `rounded-lg border border-border/20 bg-surface/50 px-4 py-2`
+- Left: "← Previous" link to prior occurrence (disabled if first)
+- Center: "{Pattern} on {Day}s · Occurrence N of M (since {date})"
+- Right: "Next →" link to next occurrence (disabled if last)
+- Pattern label: capitalized recurrence_pattern + anchor day name (e.g., "Weekly on Wednesdays")
+- Anchor day read from meeting.anchor_day (0=Sun..6=Sat)
+**Design rationale:** Series navigation lets the user traverse the meeting history without going back to a list. The centered context text gives rhythm at a glance.
+**Constraints:** Don't show navigation bar for standalone (non-series) meetings. Don't add "Jump to root" — the user can click ← Previous repeatedly.
+
+*Series Timeline Strip — not yet built. Will be established in Plan 2 Phase 2.*
 
 ## Financial Displays
 
-Number formatting, currency display, attainment percentages, trend indicators, goal-vs-actual presentation.
+### Currency Formatting
 
-*Not yet documented — will be populated as patterns are established in Plan 2.*
+**Component:** `fmtCurrency()` utility function in partner detail page
+**Used on:** Partner detail (Co-Sell Performance, Funding sections)
+**Behavior:**
+- `$1.2M` for ≥1,000,000 (one decimal)
+- `$215k` for ≥1,000 (rounded, no decimal)
+- `$500` for <1,000 (rounded)
+- `—` (em dash) for null/undefined
+- All financial values use `font-mono` for alignment
+**Design rationale:** Abbreviated currency is faster to scan than full numbers. The three tiers cover all real-world values in the partner portfolio.
+**Constraints:** Never show cents. Never use locale-specific formatting (always USD, always `$` prefix). Always `font-mono`.
+
+### Attainment Percentage
+
+**Component:** Inline computation in partner detail page
+**Used on:** Partner detail (Co-Sell Performance — MP TCV and LARR)
+**Behavior:**
+- Computed: `Math.round((ytd / goal) * 100) + "%"`
+- Display: `font-mono text-xs text-accent` — accent colored to draw attention
+- Shows only when both YTD and goal are non-null and goal > 0
+- Positioned after the "/ {goal}" text
+**Design rationale:** Attainment % is the single most important financial metric for a PDM. Accent color makes it pop.
+**Constraints:** Don't color-code by threshold (red/yellow/green) — the PDM knows what "good" looks like for each partner.
+
+### Goal vs Actual Grid
+
+**Component:** Inline grid in partner detail Co-Sell Performance section
+**Used on:** Partner detail page
+**Behavior:**
+- Top row: large YTD number + goal + attainment % (MP TCV and LARR side by side, `grid-cols-2`)
+- Below: historical/projected table using `grid-cols-[auto_1fr_1fr]`
+- Rows: 2025, 2024, Projected — each showing MP TCV and LARR
+- Headers: `text-muted/40` for column labels
+- Values: `font-mono text-foreground/70`
+- Separator: `border-t border-border/30` between primary metrics and historical
+**Design rationale:** The two-number-at-top pattern (YTD MP TCV + YTD LARR) mirrors how PDMs think — "where am I this year?" Historical and projected data is secondary context.
+**Constraints:** Don't add charts or graphs — the numbers are the visualization. Don't add YoY % change until requested.
+
+### Funding Remaining
+
+**Component:** Inline computation in partner detail Funding section
+**Used on:** Partner detail (MPOPP and MDF funding rows)
+**Behavior:**
+- Remaining computed: `allocated - spent` (MPOPP) or `allocated - utilized` (MDF)
+- Display: `font-mono text-xs font-medium`
+- Color: `text-status-blocked` when remaining > 0 (money left to spend), `text-muted` when 0
+- Format: `"{amount} left"` suffix
+- Each funding row shows: status + half/name + allocated + spent + remaining
+**Design rationale:** The "left" suffix makes the number actionable ("you have $X left to spend"). Amber color for remaining > 0 signals opportunity, not danger.
+**Constraints:** Don't show negative remaining — clamp to 0.
 
 ## Grouped Displays
 
-How entities group (tasks by partner, enrollments by type, engagements by pillar). Header treatment, collapse behavior, count badges.
+### Section Component
 
-*Not yet documented — will be populated as patterns are established in Plan 2.*
+**Component:** `Section` (defined in partner detail page, not extracted to shared)
+**Used on:** Partner detail (engagements, tasks, meetings, enrollments, goals, funding, events, people, solution profile, operational status)
+**Behavior:**
+- Header: `text-xs font-medium uppercase tracking-wider text-muted/60` with optional count badge
+- Count badge: `text-xs text-muted/40` — subtle, right of title
+- Optional "View all" link: right-aligned in header row
+- Content: children rendered inside `rounded-lg border border-border/50 bg-surface overflow-hidden`
+- Section spacing: `space-y-6` between sections
+**Design rationale:** Universal section pattern for all grouped content on detail pages. The consistent header treatment (uppercase, small, muted) keeps sections from competing with page-level content.
+**Constraints:** Consider extracting to `src/components/shared/Section.tsx` if the pattern is adopted on more pages. Currently defined inline in partner detail.
+
+### SectionHeader Component (Today Page)
+
+**Component:** `SectionHeader` (defined in Today page)
+**Used on:** Today page (Today's Meetings, My Tasks, Inbox, Upcoming)
+**Behavior:**
+- Same visual treatment as partner detail Section: `text-xs font-medium uppercase tracking-wider text-muted/60`
+- Count: `text-xs text-muted/40` positioned right of label
+- `inline` prop: when true, omits bottom margin (used when header is in a flex row with "View all")
+**Design rationale:** Same visual language as partner detail sections — the user sees one consistent section header treatment across the app.
+**Constraints:** These two section header components (partner detail Section + Today SectionHeader) should eventually be consolidated into one shared component.
+
+### Subgroup Headers (Within Sections)
+
+**Component:** Inline `<div>` headers within sections
+**Used on:** Partner detail (People section: "AWS Team" / "Partner Team" / "Third Parties"; Funding: "MPOPP" / "MDF")
+**Behavior:**
+- `text-[11px] font-medium uppercase tracking-wider text-muted/40`
+- `px-4 pt-3 pb-1` — compact padding, lives inside the section card
+- No count badge (parent section has the total count)
+**Design rationale:** Subgroups organize within a section without creating visual noise. The reduced opacity (/40 vs /60) makes them clearly subordinate to section headers.
+**Constraints:** Max 3-4 subgroups per section. If more, reconsider the section structure.
+
+### Tasks Grouped by Partner (Today Page)
+
+**Component:** `TodayTasks` client component
+**Used on:** Today page (My Tasks section)
+**Behavior:**
+- Tasks sorted: overdue first → due soonest → no due date last
+- Grouped by partner name with partner as section header
+- Each task row: checkbox + description + due date (overdue highlighted) + partner context
+- Overdue dates: `text-status-blocked` (amber)
+- "View all" link to /tasks page
+- Capped at 10 items
+**Design rationale:** Grouping by partner matches how the PDM thinks — "what do I owe Spacelift? What do I owe OPSWAT?" The sort order surfaces urgent items first.
+**Constraints:** Today page tasks are read-only (no inline editing). Full task management happens on /tasks.
