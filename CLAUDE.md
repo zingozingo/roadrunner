@@ -174,7 +174,7 @@ docs/sessions/
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → human-guided routing → AI synthesis → structured engagements → Airtable sync.
-> 82 migrations · 17 tables · 29 API routes · 12 UI pages · 435 passing tests
+> 82 migrations · 17 tables · 30 API routes · 13 UI pages · 444 passing tests
 
 ---
 

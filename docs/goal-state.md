@@ -6,7 +6,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 82 migrations, 17 active tables, 29 API routes, 12 UI pages, 435 passing tests (0 failures), tsc --noEmit passes clean
+- 82 migrations, 17 active tables, 30 API routes, 13 UI pages, 444 passing tests (0 failures), tsc --noEmit passes clean, 33 components
 - Human-guided intake pipeline fully operational: webhook → mechanical partner detection → ICS partner backfill → inbox triage (with unknown partner picker) → single-phase AI synthesis (decisions #223-252)
 - Meetings Motion complete (decisions #253-259): 10 interaction-based meeting types, recurring meeting engine with auto-spawn, series tracking via self-referential FK, RecurrenceEditor UI, synthesis-on-link, conference boilerplate pre-split fix, ICS multi-VEVENT guardrail confirmed
 - AI Brain Overhaul Phases 1-3 complete (decisions #260-269): goal field eliminated (migration 069), condensed columns on engagements + meeting_notes (migration 068), meeting summarization restructured with scoped context builder, structured output (Discussion/Decisions/Key Context), condensed 3-5 bullet digest, non-redundancy with tasks
@@ -45,6 +45,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 - SKILL.md restructured into three-layer design system: Visual Foundations, Interaction Patterns, Data Visualization Patterns (decision #366)
 - 5 active engagements processing real email data (Nozomi Networks, Spacelift x3, Qualys)
 - All Airtable push/delete calls awaited (no fire-and-forget)
+- Plan 2 complete (17 tasks, 4 phases): Recurrence Experience (SeriesDisplay, SeriesTimeline, SeriesActions, simplified RecurrenceEditor, anchor_day snap verified with 9 tests), People Page (cross-partner search/filter/create at /people), Today Page (two-column layout — meetings + tasks side by side)
 
 ## MVP Target
 
@@ -57,11 +58,10 @@ A system where a PDM forwards an email and Roadrunner:
 ## What's Next
 
 ### Immediate
-- Execute Plan 2: Recurrence Experience, People Page, Today Layout (docs/plans/active.md — 17 tasks, 4 phases)
-- ~~anchor_day column~~ ✅ Created in migration 082, 14 series roots backfilled (Plan 2 Task 1.1)
+- ~~Plan 2~~ ✅ Complete — Recurrence Experience, People Page, Today Layout (17 tasks, 4 phases)
+- Post-Plan 2 meeting data cleanup session — merge Vasion duplicate series, convert standalones to series roots, sort out series ownership using new recurrence tooling
 
 ### Soon
-- Post-Plan 2 meeting data cleanup session — merge Vasion duplicate series, convert standalones to series roots, sort out series ownership using new recurrence tooling
 - Calendar/timeline view for cross-partner meeting history (identified during planning, deferred)
 - Navigation safety (unsaved changes warnings on note workspace)
 - Enterprise loading states on all async operations
