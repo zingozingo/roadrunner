@@ -20,7 +20,6 @@ import { USER_CONFIG } from "@/lib/user-config";
 import EngagementLinker from "@/components/shared/EngagementLinker";
 import RecurrenceEditor from "@/components/shared/RecurrenceEditor";
 import SeriesDisplay from "@/components/shared/SeriesDisplay";
-import TitleSuggestion from "@/components/shared/TitleSuggestion";
 import type { DisplayContext } from "@/lib/types";
 import { MEETING_TYPE_DISPLAY } from "@/lib/sync/field-maps";
 
@@ -185,20 +184,6 @@ export default async function MeetingDetailPage({
         rootAnchorDay={rootAnchorDay}
         rootDate={rootDate}
       />
-
-      {/* Title alignment suggestion for series meetings */}
-      {meeting.series_id && partner && meeting.meeting_type && (() => {
-        const typeLabel = MEETING_TYPE_DISPLAY[meeting.meeting_type] ?? meeting.meeting_type;
-        const suggested = `${partner.name} — ${typeLabel}`;
-        if (meeting.title === suggested) return null;
-        return (
-          <TitleSuggestion
-            meetingId={id}
-            currentTitle={meeting.title}
-            suggestedTitle={suggested}
-          />
-        );
-      })()}
 
       {/* ═══ TWO-COLUMN LAYOUT ═══ */}
       <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8 lg:gap-12">
