@@ -72,6 +72,16 @@ const secondaryItems: NavItem[] = [
       </svg>
     ),
   },
+  {
+    href: "/people",
+    label: "People",
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 17 17" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="8.5" cy="5.5" r="2.5" />
+        <path d="M3.5 14.5c0-2.8 2.2-5 5-5s5 2.2 5 5" />
+      </svg>
+    ),
+  },
 ];
 
 const tertiaryItems: NavItem[] = [
