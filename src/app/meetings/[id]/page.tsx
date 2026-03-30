@@ -179,6 +179,7 @@ export default async function MeetingDetailPage({
         meetingDate={meeting.meeting_date}
         recurrencePattern={meeting.recurrence_pattern}
         recurrenceEnd={meeting.recurrence_end}
+        seriesId={meeting.series_id}
         siblings={seriesSiblings}
         rootAnchorDay={rootAnchorDay}
         rootDate={rootDate}

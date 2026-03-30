@@ -1,5 +1,6 @@
 import Link from "next/link";
-import type { Meeting } from "@/lib/types";
+import type { Meeting, RecurrencePattern } from "@/lib/types";
+import SeriesActions from "./SeriesActions";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -17,6 +18,7 @@ interface SeriesDisplayProps {
   meetingDate: string | null;
   recurrencePattern: string | null;
   recurrenceEnd: string | null;
+  seriesId: string | null;
   siblings: SeriesSibling[];
   /** anchor_day from the series root (resolved server-side) */
   rootAnchorDay: number | null;
@@ -33,6 +35,7 @@ export default function SeriesDisplay({
   meetingDate,
   recurrencePattern,
   recurrenceEnd,
+  seriesId,
   siblings,
   rootAnchorDay,
   rootDate,
@@ -126,6 +129,16 @@ export default function SeriesDisplay({
           )}
         </div>
       )}
+
+      {/* Line 3: Management actions */}
+      <SeriesActions
+        meetingId={meetingId}
+        meetingDate={meetingDate}
+        seriesId={seriesId}
+        recurrencePattern={recurrencePattern as RecurrencePattern | null}
+        recurrenceEnd={recurrenceEnd}
+        anchorDay={rootAnchorDay}
+      />
     </div>
   );
 }
