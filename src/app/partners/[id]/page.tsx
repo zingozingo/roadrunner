@@ -5,6 +5,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import PillarBadge from "@/components/shared/PillarBadge";
 import BrainSynthesis from "@/components/partners/BrainSynthesis";
+import EnrollmentSection from "@/components/partners/EnrollmentSection";
+import EventParticipationSection from "@/components/partners/EventParticipationSection";
 import PartnerScratchpad from "@/components/partners/PartnerScratchpad";
 import { cleanMeetingTitle, stripPartnerPrefix } from "@/lib/format-utils";
 import {
@@ -19,6 +21,8 @@ import {
   getPartnerEventParticipations,
   getPartnerMpoppFunding,
   getPartnerMdfFunding,
+  getActivePrograms,
+  getActiveEvents,
 } from "@/lib/db";
 import { getEngagementContributors } from "@/lib/db/participants";
 import type { Engagement, Meeting } from "@/lib/types";
@@ -85,6 +89,8 @@ export default async function PartnerDetailPage({
     mpoppFunding,
     mdfFunding,
     engagementContributors,
+    allPrograms,
+    allEvents,
   ] = await Promise.all([
     getMeetingNotesByPartner(id),
     getTasksByPartner(id, { status: "open" }),
@@ -95,6 +101,8 @@ export default async function PartnerDetailPage({
     getPartnerMpoppFunding(id),
     getPartnerMdfFunding(id),
     getEngagementContributors(id),
+    getActivePrograms(),
+    getActiveEvents(),
   ]);
 
   /* Condensed digests for meeting rows */
@@ -460,41 +468,23 @@ export default async function PartnerDetailPage({
           </Section>
         )}
 
-        {/* Program Enrollments */}
-        {programEnrollments.length > 0 && (
-          <Section title="Program Enrollments" count={programEnrollments.length}>
-            {programEnrollments.map((e) => (
-              <div key={e.id} className="flex items-center gap-3 border-b border-border/30 px-4 py-2.5 last:border-b-0">
-                {e.program_id ? (
-                  <Link href={`/programs/${e.program_id}`} className="min-w-0 flex-1 truncate text-sm text-accent hover:underline">
-                    {e.program_name ?? "Unknown"}
-                  </Link>
-                ) : (
-                  <span className="min-w-0 flex-1 truncate text-sm text-foreground/80">
-                    {e.program_name ?? "Unknown"}
-                  </span>
-                )}
-                {e.type && (
-                  <span className="shrink-0 rounded-full bg-accent/8 px-2 py-0.5 text-[11px] font-medium text-accent/70">
-                    {e.type}
-                  </span>
-                )}
-                {e.status && (
-                  <span className={`shrink-0 text-[11px] ${
-                    e.status === "Approved" ? "text-status-active" :
-                    e.status === "In Progress" ? "text-status-blocked" :
-                    "text-muted"
-                  }`}>
-                    {e.status}
-                  </span>
-                )}
-                {e.date_achieved && (
-                  <span className="shrink-0 text-[11px] text-muted/60">{shortDate(e.date_achieved)}</span>
-                )}
-              </div>
-            ))}
-          </Section>
-        )}
+        {/* Program Enrollments (interactive) */}
+        <section>
+          <EnrollmentSection
+            partnerId={id}
+            initialEnrollments={programEnrollments.map((e) => ({
+              id: e.id,
+              partner_id: e.partner_id,
+              program_id: e.program_id,
+              program_name: e.program_name ?? null,
+              type: e.type,
+              status: e.status,
+              date_achieved: e.date_achieved,
+              notes: e.notes,
+            }))}
+            programs={allPrograms.map((p) => ({ id: p.id, name: p.name }))}
+          />
+        </section>
 
         {/* Strategic Goals */}
         <Section title="Strategic Goals" count={partnerGoals.length}>
@@ -577,27 +567,22 @@ export default async function PartnerDetailPage({
           </Section>
         )}
 
-        {/* Event Participations */}
-        {eventParticipations.length > 0 && (
-          <Section title="Events" count={eventParticipations.length}>
-            {eventParticipations.map((e) => (
-              <div key={e.id} className="flex items-center gap-3 border-b border-border/30 px-4 py-2.5 last:border-b-0">
-                <span className="min-w-0 flex-1 truncate text-sm text-foreground/80">
-                  {e.event_name ?? "Unknown Event"}
-                </span>
-                {e.status && (
-                  <span className={`shrink-0 text-[11px] ${
-                    e.status === "Attended" ? "text-status-completed" :
-                    e.status === "Registered" ? "text-status-active" :
-                    "text-muted"
-                  }`}>
-                    {e.status}
-                  </span>
-                )}
-              </div>
-            ))}
-          </Section>
-        )}
+        {/* Event Participations (interactive — always shown, even when empty) */}
+        <section>
+          <EventParticipationSection
+            partnerId={id}
+            initialParticipations={eventParticipations.map((e) => ({
+              id: e.id,
+              partner_id: e.partner_id,
+              event_id: e.event_id,
+              status: e.status,
+              notes: e.notes,
+              event_name: e.event_name,
+              event_start_date: e.event_start_date,
+            }))}
+            events={allEvents.map((e) => ({ id: e.id, name: e.name, start_date: e.start_date }))}
+          />
+        </section>
 
         {/* People */}
         {hasPeople && (
