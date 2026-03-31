@@ -23,6 +23,8 @@ export default function MeetingActions({
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
+  const [rescheduling, setRescheduling] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState(meeting.meeting_date ?? "");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -133,6 +135,29 @@ export default function MeetingActions({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete");
       setDeleting(false);
+    }
+  }
+
+  async function handleReschedule() {
+    if (!rescheduleDate || rescheduleDate === meeting.meeting_date) {
+      setRescheduling(false);
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/meetings/${meeting.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ meeting_date: rescheduleDate }),
+      });
+      if (!res.ok) throw new Error("Failed to reschedule");
+      setRescheduling(false);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reschedule");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -292,6 +317,33 @@ export default function MeetingActions({
     );
   }
 
+  // ── Reschedule mode ─────────────────────────────────────────
+  if (rescheduling) {
+    return (
+      <div className="flex items-center gap-2">
+        <input
+          type="date"
+          value={rescheduleDate}
+          onChange={(e) => setRescheduleDate(e.target.value)}
+          className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:border-accent focus:outline-none"
+        />
+        <button
+          onClick={handleReschedule}
+          disabled={saving}
+          className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50 transition-colors"
+        >
+          {saving ? "Saving..." : "Move"}
+        </button>
+        <button
+          onClick={() => { setRescheduling(false); setRescheduleDate(meeting.meeting_date ?? ""); }}
+          className="text-sm text-muted hover:text-foreground transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
   // ── View mode ──────────────────────────────────────────────
   return (
     <>
@@ -302,6 +354,14 @@ export default function MeetingActions({
         >
           Edit
         </button>
+        {meeting.series_id && (
+          <button
+            onClick={() => { setRescheduling(true); setRescheduleDate(meeting.meeting_date ?? ""); }}
+            className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground transition-colors hover:border-accent hover:text-accent"
+          >
+            Reschedule
+          </button>
+        )}
         <button
           onClick={() => setShowDeleteConfirm(true)}
           disabled={deleting}
