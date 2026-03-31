@@ -206,9 +206,9 @@ export default function Sidebar({
   /* ---- nav tree ---- */
 
   const nav = (
-    <nav className="flex h-full flex-col px-3 pt-5">
+    <nav className="flex h-full flex-col px-3 pt-5 pb-4">
       {/* Brand */}
-      <div className="mb-8 px-3">
+      <div className="mb-6 px-3">
         <span className="text-[15px] font-semibold tracking-tight text-foreground">
           Roadrunner
         </span>
@@ -222,8 +222,11 @@ export default function Sidebar({
         {renderTier(secondaryItems, "secondary")}
       </div>
 
+      {/* Spacer — pushes tertiary to bottom */}
+      <div className="flex-1" />
+
       {/* Tertiary — reference catalogs */}
-      <div className="mt-6">
+      <div>
         {renderTier(tertiaryItems, "tertiary")}
       </div>
     </nav>

@@ -133,12 +133,13 @@ When borders are needed, use `border-border/50` (half opacity). Full-opacity bor
 
 ### Sidebar
 
-Three-tier navigation without section labels. Hierarchy communicated through text brightness alone.
+Three-tier navigation without section labels. Hierarchy communicated through text brightness alone. Vertical distribution: daily-use items (Primary, Secondary) at top, reference catalogs (Tertiary) anchored at bottom via `flex-1` spacer. No dead space — the sidebar feels intentionally composed at any viewport height.
 
 - **Width:** 224px (`w-56`)
-- **Background:** `bg-surface` with `border-r border-border/40`
-- **Brand:** `text-[15px] font-semibold tracking-tight text-foreground`
-- **Tier spacing:** 24px (`mt-6`) between tiers
+- **Background:** `bg-surface` with `border-r border-border/40`. Solid color, no gradients.
+- **Brand:** `text-[15px] font-semibold tracking-tight text-foreground`, `mb-6`
+- **Layout:** `flex h-full flex-col px-3 pt-5 pb-4` — Primary and Secondary grouped at top, `flex-1` spacer, Tertiary at bottom
+- **Tier spacing:** 24px (`mt-6`) between Primary and Secondary
 - **Item spacing:** 2px (`gap-0.5`) within tiers
 - **Item padding:** `px-3 py-1.5` (32px row height)
 - **Item shape:** `rounded-md`
