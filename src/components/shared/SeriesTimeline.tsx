@@ -45,28 +45,18 @@ export default function SeriesTimeline({
     : 6;
 
   return (
-    <div className="mb-6">
-      {/* Legend */}
-      <div className="flex items-center gap-4 mb-2">
+    <div className="mb-4">
+      {/* Legend — minimal: past vs future */}
+      <div className="flex items-center gap-3 mb-2">
         <span className="text-[10px] text-muted/40 uppercase tracking-wider">Series</span>
-        <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-status-active" />
-            <span className="text-[10px] text-muted/50">Done</span>
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-accent/50" />
-            <span className="text-[10px] text-muted/50">Past</span>
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-sm border border-accent/40" />
-            <span className="text-[10px] text-muted/50">Scheduled</span>
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-muted/20" />
-            <span className="text-[10px] text-muted/50">Skipped</span>
-          </span>
-        </div>
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-2.5 h-2.5 rounded-sm bg-foreground/25" />
+          <span className="text-[10px] text-muted/40">Past</span>
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-2.5 h-2.5 rounded-sm border border-accent/50" />
+          <span className="text-[10px] text-muted/40">Upcoming</span>
+        </span>
       </div>
 
       {/* Timeline strip */}
@@ -83,23 +73,22 @@ export default function SeriesTimeline({
           const isCancelled = s.status === "cancelled" || s.status === "did_not_occur";
           const isCompleted = s.status === "completed";
 
-          // Block styling
+          // Block styling — 2 primary states: past (solid) vs future (outline)
           let blockClass = "";
           if (isCancelled) {
-            blockClass = "bg-muted/20";
-          } else if (isCompleted) {
-            blockClass = "bg-status-active";
+            blockClass = "bg-muted/15";
           } else if (isFuture) {
-            blockClass = "border border-accent/40 bg-transparent";
+            blockClass = "border border-accent/50 bg-transparent";
           } else {
-            blockClass = "bg-accent/50";
+            // Past (completed or past-due) — same solid treatment
+            blockClass = "bg-foreground/25";
           }
 
           // Current meeting ring
-          const currentClass = isCurrent ? "ring-2 ring-foreground/60 ring-offset-1 ring-offset-background" : "";
+          const currentClass = isCurrent ? "ring-2 ring-accent ring-offset-1 ring-offset-background" : "";
 
-          // Shifted border
-          const shiftedClass = isShifted ? "border-2 border-status-blocked/60" : "";
+          // Shifted: subtle amber dot shown below block instead of border
+          const shiftedClass = "";
 
           // Tooltip
           const dateStr = s.meeting_date ? formatTipDate(s.meeting_date) : "TBD";
@@ -117,19 +106,22 @@ export default function SeriesTimeline({
           const showLabel = i === 0 || i === siblings.length - 1 || i % labelEveryN === 0;
 
           return (
-            <div key={s.id} className="flex flex-col items-center gap-1">
+            <div key={s.id} className="flex flex-col items-center gap-0.5">
               <Link
                 href={`/meetings/${s.id}`}
                 title={tooltip}
                 className={`block w-4 h-4 rounded-sm shrink-0 transition-all hover:scale-110 hover:brightness-125 ${blockClass} ${currentClass} ${shiftedClass}`}
               />
+              {isShifted && (
+                <span className="block w-1 h-1 rounded-full bg-status-blocked/60" title="Rescheduled" />
+              )}
               {showLabel && s.meeting_date ? (
                 <span className="text-[9px] text-muted/40 whitespace-nowrap leading-none">
                   {formatLabelDate(s.meeting_date)}
                 </span>
-              ) : (
+              ) : !isShifted ? (
                 <span className="text-[9px] leading-none invisible">.</span>
-              )}
+              ) : null}
             </div>
           );
         })}

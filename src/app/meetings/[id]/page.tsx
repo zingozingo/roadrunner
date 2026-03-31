@@ -175,7 +175,7 @@ export default async function MeetingDetailPage({
         </div>
       </div>
 
-      {/* ═══ SERIES DISPLAY ═══ */}
+      {/* ═══ RECURRENCE SECTION — Display + Timeline as one block ═══ */}
       <SeriesDisplay
         meetingId={id}
         meetingDate={meeting.meeting_date}
@@ -186,8 +186,6 @@ export default async function MeetingDetailPage({
         rootAnchorDay={rootAnchorDay}
         rootDate={rootDate}
       />
-
-      {/* ═══ SERIES TIMELINE ═══ */}
       <SeriesTimeline
         siblings={seriesSiblings}
         rootAnchorDay={rootAnchorDay}
