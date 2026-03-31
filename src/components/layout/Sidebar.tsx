@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useUnsavedChangesContext } from "@/components/shared/UnsavedChangesProvider";
 
 /* ------------------------------------------------------------------ */
 /*  Nav structure — 3 tiers, 7 items                                  */
@@ -138,6 +139,8 @@ export default function Sidebar({
   initialBadgeCount: number;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { requestNavigation } = useUnsavedChangesContext();
   const [badgeCount, setBadgeCount] = useState(initialBadgeCount);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -178,7 +181,13 @@ export default function Sidebar({
       <Link
         key={item.href}
         href={item.href}
-        onClick={() => setMobileOpen(false)}
+        onClick={(e) => {
+          setMobileOpen(false);
+          // If we're already on this page, no interception needed
+          if (active) return;
+          e.preventDefault();
+          requestNavigation(item.href, () => router.push(item.href));
+        }}
         className={`flex items-center gap-2.5 rounded-md px-3 py-1.5 text-[13px] transition-colors ${
           active ? style.active : style.idle
         }`}
