@@ -53,7 +53,11 @@ const STATUS_COLORS: Record<string, string> = {
 
 function shortDate(d: string | null): string {
   if (!d) return "";
-  return new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const date = new Date(d + "T12:00:00");
+  const currentYear = new Date().getFullYear();
+  const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
+  if (date.getFullYear() !== currentYear) opts.year = "numeric";
+  return date.toLocaleDateString("en-US", opts);
 }
 
 interface EnrollmentSectionProps {

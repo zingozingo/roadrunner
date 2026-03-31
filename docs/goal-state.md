@@ -6,7 +6,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 82 migrations, 17 active tables, 34 API routes, 13 UI pages, 444 passing tests (0 failures), tsc --noEmit passes clean, 35 components
+- 82 migrations, 17 active tables, 34 API routes, 13 UI pages, 444 passing tests (0 failures), tsc --noEmit passes clean, 37 components
 - Human-guided intake pipeline fully operational: webhook → mechanical partner detection → ICS partner backfill → inbox triage (with unknown partner picker) → single-phase AI synthesis (decisions #223-252)
 - Meetings Motion complete (decisions #253-259): 10 interaction-based meeting types, recurring meeting engine with auto-spawn, series tracking via self-referential FK, RecurrenceEditor UI, synthesis-on-link, conference boilerplate pre-split fix, ICS multi-VEVENT guardrail confirmed
 - AI Brain Overhaul Phases 1-3 complete (decisions #260-269): goal field eliminated (migration 069), condensed columns on engagements + meeting_notes (migration 068), meeting summarization restructured with scoped context builder, structured output (Discussion/Decisions/Key Context), condensed 3-5 bullet digest, non-redundancy with tasks
@@ -58,19 +58,12 @@ A system where a PDM forwards an email and Roadrunner:
 ## What's Next
 
 ### Immediate
-- Navigation safety — CRITICAL: Meeting notes workflow has no unsaved-changes protection. After AI summarization but before save & lock, user can navigate away or refresh and lose all work. Need beforeunload browser event + Next.js route interception + confirmation dialog on all note workspace exits. This is a data loss bug, not a polish item. North Star Part 8 explicitly specifies this.
-- Recurrence editor save broken for pattern changes: Changing recurrence_pattern (e.g., weekly → biweekly) via RecurrenceEditor does not persist. The anchor_day PUT route gap was fixed but pattern changes may have a similar issue or a different bug. Needs diagnostic — check if RecurrenceEditor sends recurrence_pattern in the PUT body and if the route processes it correctly.
-- Today page CSS — right column still clips content, needs viewport/overflow investigation beyond container width
-- Timeline strip visual simplification — reduce competing states/colors to clearer encoding
-- Program enrollment date formatting — show year for non-current-year dates
+- Meeting data cleanup session — merge Vasion duplicate series, convert standalones (KnowBe4, NinjaOne, Cloudaware) to series roots
+- Enterprise loading states on all async operations (button loading states, API error recovery)
 
 ### Soon
-- People linkability — participant names clickable across all surfaces, linking to /people or person detail
-- Recurrence display coherence pass — series info, timeline strip, management actions as unified component
-- Meeting data cleanup session — merge Vasion duplicate series, convert standalones (KnowBe4, NinjaOne, Cloudaware) to series roots
 - Calendar/timeline view for cross-partner meeting history
-- Navigation safety (unsaved changes warnings on note workspace)
-- Enterprise loading states on all async operations
+- Double-click protection on action buttons (prevent duplicate API calls)
 
 ### Later
 - Airtable exit path — AT push for manually-created enrollments and event participations
@@ -155,6 +148,7 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~Plan 2 executed~~ ✅ (decisions #367-370): 17 tasks, 4 phases — Foundation (anchor_day fix, doc cleanup, SKILL.md population), Recurrence Overhaul (SeriesDisplay, RecurrenceEditor simplification, SeriesActions, standalone-to-series, anchor snap verification, SeriesTimeline), People Page (search + filters + create), Today Layout (two-column)
 - ~~Post-Plan 2 fixes~~ ✅ (decision #371): RecurrenceEditor startEditing prop, Today page container, timeline strip sizing
 - ~~Program enrollment + event participation CRUD~~ ✅ (decisions #372-373): 6 API endpoints, 2 client components, inline status editing, event participations always visible
+- ~~Plan 3 — Daily Driver MVP~~ ✅ (20 tasks, 6 phases): Universal PageContainer (max-w-[1600px]), sidebar vertical distribution, useUnsavedChanges framework (7 protected surfaces), Today page 55/45 split + 12-task cap, Tasks page density, Partner detail section pairings, scope-aware recurrence editing ("this and future"), Reschedule button, simplified timeline strip, people linkability (names → /people?q=), enrollment date year formatting, full Playwright audit clean
 
 ## Architecture Principles
 
