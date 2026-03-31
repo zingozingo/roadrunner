@@ -596,7 +596,7 @@ export default async function PartnerDetailPage({
                 <div className="px-4 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted/40">AWS Team</div>
                 {awsTeam.map((c, i) => (
                   <div key={i} className="flex items-center gap-3 border-b border-border/30 px-4 py-2 last:border-b-0">
-                    <span className="text-sm text-foreground/80">{c.name ?? c.email}</span>
+                    <Link href={`/people?q=${encodeURIComponent(c.name ?? c.email ?? "")}`} className="text-sm text-foreground/80 hover:text-accent transition-colors">{c.name ?? c.email}</Link>
                     {c.role && <span className="text-[11px] text-muted">{c.role}</span>}
                     {c.email && c.name && <span className="text-[11px] text-muted/40">{c.email}</span>}
                   </div>
@@ -608,7 +608,7 @@ export default async function PartnerDetailPage({
                 <div className="px-4 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted/40">Partner Team</div>
                 {partnerTeam.map((c, i) => (
                   <div key={i} className="flex items-center gap-3 border-b border-border/30 px-4 py-2 last:border-b-0">
-                    <span className="text-sm text-foreground/80">{c.name ?? c.email}</span>
+                    <Link href={`/people?q=${encodeURIComponent(c.name ?? c.email ?? "")}`} className="text-sm text-foreground/80 hover:text-accent transition-colors">{c.name ?? c.email}</Link>
                     {c.role && <span className="text-[11px] text-muted">{c.role}</span>}
                     {c.email && c.name && <span className="text-[11px] text-muted/40">{c.email}</span>}
                   </div>
@@ -620,7 +620,7 @@ export default async function PartnerDetailPage({
                 <div className="px-4 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted/40">Third Parties</div>
                 {thirdParties.map((c, i) => (
                   <div key={i} className="flex items-center gap-3 border-b border-border/30 px-4 py-2 last:border-b-0">
-                    <span className="text-sm text-foreground/80">{c.name ?? c.email}</span>
+                    <Link href={`/people?q=${encodeURIComponent(c.name ?? c.email ?? "")}`} className="text-sm text-foreground/80 hover:text-accent transition-colors">{c.name ?? c.email}</Link>
                     {c.role && <span className="text-[11px] text-muted">{c.role}</span>}
                     {c.email && c.name && <span className="text-[11px] text-muted/40">{c.email}</span>}
                   </div>
@@ -638,7 +638,7 @@ export default async function PartnerDetailPage({
                       <div className="text-[11px] font-medium text-muted/50 mb-1">{group.engagement_name}</div>
                       {group.contributors.map((c) => (
                         <div key={c.id} className="flex items-center gap-3 py-1">
-                          <span className="text-sm text-foreground/70">{c.name ?? c.email}</span>
+                          <Link href={`/people?q=${encodeURIComponent(c.name ?? c.email ?? "")}`} className="text-sm text-foreground/70 hover:text-accent transition-colors">{c.name ?? c.email}</Link>
                           {c.org_type && (
                             <span className={`text-[10px] font-medium rounded-full px-2 py-0.5 ${
                               c.org_type === "internal"
