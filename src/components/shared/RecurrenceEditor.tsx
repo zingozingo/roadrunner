@@ -116,6 +116,9 @@ export default function RecurrenceEditor({
       // If no series_id yet, set it to the meeting's own id (first in series)
       if (!seriesId) {
         body.series_id = meetingId;
+      } else {
+        // Existing series: propagate pattern changes to future meetings
+        body.scope = "this_and_future";
       }
 
       const res = await fetch(`/api/meetings/${meetingId}`, {
