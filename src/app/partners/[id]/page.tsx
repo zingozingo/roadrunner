@@ -469,58 +469,60 @@ export default async function PartnerDetailPage({
           </Section>
         )}
 
-        {/* Program Enrollments (interactive) */}
-        <section>
-          <EnrollmentSection
-            partnerId={id}
-            initialEnrollments={programEnrollments.map((e) => ({
-              id: e.id,
-              partner_id: e.partner_id,
-              program_id: e.program_id,
-              program_name: e.program_name ?? null,
-              type: e.type,
-              status: e.status,
-              date_achieved: e.date_achieved,
-              notes: e.notes,
-            }))}
-            programs={allPrograms.map((p) => ({ id: p.id, name: p.name }))}
-          />
-        </section>
+        {/* Program Enrollments + Strategic Goals — side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <section className="min-w-0">
+            <EnrollmentSection
+              partnerId={id}
+              initialEnrollments={programEnrollments.map((e) => ({
+                id: e.id,
+                partner_id: e.partner_id,
+                program_id: e.program_id,
+                program_name: e.program_name ?? null,
+                type: e.type,
+                status: e.status,
+                date_achieved: e.date_achieved,
+                notes: e.notes,
+              }))}
+              programs={allPrograms.map((p) => ({ id: p.id, name: p.name }))}
+            />
+          </section>
 
-        {/* Strategic Goals */}
-        <Section title="Strategic Goals" count={partnerGoals.length}>
-          {partnerGoals.length === 0 ? (
-            <div className="px-4 py-4 text-sm text-muted/60">
-              No strategic goals set
-            </div>
-          ) : (
-            partnerGoals.map((g) => (
-              <div key={g.id} className="flex items-center gap-3 border-b border-border/30 px-4 py-2.5 last:border-b-0">
-                <span className="min-w-0 flex-1 text-sm text-foreground/80">{g.goal}</span>
-                {g.category && (
-                  <span className="shrink-0 rounded-full bg-accent/8 px-2 py-0.5 text-[11px] font-medium text-accent/70">
-                    {g.category.replace(/_/g, " ")}
-                  </span>
-                )}
-                {g.status && (
-                  <span className={`shrink-0 text-[11px] ${
-                    g.status === "in_progress" ? "text-status-active" :
-                    g.status === "completed" ? "text-status-completed" :
-                    g.status === "deferred" ? "text-status-blocked" :
-                    "text-muted"
-                  }`}>
-                    {g.status === "in_progress" ? "Active" :
-                     g.status === "not_started" ? "Planned" :
-                     g.status === "completed" ? "Done" :
-                     g.status === "deferred" ? "Blocked" : g.status}
-                  </span>
-                )}
+          <Section title="Strategic Goals" count={partnerGoals.length}>
+            {partnerGoals.length === 0 ? (
+              <div className="px-4 py-4 text-sm text-muted/60">
+                No strategic goals set
               </div>
-            ))
-          )}
-        </Section>
+            ) : (
+              partnerGoals.map((g) => (
+                <div key={g.id} className="flex items-center gap-3 border-b border-border/30 px-4 py-2.5 last:border-b-0">
+                  <span className="min-w-0 flex-1 text-sm text-foreground/80">{g.goal}</span>
+                  {g.category && (
+                    <span className="shrink-0 rounded-full bg-accent/8 px-2 py-0.5 text-[11px] font-medium text-accent/70">
+                      {g.category.replace(/_/g, " ")}
+                    </span>
+                  )}
+                  {g.status && (
+                    <span className={`shrink-0 text-[11px] ${
+                      g.status === "in_progress" ? "text-status-active" :
+                      g.status === "completed" ? "text-status-completed" :
+                      g.status === "deferred" ? "text-status-blocked" :
+                      "text-muted"
+                    }`}>
+                      {g.status === "in_progress" ? "Active" :
+                       g.status === "not_started" ? "Planned" :
+                       g.status === "completed" ? "Done" :
+                       g.status === "deferred" ? "Blocked" : g.status}
+                    </span>
+                  )}
+                </div>
+              ))
+            )}
+          </Section>
+        </div>
 
-        {/* Funding */}
+        {/* Funding + Event Participations — side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {(mpoppFunding.length > 0 || mdfFunding.length > 0) && (
           <Section title="Funding" count={mpoppFunding.length + mdfFunding.length}>
             {mpoppFunding.length > 0 && (
@@ -569,7 +571,7 @@ export default async function PartnerDetailPage({
         )}
 
         {/* Event Participations (interactive — always shown, even when empty) */}
-        <section>
+        <section className="min-w-0">
           <EventParticipationSection
             partnerId={id}
             initialParticipations={eventParticipations.map((e) => ({
@@ -584,6 +586,7 @@ export default async function PartnerDetailPage({
             events={allEvents.map((e) => ({ id: e.id, name: e.name, start_date: e.start_date }))}
           />
         </section>
+        </div>
 
         {/* People */}
         {hasPeople && (
@@ -658,7 +661,8 @@ export default async function PartnerDetailPage({
           </Section>
         )}
 
-        {/* Solution Profile */}
+        {/* Solution Profile + Operational Status — side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {(partner.what_they_do || partner.joint_value_proposition || partner.architecture) && (
           <Section title="Solution Profile">
             <div className="space-y-3 px-4 py-3">
@@ -745,6 +749,7 @@ export default async function PartnerDetailPage({
             </div>
           </Section>
         )}
+        </div>
 
         {/* Scratchpad — always at bottom */}
         <section>
