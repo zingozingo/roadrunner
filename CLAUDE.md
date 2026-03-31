@@ -31,28 +31,55 @@ Read these documents in this order before touching any UI code:
 3. `docs/entity-model.md` — The schema: all 17 tables, FK cascades, Airtable field IDs, ring model. This is your reference for what data exists and how entities connect
 4. `.claude/references/ui-ux-best-practices.md` — Interaction patterns: button states, loading, errors, undo, navigation safety, dark theme, spacing, feedback timing
 
-### Path Guardrails
+### Path Guardrails — Minimum Necessary Changes
 
-These apply in ALL modes, ALL sessions:
+The agent has write access to the entire codebase but must exercise judgment about scope. The rule: make the minimum changes necessary to accomplish the task, and be especially careful with core infrastructure.
 
-**READ-ONLY — do not modify any files in these paths:**
-- `src/lib/` — all database, sync, AI, parsing, and utility modules
-- `src/app/api/` — all API routes
-- `supabase/migrations/` — never create migrations
-- `src/lib/__tests__/` — never modify existing tests
-- `.env`, `.env.local` — never touch environment config
-
-**WRITE-ALLOWED:**
-- `src/app/` (page components, layouts — but NOT `src/app/api/`)
+**High confidence — change freely:**
+- `src/app/` — page components, layouts (NOT `src/app/api/`)
 - `src/components/` — UI components
 - `src/app/globals.css` — styling
 - `scripts/` — tooling
-- `docs/` — documentation updates
+- `docs/` — documentation
 - `.claude/` — design system docs, references, screenshots
 
-The agent may READ anything in `src/lib/` to understand data shapes, types, and existing query functions. It must not WRITE to those files. If a page needs data in a shape the existing API doesn't provide, filter or transform client-side.
+**Medium confidence — change when the task requires it, note in commit message:**
+- `src/app/api/` — API routes (adding fields, validation, error handling)
+- `src/lib/` — business logic (extending functions, adding parameters)
+- `src/lib/__tests__/` — adding or updating tests to match changes
 
-**Guardrail adjustments:** These are the DEFAULT guardrails. For sessions involving backend, sync, or schema work, Steven will expand the write-allowed paths at session start. Always confirm with Steven before modifying any file in a READ-ONLY path. If a task plan requires changes to src/lib/ or src/app/api/, Steven will grant explicit permission per-task or per-phase.
+Always read the existing file thoroughly before modifying any medium-confidence file. Always run the full test suite (`npx vitest run`) after changes to core logic. If a change touches medium-confidence files, the commit message must note which lib/api files were changed and why.
+
+**Requires Steven's explicit approval — never change autonomously:**
+- `supabase/migrations/` — schema changes need sequential numbering and Steven's sign-off
+- `.env`, `.env.local` — environment config
+- Core architectural patterns (new tables, new AI calls, new sync directions)
+
+When in doubt, the task plan will specify which files need modification. If you discover mid-task that a file outside your expected scope needs changes, note it and proceed if the change is small and clearly correct. If it's significant, flag it in your task completion report.
+
+### Git Branching & PR Workflow
+
+Plan execution uses feature branches for visibility and safe iteration.
+
+**At plan start:**
+1. Ensure you're on `main` and it's clean: `git checkout main && git pull`
+2. Create a plan branch: `git checkout -b plan-{number}/{short-name}` (e.g., `plan-3/daily-driver-mvp`)
+
+**After the first task:**
+1. Commit and push: `git add -A && git commit -m "feat: {task description}" && git push -u origin plan-{number}/{short-name}`
+2. **STOP and report to Steven:** "First task committed and pushed to `plan-{number}/{short-name}`. Ready for you to create the draft PR on GitHub."
+3. Wait for Steven to confirm the draft PR is created before continuing.
+
+**Ongoing execution:**
+- Each completed task gets its own commit with a descriptive message
+- Push after each task so the PR stays current
+- Steven can review incremental progress in the draft PR at any time
+
+**At plan completion:**
+- Final push, then Steven reviews and merges the PR on GitHub
+
+**Branch naming convention:** `plan-{number}/{short-kebab-description}`
+**Commit convention:** One commit per task. `feat:` for new functionality, `fix:` for bug fixes, `refactor:` for restructuring, `docs:` for documentation-only changes.
 
 ### Verification Tools
 
