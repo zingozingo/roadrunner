@@ -5,6 +5,7 @@ import type {
   Task,
   NoteSummaryResult,
 } from "@/lib/types";
+import { useUnsavedChanges } from "@/components/shared/UnsavedChangesProvider";
 import ContextSidebar from "./ContextSidebar";
 import PreviousNotes from "./PreviousNotes";
 import TaskEditor from "./TaskEditor";
@@ -63,6 +64,7 @@ export default function NoteWorkspace({
 
   const lastSavedRef = useRef(initialRawNotes ?? "");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { setDirty, clearDirty } = useUnsavedChanges("note-workspace");
 
   /* ---- Auto-resize textarea ---- */
   const autoResize = useCallback(() => {
@@ -115,15 +117,17 @@ export default function NoteWorkspace({
     return () => document.removeEventListener("visibilitychange", handler);
   }, [rawNotes, phase, saveDraft]);
 
-  /* ---- Navigation safety: warn if unsaved review ---- */
+  /* ---- Navigation safety via useUnsavedChanges ---- */
   useEffect(() => {
-    if (phase !== "review") return;
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [phase]);
+    if (phase === "editing" && rawNotes !== lastSavedRef.current) {
+      setDirty();
+    } else if (phase === "review") {
+      // Review phase is always dirty — summary not yet saved
+      setDirty();
+    } else {
+      clearDirty();
+    }
+  }, [phase, rawNotes, setDirty, clearDirty]);
 
   /* ---- Focus on mount ---- */
   useEffect(() => {

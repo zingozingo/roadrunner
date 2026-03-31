@@ -49,6 +49,7 @@ export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
   const isDirty = dirtySurfaces.size > 0;
   const isDirtyRef = useRef(isDirty);
   isDirtyRef.current = isDirty;
+  const leavingRef = useRef(false);
 
   const register = useCallback((id: string) => {
     setDirtySurfaces((prev) => new Set(prev).add(id));
@@ -101,9 +102,11 @@ export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
     return () => {
       window.removeEventListener("popstate", handler);
       // Clean up the guard entry if we go clean while still on the page
-      if (window.history.state?.unsavedGuard) {
+      // but NOT if we're intentionally leaving (handleLeave was called)
+      if (window.history.state?.unsavedGuard && !leavingRef.current) {
         window.history.back();
       }
+      leavingRef.current = false;
     };
   }, [isDirty]);
 
@@ -114,6 +117,8 @@ export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
 
   function handleLeave() {
     if (pendingNavigation) {
+      // Mark that we're intentionally leaving — skip history cleanup
+      leavingRef.current = true;
       // Clear all dirty state before navigating
       setDirtySurfaces(new Set());
       pendingNavigation.navigate();
