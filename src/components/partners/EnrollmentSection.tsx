@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useUnsavedChanges } from "@/components/shared/UnsavedChangesProvider";
 
 interface Enrollment {
   id: string;
@@ -80,6 +81,12 @@ export default function EnrollmentSection({
   const [formDate, setFormDate] = useState("");
   const [formNotes, setFormNotes] = useState("");
   const [formProgramId, setFormProgramId] = useState("");
+  const { setDirty, clearDirty } = useUnsavedChanges("enrollment-form");
+
+  useEffect(() => {
+    if (showModal && formProgramName.trim().length > 0) setDirty();
+    else clearDirty();
+  }, [showModal, formProgramName, setDirty, clearDirty]);
 
   function openModal() {
     setFormProgramName("");

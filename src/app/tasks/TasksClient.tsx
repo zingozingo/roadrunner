@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
 import PageContainer from "@/components/layout/PageContainer";
 import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
+import { useUnsavedChanges } from "@/components/shared/UnsavedChangesProvider";
 import { Task } from "@/lib/types";
 import { stripPartnerPrefix } from "@/lib/format-utils";
 
@@ -53,6 +54,13 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
   const [formEngagementId, setFormEngagementId] = useState("");
   const [formEngagements, setFormEngagements] = useState<{ id: string; name: string }[]>([]);
   const [formEngagementsLoading, setFormEngagementsLoading] = useState(false);
+  const { setDirty, clearDirty } = useUnsavedChanges("task-create-form");
+
+  // Dirty tracking for the task creation modal
+  useEffect(() => {
+    if (showForm && formDescription.trim().length > 0) setDirty();
+    else clearDirty();
+  }, [showForm, formDescription, setDirty, clearDirty]);
 
   const openCount = useMemo(() => tasks.filter((t) => t.status === "open").length, [tasks]);
 

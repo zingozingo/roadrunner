@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useUnsavedChanges } from "@/components/shared/UnsavedChangesProvider";
 
 interface EventParticipation {
   id: string;
@@ -63,6 +64,12 @@ export default function EventParticipationSection({
   const [formEventId, setFormEventId] = useState("");
   const [formStatus, setFormStatus] = useState("invited");
   const [formNotes, setFormNotes] = useState("");
+  const { setDirty, clearDirty } = useUnsavedChanges("event-participation-form");
+
+  useEffect(() => {
+    if (showModal && formEventId.length > 0) setDirty();
+    else clearDirty();
+  }, [showModal, formEventId, setDirty, clearDirty]);
 
   function openModal() {
     setFormEventId("");

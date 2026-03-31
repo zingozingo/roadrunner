@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { RecurrencePattern } from "@/lib/types";
+import { useUnsavedChanges } from "@/components/shared/UnsavedChangesProvider";
 
 const PATTERN_LABELS: Record<RecurrencePattern, string> = {
   weekly: "Weekly",
@@ -82,6 +83,12 @@ export default function RecurrenceEditor({
       : 0
   );
   const [showEndDate, setShowEndDate] = useState(startEditing ? !!initialEnd : false);
+  const { setDirty, clearDirty } = useUnsavedChanges("recurrence-editor");
+
+  useEffect(() => {
+    if (editing) setDirty();
+    else clearDirty();
+  }, [editing, setDirty, clearDirty]);
 
   function openEditor() {
     setFormPattern(pattern ?? "weekly");

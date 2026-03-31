@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { PartnerContextEntry } from "@/lib/types";
+import { useUnsavedChanges } from "@/components/shared/UnsavedChangesProvider";
 
 interface PartnerScratchpadProps {
   partnerId: string;
@@ -38,6 +39,12 @@ export default function PartnerScratchpad({
   const [input, setInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const { setDirty, clearDirty } = useUnsavedChanges("partner-scratchpad");
+
+  useEffect(() => {
+    if (input.trim().length > 0) setDirty();
+    else clearDirty();
+  }, [input, setDirty, clearDirty]);
 
   async function handleSubmit() {
     const content = input.trim();
