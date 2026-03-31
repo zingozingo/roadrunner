@@ -129,6 +129,52 @@ When borders are needed, use `border-border/50` (half opacity). Full-opacity bor
 
 ---
 
+## Layout System
+
+### PageContainer
+
+**Component:** `PageContainer` (`src/components/layout/PageContainer.tsx`)
+**Used on:** Every page in the app (all 13 pages)
+**Behavior:** Fluid container with `max-w-[1600px] mx-auto px-6 py-6 lg:py-8`. Pages control their internal layout — PageContainer only handles max-width and horizontal padding.
+**Design rationale:** Replaces ad-hoc `mx-auto max-w-*` patterns that varied inconsistently across pages. A single layout primitive ensures every page has the same outer shell. At 1280px viewport (13" laptop), content area is ~1008px after sidebar and padding. At 1440px, ~1168px.
+**Constraints:** No width overrides on PageContainer. If a page needs different internal width behavior, constrain the internal content, not the container.
+
+### Root Layout Shell
+
+**Component:** Root layout (`src/app/layout.tsx`)
+**Behavior:**
+- `<div className="flex min-h-screen bg-background">` wraps sidebar + main
+- `<main className="flex-1 min-w-0 overflow-y-auto">` wraps page content
+- `min-w-0` on `<main>` is **required** — prevents flex child from overflowing when content has intrinsic minimum width
+**Constraints:** Never remove `min-w-0` from main — it prevents horizontal overflow on all pages.
+
+### Two-Column Page Pattern
+
+Used on: Today page, Meeting detail, Engagement detail.
+
+**Structure:** `grid grid-cols-1 lg:grid-cols-[Xfr_Yfr] gap-6` with `min-w-0` on both grid children.
+
+**Critical rule:** Grid children must have `min-w-0`. CSS Grid defaults to `min-width: auto` which prevents children from shrinking below their content's intrinsic minimum width. Without `min-w-0`, long text will force horizontal overflow.
+
+**Right column separator:** `lg:border-l lg:border-border/20 lg:pl-6` — subtle vertical border with 24px padding. Don't double-space with both `gap` and `pl` at large values.
+
+**Proportions by page type:**
+| Page | Grid | Rationale |
+|------|------|-----------|
+| Today | `11fr_9fr` (55/45) | Meetings need room for partner+title; tasks need room for descriptions |
+| Meeting detail | `3fr_2fr` (60/40) | Workspace is the hero; context sidebar is reference |
+| Engagement detail | `3fr_2fr` (60/40) | Same pattern as meeting detail |
+
+### Section Pairing Pattern
+
+**Used on:** Partner detail page
+**Structure:** `grid grid-cols-1 lg:grid-cols-2 gap-6` with `min-w-0` on grid children.
+**When to pair:** Complementary reference sections that are both short lists or metadata. Examples: Program Enrollments + Strategic Goals, Funding + Event Participations, Solution Profile + Operational Status.
+**When NOT to pair:** Content-heavy sections (Brain, Engagements, Tasks, Meetings) or interactive sections (People, Scratchpad) that benefit from full width.
+**Design rationale:** Reduces scroll depth on data-rich partners without sacrificing readability. Stacks to single column below 1024px.
+
+---
+
 ## Component Patterns
 
 ### Sidebar
