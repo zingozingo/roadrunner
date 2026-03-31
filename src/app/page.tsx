@@ -118,7 +118,7 @@ export default async function TodayPage() {
       )}
 
       {hasContent && (
-        <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[11fr_9fr] gap-6">
 
           {/* ─── LEFT COLUMN: Schedule ─── */}
           <div className="min-w-0">
@@ -211,13 +211,13 @@ export default async function TodayPage() {
                     View all
                   </Link>
                 </div>
-                <TodayTasks tasks={myTasks.slice(0, 6)} today={today} />
-                {myTasks.length > 6 && (
+                <TodayTasks tasks={myTasks.slice(0, 12)} today={today} />
+                {myTasks.length > 12 && (
                   <Link
                     href="/tasks"
                     className="mt-2 block text-center text-xs text-muted hover:text-foreground transition-colors"
                   >
-                    +{myTasks.length - 6} more tasks
+                    +{myTasks.length - 12} more tasks
                   </Link>
                 )}
               </section>

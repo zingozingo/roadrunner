@@ -749,15 +749,16 @@ Patterns for rendering complex information visually. Status indicators, timeline
 **Component:** Grid layout on Today page (`src/app/page.tsx`)
 **Used on:** Today page (desktop ≥1024px)
 **Behavior:**
-- Container: `max-w-7xl` (1280px) — matches meeting/engagement detail pages
-- `grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8`
-- Left column (60%): Today's Meetings + Upcoming Meetings — the schedule
-- Right column (40%): My Tasks (capped at 6) + Inbox signal — what needs attention
-- Right column has `lg:border-l lg:border-border/20 lg:pl-8` separator
+- Container: PageContainer (fluid, max-w-[1600px])
+- `grid-cols-1 lg:grid-cols-[11fr_9fr] gap-6` — 55/45 split
+- Both grid children have `min-w-0` to prevent CSS Grid overflow
+- Left column (55%): Today's Meetings + Upcoming Meetings — the schedule
+- Right column (45%): My Tasks (capped at 12) + Inbox signal — what needs attention
+- Right column has `lg:border-l lg:border-border/20 lg:pl-6` separator
 - Stacks to single column on <1024px (meetings first, then tasks + inbox)
 - "+N more tasks" link when tasks exceed cap
 - "No meetings scheduled this week" empty state in left column
-**Design rationale:** Meetings and tasks live side-by-side so neither buries the other. The 3:2 ratio gives meetings more space (they have more metadata per row). The schedule is the hero; tasks are the companion.
+**Design rationale:** Meetings and tasks live side-by-side so neither buries the other. The 55/45 ratio gives meetings slightly more space (metadata per row) while allowing tasks enough room for descriptions. Cap at 12 shows a useful task list without making the right column dominate. `min-w-0` on grid children is required to prevent content overflow — see Layout System pattern.
 **Constraints:** This is the only two-column launchpad page. Don't apply this layout to list pages (meetings, tasks, partners) — those are single-column with full-width rows.
 
 ### Tasks Grouped by Partner (Today Page)
@@ -770,6 +771,6 @@ Patterns for rendering complex information visually. Status indicators, timeline
 - Each task row: checkbox + description + due date (overdue highlighted) + partner context
 - Overdue dates: `text-status-blocked` (amber)
 - "View all" link in section header to /tasks page
-- Capped at 6 items with "+N more tasks" link below
-**Design rationale:** Grouping by partner matches how the PDM thinks — "what do I owe Spacelift? What do I owe OPSWAT?" The sort order surfaces urgent items first. Cap at 6 keeps the right column compact.
+- Capped at 12 items with "+N more tasks" link below
+**Design rationale:** Grouping by partner matches how the PDM thinks — "what do I owe Spacelift? What do I owe OPSWAT?" The sort order surfaces urgent items first. Cap at 12 shows a useful task list while keeping the page manageable.
 **Constraints:** Today page tasks are read-only (no inline editing). Full task management happens on /tasks.
