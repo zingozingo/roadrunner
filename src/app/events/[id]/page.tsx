@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import PageContainer from "@/components/layout/PageContainer";
 import { EventTypeBadge } from "@/components/shared/TypeBadge";
 import EventActions from "@/components/actions/EventActions";
 import { formatFooterDate } from "@/lib/format-utils";
@@ -31,7 +32,7 @@ export default async function EventDetailPage({
   if (!event) notFound();
 
   return (
-    <div className="p-6 lg:p-8">
+    <PageContainer>
       <Link
         href="/events"
         className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
@@ -101,6 +102,6 @@ export default async function EventDetailPage({
           {event.verified ? "Verified" : "Unverified"}
         </p>
       </div>
-    </div>
+    </PageContainer>
   );
 }

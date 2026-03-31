@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import PageContainer from "@/components/layout/PageContainer";
 
 interface PersonResult {
   id: string;
@@ -144,7 +145,7 @@ export default function PeopleClient({ partners }: PeopleClientProps) {
   const sortedPartners = [...partners].sort((a, b) => a.name.localeCompare(b.name));
 
   return (
-    <div className="mx-auto max-w-5xl p-6 lg:p-8">
+    <PageContainer>
       {/* Header */}
       <div className="mb-6 flex items-start justify-between">
         <div>
@@ -397,6 +398,6 @@ export default function PeopleClient({ partners }: PeopleClientProps) {
           })}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

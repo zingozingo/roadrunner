@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
+import PageContainer from "@/components/layout/PageContainer";
 import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
 import { Task } from "@/lib/types";
@@ -420,7 +421,7 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
   }
 
   return (
-    <div className="mx-auto max-w-5xl p-6 lg:p-8">
+    <PageContainer>
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <PageHeader
@@ -598,6 +599,6 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
           )}
         </>
       )}
-    </div>
+    </PageContainer>
   );
 }

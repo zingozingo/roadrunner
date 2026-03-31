@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
+import PageContainer from "@/components/layout/PageContainer";
 import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
 import { Meeting, Partner, Engagement } from "@/lib/types";
@@ -248,7 +249,7 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
   }, [filteredMeetings]);
 
   return (
-    <div className="mx-auto max-w-7xl p-6 lg:p-8">
+    <PageContainer>
       <div className="mb-6 flex items-start justify-between">
         <PageHeader
           title="Meetings"
@@ -563,6 +564,6 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

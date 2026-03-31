@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import PageContainer from "@/components/layout/PageContainer";
 import PillarBadge from "@/components/shared/PillarBadge";
 import BrainSynthesis from "@/components/partners/BrainSynthesis";
 import EnrollmentSection from "@/components/partners/EnrollmentSection";
@@ -252,7 +253,7 @@ export default async function PartnerDetailPage({
   /* ---------------------------------------------------------------- */
 
   return (
-    <div className="mx-auto max-w-5xl p-6 lg:p-8">
+    <PageContainer>
       {/* Back link */}
       <Link
         href="/partners"
@@ -755,7 +756,7 @@ export default async function PartnerDetailPage({
           </div>
         </section>
       </div>
-    </div>
+    </PageContainer>
   );
 }
 

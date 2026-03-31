@@ -7,6 +7,7 @@ import {
 } from "@/lib/db";
 import { cleanMeetingTitle } from "@/lib/format-utils";
 import { MEETING_TYPE_DISPLAY } from "@/lib/sync/field-maps";
+import PageContainer from "@/components/layout/PageContainer";
 import TodayTasks from "./TodayTasks";
 import type { Meeting } from "@/lib/types";
 
@@ -103,7 +104,7 @@ export default async function TodayPage() {
     upcomingMeetings.length > 0;
 
   return (
-    <div className="mx-auto max-w-7xl p-6 lg:p-8">
+    <PageContainer>
       {/* ---- Header ---- */}
       <div className="mb-8 flex items-baseline justify-between">
         <h1 className="text-xl font-semibold text-foreground">Today</h1>
@@ -117,10 +118,10 @@ export default async function TodayPage() {
       )}
 
       {hasContent && (
-        <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-6">
 
           {/* ─── LEFT COLUMN: Schedule ─── */}
-          <div>
+          <div className="min-w-0">
             {/* Today's Meetings */}
             {todaysMeetings.length > 0 && (
               <section className="mb-8">
@@ -197,7 +198,7 @@ export default async function TodayPage() {
           </div>
 
           {/* ─── RIGHT COLUMN: Tasks + Inbox ─── */}
-          <div className="lg:border-l lg:border-border/20 lg:pl-8">
+          <div className="min-w-0 lg:border-l lg:border-border/20 lg:pl-6">
             {/* My Tasks */}
             {myTasks.length > 0 && (
               <section className="mb-8">
@@ -243,7 +244,7 @@ export default async function TodayPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }
 

@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
+import PageContainer from "@/components/layout/PageContainer";
 import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
 import { ProgramTypeBadge } from "@/components/shared/TypeBadge";
@@ -54,7 +55,7 @@ export default function ProgramsClient({ programs }: ProgramsClientProps) {
 
 
   return (
-    <div className="mx-auto max-w-7xl p-6 lg:p-8">
+    <PageContainer>
       <PageHeader
         title="Programs"
         subtitle={`${programs.length} program${programs.length !== 1 ? "s" : ""} synced`}
@@ -110,6 +111,6 @@ export default function ProgramsClient({ programs }: ProgramsClientProps) {
           )}
         </>
       )}
-    </div>
+    </PageContainer>
   );
 }

@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import PageContainer from "@/components/layout/PageContainer";
 import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
 import type { Partner } from "@/lib/types";
@@ -98,7 +99,7 @@ export default function PartnersClient({ partners, contactsByPartner }: Props) {
   }, [filtered]);
 
   return (
-    <div className="mx-auto max-w-5xl p-6 lg:p-8">
+    <PageContainer>
       {/* Header */}
       <div className="mb-6 flex items-start justify-between">
         <div>
@@ -186,7 +187,7 @@ export default function PartnersClient({ partners, contactsByPartner }: Props) {
           )}
         </>
       )}
-    </div>
+    </PageContainer>
   );
 }
 

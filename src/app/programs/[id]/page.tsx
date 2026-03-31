@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import PageContainer from "@/components/layout/PageContainer";
 import { ProgramTypeBadge } from "@/components/shared/TypeBadge";
 import ProgramActions from "@/components/actions/ProgramActions";
 import { formatFooterDate } from "@/lib/format-utils";
@@ -18,7 +19,7 @@ export default async function ProgramDetailPage({
   if (!program) notFound();
 
   return (
-    <div className="p-6 lg:p-8">
+    <PageContainer>
       <Link
         href="/programs"
         className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
@@ -97,6 +98,6 @@ export default async function ProgramDetailPage({
           Created {formatFooterDate(program.created_at)}
         </p>
       </div>
-    </div>
+    </PageContainer>
   );
 }

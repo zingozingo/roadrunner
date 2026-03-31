@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import PageContainer from "@/components/layout/PageContainer";
 import CollapsibleEmails from "@/components/shared/CollapsibleEmails";
 import EngagementActions from "@/components/actions/EngagementActions";
 import MergeButton from "@/components/actions/MergeButton";
@@ -90,7 +91,7 @@ export default async function EngagementDetailPage({
     .sort((a, b) => new Date(b.meeting_date + "T00:00:00").getTime() - new Date(a.meeting_date + "T00:00:00").getTime());
 
   return (
-    <div className="mx-auto max-w-7xl p-6 lg:p-8">
+    <PageContainer>
       <Link
         href={engagement.partner_id ? `/partners/${engagement.partner_id}` : "/partners"}
         className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
@@ -102,8 +103,8 @@ export default async function EngagementDetailPage({
       </Link>
 
       {/* ═══ IDENTITY BAR ═══ */}
-      <div className="flex items-center gap-3 pb-4 mb-6 border-b border-border/30">
-        <h1 className="text-2xl font-semibold text-foreground">{engagement.name}</h1>
+      <div className="flex items-center gap-3 pb-4 mb-6 border-b border-border/30 min-w-0">
+        <h1 className="text-2xl font-semibold text-foreground truncate">{engagement.name}</h1>
         <span className={`h-2 w-2 shrink-0 rounded-full ${dotColor}`} title={engagement.status} />
         <div className="ml-auto flex items-center gap-2">
           {engagement.partner_id && (
@@ -118,10 +119,10 @@ export default async function EngagementDetailPage({
       </div>
 
       {/* ═══ TWO-COLUMN LAYOUT ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8 lg:gap-12">
+      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-6">
 
         {/* ─── LEFT COLUMN: What's happening ─── */}
-        <div className="space-y-10">
+        <div className="min-w-0 space-y-10">
 
           {/* Condensed Digest */}
           {engagement.condensed && (
@@ -221,7 +222,7 @@ export default async function EngagementDetailPage({
         </div>
 
         {/* ─── RIGHT COLUMN: Structural context ─── */}
-        <div className="lg:border-l lg:border-border/20 lg:pl-8">
+        <div className="min-w-0 lg:border-l lg:border-border/20 lg:pl-6">
 
           {/* Partner */}
           {partnerName && engagement.partner_id && (
@@ -288,6 +289,6 @@ export default async function EngagementDetailPage({
           <> · Archived {formatFooterDate(engagement.closed_at)}</>
         )}
       </p>
-    </div>
+    </PageContainer>
   );
 }

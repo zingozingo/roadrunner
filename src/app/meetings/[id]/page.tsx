@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import PageContainer from "@/components/layout/PageContainer";
 import MeetingActions from "@/components/actions/MeetingActions";
 import {
   getMeeting,
@@ -141,7 +142,7 @@ export default async function MeetingDetailPage({
     : null;
 
   return (
-    <div className="mx-auto max-w-7xl p-6 lg:p-8">
+    <PageContainer>
       <Link
         href="/meetings"
         className="mb-4 inline-flex items-center gap-1 text-xs text-muted hover:text-foreground transition-colors"
@@ -153,8 +154,8 @@ export default async function MeetingDetailPage({
       </Link>
 
       {/* ═══ IDENTITY BAR ═══ */}
-      <div className="flex items-center gap-3 mb-6">
-        <h1 className="text-xl font-semibold text-foreground">{cleanMeetingTitle(meeting.title)}</h1>
+      <div className="flex items-center gap-3 mb-6 min-w-0">
+        <h1 className="text-xl font-semibold text-foreground truncate">{cleanMeetingTitle(meeting.title)}</h1>
         <span className={`shrink-0 h-2 w-2 rounded-full ${dotColor}`} title={meeting.status} />
         {partner && (
           <Link href={`/partners/${partner.id}`} className="text-sm font-medium text-accent hover:underline">
@@ -195,10 +196,10 @@ export default async function MeetingDetailPage({
       />
 
       {/* ═══ TWO-COLUMN LAYOUT ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8 lg:gap-12">
+      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-6">
 
         {/* ─── LEFT COLUMN: Workspace ─── */}
-        <div>
+        <div className="min-w-0">
           {partner && partnerContext && (
             <MeetingNotesSection
               meetingId={id}
@@ -214,7 +215,7 @@ export default async function MeetingDetailPage({
         </div>
 
         {/* ─── RIGHT COLUMN: Context ─── */}
-        <div className="lg:border-l lg:border-border/20 lg:pl-8 space-y-0">
+        <div className="min-w-0 lg:border-l lg:border-border/20 lg:pl-6 space-y-0">
 
           {/* Details */}
           <section className="pb-6">
@@ -339,6 +340,6 @@ export default async function MeetingDetailPage({
           </p>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }
