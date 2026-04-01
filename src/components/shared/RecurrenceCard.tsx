@@ -134,7 +134,7 @@ export default function RecurrenceCard({
         {/* Line 1: Pattern + nav + edit affordance */}
         <div className="flex items-center gap-2 text-sm">
           {/* Recurrence icon */}
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted/70 shrink-0">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-accent/70 shrink-0">
             <path d="M2 8a6 6 0 0 1 10.47-4M14 8a6 6 0 0 1-10.47 4" />
             <path d="M14 2v4h-4M2 14v-4h4" />
           </svg>
@@ -173,7 +173,7 @@ export default function RecurrenceCard({
           {/* Edit pattern link */}
           <button
             onClick={() => setShowEditor(true)}
-            className="text-[11px] text-muted/40 hover:text-accent transition-colors"
+            className="text-xs text-muted/60 hover:text-accent transition-colors"
           >
             Edit pattern
           </button>
@@ -182,7 +182,7 @@ export default function RecurrenceCard({
           <div className="relative">
             <button
               onClick={() => setShowOverflow(!showOverflow)}
-              className="text-muted/30 hover:text-muted transition-colors p-0.5"
+              className="text-muted/50 hover:text-foreground transition-colors p-0.5"
               title="More actions"
             >
               <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
