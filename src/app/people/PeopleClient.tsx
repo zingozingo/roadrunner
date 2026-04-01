@@ -11,7 +11,7 @@ interface PersonResult {
   title: string | null;
   organization: string | null;
   org_type: string | null;
-  partners: { id: string; name: string; role: string | null }[];
+  partners: { id: string; name: string; role: string | null; source: "curated" | "engagement" }[];
 }
 
 const ORG_TYPE_FILTERS = [
@@ -380,8 +380,16 @@ export default function PeopleClient({ partners }: PeopleClientProps) {
                       <Link
                         key={p.id}
                         href={`/partners/${p.id}`}
-                        className="text-xs text-accent hover:underline whitespace-nowrap"
-                        title={p.role ? `${p.name} (${p.role})` : p.name}
+                        className={`text-xs whitespace-nowrap transition-colors ${
+                          p.source === "curated"
+                            ? "text-accent hover:underline"
+                            : "text-muted/50 hover:text-muted/70"
+                        }`}
+                        title={
+                          p.source === "curated"
+                            ? (p.role ? `${p.name} (${p.role})` : p.name)
+                            : `${p.name} (via engagement)`
+                        }
                       >
                         {p.name}
                       </Link>
