@@ -145,11 +145,15 @@ export default function MeetingEditModal({ meeting, partnerName, onClose }: Meet
       if (dateChanged) {
         body.meeting_date = meetingDate || null;
 
-        // For recurring meetings with "this and future" scope, also update anchor_day
-        if (isRecurring && rescheduleScope === "this_and_future" && meetingDate) {
-          const newDow = new Date(meetingDate + "T12:00:00").getDay();
-          body.anchor_day = newDow;
-          body.scope = "this_and_future";
+        if (isRecurring && meetingDate) {
+          // Series root: always propagate (the root IS the series anchor)
+          // Series child with "this and future": propagate to future meetings
+          const isRoot = !isSeriesChild;
+          if (isRoot || rescheduleScope === "this_and_future") {
+            const newDow = new Date(meetingDate + "T12:00:00").getDay();
+            body.anchor_day = newDow;
+            body.scope = "this_and_future";
+          }
         }
       }
 
