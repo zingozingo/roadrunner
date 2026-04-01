@@ -648,56 +648,61 @@ Patterns for rendering complex information visually. Status indicators, timeline
 **Design rationale:** Consistent with owner badge colors so the user learns one color language for "who is this person?"
 **Constraints:** Same colors as owner badges — never diverge.
 
-## Series & Timeline Visualization
+## Recurrence
 
-### SeriesDisplay (Unified Series Component)
+### RecurrenceCard (Unified Recurrence Section)
 
-**Component:** `SeriesDisplay` (`src/components/shared/SeriesDisplay.tsx`)
-**Used on:** Meeting detail page (replaces both the old nav bar and sidebar recurrence field)
+**Component:** `RecurrenceCard` (`src/components/shared/RecurrenceCard.tsx`)
+**Used on:** Meeting detail page — replaces the former SeriesDisplay + SeriesTimeline + SeriesActions
+**When to show:** Any meeting with `recurrence_pattern` or `series_id` (siblings.length > 1)
 **Behavior:**
-- Line 1: ↻ icon + rhythm text + "Since {date}" + optional "Ends {date}" + optional shifted indicator
-- Line 2: ← Previous / Next → navigation (disabled at boundaries)
-- Rhythm text: "Weekly on Fridays", "Biweekly on Wednesdays", "Monthly on the 15th"
-- **Always reads anchor_day from the series root** (resolved server-side), not the current meeting
-- No occurrence count ("N of M") — meaningless for indefinite series
-- Container: `rounded-lg border border-border/20 bg-surface/50 px-4 py-3`
-**Design rationale:** Unifies two previously separate displays (nav bar + sidebar field) into one clean component. The series root resolves rhythm info so children show the correct pattern even though their own anchor_day is null.
-**Constraints:** Don't show for standalone meetings. Don't add occurrence count back.
+- Line 1: ↻ icon + ← arrow + rhythm text + → arrow + "Since {date}" + "Edit pattern" link + ⋮ overflow menu
+  - Arrows navigate to previous/next in series (disabled at boundaries)
+  - Rhythm text: "Weekly on Fridays", "Biweekly on Wednesdays", "Monthly on the 15th"
+  - **Always reads anchor_day from the series root** (resolved server-side)
+- Line 2: Date list — 5 nearest occurrences centered on current meeting
+  - Past dates: `text-muted/40` (muted)
+  - Current meeting: `text-accent font-semibold` (highlighted)
+  - Future dates: `text-foreground/60`
+  - Cancelled: `text-muted/20 line-through`
+  - "..." ellipsis at edges if more exist
+  - Each date is a link to that meeting (except current)
+- Actions: "Edit pattern" opens modal editor; overflow ⋮ has "Skip this one" and "End series"
+- Container: `rounded-lg border border-border/20 bg-surface/50 px-4 py-3 mb-6`
+**Design rationale:** One compact card replaces 3 separate components (display, timeline strip, actions). The date list is more readable than colored boxes. No legend needed — dates are self-explanatory. Edit affordance is subtle (text link, not button) because editing is infrequent.
+**Constraints:** Don't show for standalone meetings. Don't add colored boxes or legends back. Don't show occurrence count.
+
+### RecurrenceEditor (Modal)
+
+**Component:** `RecurrenceEditor` (`src/components/shared/RecurrenceEditor.tsx`)
+**Used on:** Meeting detail page — opened from RecurrenceCard "Edit pattern" or MakeRecurringButton
+**Behavior:**
+- Modal dialog (z-50, backdrop, centered, max-w-sm)
+- Fields: Pattern dropdown (Weekly/Biweekly/Monthly/Quarterly), Day picker, End date (hidden by default, "Add end date" link)
+- Preview: "Next 3: Apr 27 → May 11 → May 25" updates live
+- Save: calls PUT /api/meetings/{id} with pattern + anchor_day + end date. For existing series, passes `scope: "this_and_future"`
+- **Save state protection**: useUnsavedChanges("recurrence-editor") tracks dirty state by comparing form values to initial props
+- **Discard confirmation**: On close/Cancel/ESC with dirty form → "Discard changes?" dialog (z-60, layered above editor modal). Stay returns to editor. Discard closes both.
+- On save success: clears dirty, calls onSave callback
+**Design rationale:** Modal instead of inline because the editor pushes page content down and loses visual context. The discard dialog prevents accidental data loss. The dirty check is value-based (not interaction-based) so clicking a select without changing the value doesn't trigger it.
+**Constraints:** Never render inline — always as a modal. Always protect with discard confirmation.
+
+### MakeRecurringButton
+
+**Component:** `MakeRecurringButton` (`src/components/shared/MakeRecurringButton.tsx`)
+**Used on:** Meeting detail page — in Details sidebar for standalone (non-series) meetings only
+**Behavior:** Text link "Make recurring" → opens RecurrenceEditor modal with null initial values
+**Constraints:** Only show when `!meeting.series_id && !meeting.recurrence_pattern`. Never show on already-recurring meetings.
 
 ### Shifted-Occurrence Indicator
 
-**Component:** Inline text in `SeriesDisplay` + date color in list views
-**Used on:** Meeting detail (inside SeriesDisplay), Meetings list, Today page, Partner detail recent meetings
+**Component:** Date color in list views
+**Used on:** Meetings list, Today page, Partner detail recent meetings
 **Behavior:**
-- **Detail page:** Amber text "Moved to {day}" appended to SeriesDisplay line 1 (`text-status-blocked/70`)
-- **List views:** Date text renders in `text-status-blocked/70` (amber) instead of `text-muted` when day-of-week ≠ root's anchor_day
+- Date text renders in `text-status-blocked/70` (amber) instead of `text-muted` when day-of-week ≠ root's anchor_day
 - Detection: compare meeting_date day-of-week against root's anchor_day (weekly/biweekly only)
-- Title attribute: "Rescheduled from regular day" on hover
-- Server-side: root anchor_days batch-looked-up for list views that may not include roots in dataset
-**Design rationale:** Subtle but unmissable. Amber is the "attention" color (already used for overdue tasks). Users learn the pattern quickly: amber date = off-rhythm.
-**Constraints:** Only applies to weekly/biweekly patterns (monthly/quarterly have variable day-of-week by nature). Don't use for standalone meetings.
-
-### Series Timeline Strip
-
-**Component:** `SeriesTimeline` (`src/components/shared/SeriesTimeline.tsx`)
-**Used on:** Meeting detail page (below SeriesDisplay, for series meetings only)
-**Behavior:**
-- Inline legend row: "SERIES" label + color swatches for Done/Past/Scheduled/Skipped (`text-[10px]`)
-- Horizontal row of 16px rounded-square blocks (`w-4 h-4 rounded-sm`), one per occurrence, chronological
-- Color coding by status:
-  - Completed: solid `bg-status-active` (green)
-  - Past due: `bg-accent/50` (muted indigo)
-  - Scheduled (future): outline `border border-accent/40 bg-transparent`
-  - Cancelled/skipped: `bg-muted/20` (faint gray)
-- Shifted indicator: amber border (`border-2 border-status-blocked/60`) on blocks where day-of-week ≠ anchor
-- Current meeting highlight: `ring-2 ring-foreground/60 ring-offset-1 ring-offset-background`
-- Hover: `title` tooltip with weekday + date + status + shift info + meeting title
-- Click: navigates to that meeting's detail page
-- Date labels below blocks: shown at adaptive intervals (every block for ≤8, every 2nd for ≤16, every 4th for ≤24)
-- Invisible spacer on unlabeled blocks to keep vertical alignment
-- Horizontal overflow with scroll for long series
-**Design rationale:** Contribution-graph inspired. Larger blocks (16px vs 12px) are easily scannable. Legend eliminates guessing about color meaning. Rounded squares differentiate from status dots used elsewhere.
-**Constraints:** Read-only visualization — no editing. Don't add navigation or pagination. Blocks at 16px are the right balance of scannable and compact.
+**Design rationale:** Subtle but unmissable. Amber is the "attention" color (already used for overdue tasks).
+**Constraints:** Only applies to weekly/biweekly patterns. Don't use for standalone meetings.
 
 ## Financial Displays
 

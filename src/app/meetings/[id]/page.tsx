@@ -19,9 +19,8 @@ import MeetingNotesSection from "@/components/notes/MeetingNotesSection";
 import ContactGroup from "@/components/shared/ContactGroup";
 import { USER_CONFIG } from "@/lib/user-config";
 import EngagementLinker from "@/components/shared/EngagementLinker";
-import RecurrenceEditor from "@/components/shared/RecurrenceEditor";
-import SeriesDisplay from "@/components/shared/SeriesDisplay";
-import SeriesTimeline from "@/components/shared/SeriesTimeline";
+import RecurrenceCard from "@/components/shared/RecurrenceCard";
+import MakeRecurringButton from "@/components/shared/MakeRecurringButton";
 import type { DisplayContext } from "@/lib/types";
 import { MEETING_TYPE_DISPLAY } from "@/lib/sync/field-maps";
 
@@ -128,7 +127,7 @@ export default async function MeetingDetailPage({
   );
   const totalAttendees = filteredAttendees.length;
 
-  // Resolve series root data for SeriesDisplay
+  // Resolve series root data for RecurrenceCard
   const seriesRoot = meeting.series_id
     ? seriesSiblings.find((s) => s.id === meeting.series_id)
     : null;
@@ -175,8 +174,8 @@ export default async function MeetingDetailPage({
         </div>
       </div>
 
-      {/* ═══ RECURRENCE SECTION — Display + Timeline as one block ═══ */}
-      <SeriesDisplay
+      {/* ═══ RECURRENCE SECTION — unified card ═══ */}
+      <RecurrenceCard
         meetingId={id}
         meetingDate={meeting.meeting_date}
         recurrencePattern={meeting.recurrence_pattern}
@@ -185,12 +184,6 @@ export default async function MeetingDetailPage({
         siblings={seriesSiblings}
         rootAnchorDay={rootAnchorDay}
         rootDate={rootDate}
-      />
-      <SeriesTimeline
-        siblings={seriesSiblings}
-        rootAnchorDay={rootAnchorDay}
-        currentMeetingId={id}
-        recurrencePattern={meeting.recurrence_pattern}
       />
 
       {/* ═══ TWO-COLUMN LAYOUT ═══ */}
@@ -249,17 +242,13 @@ export default async function MeetingDetailPage({
                   <span className="text-sm text-foreground">{MEETING_TYPE_DISPLAY[meeting.meeting_type] ?? meeting.meeting_type}</span>
                 </div>
               )}
-              {/* Recurrence field only for standalone (non-series) meetings — series meetings use SeriesDisplay above */}
+              {/* Recurrence field only for standalone (non-series) meetings — series meetings use RecurrenceCard above */}
               {!meeting.series_id && !meeting.recurrence_pattern && (
                 <div>
                   <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Recurrence</span>
-                  <RecurrenceEditor
+                  <MakeRecurringButton
                     meetingId={id}
                     meetingDate={meeting.meeting_date}
-                    initialPattern={meeting.recurrence_pattern}
-                    initialEnd={meeting.recurrence_end}
-                    initialSeriesId={meeting.series_id}
-                    initialAnchorDay={meeting.anchor_day}
                   />
                 </div>
               )}

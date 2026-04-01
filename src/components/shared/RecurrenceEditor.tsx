@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { RecurrencePattern } from "@/lib/types";
 import { useUnsavedChanges } from "@/components/shared/UnsavedChangesProvider";
 
@@ -27,7 +26,6 @@ function previewDates(startDate: string, pattern: string, anchorDay: number, cou
       case "monthly": date.setMonth(date.getMonth() + 1); break;
       case "quarterly": date.setMonth(date.getMonth() + 3); break;
     }
-    // Snap to anchor day for weekly/biweekly
     if (pattern === "weekly" || pattern === "biweekly") {
       const dow = date.getDay();
       const diff = anchorDay - dow;
@@ -50,12 +48,16 @@ interface RecurrenceEditorProps {
   initialEnd: string | null;
   initialSeriesId: string | null;
   initialAnchorDay?: number | null;
-  /** Start with the editor form open (used by SeriesActions "Edit Pattern") */
-  startEditing?: boolean;
-  /** Called when the user cancels editing (lets parent handle collapse) */
-  onCancel?: () => void;
+  /** Called after successful save */
+  onSave: () => void;
+  /** Called to close the modal (may be intercepted by discard confirmation) */
+  onClose: () => void;
 }
 
+/**
+ * Recurrence pattern editor — renders as a modal dialog.
+ * Protected by useUnsavedChanges to prevent accidental data loss.
+ */
 export default function RecurrenceEditor({
   meetingId,
   meetingDate,
@@ -63,49 +65,68 @@ export default function RecurrenceEditor({
   initialEnd,
   initialSeriesId,
   initialAnchorDay,
-  startEditing = false,
-  onCancel,
+  onSave,
+  onClose,
 }: RecurrenceEditorProps) {
-  const router = useRouter();
-  const [pattern, setPattern] = useState<RecurrencePattern | null>(initialPattern);
-  const [endDate, setEndDate] = useState<string | null>(initialEnd);
-  const [seriesId, setSeriesId] = useState<string | null>(initialSeriesId);
-  const [anchorDay, setAnchorDay] = useState<number | null>(initialAnchorDay ?? null);
-  const [editing, setEditing] = useState(startEditing);
-  const [saving, setSaving] = useState(false);
+  const defaultAnchorDay = initialAnchorDay ?? (meetingDate ? new Date(meetingDate + "T12:00:00").getDay() : 0);
 
-  // Form state for editing — initialize from props when startEditing is true
-  const [formPattern, setFormPattern] = useState<RecurrencePattern>(startEditing ? (initialPattern ?? "weekly") : "weekly");
-  const [formEnd, setFormEnd] = useState(startEditing ? (initialEnd ?? "") : "");
-  const [formAnchorDay, setFormAnchorDay] = useState<number>(
-    startEditing
-      ? (initialAnchorDay ?? (meetingDate ? new Date(meetingDate + "T12:00:00").getDay() : 0))
-      : 0
-  );
-  const [showEndDate, setShowEndDate] = useState(startEditing ? !!initialEnd : false);
+  const [formPattern, setFormPattern] = useState<RecurrencePattern>(initialPattern ?? "weekly");
+  const [formEnd, setFormEnd] = useState(initialEnd ?? "");
+  const [formAnchorDay, setFormAnchorDay] = useState<number>(defaultAnchorDay);
+  const [showEndDate, setShowEndDate] = useState(!!initialEnd);
+  const [saving, setSaving] = useState(false);
+  const [showDiscard, setShowDiscard] = useState(false);
+
   const { setDirty, clearDirty } = useUnsavedChanges("recurrence-editor");
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Track whether form has changed from initial values
+  const isDirty = useCallback(() => {
+    if (formPattern !== (initialPattern ?? "weekly")) return true;
+    if (formAnchorDay !== defaultAnchorDay) return true;
+    if ((formEnd || null) !== (initialEnd || null)) return true;
+    return false;
+  }, [formPattern, formAnchorDay, formEnd, initialPattern, initialEnd, defaultAnchorDay]);
 
   useEffect(() => {
-    if (editing) setDirty();
+    if (isDirty()) setDirty();
     else clearDirty();
-  }, [editing, setDirty, clearDirty]);
+  }, [isDirty, setDirty, clearDirty]);
 
-  function openEditor() {
-    setFormPattern(pattern ?? "weekly");
-    setFormEnd(endDate ?? "");
-    setShowEndDate(!!endDate);
-    // Auto-populate anchor day: from existing value, or from meeting date
-    if (anchorDay !== null && anchorDay !== undefined) {
-      setFormAnchorDay(anchorDay);
-    } else if (meetingDate) {
-      setFormAnchorDay(new Date(meetingDate + "T12:00:00").getDay());
-    } else {
-      setFormAnchorDay(0);
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => clearDirty();
+  }, [clearDirty]);
+
+  // ESC key handler
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        handleClose();
+      }
     }
-    setEditing(true);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formPattern, formAnchorDay, formEnd]);
+
+  function handleClose() {
+    if (isDirty()) {
+      setShowDiscard(true);
+    } else {
+      clearDirty();
+      onClose();
+    }
   }
 
-  async function saveRecurrence() {
+  function handleDiscard() {
+    clearDirty();
+    setShowDiscard(false);
+    onClose();
+  }
+
+  async function handleSave() {
     setSaving(true);
     try {
       const body: Record<string, unknown> = {
@@ -113,11 +134,9 @@ export default function RecurrenceEditor({
         recurrence_end: formEnd || null,
         anchor_day: formAnchorDay,
       };
-      // If no series_id yet, set it to the meeting's own id (first in series)
-      if (!seriesId) {
+      if (!initialSeriesId) {
         body.series_id = meetingId;
       } else {
-        // Existing series: propagate pattern changes to future meetings
         body.scope = "this_and_future";
       }
 
@@ -128,12 +147,8 @@ export default function RecurrenceEditor({
       });
 
       if (res.ok) {
-        setPattern(formPattern);
-        setEndDate(formEnd || null);
-        setAnchorDay(formAnchorDay);
-        if (!seriesId) setSeriesId(meetingId);
-        setEditing(false);
-        router.refresh();
+        clearDirty();
+        onSave();
       }
     } catch (err) {
       console.error("Failed to save recurrence:", err);
@@ -142,117 +157,169 @@ export default function RecurrenceEditor({
     }
   }
 
-  // Preview dates for the editor
   const previewStartDate = meetingDate ?? new Date().toISOString().slice(0, 10);
-  const preview = editing
-    ? previewDates(previewStartDate, formPattern, formAnchorDay, 3)
-    : [];
+  const preview = previewDates(previewStartDate, formPattern, formAnchorDay, 3);
 
-  // Editing mode
-  if (editing) {
-    return (
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-foreground/70">Set recurrence</span>
-          <button
-            onClick={() => { setEditing(false); onCancel?.(); }}
-            className="text-xs text-muted hover:text-foreground transition-colors"
-          >
-            Cancel
-          </button>
-        </div>
+  return (
+    <>
+      {/* Modal backdrop */}
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center"
+        onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
+      >
+        <div className="absolute inset-0 bg-black/60" />
 
-        {/* Pattern */}
-        <div>
-          <label className="block text-[10px] font-medium text-muted/60 mb-1">Pattern</label>
-          <select
-            value={formPattern}
-            onChange={(e) => setFormPattern(e.target.value as RecurrencePattern)}
-            className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
-          >
-            {(Object.entries(PATTERN_LABELS) as [RecurrencePattern, string][]).map(([val, label]) => (
-              <option key={val} value={val}>{label}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Day selector — day-of-week for weekly/biweekly, day-of-month for monthly/quarterly */}
-        {(formPattern === "weekly" || formPattern === "biweekly") && (
-          <div>
-            <label className="block text-[10px] font-medium text-muted/60 mb-1">Day</label>
-            <select
-              value={formAnchorDay}
-              onChange={(e) => setFormAnchorDay(Number(e.target.value))}
-              className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
-            >
-              {DAY_NAMES.map((name, i) => (
-                <option key={i} value={i}>{name}</option>
-              ))}
-            </select>
-          </div>
-        )}
-        {(formPattern === "monthly" || formPattern === "quarterly") && (
-          <div>
-            <label className="block text-[10px] font-medium text-muted/60 mb-1">Day of month</label>
-            <input
-              type="number"
-              min={1}
-              max={31}
-              value={formAnchorDay}
-              onChange={(e) => setFormAnchorDay(Number(e.target.value))}
-              className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
-            />
-          </div>
-        )}
-
-        {/* Preview */}
-        {preview.length > 0 && (
-          <div className="text-xs text-muted/60">
-            Next 3: <span className="text-foreground/60">{preview.map(formatPreviewDate).join(" → ")}</span>
-          </div>
-        )}
-
-        {/* End date — hidden by default */}
-        {showEndDate ? (
-          <div>
-            <label className="block text-[10px] font-medium text-muted/60 mb-1">End date</label>
-            <input
-              type="date"
-              value={formEnd}
-              onChange={(e) => setFormEnd(e.target.value)}
-              className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
-            />
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted/50">Recurs indefinitely</span>
+        {/* Modal content */}
+        <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Edit recurrence pattern"
+          className="relative z-10 w-full max-w-sm rounded-xl border border-border bg-surface p-6 shadow-xl mx-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-semibold text-foreground">Edit Pattern</h2>
             <button
-              onClick={() => setShowEndDate(true)}
-              className="text-xs text-accent hover:text-accent-hover transition-colors"
+              onClick={handleClose}
+              className="text-muted hover:text-foreground transition-colors"
             >
-              Add end date
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M4 4l8 8M12 4l-8 8" />
+              </svg>
             </button>
           </div>
-        )}
 
-        <button
-          onClick={saveRecurrence}
-          disabled={saving}
-          className="w-full rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent/90 transition-colors disabled:opacity-50"
-        >
-          {saving ? "Saving..." : "Save"}
-        </button>
+          {/* Form */}
+          <div className="space-y-3">
+            {/* Pattern */}
+            <div>
+              <label className="block text-[10px] font-medium text-muted/60 mb-1">Pattern</label>
+              <select
+                value={formPattern}
+                onChange={(e) => setFormPattern(e.target.value as RecurrencePattern)}
+                className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
+              >
+                {(Object.entries(PATTERN_LABELS) as [RecurrencePattern, string][]).map(([val, label]) => (
+                  <option key={val} value={val}>{label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Day selector */}
+            {(formPattern === "weekly" || formPattern === "biweekly") && (
+              <div>
+                <label className="block text-[10px] font-medium text-muted/60 mb-1">Day</label>
+                <select
+                  value={formAnchorDay}
+                  onChange={(e) => setFormAnchorDay(Number(e.target.value))}
+                  className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
+                >
+                  {DAY_NAMES.map((name, i) => (
+                    <option key={i} value={i}>{name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {(formPattern === "monthly" || formPattern === "quarterly") && (
+              <div>
+                <label className="block text-[10px] font-medium text-muted/60 mb-1">Day of month</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={31}
+                  value={formAnchorDay}
+                  onChange={(e) => setFormAnchorDay(Number(e.target.value))}
+                  className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
+                />
+              </div>
+            )}
+
+            {/* Preview */}
+            {preview.length > 0 && (
+              <div className="text-xs text-muted/60">
+                Next 3: <span className="text-foreground/60">{preview.map(formatPreviewDate).join(" → ")}</span>
+              </div>
+            )}
+
+            {/* End date */}
+            {showEndDate ? (
+              <div>
+                <label className="block text-[10px] font-medium text-muted/60 mb-1">End date</label>
+                <input
+                  type="date"
+                  value={formEnd}
+                  onChange={(e) => setFormEnd(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
+                />
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted/50">Recurs indefinitely</span>
+                <button
+                  onClick={() => setShowEndDate(true)}
+                  className="text-xs text-accent hover:text-accent-hover transition-colors"
+                >
+                  Add end date
+                </button>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex-1 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent/90 transition-colors disabled:opacity-50"
+              >
+                {saving ? "Saving..." : "Save"}
+              </button>
+              <button
+                onClick={handleClose}
+                disabled={saving}
+                className="rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground transition-colors hover:border-muted disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
-    );
-  }
 
-  // Display mode — not recurring (standalone meeting)
-  return (
-    <button
-      onClick={openEditor}
-      className="text-sm text-muted hover:text-accent transition-colors"
-    >
-      Make recurring
-    </button>
+      {/* Discard confirmation — rendered above the editor modal */}
+      {showDiscard && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center"
+          onClick={() => setShowDiscard(false)}
+        >
+          <div className="absolute inset-0 bg-black/40" />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Discard changes"
+            className="relative z-10 w-full max-w-xs rounded-xl border border-border bg-surface p-6 shadow-xl mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-base font-semibold text-foreground">Discard changes?</h2>
+            <p className="mt-2 text-sm text-muted">You have unsaved changes to the recurrence pattern.</p>
+            <div className="mt-4 flex justify-end gap-3">
+              <button
+                onClick={() => setShowDiscard(false)}
+                className="rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground transition-colors hover:border-muted"
+              >
+                Stay
+              </button>
+              <button
+                onClick={handleDiscard}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

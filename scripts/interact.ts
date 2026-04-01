@@ -19,6 +19,7 @@ type Step =
   | { action: "goto"; path: string }
   | { action: "click"; selector: string }
   | { action: "fill"; selector: string; value: string }
+  | { action: "select"; selector: string; value: string }
   | { action: "wait"; ms: number }
   | { action: "wait_for"; selector: string; state: "visible" | "hidden" | "attached" | "detached" }
   | { action: "screenshot"; name: string }
@@ -48,6 +49,10 @@ async function runStep(page: Page, step: Step, index: number): Promise<StepResul
 
     case "fill":
       await page.locator(step.selector).fill(step.value, { timeout: 10000 });
+      break;
+
+    case "select":
+      await page.locator(step.selector).selectOption(step.value, { timeout: 10000 });
       break;
 
     case "wait":
