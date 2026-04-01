@@ -6809,3 +6809,185 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** Pattern established: CRUD-enabled sections should always render so the user can discover and use the create action. Applies to any section where the user can add records.
 
 ---
+
+### #374 — Fluid PageContainer layout system
+
+**Date:** 2026-03-30
+**Status:** ✅ Implemented
+
+**Decision:** Universal max-w-[1600px] container replaces 11+ ad-hoc mx-auto max-w-* patterns across all 13 pages. Single layout primitive, consistent padding (px-6, py-6 lg:py-8). Root layout main gets min-w-0 to prevent flex child overflow. Two-column pages use CSS Grid with fractional units and min-w-0 on children.
+
+**Rationale:** Every page had a different container width and padding. Narrow max-widths (960px, 1024px) wasted space on wide monitors. The 1600px cap with 24px padding gives content room to breathe while preventing unreadably long text lines.
+
+**Impact:** PageContainer component (`src/components/layout/PageContainer.tsx`) used by all 13 pages. Root layout `<main>` gets `min-w-0`. SKILL.md documents the Layout System pattern.
+
+---
+
+### #375 — CLAUDE.md confidence-tiered guardrails
+
+**Date:** 2026-03-30
+**Status:** ✅ Implemented
+
+**Decision:** Replaced rigid READ-ONLY/WRITE-ALLOWED paths with three tiers: high confidence (UI components, pages, docs — change freely), medium confidence (API routes, lib files — change when needed, note in commit), requires approval (migrations, env, core architecture).
+
+**Rationale:** The old guardrails required explicit permission for every API or lib change, creating friction during plan execution. The tiered model matches real risk levels.
+
+**Impact:** CLAUDE.md Path Guardrails section rewritten. Enables autonomous plan execution without per-task permission grants.
+
+---
+
+### #376 — Git branching workflow with draft PRs
+
+**Date:** 2026-03-30
+**Status:** ✅ Implemented
+
+**Decision:** Plan execution uses feature branches (`plan-{n}/{name}`). Agent creates branch at plan start, pushes after each task, pauses after first commit for draft PR creation. One commit per task. Steven reviews incrementally via GitHub draft PR. Merge after plan completion.
+
+**Rationale:** Working directly on main during multi-task plans risks deploying incomplete work to Vercel. Branches give visibility and safe iteration.
+
+**Impact:** CLAUDE.md Git Branching & PR Workflow section added. First used for Plan 3 (`plan-3/daily-driver-mvp`).
+
+---
+
+### #377 — Sidebar revamp — full-height, no gradient
+
+**Date:** 2026-03-30
+**Status:** ✅ Implemented
+
+**Decision:** Sidebar stretches full viewport height via flex layout, solid --surface background, subtle border-right separator. Primary/Secondary nav groups at top, Tertiary (Programs, Events) anchored to bottom with flex-1 spacer. No gradient, no dead space below nav items.
+
+**Rationale:** Previous sidebar had a gradient that looked unfinished and a large dead space below the nav. Full-height with anchored tertiary nav uses the space purposefully.
+
+**Impact:** `src/components/layout/Sidebar.tsx` updated. SKILL.md Sidebar pattern documented.
+
+---
+
+### #378 — useUnsavedChanges navigation safety framework
+
+**Date:** 2026-03-30
+**Status:** ✅ Implemented
+
+**Decision:** Reusable hook providing three layers of protection: browser beforeunload (native dialog on tab close), popstate interception (browser back button), and sidebar/Link click interception via custom navigation wrapper. Protects 7 surfaces: NoteWorkspace editing phase, NoteWorkspace review phase, PartnerScratchpad, TasksClient modal, EnrollmentSection modal, EventParticipationSection modal, RecurrenceEditor modal.
+
+**Rationale:** Next.js 16 App Router has no built-in route interception API. Three separate interception layers are needed to cover all navigation paths.
+
+**Impact:** `UnsavedChangesProvider` wraps the app in root layout. `useUnsavedChanges(surfaceId)` hook used by 7+ components. `ConfirmDialog` rendered via portal. `leavingRef` pattern prevents cleanup from undoing intentional navigation.
+
+---
+
+### #379 — Today page proper two-column grid (55/45)
+
+**Date:** 2026-03-30
+**Status:** ✅ Implemented
+
+**Decision:** CSS Grid with grid-cols-[11fr_9fr] (55/45 split), min-w-0 on both children. Task cap increased from 6 to 12. Responsive: stacks to single column below lg breakpoint.
+
+**Rationale:** 50/50 split truncated partner names at 1280px. 60/40 was too generous for the right column. 55/45 is the sweet spot.
+
+**Impact:** Today page layout updated. SKILL.md documents the Two-Column Launchpad pattern.
+
+---
+
+### #380 — Partner detail smart section pairings
+
+**Date:** 2026-03-30
+**Status:** ✅ Implemented
+
+**Decision:** Three section pairs rendered side-by-side via CSS Grid: Program Enrollments + Strategic Goals, Funding + Event Participations, Solution Profile + Operational Status. Reduces scroll depth ~30% while preserving top-to-bottom dossier narrative. Full-width sections: Brain, Engagements, Tasks, Meetings, People, Scratchpad.
+
+**Rationale:** Partner detail page had 12+ sections stacked vertically, requiring excessive scrolling. Complementary sections (enrollments + goals, funding + events) pair naturally.
+
+**Impact:** Partner detail page layout restructured. Section Pairing Pattern added to SKILL.md.
+
+---
+
+### #381 — Recurrence card consolidation
+
+**Date:** 2026-03-31
+**Status:** ✅ Implemented
+
+**Decision:** 4 separate components (SeriesDisplay, SeriesActions, SeriesTimeline, RecurrenceEditor inline expansion) replaced by 1 unified RecurrenceCard component + modal editor. Colored timeline boxes with legend replaced by simple date list (5 nearest dates, current highlighted). Skip/End actions moved to overflow menu (⋮). Net reduction of 31 lines. 3 component files deleted.
+
+**Rationale:** The timeline strip used a legend key for 2-3 colored boxes — overengineered. The editor opened inline and pushed page content down. Skip/End were rarely-used actions displayed as primary UI. One cohesive card is more intuitive than 4 scattered pieces.
+
+**Impact:** SeriesDisplay.tsx, SeriesActions.tsx, SeriesTimeline.tsx deleted. RecurrenceCard.tsx created. RecurrenceEditor.tsx rewritten as modal. SKILL.md updated with RecurrenceCard pattern.
+
+---
+
+### #382 — Meeting edit as modal, not inline expansion
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** Universal anti-pattern established: inline form expansions that push page content down are eliminated. All editing actions use modals. Meeting Edit modal shows context-aware fields (recurring meetings hide Date field by default, show Reschedule affordance instead).
+
+**Rationale:** Inline form expansions lose the user's visual context as content shifts below the form. Modals overlay the page, preserving context.
+
+**Impact:** MeetingEditModal.tsx created. MeetingActions.tsx simplified from 3 modes (view/edit/reschedule) to 1 mode (view) + modal triggers. Pattern applies to RecurrenceEditor (decision #381) and all future edit forms.
+
+---
+
+### #383 — Reschedule merged into Edit modal
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** Meeting detail header simplified from Edit/Reschedule/Delete to Edit/Delete. Date changes for recurring meetings handled inside Edit modal via "Reschedule" link that reveals date picker + scope selector. Standalone meetings show normal date input. Single entry point for all meeting-instance changes.
+
+**Rationale:** Having Reschedule as a separate top-level button was confusing — users expect "Edit" to handle all field changes including date. The scope selector ("Just this meeting" / "This and all future") only appears when relevant (series children).
+
+**Impact:** Reschedule button and inline reschedule bar removed from MeetingActions. Edit modal gains date section with context-aware behavior.
+
+---
+
+### #384 — Scope-aware meeting editing with propagation
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** PUT /api/meetings/[id] accepts scope parameter ("this_one" | "this_and_future"). "this_and_future" updates series root anchor_day and recalculates all future unattended meetings via calculateNextDate. Meetings with notes (meeting_notes rows) are protected — never moved during propagation. Series roots always propagate (no scope selector shown).
+
+**Rationale:** Rescheduling one meeting in a series should optionally cascade to future occurrences. Meetings with notes represent real work and must not be silently moved.
+
+**Impact:** PUT /api/meetings/[id] route enhanced with propagation logic. MeetingEditModal sends scope + anchor_day when appropriate. Series root date changes always propagate.
+
+---
+
+### #385 — People page partner badge enrichment from engagements
+
+**Date:** 2026-03-31
+**Status:** ✅ Implemented
+
+**Decision:** API enriches participant partner associations from both partner_participants (curated team — solid accent badge) and engagement_participants → engagements.partner_id (activity-derived — muted badge). Curated takes priority for same partner. 143 previously invisible participants (63% of registry) now show partner connections.
+
+**Rationale:** The enrichment query only joined through partner_participants, but 143 participants were connected to partners through engagement_participants. The filter found them, but the display didn't show the connection.
+
+**Impact:** GET /api/people enrichment query expanded. PeopleClient updated with source-aware badge styling.
+
+---
+
+### #386 — Duplicate participant merge pattern
+
+**Date:** 2026-03-31
+**Status:** ✅ Implemented
+
+**Decision:** Reusable script (scripts/merge-duplicate-participants.ts) for consolidating duplicate participant records. Moves all FK references (partner_participants, engagement_participants, meeting_participants, relationship_participants) to canonical record, handles unique constraint conflicts via skip-and-delete, then deletes duplicate.
+
+**Rationale:** Participant upsert keys on email. Same person with different email addresses creates duplicates. Manual merge needed for 2 confirmed pairs (Jordan Spiers, Sebastien Ronzeaud).
+
+**Impact:** 2 duplicate pairs merged. 227 → 225 participants. Reusable script for future duplicates.
+
+---
+
+### #387 — Defensive meeting_notes query for shared database
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** getMeetingNoteByMeetingId changed from .maybeSingle() (crashes on multiple rows) to .order("created_at", desc).limit(1) (takes most recent row gracefully). Future migration needed: UNIQUE constraint on meeting_notes.meeting_id.
+
+**Rationale:** Duplicate meeting_notes rows caused page crash ("JSON object requested, multiple rows returned"). Root cause: two note-taking sessions for the same meeting created two rows. No UNIQUE constraint prevented this.
+
+**Impact:** Meeting detail page no longer crashes on duplicate notes. Older duplicate deleted for Supabase meeting. UNIQUE constraint migration documented for future.
+
+---

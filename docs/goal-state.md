@@ -6,13 +6,13 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 82 migrations, 17 active tables, 34 API routes, 13 UI pages, 444 passing tests (0 failures), tsc --noEmit passes clean, 37 components
+- 82 migrations, 17 active tables, 34 API routes, 13 UI pages, 444 passing tests (0 failures), tsc --noEmit passes clean, 37 components, decisions through #387
 - Human-guided intake pipeline fully operational: webhook → mechanical partner detection → ICS partner backfill → inbox triage (with unknown partner picker) → single-phase AI synthesis (decisions #223-252)
 - Meetings Motion complete (decisions #253-259): 10 interaction-based meeting types, recurring meeting engine with auto-spawn, series tracking via self-referential FK, RecurrenceEditor UI, synthesis-on-link, conference boilerplate pre-split fix, ICS multi-VEVENT guardrail confirmed
 - AI Brain Overhaul Phases 1-3 complete (decisions #260-269): goal field eliminated (migration 069), condensed columns on engagements + meeting_notes (migration 068), meeting summarization restructured with scoped context builder, structured output (Discussion/Decisions/Key Context), condensed 3-5 bullet digest, non-redundancy with tasks
 - Phase D cleanup complete: dead tests deleted, stale assertions fixed, dead types/routes removed
 - Entity model fully rewritten with ring architecture (Catalog → Activity → People → Posture) in docs/entity-model.md
-- Documentation consolidated: 6 docs total (CLAUDE.md master orientation, entity-model.md schema reference, ai-call-map.md AI call reference, north-star.md vision spec, goal-state.md status, decisions.md through #373)
+- Documentation consolidated: 6 docs total (CLAUDE.md master orientation, entity-model.md schema reference, ai-call-map.md AI call reference, north-star.md vision spec, goal-state.md status, decisions.md through #387)
 - Dead weight cleaned: notes table dropped (migration 061), orphaned components removed (PillGrid, CalendarCard, TableList, SyncStatus), decisions.md merged from two files into one
 - Zero polymorphic tables: entity_links replaced with typed junction tables (migration 065, decisions #221-222), later dissolved at engagement level (migration 081, decision #363) — programs/events now partner-level only via Ring 3
 - Contact registry complete: 76 participants, 85 partner links, 4 dedicated join tables, sync layer auto-maintains registry — all reads and writes flow through registry, JSONB columns dropped (Decisions #182, #218)
@@ -58,19 +58,23 @@ A system where a PDM forwards an email and Roadrunner:
 ## What's Next
 
 ### Immediate
-- Meeting data cleanup session — merge Vasion duplicate series, convert standalones (KnowBe4, NinjaOne, Cloudaware) to series roots
-- Enterprise loading states on all async operations (button loading states, API error recovery)
+- Merge Plan 3 PR to main, deploy to Vercel. Verify production works post-merge.
+- Add UNIQUE constraint migration on meeting_notes.meeting_id (prevents duplicate rows crash)
+- Inbox UX improvements — partner matching accuracy, engagement matching intel, save state
+- Partner detail page organization — growing too large, needs better structure (tabs, collapsible sections, or progressive disclosure)
+- Bring Engagements back to the sidebar nav (currently only accessible through partner detail)
 
 ### Soon
-- Calendar/timeline view for cross-partner meeting history
-- Double-click protection on action buttons (prevent duplicate API calls)
+- Full UI polish plan — font sizes, touch targets, hover states, visual hierarchy, accessibility
+- Page scalability audit — how each page handles growing data volumes (61 tasks, 80 enrollments, 227 participants)
+- People page evolution — participant detail cards, better linking experience
+- Raise Playwright quality bar — enforce "if content clips at 1280px, task fails"
+- Meeting data cleanup — merge Vasion duplicate series, convert standalones (KnowBe4, NinjaOne, Cloudaware) to series roots
 
 ### Later
 - Airtable exit path — AT push for manually-created enrollments and event participations
 - Pydantic agent harness for structured autonomous loops
 - Mobile sidebar behavior
-- Programs page pagination or progressive disclosure (80+ items)
-- Finish program enrollment linking — 58/80 enrollments have null program_id
 - Pre-meeting briefing (AI-generated)
 - Email-less participant support (5 null-email participants in registry)
 - 41-task engagement backfill — link meetings to engagements so cascade populates task.engagement_id
@@ -149,6 +153,7 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~Post-Plan 2 fixes~~ ✅ (decision #371): RecurrenceEditor startEditing prop, Today page container, timeline strip sizing
 - ~~Program enrollment + event participation CRUD~~ ✅ (decisions #372-373): 6 API endpoints, 2 client components, inline status editing, event participations always visible
 - ~~Plan 3 — Daily Driver MVP~~ ✅ (20 tasks, 6 phases): Universal PageContainer (max-w-[1600px]), sidebar vertical distribution, useUnsavedChanges framework (7 protected surfaces), Today page 55/45 split + 12-task cap, Tasks page density, Partner detail section pairings, scope-aware recurrence editing ("this and future"), Reschedule button, simplified timeline strip, people linkability (names → /people?q=), enrollment date year formatting, full Playwright audit clean
+- ~~Post-Plan 3 interactive polish~~ ✅ (decisions #381-387): RecurrenceCard consolidation (4→1 components, timeline strip killed), meeting Edit as modal (not inline), Reschedule merged into Edit modal (header: Edit+Delete only), scope-aware propagation with notes protection, People page partner badge enrichment from engagements (143 previously invisible participants), duplicate participant merge (2 pairs), defensive meeting_notes query
 
 ## Architecture Principles
 

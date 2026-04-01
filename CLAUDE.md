@@ -262,7 +262,7 @@ roadrunner/
 │       │   ├── session-start.md     #   Claude.ai: session startup context
 │       │   └── session-end.md       #   Claude.ai: wrap-up protocol
 │       └── summaries/             #     Session summaries (one per session)
-├── decisions.md                   # Append-only architectural decision log (373 entries)
+├── decisions.md                   # Append-only architectural decision log (387 entries)
 ├── src/
 │   ├── app/                       # Next.js App Router
 │   │   ├── api/                   #   API routes (34 route files, grouped by entity)
@@ -289,13 +289,13 @@ roadrunner/
 │   │   ├── tasks/                 #   Cross-partner task dashboard
 │   │   ├── layout.tsx             #   Root layout + sidebar
 │   │   └── page.tsx               #   Today page (two-column: meetings + tasks/inbox)
-│   ├── components/                # React components (35 across 6 groups)
-│   │   ├── actions/               #   Entity action buttons + MergeButton (5 files)
+│   ├── components/                # React components (37 across 6 groups)
+│   │   ├── actions/               #   Entity action buttons + MergeButton + MeetingEditModal (6 files)
 │   │   ├── inbox/                 #   Inbox triage UI — InboxClient (1 file)
-│   │   ├── layout/                #   App structure — sidebar, headers (4 files)
+│   │   ├── layout/                #   App structure — sidebar, headers, PageContainer (5 files)
 │   │   ├── notes/                 #   NoteWorkspace, ContextSidebar, PreviousNotes, TaskEditor, MeetingNotesSection
 │   │   ├── partners/              #   BrainSynthesis, PartnerScratchpad, EnrollmentSection, EventParticipationSection
-│   │   └── shared/                #   Reusable primitives — EngagementLinker, RecurrenceEditor, SeriesDisplay, SeriesActions, SeriesTimeline, SlideOverPanel, badges, ContactGroup (16 files)
+│   │   └── shared/                #   Reusable primitives — RecurrenceCard, RecurrenceEditor, MakeRecurringButton, UnsavedChangesProvider, EngagementLinker, SlideOverPanel, badges, ContactGroup (16 files)
 │   └── lib/                       # Core business logic
 │       ├── classifier.ts          #   Synthesis orchestrator (synthesizeIntoEngagement, persistClassificationResult)
 │       ├── claude.ts              #   Anthropic API client (synthesis calls)
@@ -345,7 +345,8 @@ roadrunner/
 │   ├── hydrate-contact-registry.ts # Backfill contact registry join tables
 │   ├── backfill-notes.ts          # One-time: re-summarize all meeting notes
 │   ├── backfill-engagements.ts    # One-time: re-synthesize all engagements
-│   └── backfill-brains.ts         # One-time: re-synthesize all partner brains
+│   ├── backfill-brains.ts         # One-time: re-synthesize all partner brains
+│   └── merge-duplicate-participants.ts # One-time: merge duplicate participant records
 └── data/
     ├── seed-events.json           # Event catalog seed data
     └── seed-programs-v2.json      # Program catalog seed data
@@ -583,7 +584,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-082). New migratio
 | `docs/plans/active.md` | Current task plan (empty when no plan active) | Task mode |
 | `docs/sessions/templates/` | Session templates — diagnostics and Claude.ai session prompt | Reference when needed |
 | `docs/sessions/summaries/` | Session summaries — one per session, latest is handoff for next session | Session start (paste latest into Claude.ai) |
-| `decisions.md` | Append-only architectural decision log (373 entries) | When you need "why" |
+| `decisions.md` | Append-only architectural decision log (387 entries) | When you need "why" |
 
 ---
 
