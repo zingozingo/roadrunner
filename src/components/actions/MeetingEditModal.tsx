@@ -20,6 +20,15 @@ const MEETING_TYPE_OPTIONS: { value: MeetingType; label: string }[] = [
   { value: "ad_hoc", label: "Ad Hoc" },
 ];
 
+function formatDisplayDate(d: string): string {
+  return new Date(d + "T12:00:00").toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 interface MeetingEditModalProps {
   meeting: Meeting;
   partnerName: string | null;
@@ -29,6 +38,7 @@ interface MeetingEditModalProps {
 export default function MeetingEditModal({ meeting, partnerName, onClose }: MeetingEditModalProps) {
   const router = useRouter();
   const isRecurring = !!(meeting.series_id || meeting.recurrence_pattern);
+  const isSeriesChild = !!(meeting.series_id && meeting.series_id !== meeting.id);
 
   // Form state
   const [title, setTitle] = useState(meeting.title);
@@ -45,6 +55,10 @@ export default function MeetingEditModal({ meeting, partnerName, onClose }: Meet
   const [showDiscard, setShowDiscard] = useState(false);
   const [engagements, setEngagements] = useState<Engagement[]>([]);
 
+  // Reschedule state (for recurring meetings)
+  const [showReschedule, setShowReschedule] = useState(false);
+  const [rescheduleScope, setRescheduleScope] = useState<"this_one" | "this_and_future">("this_one");
+
   const { setDirty, clearDirty } = useUnsavedChanges("meeting-edit");
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -59,7 +73,7 @@ export default function MeetingEditModal({ meeting, partnerName, onClose }: Meet
   // Track dirty state
   const isDirty = useCallback(() => {
     if (title !== meeting.title) return true;
-    if (!isRecurring && meetingDate !== (meeting.meeting_date ?? "")) return true;
+    if (meetingDate !== (meeting.meeting_date ?? "")) return true;
     if (status !== meeting.status) return true;
     if (meetingType !== (meeting.meeting_type ?? "")) return true;
     if (startTime !== (meeting.start_time ?? "")) return true;
@@ -68,7 +82,7 @@ export default function MeetingEditModal({ meeting, partnerName, onClose }: Meet
     if (engagementId !== (meeting.engagement_id ?? "")) return true;
     if (notes !== (meeting.notes ?? "")) return true;
     return false;
-  }, [title, meetingDate, status, meetingType, startTime, endTime, location, engagementId, notes, meeting, isRecurring]);
+  }, [title, meetingDate, status, meetingType, startTime, endTime, location, engagementId, notes, meeting]);
 
   useEffect(() => {
     if (isDirty()) setDirty();
@@ -125,9 +139,18 @@ export default function MeetingEditModal({ meeting, partnerName, onClose }: Meet
         notes: notes.trim() || null,
         meeting_type: meetingType || null,
       };
-      // Only include date for standalone meetings
-      if (!isRecurring) {
+
+      // Date handling
+      const dateChanged = meetingDate !== (meeting.meeting_date ?? "");
+      if (dateChanged) {
         body.meeting_date = meetingDate || null;
+
+        // For recurring meetings with "this and future" scope, also update anchor_day
+        if (isRecurring && rescheduleScope === "this_and_future" && meetingDate) {
+          const newDow = new Date(meetingDate + "T12:00:00").getDay();
+          body.anchor_day = newDow;
+          body.scope = "this_and_future";
+        }
       }
 
       const res = await fetch(`/api/meetings/${meeting.id}`, {
@@ -192,8 +215,60 @@ export default function MeetingEditModal({ meeting, partnerName, onClose }: Meet
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              {/* Date — only for standalone meetings */}
-              {!isRecurring && (
+              {/* Date section */}
+              {isRecurring ? (
+                <div className="col-span-2">
+                  <label className={labelClass}>Date</label>
+                  {showReschedule ? (
+                    <div className="space-y-2">
+                      <input
+                        type="date"
+                        value={meetingDate}
+                        onChange={(e) => setMeetingDate(e.target.value)}
+                        className={inputClass}
+                      />
+                      {isSeriesChild && (
+                        <div className="flex items-center gap-3">
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="reschedule-scope"
+                              value="this_one"
+                              checked={rescheduleScope === "this_one"}
+                              onChange={() => setRescheduleScope("this_one")}
+                              className="accent-accent"
+                            />
+                            <span className="text-xs text-foreground/80">Just this meeting</span>
+                          </label>
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="reschedule-scope"
+                              value="this_and_future"
+                              checked={rescheduleScope === "this_and_future"}
+                              onChange={() => setRescheduleScope("this_and_future")}
+                              className="accent-accent"
+                            />
+                            <span className="text-xs text-foreground/80">This and all future</span>
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-foreground/80">
+                        {meeting.meeting_date ? formatDisplayDate(meeting.meeting_date) : "No date"}
+                      </span>
+                      <button
+                        onClick={() => setShowReschedule(true)}
+                        className="text-xs text-accent hover:text-accent-hover transition-colors"
+                      >
+                        Reschedule
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
                 <div>
                   <label className={labelClass}>Date</label>
                   <input type="date" value={meetingDate} onChange={(e) => setMeetingDate(e.target.value)} className={inputClass} />
@@ -264,13 +339,6 @@ export default function MeetingEditModal({ meeting, partnerName, onClose }: Meet
                 placeholder="Meeting notes..."
               />
             </div>
-
-            {/* Recurring meeting hint */}
-            {isRecurring && (
-              <p className="text-[11px] text-muted/50">
-                Date changes use Reschedule. Pattern changes use Edit Pattern.
-              </p>
-            )}
 
             {/* Error */}
             {error && (
