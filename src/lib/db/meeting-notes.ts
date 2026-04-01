@@ -81,13 +81,16 @@ export async function getMeetingNoteByMeetingId(
 ): Promise<MeetingNoteWithTasks | null> {
   const db = getSupabaseClient();
 
-  const { data: note, error } = await db
+  // Use order + limit instead of maybeSingle to handle rare duplicates gracefully
+  const { data: notes, error } = await db
     .from("meeting_notes")
     .select("*")
     .eq("meeting_id", meetingId)
-    .maybeSingle();
+    .order("created_at", { ascending: false })
+    .limit(1);
 
   if (error) throw new Error(`Failed to fetch meeting note by meeting_id: ${error.message}`);
+  const note = notes?.[0] ?? null;
   if (!note) return null;
 
   const typedNote = note as MeetingNote;
