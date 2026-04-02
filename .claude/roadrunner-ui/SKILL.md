@@ -277,7 +277,9 @@ Clean, not broken-looking:
 - **Short (<1s):** Subtle inline spinner, 16px, `text-muted`
 - **Medium (1-5s):** Contextual message + spinner ("Generating summary...")
 - **Long (5s+):** Progress indicator with steps
-- **Button loading:** Replace label with spinner, keep button width stable, `pointer-events-none`
+- **Button loading:** Replace label with verb-based text ("{Verb}ing..."), keep button width stable, `disabled opacity-50 pointer-events-none`
+
+See **Mutation Lifecycle Framework** (Layer 2) for the complete specification of how loading states, error handling, and confirmation dialogs compose across all 4 mutation classes.
 
 ### Confirmation Dialogs
 
@@ -448,6 +450,8 @@ Reusable behavior patterns for interactive elements. Any pattern established her
 
 ## Confirmation & Destructive Actions
 
+See **Mutation Lifecycle Framework** below for the canonical Class 3 (Destructive) specification. The patterns here describe the visual implementation.
+
 ### Browser `window.confirm()` for Destructive Actions
 
 **Component:** Used directly in client components
@@ -470,6 +474,109 @@ Reusable behavior patterns for interactive elements. Any pattern established her
 - "End Series" uses `text-muted hover:text-red-400` — escalating visual severity on hover
 **Design rationale:** Destructive actions should be findable but not prominent. The hover color escalation serves as a micro-confirmation.
 **Constraints:** Never make a destructive action the primary (accent-colored) button.
+
+## Mutation Lifecycle Framework
+
+Every user-triggered mutation in the app falls into one of four classes. This framework is the canonical definition of how mutations behave — loading, error handling, confirmation, and scope resolution. No mutation surface should deviate from these patterns.
+
+**Shared utilities:**
+- **`useMutation`** — `src/hooks/useMutation.ts` — returns `{ execute, isLoading, error, clearError }`. Generic async wrapper with loading and error tracking.
+- **`InlineError`** — `src/components/shared/InlineError.tsx` — compact red-tinted inline error display. Auto-dismisses after 8 seconds. Props: `message`, `onDismiss`.
+
+### Class 1 — Optimistic Toggle
+
+**Used for:** Checkbox, status pill, inline toggle — any action that feels instant and is reversible.
+**Examples:** Task checkbox (Today, Tasks page), enrollment status, event participation status.
+
+**Behavior:**
+1. UI updates immediately (before API call)
+2. API call fires in background
+3. On failure: revert UI state to previous value + show `InlineError` with message
+4. No confirmation needed (action is reversible)
+5. No loading state on the trigger (instant feel)
+
+**Error handling:** The revert-on-failure pattern means the component manages its own state. The `catch` block must (a) revert the optimistic state, AND (b) surface the error via `InlineError`. `console.error` alone is never sufficient.
+
+**Constraints:** Don't use optimistic toggle for irreversible actions. If toggling off requires confirmation (e.g., completing a series), that's Class 3.
+
+---
+
+### Class 2 — Async Submit
+
+**Used for:** Save, create, assign, link, synthesize — any action that takes visible time and creates/modifies data.
+**Examples:** Meeting create, engagement save, brain synthesize, inbox assign, recurrence save, engagement link, scratchpad add.
+
+**Behavior:**
+1. Use `useMutation` hook (or equivalent loading/error state management)
+2. Button enters loading state: label changes to `"{Verb}ing..."` (e.g., "Saving...", "Creating...", "Assigning...", "Synthesizing...")
+3. Button gets `disabled opacity-50 pointer-events-none`
+4. Button width must remain stable (use `min-w` or consistent label length)
+5. On success: UI updates (router.refresh, state update, or optimistic add)
+6. On failure: `InlineError` appears near the button, button re-enables for retry
+
+**Loading label convention:** Always verb-based. "Saving...", "Creating...", "Deleting...", "Assigning...", "Linking...", "Synthesizing...". Never "Loading..." or "Please wait..." or "Working...".
+
+**Error placement:** `InlineError` renders below the trigger button or inside the card/section where the action lives. Never a toast. Never a page-level banner for component-level errors.
+
+**Constraints:** Don't use Class 2 for toggles (those are Class 1). Don't skip the loading label — a disabled button without text change looks broken.
+
+---
+
+### Class 3 — Destructive
+
+**Used for:** Delete, discard, end series, unlink, skip — any action that removes data or is hard to reverse.
+**Examples:** Meeting delete, inbox discard, engagement delete, task delete, series end, engagement unlink, meeting skip.
+
+**Behavior:**
+1. Confirmation FIRST:
+   - Simple cases: `window.confirm("Delete this task?")` — native browser dialog
+   - Contextual cases: `ConfirmDialog` component showing what will be affected (e.g., "Delete engagement and all linked messages?")
+2. After confirmation: follows Class 2 pattern (loading state + error handling)
+3. On success: item removed from UI (optimistic removal or router.refresh)
+4. On failure: `InlineError` appears, item remains in UI for retry
+
+**Button styling:** `text-red-400 hover:text-red-300` or `text-muted hover:text-red-400` (escalating severity). Never accent-colored. Always positioned separately from safe actions.
+
+**Constraints:** Every destructive action must have a confirmation step. No exceptions. If the action affects multiple records (e.g., deleting a partner cascades to engagements), the confirmation must mention the cascade.
+
+---
+
+### Class 4 — Scoped
+
+**Used for:** Actions that affect multiple records where the scope must be resolved before execution.
+**Examples:** Inbox discard (message group), scope-aware meeting edit (`this_and_future`), series end (affects future meetings).
+
+**Behavior:**
+1. Resolve the full scope BEFORE executing — e.g., `getMessagesForInboxItem()` for inbox groups, series siblings for scope-aware edits
+2. Scope resolution itself can fail — handle that error (show InlineError, don't proceed)
+3. Once scope is resolved, follow Class 2 (non-destructive) or Class 3 (destructive) pattern
+4. If the scope is visually non-obvious, communicate it: "This will affect 5 messages" or "Changes apply to this and all future meetings"
+
+**Constraints:** Never execute a scoped action on a single record when the intent is the group. The inbox discard bug (deleting 1 of N messages) is the canonical anti-pattern.
+
+---
+
+### Universal Rules
+
+1. **No silent failures.** Every `catch` block must surface the error to the user via `InlineError`. `console.error` is allowed for logging but never as the ONLY error handling.
+2. **Loading labels are verb-based.** "Saving...", "Creating...", "Deleting...". Never "Loading..." or "Please wait...".
+3. **`useMutation` is the default.** Every Class 2/3/4 mutation should use the `useMutation` hook unless there's a specific reason not to (e.g., Class 1 optimistic toggles that manage their own state).
+4. **InlineError placement.** Below the trigger button or inside the card/section where the action lives. Never a toast. Never a page-level banner for component-level errors.
+5. **Destructive actions are never the primary button.** Always `text-red-400` or secondary styling. Always separated from safe actions.
+6. **Scope before execute.** For Class 4 actions, always resolve the full target set before mutating. Never assume the caller's ID is the only affected record.
+
+### Adoption Checklist
+
+For each mutation surface, verify:
+- [ ] Classified as Class 1/2/3/4
+- [ ] Loading state present (Class 2/3/4)
+- [ ] Error surfaced to user via InlineError (all classes)
+- [ ] Confirmation present (Class 3)
+- [ ] Scope resolved before execution (Class 4)
+- [ ] Button label follows verb convention (Class 2/3/4)
+- [ ] InlineError positioned near the trigger, not at page level
+
+---
 
 ## Forms & Creation
 
