@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useCallback } from "react";
 import { INBOX_GROUP_WINDOW_MS, type InboxItem } from "@/lib/db/inbox";
 import EmptyState from "@/components/layout/EmptyState";
 import InlineError from "@/components/shared/InlineError";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 
 interface Props {
   items: InboxItem[];
@@ -58,6 +59,16 @@ function makeGroup(items: InboxItem[]): InboxGroup {
   return { key: items[0].id, items, primary };
 }
 
+/** 16px inline spinner */
+function Spinner() {
+  return (
+    <svg className="h-4 w-4 animate-spin text-muted" viewBox="0 0 24 24" fill="none">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
+  );
+}
+
 export default function InboxClient({ items: initialItems }: Props) {
   const [items, setItems] = useState(initialItems);
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
@@ -66,9 +77,10 @@ export default function InboxClient({ items: initialItems }: Props) {
   const [newTitle, setNewTitle] = useState("");
   const [loadingEngagements, setLoadingEngagements] = useState(false);
 
-  // Per-action loading and error state
-  const [busyAction, setBusyAction] = useState<string | null>(null); // "discard:{key}" | "assign:{engId}" | "create:{key}" | "partner:{partnerId}"
-  const [actionError, setActionError] = useState<string | null>(null);
+  // Per-group mutation state: which group is busy, with what status text
+  const [busyGroup, setBusyGroup] = useState<string | null>(null);
+  const [busyLabel, setBusyLabel] = useState("");
+  const [actionError, setActionError] = useState<{ groupKey: string; message: string } | null>(null);
 
   // Partner picker state — cached across interactions
   const partnersCache = useRef<PartnerOption[] | null>(null);
@@ -77,6 +89,9 @@ export default function InboxClient({ items: initialItems }: Props) {
   const [partnerFilter, setPartnerFilter] = useState("");
 
   const groups = useMemo(() => groupByForwardedAt(items), [items]);
+
+  // Navigation guard — blocks sidebar/back/reload during any mutation
+  useNavigationGuard(busyGroup !== null);
 
   const clearError = useCallback(() => setActionError(null), []);
 
@@ -102,7 +117,8 @@ export default function InboxClient({ items: initialItems }: Props) {
     const group = groups.find((g) => g.key === groupKey);
     const snapshot = group ? [...group.items] : [];
 
-    setBusyAction(`discard:${groupKey}`);
+    setBusyGroup(groupKey);
+    setBusyLabel("Discarding...");
     setActionError(null);
     removeGroup(groupKey);
 
@@ -119,9 +135,13 @@ export default function InboxClient({ items: initialItems }: Props) {
     } catch (err) {
       console.error("Discard failed:", err);
       restoreGroup(snapshot);
-      setActionError(err instanceof Error ? err.message : "Discard failed");
+      setActionError({
+        groupKey,
+        message: err instanceof Error ? err.message : "Discard failed",
+      });
     } finally {
-      setBusyAction(null);
+      setBusyGroup(null);
+      setBusyLabel("");
     }
   }
 
@@ -141,7 +161,10 @@ export default function InboxClient({ items: initialItems }: Props) {
       );
     } catch (err) {
       console.error("Failed to fetch engagements:", err);
-      setActionError("Failed to load engagements");
+      setActionError({
+        groupKey: group.key,
+        message: "Failed to load engagements",
+      });
     } finally {
       setLoadingEngagements(false);
     }
@@ -163,7 +186,6 @@ export default function InboxClient({ items: initialItems }: Props) {
     setPartnerFilter("");
     setActionError(null);
 
-    // Use cache if available
     if (partnersCache.current) {
       setPartners(partnersCache.current);
       return;
@@ -180,7 +202,10 @@ export default function InboxClient({ items: initialItems }: Props) {
       setPartners(list);
     } catch (err) {
       console.error("Failed to fetch partners:", err);
-      setActionError("Failed to load partners");
+      setActionError({
+        groupKey: group.key,
+        message: "Failed to load partners",
+      });
     } finally {
       setLoadingPartners(false);
     }
@@ -188,7 +213,8 @@ export default function InboxClient({ items: initialItems }: Props) {
 
   // ── Confirm Pick Partner (Class 2 — Async Submit) ─────────
   async function confirmPickPartner(groupKey: string, partnerId: string, partnerName: string) {
-    setBusyAction(`partner:${partnerId}`);
+    setBusyGroup(groupKey);
+    setBusyLabel(`Setting partner to ${partnerName}...`);
     setActionError(null);
     try {
       const res = await fetch("/api/inbox/set-partner", {
@@ -200,7 +226,6 @@ export default function InboxClient({ items: initialItems }: Props) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || `Set partner failed (${res.status})`);
       }
-      // Update local state — stamp partner on all items in this group
       const group = groups.find((g) => g.key === groupKey);
       if (group) {
         const groupIds = new Set(group.items.map((i) => i.id));
@@ -215,9 +240,13 @@ export default function InboxClient({ items: initialItems }: Props) {
       cancelAction();
     } catch (err) {
       console.error("Set partner failed:", err);
-      setActionError(err instanceof Error ? err.message : "Failed to set partner");
+      setActionError({
+        groupKey,
+        message: err instanceof Error ? err.message : "Failed to set partner",
+      });
     } finally {
-      setBusyAction(null);
+      setBusyGroup(null);
+      setBusyLabel("");
     }
   }
 
@@ -231,8 +260,9 @@ export default function InboxClient({ items: initialItems }: Props) {
   }
 
   // ── Confirm Assign (Class 2 — Async Submit) ──────────────
-  async function confirmAssign(groupKey: string, engagementId: string) {
-    setBusyAction(`assign:${engagementId}`);
+  async function confirmAssign(groupKey: string, engagementId: string, engagementName: string) {
+    setBusyGroup(groupKey);
+    setBusyLabel(`Assigning to ${engagementName}...`);
     setActionError(null);
     try {
       const res = await fetch("/api/reviews/resolve", {
@@ -252,16 +282,21 @@ export default function InboxClient({ items: initialItems }: Props) {
       cancelAction();
     } catch (err) {
       console.error("Assign failed:", err);
-      setActionError(err instanceof Error ? err.message : "Failed to assign");
+      setActionError({
+        groupKey,
+        message: err instanceof Error ? err.message : "Failed to assign",
+      });
     } finally {
-      setBusyAction(null);
+      setBusyGroup(null);
+      setBusyLabel("");
     }
   }
 
   // ── Confirm Create (Class 2 — Async Submit) ──────────────
   async function confirmCreate(groupKey: string) {
     if (!newTitle.trim()) return;
-    setBusyAction(`create:${groupKey}`);
+    setBusyGroup(groupKey);
+    setBusyLabel("Creating engagement...");
     setActionError(null);
     try {
       const res = await fetch("/api/reviews/resolve", {
@@ -281,17 +316,19 @@ export default function InboxClient({ items: initialItems }: Props) {
       cancelAction();
     } catch (err) {
       console.error("Create failed:", err);
-      setActionError(err instanceof Error ? err.message : "Failed to create engagement");
+      setActionError({
+        groupKey,
+        message: err instanceof Error ? err.message : "Failed to create engagement",
+      });
     } finally {
-      setBusyAction(null);
+      setBusyGroup(null);
+      setBusyLabel("");
     }
   }
 
   const filteredPartners = partnerFilter
     ? partners.filter((p) => p.name.toLowerCase().includes(partnerFilter.toLowerCase()))
     : partners;
-
-  const isBusy = busyAction !== null;
 
   return (
     <>
@@ -304,16 +341,15 @@ export default function InboxClient({ items: initialItems }: Props) {
         {groups.map((group) => {
           const item = group.primary;
           const count = group.items.length;
-          const isDiscarding = busyAction === `discard:${group.key}`;
-          const isCreating = busyAction === `create:${group.key}`;
-          const showError = actionError && activeGroup === group.key;
-          // Show discard errors on the group that was being discarded
-          const showDiscardError = actionError && busyAction === null && !activeGroup && group.items.some((i) => i.id === group.key);
+          const isBusy = busyGroup === group.key;
+          const error = actionError?.groupKey === group.key ? actionError : null;
 
           return (
             <div
               key={group.key}
-              className="border-b border-border/20 px-3 py-3 transition-colors hover:bg-surface/50"
+              className={`border-b border-border/20 px-3 py-3 transition-colors ${
+                isBusy ? "opacity-60 pointer-events-none" : "hover:bg-surface/50"
+              }`}
             >
               {/* Main row */}
               <div className="flex items-center gap-3">
@@ -326,7 +362,7 @@ export default function InboxClient({ items: initialItems }: Props) {
                     ) : (
                       <button
                         onClick={() => startPickPartner(group)}
-                        disabled={isBusy}
+                        disabled={busyGroup !== null}
                         className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400 whitespace-nowrap hover:bg-amber-500/20 transition-colors disabled:opacity-50"
                       >
                         Pick Partner
@@ -354,47 +390,53 @@ export default function InboxClient({ items: initialItems }: Props) {
                   )}
                 </div>
 
-                {/* Actions — only when not expanded */}
-                {activeGroup !== group.key && (
+                {/* Row-level loading: spinner + status replaces action buttons */}
+                {isBusy ? (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Spinner />
+                    <span className="text-sm text-muted">{busyLabel}</span>
+                  </div>
+                ) : activeGroup !== group.key ? (
+                  /* Action button group: safe → creation → destructive */
                   <div className="flex items-center gap-3 shrink-0">
-                    {item.partner_id ? (
+                    {item.partner_id && (
                       <button
                         onClick={() => startAssign(group)}
-                        disabled={isBusy}
-                        className="text-xs text-muted hover:text-foreground transition-colors disabled:opacity-50"
+                        disabled={busyGroup !== null}
+                        className="text-sm text-muted hover:text-foreground transition-colors disabled:opacity-50 min-h-[32px]"
                       >
                         Assign
                       </button>
-                    ) : null}
-                    {item.partner_id ? (
+                    )}
+                    {item.partner_id && (
                       <button
                         onClick={() => startCreate(group)}
-                        disabled={isBusy}
-                        className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
+                        disabled={busyGroup !== null}
+                        className="text-sm text-accent hover:text-accent-hover transition-colors disabled:opacity-50 min-h-[32px]"
                       >
                         New
                       </button>
-                    ) : null}
+                    )}
                     <button
                       onClick={() => handleDiscard(group.key)}
-                      disabled={isBusy}
-                      className="text-xs text-muted hover:text-red-400 transition-colors disabled:opacity-50 min-w-[60px]"
+                      disabled={busyGroup !== null}
+                      className="text-sm text-muted hover:text-red-400 transition-colors disabled:opacity-50 min-h-[32px]"
                     >
-                      {isDiscarding ? "Discarding..." : "Discard"}
+                      Discard
                     </button>
                   </div>
-                )}
+                ) : null}
               </div>
 
               {/* Inline error for this group */}
-              {showError && (
+              {error && (
                 <div className="mt-2">
-                  <InlineError message={actionError} onDismiss={clearError} />
+                  <InlineError message={error.message} onDismiss={clearError} />
                 </div>
               )}
 
               {/* Partner picker panel */}
-              {activeGroup === group.key && actionMode === "pick-partner" && (
+              {activeGroup === group.key && actionMode === "pick-partner" && !isBusy && (
                 <div className="mt-3 pt-3 border-t border-border/20">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-muted">
@@ -402,13 +444,16 @@ export default function InboxClient({ items: initialItems }: Props) {
                     </span>
                     <button
                       onClick={cancelAction}
-                      className="text-xs text-muted hover:text-foreground transition-colors"
+                      className="text-sm text-muted hover:text-foreground transition-colors min-h-[32px]"
                     >
                       Cancel
                     </button>
                   </div>
                   {loadingPartners ? (
-                    <p className="text-xs text-muted">Loading partners...</p>
+                    <div className="flex items-center gap-2 py-2">
+                      <Spinner />
+                      <span className="text-sm text-muted">Loading partners...</span>
+                    </div>
                   ) : (
                     <>
                       <input
@@ -420,21 +465,16 @@ export default function InboxClient({ items: initialItems }: Props) {
                         autoFocus
                       />
                       <div className="max-h-48 overflow-y-auto">
-                        {filteredPartners.map((p) => {
-                          const isSettingThis = busyAction === `partner:${p.id}`;
-                          return (
-                            <button
-                              key={p.id}
-                              onClick={() => confirmPickPartner(group.key, p.id, p.name)}
-                              disabled={isBusy}
-                              className="w-full text-left flex items-baseline gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50 disabled:opacity-50"
-                            >
-                              <span className="text-sm font-medium text-foreground">
-                                {isSettingThis ? "Setting..." : p.name}
-                              </span>
-                            </button>
-                          );
-                        })}
+                        {filteredPartners.map((p) => (
+                          <button
+                            key={p.id}
+                            onClick={() => confirmPickPartner(group.key, p.id, p.name)}
+                            disabled={busyGroup !== null}
+                            className="w-full text-left flex items-baseline gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50 disabled:opacity-50"
+                          >
+                            <span className="text-sm font-medium text-foreground">{p.name}</span>
+                          </button>
+                        ))}
                         {filteredPartners.length === 0 && (
                           <p className="text-xs text-muted px-3 py-2">No matches</p>
                         )}
@@ -445,7 +485,7 @@ export default function InboxClient({ items: initialItems }: Props) {
               )}
 
               {/* Assign panel */}
-              {activeGroup === group.key && actionMode === "assign" && (
+              {activeGroup === group.key && actionMode === "assign" && !isBusy && (
                 <div className="mt-3 pt-3 border-t border-border/20">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-muted">
@@ -453,13 +493,16 @@ export default function InboxClient({ items: initialItems }: Props) {
                     </span>
                     <button
                       onClick={cancelAction}
-                      className="text-xs text-muted hover:text-foreground transition-colors"
+                      className="text-sm text-muted hover:text-foreground transition-colors min-h-[32px]"
                     >
                       Cancel
                     </button>
                   </div>
                   {loadingEngagements ? (
-                    <p className="text-xs text-muted">Loading engagements...</p>
+                    <div className="flex items-center gap-2 py-2">
+                      <Spinner />
+                      <span className="text-sm text-muted">Loading engagements...</span>
+                    </div>
                   ) : engagements.length === 0 ? (
                     <p className="text-xs text-muted">
                       No existing engagements.{" "}
@@ -472,28 +515,23 @@ export default function InboxClient({ items: initialItems }: Props) {
                     </p>
                   ) : (
                     <div className="max-h-48 overflow-y-auto">
-                      {engagements.map((eng) => {
-                        const isAssigningThis = busyAction === `assign:${eng.id}`;
-                        return (
-                          <button
-                            key={eng.id}
-                            onClick={() => confirmAssign(group.key, eng.id)}
-                            disabled={isBusy}
-                            className="w-full text-left flex items-baseline gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50 disabled:opacity-50"
-                          >
-                            <span className="text-sm font-medium text-foreground">
-                              {isAssigningThis ? "Assigning..." : eng.name}
-                            </span>
-                          </button>
-                        );
-                      })}
+                      {engagements.map((eng) => (
+                        <button
+                          key={eng.id}
+                          onClick={() => confirmAssign(group.key, eng.id, eng.name)}
+                          disabled={busyGroup !== null}
+                          className="w-full text-left flex items-baseline gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50 disabled:opacity-50"
+                        >
+                          <span className="text-sm font-medium text-foreground">{eng.name}</span>
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>
               )}
 
               {/* Create panel */}
-              {activeGroup === group.key && actionMode === "create" && (
+              {activeGroup === group.key && actionMode === "create" && !isBusy && (
                 <div className="mt-3 pt-3 border-t border-border/20">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-muted">
@@ -501,7 +539,7 @@ export default function InboxClient({ items: initialItems }: Props) {
                     </span>
                     <button
                       onClick={cancelAction}
-                      className="text-xs text-muted hover:text-foreground transition-colors"
+                      className="text-sm text-muted hover:text-foreground transition-colors min-h-[32px]"
                     >
                       Cancel
                     </button>
@@ -518,10 +556,10 @@ export default function InboxClient({ items: initialItems }: Props) {
                     />
                     <button
                       onClick={() => confirmCreate(group.key)}
-                      disabled={isBusy || !newTitle.trim()}
-                      className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50 min-w-[60px]"
+                      disabled={busyGroup !== null || !newTitle.trim()}
+                      className="bg-accent text-white rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent-hover transition-colors disabled:opacity-50"
                     >
-                      {isCreating ? "Creating..." : "Create"}
+                      Create
                     </button>
                   </div>
                 </div>
