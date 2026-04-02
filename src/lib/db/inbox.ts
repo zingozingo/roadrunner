@@ -108,19 +108,23 @@ export async function getInboxGroupCount(): Promise<number> {
 export async function discardInboxItem(messageId: string): Promise<void> {
   const db = getSupabaseClient();
 
-  // Delete any meeting linked to this message first
+  // Fetch all messages in the same timestamp group (same pattern as assign)
+  const groupMessages = await getMessagesForInboxItem(messageId);
+  const groupIds = groupMessages.map((m) => m.id);
+
+  // Delete any meetings linked to messages in this group
   await db
     .from("meetings")
     .delete()
-    .eq("message_id", messageId);
+    .in("message_id", groupIds);
 
-  // Delete the message itself
+  // Delete all messages in the group
   const { error } = await db
     .from("messages")
     .delete()
-    .eq("id", messageId);
+    .in("id", groupIds);
 
-  if (error) throw new Error(`Failed to delete message: ${error.message}`);
+  if (error) throw new Error(`Failed to delete messages: ${error.message}`);
 }
 
 /**
