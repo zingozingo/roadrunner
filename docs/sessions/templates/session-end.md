@@ -47,6 +47,7 @@ The command must:
    - Directory structure tree (if files added/deleted)
    - Component listings (if components added/deleted)
    - Decision count in documentation map
+   - Session management section (if template files changed — e.g., diagnostic.md replacing quick/deep)
    - Any other references to specific counts
 
 4. **Conditional updates (only if relevant work was done):**
@@ -110,11 +111,16 @@ Next session priorities:
 
 Open questions:
 - {Anything unresolved that needs future discussion}
-- {Anything flagged during this session but not addressed}
 
-Pre-existing issues noted:
+Pre-existing issues:
 - {Bugs or quality issues spotted but not fixed this session}
-- {Things that should be addressed in a future plan}
+
+Process learnings:
+- {What worked well this session that should be repeated?}
+- {What didn't work that should be done differently?}
+- {Any workflow improvements, template changes, or tool gaps identified?}
+- {Did the SKILL.md need patterns that weren't there? Did plan execution miss checkpoints?}
+
 
 [CONSTRAINTS]
 - Append only to decisions.md — don't modify existing entries
@@ -176,6 +182,9 @@ Open questions:
 
 Pre-existing issues:
 - {detailed issues with context}
+
+Process learnings:
+- {What worked? What didn't? What changes to make?}
 ```
 
 ---
