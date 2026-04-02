@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { INBOX_GROUP_WINDOW_MS, type InboxItem } from "@/lib/db/inbox";
 import EmptyState from "@/components/layout/EmptyState";
+import InlineError from "@/components/shared/InlineError";
 
 interface Props {
   items: InboxItem[];
@@ -63,8 +64,11 @@ export default function InboxClient({ items: initialItems }: Props) {
   const [actionMode, setActionMode] = useState<"none" | "assign" | "create" | "pick-partner">("none");
   const [engagements, setEngagements] = useState<EngagementOption[]>([]);
   const [newTitle, setNewTitle] = useState("");
-  const [loading, setLoading] = useState(false);
   const [loadingEngagements, setLoadingEngagements] = useState(false);
+
+  // Per-action loading and error state
+  const [busyAction, setBusyAction] = useState<string | null>(null); // "discard:{key}" | "assign:{engId}" | "create:{key}" | "partner:{partnerId}"
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Partner picker state — cached across interactions
   const partnersCache = useRef<PartnerOption[] | null>(null);
@@ -73,6 +77,8 @@ export default function InboxClient({ items: initialItems }: Props) {
   const [partnerFilter, setPartnerFilter] = useState("");
 
   const groups = useMemo(() => groupByForwardedAt(items), [items]);
+
+  const clearError = useCallback(() => setActionError(null), []);
 
   if (groups.length === 0) {
     return <EmptyState title="Inbox is empty" description="Forward emails to your Relay address to see them here" />;
@@ -85,28 +91,47 @@ export default function InboxClient({ items: initialItems }: Props) {
     setItems((prev) => prev.filter((item) => !idsToRemove.has(item.id)));
   }
 
+  function restoreGroup(snapshot: InboxItem[]) {
+    setItems((prev) => [...prev, ...snapshot]);
+  }
+
+  // ── Discard (Class 3 — Destructive + Scoped) ──────────────
   async function handleDiscard(groupKey: string) {
-    if (!confirm("Delete this message? This cannot be undone.")) return;
-    setLoading(true);
+    if (!confirm("Delete this message group? This cannot be undone.")) return;
+
+    const group = groups.find((g) => g.key === groupKey);
+    const snapshot = group ? [...group.items] : [];
+
+    setBusyAction(`discard:${groupKey}`);
+    setActionError(null);
+    removeGroup(groupKey);
+
     try {
       const res = await fetch("/api/reviews/resolve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message_id: groupKey, action: "discard" }),
       });
-      if (res.ok) removeGroup(groupKey);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Discard failed (${res.status})`);
+      }
     } catch (err) {
       console.error("Discard failed:", err);
+      restoreGroup(snapshot);
+      setActionError(err instanceof Error ? err.message : "Discard failed");
     } finally {
-      setLoading(false);
+      setBusyAction(null);
     }
   }
 
+  // ── Start Assign (fetch engagements) ──────────────────────
   async function startAssign(group: InboxGroup) {
     const item = group.primary;
     if (!item.partner_id) return;
     setActiveGroup(group.key);
     setActionMode("assign");
+    setActionError(null);
     setLoadingEngagements(true);
     try {
       const res = await fetch(`/api/engagements?partner_id=${item.partner_id}`);
@@ -116,6 +141,7 @@ export default function InboxClient({ items: initialItems }: Props) {
       );
     } catch (err) {
       console.error("Failed to fetch engagements:", err);
+      setActionError("Failed to load engagements");
     } finally {
       setLoadingEngagements(false);
     }
@@ -125,14 +151,17 @@ export default function InboxClient({ items: initialItems }: Props) {
     const item = group.primary;
     setActiveGroup(group.key);
     setActionMode("create");
+    setActionError(null);
     const partnerPrefix = item.partner_name ? `${item.partner_name} - ` : "";
     setNewTitle(`${partnerPrefix}${cleanSubject(item.subject)}`);
   }
 
+  // ── Pick Partner (fetch + select) ─────────────────────────
   async function startPickPartner(group: InboxGroup) {
     setActiveGroup(group.key);
     setActionMode("pick-partner");
     setPartnerFilter("");
+    setActionError(null);
 
     // Use cache if available
     if (partnersCache.current) {
@@ -151,38 +180,44 @@ export default function InboxClient({ items: initialItems }: Props) {
       setPartners(list);
     } catch (err) {
       console.error("Failed to fetch partners:", err);
+      setActionError("Failed to load partners");
     } finally {
       setLoadingPartners(false);
     }
   }
 
+  // ── Confirm Pick Partner (Class 2 — Async Submit) ─────────
   async function confirmPickPartner(groupKey: string, partnerId: string, partnerName: string) {
-    setLoading(true);
+    setBusyAction(`partner:${partnerId}`);
+    setActionError(null);
     try {
       const res = await fetch("/api/inbox/set-partner", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message_id: groupKey, partner_id: partnerId }),
       });
-      if (res.ok) {
-        // Update local state — stamp partner on all items in this group
-        const group = groups.find((g) => g.key === groupKey);
-        if (group) {
-          const groupIds = new Set(group.items.map((i) => i.id));
-          setItems((prev) =>
-            prev.map((item) =>
-              groupIds.has(item.id)
-                ? { ...item, partner_id: partnerId, partner_name: partnerName }
-                : item
-            )
-          );
-        }
-        cancelAction();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Set partner failed (${res.status})`);
       }
+      // Update local state — stamp partner on all items in this group
+      const group = groups.find((g) => g.key === groupKey);
+      if (group) {
+        const groupIds = new Set(group.items.map((i) => i.id));
+        setItems((prev) =>
+          prev.map((item) =>
+            groupIds.has(item.id)
+              ? { ...item, partner_id: partnerId, partner_name: partnerName }
+              : item
+          )
+        );
+      }
+      cancelAction();
     } catch (err) {
       console.error("Set partner failed:", err);
+      setActionError(err instanceof Error ? err.message : "Failed to set partner");
     } finally {
-      setLoading(false);
+      setBusyAction(null);
     }
   }
 
@@ -192,10 +227,13 @@ export default function InboxClient({ items: initialItems }: Props) {
     setEngagements([]);
     setNewTitle("");
     setPartnerFilter("");
+    setActionError(null);
   }
 
+  // ── Confirm Assign (Class 2 — Async Submit) ──────────────
   async function confirmAssign(groupKey: string, engagementId: string) {
-    setLoading(true);
+    setBusyAction(`assign:${engagementId}`);
+    setActionError(null);
     try {
       const res = await fetch("/api/reviews/resolve", {
         method: "POST",
@@ -206,20 +244,25 @@ export default function InboxClient({ items: initialItems }: Props) {
           engagement_id: engagementId,
         }),
       });
-      if (res.ok) {
-        removeGroup(groupKey);
-        cancelAction();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Assign failed (${res.status})`);
       }
+      removeGroup(groupKey);
+      cancelAction();
     } catch (err) {
       console.error("Assign failed:", err);
+      setActionError(err instanceof Error ? err.message : "Failed to assign");
     } finally {
-      setLoading(false);
+      setBusyAction(null);
     }
   }
 
+  // ── Confirm Create (Class 2 — Async Submit) ──────────────
   async function confirmCreate(groupKey: string) {
     if (!newTitle.trim()) return;
-    setLoading(true);
+    setBusyAction(`create:${groupKey}`);
+    setActionError(null);
     try {
       const res = await fetch("/api/reviews/resolve", {
         method: "POST",
@@ -230,20 +273,25 @@ export default function InboxClient({ items: initialItems }: Props) {
           title: newTitle.trim(),
         }),
       });
-      if (res.ok) {
-        removeGroup(groupKey);
-        cancelAction();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Create failed (${res.status})`);
       }
+      removeGroup(groupKey);
+      cancelAction();
     } catch (err) {
       console.error("Create failed:", err);
+      setActionError(err instanceof Error ? err.message : "Failed to create engagement");
     } finally {
-      setLoading(false);
+      setBusyAction(null);
     }
   }
 
   const filteredPartners = partnerFilter
     ? partners.filter((p) => p.name.toLowerCase().includes(partnerFilter.toLowerCase()))
     : partners;
+
+  const isBusy = busyAction !== null;
 
   return (
     <>
@@ -256,6 +304,11 @@ export default function InboxClient({ items: initialItems }: Props) {
         {groups.map((group) => {
           const item = group.primary;
           const count = group.items.length;
+          const isDiscarding = busyAction === `discard:${group.key}`;
+          const isCreating = busyAction === `create:${group.key}`;
+          const showError = actionError && activeGroup === group.key;
+          // Show discard errors on the group that was being discarded
+          const showDiscardError = actionError && busyAction === null && !activeGroup && group.items.some((i) => i.id === group.key);
 
           return (
             <div
@@ -273,7 +326,7 @@ export default function InboxClient({ items: initialItems }: Props) {
                     ) : (
                       <button
                         onClick={() => startPickPartner(group)}
-                        disabled={loading}
+                        disabled={isBusy}
                         className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400 whitespace-nowrap hover:bg-amber-500/20 transition-colors disabled:opacity-50"
                       >
                         Pick Partner
@@ -307,7 +360,7 @@ export default function InboxClient({ items: initialItems }: Props) {
                     {item.partner_id ? (
                       <button
                         onClick={() => startAssign(group)}
-                        disabled={loading}
+                        disabled={isBusy}
                         className="text-xs text-muted hover:text-foreground transition-colors disabled:opacity-50"
                       >
                         Assign
@@ -316,7 +369,7 @@ export default function InboxClient({ items: initialItems }: Props) {
                     {item.partner_id ? (
                       <button
                         onClick={() => startCreate(group)}
-                        disabled={loading}
+                        disabled={isBusy}
                         className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
                       >
                         New
@@ -324,14 +377,21 @@ export default function InboxClient({ items: initialItems }: Props) {
                     ) : null}
                     <button
                       onClick={() => handleDiscard(group.key)}
-                      disabled={loading}
-                      className="text-xs text-muted hover:text-red-400 transition-colors disabled:opacity-50"
+                      disabled={isBusy}
+                      className="text-xs text-muted hover:text-red-400 transition-colors disabled:opacity-50 min-w-[60px]"
                     >
-                      Discard
+                      {isDiscarding ? "Discarding..." : "Discard"}
                     </button>
                   </div>
                 )}
               </div>
+
+              {/* Inline error for this group */}
+              {showError && (
+                <div className="mt-2">
+                  <InlineError message={actionError} onDismiss={clearError} />
+                </div>
+              )}
 
               {/* Partner picker panel */}
               {activeGroup === group.key && actionMode === "pick-partner" && (
@@ -348,7 +408,7 @@ export default function InboxClient({ items: initialItems }: Props) {
                     </button>
                   </div>
                   {loadingPartners ? (
-                    <p className="text-xs text-muted">Loading...</p>
+                    <p className="text-xs text-muted">Loading partners...</p>
                   ) : (
                     <>
                       <input
@@ -360,16 +420,21 @@ export default function InboxClient({ items: initialItems }: Props) {
                         autoFocus
                       />
                       <div className="max-h-48 overflow-y-auto">
-                        {filteredPartners.map((p) => (
-                          <button
-                            key={p.id}
-                            onClick={() => confirmPickPartner(group.key, p.id, p.name)}
-                            disabled={loading}
-                            className="w-full text-left flex items-baseline gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
-                          >
-                            <span className="text-sm font-medium text-foreground">{p.name}</span>
-                          </button>
-                        ))}
+                        {filteredPartners.map((p) => {
+                          const isSettingThis = busyAction === `partner:${p.id}`;
+                          return (
+                            <button
+                              key={p.id}
+                              onClick={() => confirmPickPartner(group.key, p.id, p.name)}
+                              disabled={isBusy}
+                              className="w-full text-left flex items-baseline gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50 disabled:opacity-50"
+                            >
+                              <span className="text-sm font-medium text-foreground">
+                                {isSettingThis ? "Setting..." : p.name}
+                              </span>
+                            </button>
+                          );
+                        })}
                         {filteredPartners.length === 0 && (
                           <p className="text-xs text-muted px-3 py-2">No matches</p>
                         )}
@@ -394,7 +459,7 @@ export default function InboxClient({ items: initialItems }: Props) {
                     </button>
                   </div>
                   {loadingEngagements ? (
-                    <p className="text-xs text-muted">Loading...</p>
+                    <p className="text-xs text-muted">Loading engagements...</p>
                   ) : engagements.length === 0 ? (
                     <p className="text-xs text-muted">
                       No existing engagements.{" "}
@@ -407,16 +472,21 @@ export default function InboxClient({ items: initialItems }: Props) {
                     </p>
                   ) : (
                     <div className="max-h-48 overflow-y-auto">
-                      {engagements.map((eng) => (
-                        <button
-                          key={eng.id}
-                          onClick={() => confirmAssign(group.key, eng.id)}
-                          disabled={loading}
-                          className="w-full text-left flex items-baseline gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
-                        >
-                          <span className="text-sm font-medium text-foreground">{eng.name}</span>
-                        </button>
-                      ))}
+                      {engagements.map((eng) => {
+                        const isAssigningThis = busyAction === `assign:${eng.id}`;
+                        return (
+                          <button
+                            key={eng.id}
+                            onClick={() => confirmAssign(group.key, eng.id)}
+                            disabled={isBusy}
+                            className="w-full text-left flex items-baseline gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50 disabled:opacity-50"
+                          >
+                            <span className="text-sm font-medium text-foreground">
+                              {isAssigningThis ? "Assigning..." : eng.name}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -448,10 +518,10 @@ export default function InboxClient({ items: initialItems }: Props) {
                     />
                     <button
                       onClick={() => confirmCreate(group.key)}
-                      disabled={loading || !newTitle.trim()}
-                      className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
+                      disabled={isBusy || !newTitle.trim()}
+                      className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50 min-w-[60px]"
                     >
-                      {loading ? "Creating..." : "Create"}
+                      {isCreating ? "Creating..." : "Create"}
                     </button>
                   </div>
                 </div>
