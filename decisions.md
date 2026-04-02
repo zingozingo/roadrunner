@@ -6991,3 +6991,153 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** Meeting detail page no longer crashes on duplicate notes. Older duplicate deleted for Supabase meeting. UNIQUE constraint migration documented for future.
 
 ---
+
+### #388 — UNIQUE constraint on meeting_notes.meeting_id
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** Migration 083 replaces the non-unique index on meeting_notes.meeting_id (from migration 051) with a UNIQUE index. Enforces one-note-per-meeting at the database level.
+
+**Context:** A duplicate meeting_notes row caused a page crash (Decision #387). The app-level defensive fix handles the symptom; the UNIQUE constraint prevents the root cause.
+
+**Rationale:** Belt-and-suspenders with the app-level defensive query. The constraint prevents future duplicates regardless of which code path creates notes.
+
+**Impact:** meeting_notes.meeting_id now has a UNIQUE constraint. Zero duplicates confirmed before applying (41 rows, 0 conflicts).
+
+---
+
+### #389 — Partner detection: all-message iteration
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** Inbound route now iterates ALL parsed messages for domain matching, not just parsed[0]. First partner-domain match across any message wins.
+
+**Context:** Multi-message email threads where parsed[0] was from a non-partner (agency like bridge.partners, or AWS internal) failed to match even though later messages contained partner-domain senders (e.g., garethk@spacelift.io).
+
+**Rationale:** The detection function signature is per-message, but the caller was only passing the first message. The fix is in the caller (inbound route), not the detection function.
+
+**Impact:** Spacelift threads (30+ messages, first from bridge.partners agency) now correctly match. Any thread with at least one partner-domain sender will match.
+
+---
+
+### #390 — Pattern-based AWS domain blocking
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** Replaced static AWS_DOMAINS Set (7 domains) with isAWSDomain() function using pattern matching: domain === "amazonaws.com" || domain.startsWith("amazon.") || domain.endsWith(".amazonaws.com") || domain.endsWith(".aws.dev").
+
+**Context:** amazon.ch existed in the participant data but wasn't in the static blocklist. The static list required manual maintenance for every new regional Amazon domain.
+
+**Rationale:** Pattern-based is strictly safer — no false positives (no partner will ever have an amazon.* domain) and catches all regional variants automatically.
+
+**Impact:** amazon.ch, amazon.com.au, *.aws.dev (like Meetings Summary service) all blocked without maintaining a list. Tests updated with new coverage.
+
+---
+
+### #391 — Subject-line partner name fallback
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** Added detectPartnerFromSubject() as a fallback when domain matching finds nothing across all messages. Case-insensitive substring match of partner names against the email subject line. Longest match wins.
+
+**Context:** "Fw: Meeting summary: Anaconda EBC | 10493" from balmic@amazon.com — all AWS senders, no partner-domain email anywhere in the thread. Domain matching returns null. But "Anaconda" is clearly in the subject.
+
+**Rationale:** Simple string matching is sufficient for this fallback. Longest-match-wins prevents partial collisions. Only fires when zero domain matches exist, so false positive risk is minimal.
+
+**Impact:** Fully-internal forwards with partner names in the subject line now auto-match. Added GET /api/inbox/redetect route for backfilling existing unmatched messages.
+
+---
+
+### #392 — Inbox group-aware operations
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** discardInboxItem() now calls getMessagesForInboxItem() to resolve the full message group before deleting, matching how assign already works. Establishes principle: any action on a grouped item must resolve the full scope before executing.
+
+**Context:** Inbox discard was only deleting the group key message (1 of N). Surviving messages reappeared on page refresh with different sender/subject because the original primary was deleted. The assign flow already worked correctly because it used getMessagesForInboxItem().
+
+**Rationale:** The bug was a scope resolution failure. The fix aligns discard with assign by resolving the full group first. This became Class 4 (Scoped) in the Mutation Lifecycle Framework.
+
+**Impact:** Discard now deletes all messages in the timestamp group plus their linked meetings. Items no longer reappear on refresh.
+
+---
+
+### #393 — Mutation Lifecycle Framework
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** Four-class system for all user-triggered mutations, added to SKILL.md Layer 2: Class 1 (Optimistic Toggle — instant UI, revert on failure), Class 2 (Async Submit — loading label + InlineError), Class 3 (Destructive — confirm first, then Class 2 pattern), Class 4 (Scoped — resolve scope first, then Class 2 or 3).
+
+**Context:** Mutation audit found 42 surfaces across 13 pages with 14 silent failures, 6 with zero error handling, and 4 destructive actions without confirmation. Ad-hoc patterns per component caused the inconsistency.
+
+**Rationale:** A framework that defines behavior per mutation class prevents ad-hoc invention. Includes two-level loading spec (component vs row/card), action button group ordering (safe → create → destructive), navigation guard requirement, and 10-point adoption checklist.
+
+**Impact:** Constitutional document for all UI mutation behavior. Every new mutation surface must classify and implement per framework.
+
+---
+
+### #394 — Shared mutation utilities (useMutation + InlineError)
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** useMutation hook (src/hooks/useMutation.ts) wraps async functions with isLoading/error/clearError state. InlineError component (src/components/shared/InlineError.tsx) renders inline red-tinted error with 8s auto-dismiss.
+
+**Context:** Every mutation surface needed the same loading + error pattern. Without shared utilities, each component reinvented try/catch/setState.
+
+**Rationale:** useMutation is the default for Class 2/3/4. InlineError is the only error display pattern — never toasts, never page-level banners for component-level errors.
+
+**Impact:** Two building blocks used across all 42 mutation surfaces. Consistent UX for every async operation.
+
+---
+
+### #395 — useNavigationGuard hook
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** useNavigationGuard(blocked: boolean) blocks navigation during in-flight mutations via three interception points: beforeunload (browser close), popstate (back button), and internal navigation (integrates with UnsavedChangesProvider context). Separate from useUnsavedChanges.
+
+**Context:** Users could navigate away during multi-second operations (AI synthesis, engagement creation with Airtable push) causing silent data loss. Needed to block all three navigation vectors.
+
+**Rationale:** Integrates with existing UnsavedChangesProvider for sidebar click interception rather than duplicating that infrastructure. A page can use both hooks — they compose independently.
+
+**Impact:** Inbox and meeting notes pages now block navigation during mutations. Remaining pages to be wired in a subsequent pass.
+
+---
+
+### #396 — App-wide mutation conformance sweep
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** All 42 mutation surfaces across 13 pages upgraded to follow the Mutation Lifecycle Framework. Zero console.error-only catches. Zero destructive actions without confirmation. Zero mutations without loading states.
+
+**Context:** After building the framework and shared utilities, a systematic sweep upgraded every remaining surface: EngagementLinker (3), RecurrenceCard/Editor (3), PartnerScratchpad (2), EnrollmentSection (2), EventParticipationSection (2), TodayTasks (1), TasksClient (2), plus the previously completed Inbox (4) and NoteWorkspace/TaskEditor (5).
+
+**Rationale:** Piecemeal adoption creates inconsistency. A single sweep ensures uniform behavior before any new features are added.
+
+**Impact:** Every mutation in the app now has loading feedback, error handling, and (where appropriate) confirmation. InlineError replaces window.location.reload() in enrollment/event delete. Scratchpad delete now has confirmation.
+
+---
+
+### #397 — Session template and process redesign
+
+**Date:** 2026-04-02
+**Status:** ✅ Implemented
+
+**Decision:** Consolidated quick/deep diagnostics into single diagnostic.md. Created plan-template.md with mandatory pre-flight diagnostics, SKILL.md conformance checks, adjacent surface checks, and Steven checkpoints. Created plan-startup.md for plan execution initialization. Updated session-start.md and session-end.md.
+
+**Context:** The quick/deep diagnostic split added friction without value — every session needed the full picture. Plan execution was cutting corners because the plan structure didn't encode the diagnostic instinct that makes interactive sessions successful.
+
+**Rationale:** Plans need to encode the same rigor as interactive sessions: diagnose before building, check adjacent surfaces, verify against SKILL.md. The plan template makes these steps mandatory per task, not optional.
+
+**Impact:** Development workflow fully redesigned. Future plans will have built-in quality gates that match interactive session rigor.
+
+---

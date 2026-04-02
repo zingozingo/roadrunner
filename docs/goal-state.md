@@ -6,7 +6,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 82 migrations, 17 active tables, 34 API routes, 13 UI pages, 444 passing tests (0 failures), tsc --noEmit passes clean, 37 components, decisions through #387
+- 83 migrations, 17 active tables, 35 API routes, 13 UI pages, 444 passing tests (0 failures), tsc --noEmit passes clean, 38 components, decisions through #397
 - Human-guided intake pipeline fully operational: webhook → mechanical partner detection → ICS partner backfill → inbox triage (with unknown partner picker) → single-phase AI synthesis (decisions #223-252)
 - Meetings Motion complete (decisions #253-259): 10 interaction-based meeting types, recurring meeting engine with auto-spawn, series tracking via self-referential FK, RecurrenceEditor UI, synthesis-on-link, conference boilerplate pre-split fix, ICS multi-VEVENT guardrail confirmed
 - AI Brain Overhaul Phases 1-3 complete (decisions #260-269): goal field eliminated (migration 069), condensed columns on engagements + meeting_notes (migration 068), meeting summarization restructured with scoped context builder, structured output (Discussion/Decisions/Key Context), condensed 3-5 bullet digest, non-redundancy with tasks
@@ -58,26 +58,21 @@ A system where a PDM forwards an email and Roadrunner:
 ## What's Next
 
 ### Immediate
-- Merge Plan 3 PR to main, deploy to Vercel. Verify production works post-merge.
-- Add UNIQUE constraint migration on meeting_notes.meeting_id (prevents duplicate rows crash)
-- Inbox UX improvements — partner matching accuracy, engagement matching intel, save state
-- Partner detail page organization — growing too large, needs better structure (tabs, collapsible sections, or progressive disclosure)
-- Bring Engagements back to the sidebar nav (currently only accessible through partner detail)
+- Merge Plan 3 branch to main, deploy to Vercel. All detection and mutation fixes go live.
+- useNavigationGuard on remaining pages (partner detail, engagement detail, tasks, meetings list) — inbox and meeting notes done, other pages still unguarded
+- Bring Engagements back to sidebar nav (currently only accessible through partner detail)
 
 ### Soon
-- Full UI polish plan — font sizes, touch targets, hover states, visual hierarchy, accessibility
-- Page scalability audit — how each page handles growing data volumes (61 tasks, 80 enrollments, 227 participants)
+- Partner detail page reorganization — page growing too large, needs tabs or progressive disclosure
+- Full UI polish plan — font sizes, touch targets, hover states, visual hierarchy, spacing consistency
+- Page scalability audit — how each page handles growing data (61 tasks, 80 enrollments, 227 participants)
 - People page evolution — participant detail cards, better linking experience
-- Raise Playwright quality bar — enforce "if content clips at 1280px, task fails"
-- Meeting data cleanup — merge Vasion duplicate series, convert standalones (KnowBe4, NinjaOne, Cloudaware) to series roots
 
 ### Later
+- Meeting data cleanup — Vasion duplicate series merge, standalone-to-series conversions (KnowBe4, NinjaOne, Cloudaware)
+- Task backfill — 41 tasks without engagement_id need linking via meeting→engagement chain
 - Airtable exit path — AT push for manually-created enrollments and event participations
-- Pydantic agent harness for structured autonomous loops
-- Mobile sidebar behavior
-- Pre-meeting briefing (AI-generated)
 - Email-less participant support (5 null-email participants in registry)
-- 41-task engagement backfill — link meetings to engagements so cascade populates task.engagement_id
 
 ### Completed
 - ~~Meeting notes feature~~ ✅ (decisions 101-108)
@@ -154,6 +149,12 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~Program enrollment + event participation CRUD~~ ✅ (decisions #372-373): 6 API endpoints, 2 client components, inline status editing, event participations always visible
 - ~~Plan 3 — Daily Driver MVP~~ ✅ (20 tasks, 6 phases): Universal PageContainer (max-w-[1600px]), sidebar vertical distribution, useUnsavedChanges framework (7 protected surfaces), Today page 55/45 split + 12-task cap, Tasks page density, Partner detail section pairings, scope-aware recurrence editing ("this and future"), Reschedule button, simplified timeline strip, people linkability (names → /people?q=), enrollment date year formatting, full Playwright audit clean
 - ~~Post-Plan 3 interactive polish~~ ✅ (decisions #381-387): RecurrenceCard consolidation (4→1 components, timeline strip killed), meeting Edit as modal (not inline), Reschedule merged into Edit modal (header: Edit+Delete only), scope-aware propagation with notes protection, People page partner badge enrichment from engagements (143 previously invisible participants), duplicate participant merge (2 pairs), defensive meeting_notes query
+- ~~UNIQUE constraint on meeting_notes.meeting_id~~ ✅ (migration 083, decision #388)
+- ~~Partner detection: all-message iteration + pattern-based isAWSDomain + subject-line name fallback~~ ✅ (decisions #389-391, new /api/inbox/redetect route)
+- ~~Inbox discard: group-aware deletion~~ ✅ (decision #392, uses getMessagesForInboxItem)
+- ~~Mutation Lifecycle Framework + shared utilities~~ ✅ (decisions #393-395, useMutation hook, InlineError component, useNavigationGuard hook, SKILL.md Layer 2)
+- ~~App-wide mutation conformance — 42 surfaces, zero gaps~~ ✅ (decision #396, zero silent failures, zero unconfirmed destructive actions)
+- ~~Session template and workflow redesign~~ ✅ (decision #397, single diagnostic, plan template with pre-flight and checkpoints)
 
 ## Architecture Principles
 
