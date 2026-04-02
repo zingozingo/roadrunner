@@ -357,6 +357,7 @@ const [{ data: meetings }, { data: engagements }] = await Promise.all([
 - Hardcoded hex colors (use CSS variables)
 - Spacing values outside the 4px scale
 - Section labels that say "No data" with broken-looking empty UI
+- Unicode escapes (`\u2026`, `\u2019`, etc.) in JSX text content — they render as literal characters, not the intended glyph. Use the actual character (`…`, `'`) or wrap in a JS expression (`{"…"}`). Unicode escapes only work inside JavaScript string literals.
 
 ---
 

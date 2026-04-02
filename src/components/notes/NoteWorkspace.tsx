@@ -304,7 +304,7 @@ export default function NoteWorkspace({
               <div className="absolute bottom-3 right-3">
                 {saveStatus === "saving" && (
                   <span className="text-xs text-muted animate-pulse">
-                    Saving\u2026
+                    Saving…
                   </span>
                 )}
                 {saveStatus === "saved" && (
@@ -322,7 +322,7 @@ export default function NoteWorkspace({
                 {summarizing ? (
                   <span className="flex items-center gap-2">
                     <Spinner />
-                    Generating summary\u2026
+                    Generating summary…
                   </span>
                 ) : (
                   "Generate Summary"
@@ -452,7 +452,7 @@ export default function NoteWorkspace({
                   {finalizing ? (
                     <span className="flex items-center gap-2">
                       <Spinner />
-                      Saving\u2026
+                      Saving…
                     </span>
                   ) : (
                     "Save & Lock"
