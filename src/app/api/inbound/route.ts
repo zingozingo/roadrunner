@@ -3,7 +3,7 @@ import crypto from "crypto";
 import { parseForwardedEmail, parseSenderField, stripExternalTag } from "@/lib/email-parser";
 import { storeMessages, createMeetingFromICS } from "@/lib/db";
 import { extractICSFromAttachments, parseICSContent } from "@/lib/ics-parser";
-import { detectPartnerFromEmail } from "@/lib/partner-detection";
+import { detectPartnerFromEmail, detectPartnerFromSubject } from "@/lib/partner-detection";
 import { stripPRVS, isUserEmail, USER_CONFIG } from "@/lib/user-config";
 import { buildNameResolutionMap, resolveNameByEmail } from "@/lib/name-resolver";
 
@@ -336,15 +336,27 @@ export async function POST(request: NextRequest) {
     console.log(`Supabase storage: stored ${stored.length} message(s), ids=[${storedIds.join(", ")}]`);
 
     // --- Mechanical partner detection (no AI) ---
+    // Iterate ALL parsed messages — first partner-domain match wins.
+    // Fixes threads where parsed[0] is from a non-partner (agency, AWS internal)
+    // but later messages contain partner-domain senders.
     let detectedPartner: { partnerId: string; partnerName: string } | null = null;
     try {
-      const representativeMsg = parsed[0];
-      detectedPartner = await detectPartnerFromEmail(
-        representativeMsg.sender_email ?? '',
-        representativeMsg.to_header ?? toHeader ?? null,
-        representativeMsg.cc_header ?? ccHeader ?? null,
-        representativeMsg.body_text ?? emailBody ?? null
-      );
+      for (const msg of parsed) {
+        detectedPartner = await detectPartnerFromEmail(
+          msg.sender_email ?? '',
+          msg.to_header ?? toHeader ?? null,
+          msg.cc_header ?? ccHeader ?? null,
+          msg.body_text ?? emailBody ?? null
+        );
+        if (detectedPartner) break;
+      }
+      // Fallback: subject-line partner name matching when domain matching finds nothing
+      if (!detectedPartner) {
+        detectedPartner = await detectPartnerFromSubject(subject);
+        if (detectedPartner) {
+          console.log(`Partner detection (subject fallback): ${detectedPartner.partnerName}`);
+        }
+      }
       if (detectedPartner) {
         const { getSupabaseClient } = await import("@/lib/db");
         const db = getSupabaseClient();

@@ -11,7 +11,7 @@ vi.mock("../db", () => ({
 import {
   extractEmailAddresses,
   detectPartnerFromEmail,
-  AWS_DOMAINS,
+  isAWSDomain,
 } from "../partner-detection";
 
 // ============================================================
@@ -75,33 +75,39 @@ describe("extractEmailAddresses", () => {
 });
 
 // ============================================================
-// AWS_DOMAINS
+// isAWSDomain
 // ============================================================
 
-describe("AWS_DOMAINS", () => {
-  it("includes amazon.com", () => {
-    expect(AWS_DOMAINS.has("amazon.com")).toBe(true);
+describe("isAWSDomain", () => {
+  it("matches amazon.com", () => {
+    expect(isAWSDomain("amazon.com")).toBe(true);
   });
 
-  it("includes amazon.co.uk", () => {
-    expect(AWS_DOMAINS.has("amazon.co.uk")).toBe(true);
+  it("matches regional amazon domains", () => {
+    expect(isAWSDomain("amazon.co.uk")).toBe(true);
+    expect(isAWSDomain("amazon.de")).toBe(true);
+    expect(isAWSDomain("amazon.fr")).toBe(true);
+    expect(isAWSDomain("amazon.co.jp")).toBe(true);
+    expect(isAWSDomain("amazon.es")).toBe(true);
+    expect(isAWSDomain("amazon.it")).toBe(true);
+    expect(isAWSDomain("amazon.ch")).toBe(true);
+    expect(isAWSDomain("amazon.com.au")).toBe(true);
   });
 
-  it("includes amazonaws.com", () => {
-    expect(AWS_DOMAINS.has("amazonaws.com")).toBe(true);
+  it("matches amazonaws.com and subdomains", () => {
+    expect(isAWSDomain("amazonaws.com")).toBe(true);
+    expect(isAWSDomain("s3.amazonaws.com")).toBe(true);
   });
 
-  it("includes amazon.de, amazon.fr, amazon.co.jp, amazon.es, amazon.it", () => {
-    expect(AWS_DOMAINS.has("amazon.de")).toBe(true);
-    expect(AWS_DOMAINS.has("amazon.fr")).toBe(true);
-    expect(AWS_DOMAINS.has("amazon.co.jp")).toBe(true);
-    expect(AWS_DOMAINS.has("amazon.es")).toBe(true);
-    expect(AWS_DOMAINS.has("amazon.it")).toBe(true);
+  it("matches aws.dev subdomains", () => {
+    expect(isAWSDomain("mail.ses.pdxprod.aims.meetex.enterprise-engineering.aws.dev")).toBe(true);
   });
 
-  it("does not include non-AWS domains", () => {
-    expect(AWS_DOMAINS.has("acme.com")).toBe(false);
-    expect(AWS_DOMAINS.has("google.com")).toBe(false);
+  it("does not match non-AWS domains", () => {
+    expect(isAWSDomain("acme.com")).toBe(false);
+    expect(isAWSDomain("google.com")).toBe(false);
+    expect(isAWSDomain("amazontech.com")).toBe(false);
+    expect(isAWSDomain("notamazon.de")).toBe(false);
   });
 });
 
