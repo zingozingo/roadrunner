@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useUnsavedChanges } from "@/components/shared/UnsavedChangesProvider";
+import InlineError from "@/components/shared/InlineError";
 
 interface Enrollment {
   id: string;
@@ -77,6 +78,7 @@ export default function EnrollmentSection({
   const [formError, setFormError] = useState<string | null>(null);
   const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [inlineError, setInlineError] = useState<string | null>(null);
 
   // Form state
   const [formProgramName, setFormProgramName] = useState("");
@@ -168,10 +170,12 @@ export default function EnrollmentSection({
       setEnrollments((list) =>
         list.map((e) => (e.id === enrollmentId ? { ...e, status: prev.status } : e))
       );
+      setInlineError("Failed to update status");
     }
   }
 
   async function handleDelete(enrollmentId: string) {
+    const snapshot = [...enrollments];
     setEnrollments((list) => list.filter((e) => e.id !== enrollmentId));
     setDeletingId(null);
 
@@ -181,12 +185,8 @@ export default function EnrollmentSection({
       });
       if (!res.ok) throw new Error();
     } catch {
-      // Refetch on error — simpler than tracking the removed item
-      const res = await fetch(`/api/partners/${partnerId}`);
-      if (res.ok) {
-        // Ideally we'd refetch just enrollments, but a page refresh is safest
-        window.location.reload();
-      }
+      setEnrollments(snapshot);
+      setInlineError("Failed to delete enrollment");
     }
   }
 
@@ -294,6 +294,8 @@ export default function EnrollmentSection({
           ))
         )}
       </div>
+
+      {inlineError && <div className="mt-2"><InlineError message={inlineError} onDismiss={() => setInlineError(null)} /></div>}
 
       {/* Create Modal */}
       {showModal && (

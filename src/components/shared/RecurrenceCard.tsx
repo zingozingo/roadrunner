@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { Meeting, RecurrencePattern } from "@/lib/types";
 import RecurrenceEditor from "./RecurrenceEditor";
 import ConfirmDialog from "./ConfirmDialog";
+import InlineError from "@/components/shared/InlineError";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -52,6 +53,7 @@ export default function RecurrenceCard({
   const [showOverflow, setShowOverflow] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Don't render if not a recurring series
   if (siblings.length <= 1 && !recurrencePattern) return null;
@@ -92,6 +94,7 @@ export default function RecurrenceCard({
   const hasEllipsisAfter = endIdx < siblings.length;
 
   async function skipThisOne() {
+    if (!confirm("Skip this meeting? It will be marked cancelled.")) return;
     setSaving(true);
     setShowOverflow(false);
     try {
@@ -100,9 +103,11 @@ export default function RecurrenceCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "cancelled" }),
       });
-      if (res.ok) router.refresh();
+      if (!res.ok) throw new Error("Failed to skip meeting");
+      router.refresh();
     } catch (err) {
       console.error("Failed to skip meeting:", err);
+      setError(err instanceof Error ? err.message : "Failed to skip meeting");
     } finally {
       setSaving(false);
     }
@@ -117,12 +122,12 @@ export default function RecurrenceCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ recurrence_pattern: null, recurrence_end: null }),
       });
-      if (res.ok) {
-        setShowEndConfirm(false);
-        router.refresh();
-      }
+      if (!res.ok) throw new Error("Failed to end series");
+      setShowEndConfirm(false);
+      router.refresh();
     } catch (err) {
       console.error("Failed to end series:", err);
+      setError(err instanceof Error ? err.message : "Failed to end series");
     } finally {
       setSaving(false);
     }
@@ -249,6 +254,8 @@ export default function RecurrenceCard({
             </>
           )}
         </div>
+
+        {error && <div className="mt-2"><InlineError message={error} onDismiss={() => setError(null)} /></div>}
       </div>
 
       {/* Editor modal */}

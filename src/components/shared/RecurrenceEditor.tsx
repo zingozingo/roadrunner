@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { RecurrencePattern } from "@/lib/types";
 import { useUnsavedChanges } from "@/components/shared/UnsavedChangesProvider";
+import InlineError from "@/components/shared/InlineError";
 
 const PATTERN_LABELS: Record<RecurrencePattern, string> = {
   weekly: "Weekly",
@@ -76,6 +77,7 @@ export default function RecurrenceEditor({
   const [showEndDate, setShowEndDate] = useState(!!initialEnd);
   const [saving, setSaving] = useState(false);
   const [showDiscard, setShowDiscard] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const { setDirty, clearDirty } = useUnsavedChanges("recurrence-editor");
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -127,6 +129,7 @@ export default function RecurrenceEditor({
   }
 
   async function handleSave() {
+    setSaveError(null);
     setSaving(true);
     try {
       const body: Record<string, unknown> = {
@@ -146,12 +149,12 @@ export default function RecurrenceEditor({
         body: JSON.stringify(body),
       });
 
-      if (res.ok) {
-        clearDirty();
-        onSave();
-      }
+      if (!res.ok) throw new Error("Failed to save recurrence pattern");
+      clearDirty();
+      onSave();
     } catch (err) {
       console.error("Failed to save recurrence:", err);
+      setSaveError(err instanceof Error ? err.message : "Failed to save recurrence pattern");
     } finally {
       setSaving(false);
     }
@@ -283,6 +286,7 @@ export default function RecurrenceEditor({
                 Cancel
               </button>
             </div>
+            {saveError && <div className="mt-2"><InlineError message={saveError} onDismiss={() => setSaveError(null)} /></div>}
           </div>
         </div>
       </div>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import type { PartnerContextEntry } from "@/lib/types";
 import { useUnsavedChanges } from "@/components/shared/UnsavedChangesProvider";
+import InlineError from "@/components/shared/InlineError";
 
 interface PartnerScratchpadProps {
   partnerId: string;
@@ -39,6 +40,7 @@ export default function PartnerScratchpad({
   const [input, setInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { setDirty, clearDirty } = useUnsavedChanges("partner-scratchpad");
 
   useEffect(() => {
@@ -51,6 +53,7 @@ export default function PartnerScratchpad({
     if (!content || submitting) return;
 
     setSubmitting(true);
+    setError(null);
 
     const tempId = `temp-${Date.now()}`;
     const optimistic: PartnerContextEntry = {
@@ -78,15 +81,20 @@ export default function PartnerScratchpad({
         );
       } else {
         setScratchEntries((prev) => prev.filter((e) => e.id !== tempId));
+        setError("Failed to save note");
       }
     } catch {
       setScratchEntries((prev) => prev.filter((e) => e.id !== tempId));
+      setError("Failed to save note");
     } finally {
       setSubmitting(false);
     }
   }
 
   async function handleDelete(entryId: string) {
+    if (!confirm("Delete this note?")) return;
+
+    const snapshot = [...scratchEntries];
     setScratchEntries((prev) => prev.filter((e) => e.id !== entryId));
 
     try {
@@ -96,7 +104,8 @@ export default function PartnerScratchpad({
         body: JSON.stringify({ contextId: entryId }),
       });
     } catch {
-      // Silent — entry already removed from UI
+      setScratchEntries(snapshot);
+      setError("Failed to delete note");
     }
   }
 
@@ -171,6 +180,8 @@ export default function PartnerScratchpad({
           {showAll ? "Show less" : `Show all ${scratchEntries.length}`}
         </button>
       )}
+
+      {error && <div className="mb-2"><InlineError message={error} onDismiss={() => setError(null)} /></div>}
 
       {/* Input */}
       <input

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
+import InlineError from "@/components/shared/InlineError";
 
 interface EngagementOption {
   id: string;
@@ -35,12 +36,15 @@ export default function EngagementLinker({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const clearError = useCallback(() => setError(null), []);
   const cache = useRef<EngagementOption[] | null>(null);
 
   async function openPicker() {
     if (!partnerId) return;
     setPicking(true);
     setCreating(false);
+    setError(null);
 
     if (cache.current) {
       setEngagements(cache.current);
@@ -58,6 +62,7 @@ export default function EngagementLinker({
       setEngagements(list);
     } catch (err) {
       console.error("Failed to fetch engagements:", err);
+      setError("Failed to load engagements");
     } finally {
       setLoading(false);
     }
@@ -71,6 +76,7 @@ export default function EngagementLinker({
         : "New Engagement";
     setNewTitle(suggestedTitle);
     setCreating(true);
+    setError(null);
   }
 
   async function linkEngagement(engId: string, engName: string) {
@@ -82,13 +88,13 @@ export default function EngagementLinker({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ engagement_id: engId }),
       });
-      if (res.ok) {
-        setEngagementId(engId);
-        setEngagementName(engName);
-        setPicking(false);
-      }
+      if (!res.ok) throw new Error("Failed to link engagement");
+      setEngagementId(engId);
+      setEngagementName(engName);
+      setPicking(false);
     } catch (err) {
       console.error("Failed to link engagement:", err);
+      setError(err instanceof Error ? err.message : "Failed to link engagement");
     } finally {
       setSaving(false);
     }
@@ -97,6 +103,7 @@ export default function EngagementLinker({
   async function createAndLink() {
     if (!newTitle.trim() || !partnerId) return;
     setSaving(true);
+    let createdEngagement: { id: string; name: string } | null = null;
     try {
       // 1. Create engagement
       const createRes = await fetch("/api/engagements", {
@@ -106,6 +113,7 @@ export default function EngagementLinker({
       });
       if (!createRes.ok) throw new Error("Failed to create engagement");
       const { engagement } = await createRes.json();
+      createdEngagement = engagement;
 
       // 2. Link meeting → engagement (cascade runs server-side)
       const linkRes = await fetch(`/api/meetings/${meetingId}`, {
@@ -113,7 +121,7 @@ export default function EngagementLinker({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ engagement_id: engagement.id }),
       });
-      if (!linkRes.ok) throw new Error("Failed to link meeting");
+      if (!linkRes.ok) throw new Error("Failed to link meeting to engagement");
 
       // 3. Seed engagement current_state from note condensed digest
       if (noteCondensed) {
@@ -134,13 +142,31 @@ export default function EngagementLinker({
       cache.current = null; // Invalidate cache
     } catch (err) {
       console.error("Failed to create and link engagement:", err);
+      // If step 1 succeeded but step 2 failed, show the created engagement
+      // so user knows it exists and can manually retry the link
+      if (createdEngagement) {
+        setEngagementId(createdEngagement.id);
+        setEngagementName(createdEngagement.name);
+        cache.current = null; // Invalidate cache
+      }
+      setError(err instanceof Error ? err.message : "Failed to create and link engagement");
+      // Keep form populated on error — don't close picker or clear creating
     } finally {
       setSaving(false);
     }
   }
 
   async function unlinkEngagement() {
+    if (!confirm("Unlink from this engagement?")) return;
+
+    // Snapshot for revert on failure
+    const prevId = engagementId;
+    const prevName = engagementName;
+
     setSaving(true);
+    // Optimistic update
+    setEngagementId(null);
+    setEngagementName(null);
     try {
       // PUT clears engagement_id; cascade runs server-side
       const res = await fetch(`/api/meetings/${meetingId}`, {
@@ -148,13 +174,14 @@ export default function EngagementLinker({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ engagement_id: null }),
       });
-      if (res.ok) {
-        setEngagementId(null);
-        setEngagementName(null);
-        cache.current = null; // Invalidate cache
-      }
+      if (!res.ok) throw new Error("Failed to unlink engagement");
+      cache.current = null; // Invalidate cache
     } catch (err) {
       console.error("Failed to unlink engagement:", err);
+      // Revert optimistic update
+      setEngagementId(prevId);
+      setEngagementName(prevName);
+      setError(err instanceof Error ? err.message : "Failed to unlink engagement");
     } finally {
       setSaving(false);
     }
@@ -163,21 +190,24 @@ export default function EngagementLinker({
   // Linked state — show name + unlink button
   if (engagementId && engagementName) {
     return (
-      <div className="flex items-center gap-2">
-        <Link
-          href={`/engagements/${engagementId}`}
-          className="text-sm font-medium text-accent hover:underline"
-        >
-          {engagementName}
-        </Link>
-        <button
-          onClick={unlinkEngagement}
-          disabled={saving}
-          className="text-xs text-muted hover:text-red-400 transition-colors disabled:opacity-50"
-          title="Unlink engagement"
-        >
-          ×
-        </button>
+      <div>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/engagements/${engagementId}`}
+            className="text-sm font-medium text-accent hover:underline"
+          >
+            {engagementName}
+          </Link>
+          <button
+            onClick={unlinkEngagement}
+            disabled={saving}
+            className="text-xs text-muted hover:text-red-400 transition-colors disabled:opacity-50"
+            title="Unlink engagement"
+          >
+            ×
+          </button>
+        </div>
+        {error && <div className="mt-2"><InlineError message={error} onDismiss={clearError} /></div>}
       </div>
     );
   }
@@ -191,7 +221,7 @@ export default function EngagementLinker({
             {creating ? "Create engagement" : "Select engagement"}
           </span>
           <button
-            onClick={() => { setPicking(false); setCreating(false); }}
+            onClick={() => { setPicking(false); setCreating(false); setError(null); }}
             className="text-xs text-muted hover:text-foreground transition-colors"
           >
             Cancel
@@ -254,6 +284,8 @@ export default function EngagementLinker({
             )}
           </div>
         )}
+
+        {error && <div className="mt-2"><InlineError message={error} onDismiss={clearError} /></div>}
       </div>
     );
   }

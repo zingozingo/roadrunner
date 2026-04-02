@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
+import InlineError from "@/components/shared/InlineError";
 import type { Task } from "@/lib/types";
 
 type TaskWithContext = Task & {
@@ -20,8 +21,10 @@ export default function TodayTasks({
   today: string;
 }) {
   const [tasks, setTasks] = useState(initialTasks);
+  const [error, setError] = useState<string | null>(null);
 
-  async function handleToggle(taskId: string, currentStatus: string) {
+  const handleToggle = useCallback(async (taskId: string, currentStatus: string) => {
+    setError(null);
     const newStatus = currentStatus === "open" ? "done" : "open";
     setTasks((prev) =>
       prev.map((t) =>
@@ -43,8 +46,9 @@ export default function TodayTasks({
             : t
         )
       );
+      setError("Failed to update task");
     }
-  }
+  }, []);
 
   // Group tasks by partner
   const grouped = new Map<string, { name: string; id: string; tasks: typeof tasks }>();
@@ -59,6 +63,7 @@ export default function TodayTasks({
 
   return (
     <div className="rounded-lg border border-border/50 bg-surface overflow-hidden">
+      {error && <div className="mb-2"><InlineError message={error} onDismiss={() => setError(null)} /></div>}
       {groups.map((group, gi) => (
         <div key={group.id}>
           {/* Partner group header */}

@@ -7,6 +7,7 @@ import PageContainer from "@/components/layout/PageContainer";
 import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
 import { useUnsavedChanges } from "@/components/shared/UnsavedChangesProvider";
+import InlineError from "@/components/shared/InlineError";
 import { Task } from "@/lib/types";
 import { stripPartnerPrefix } from "@/lib/format-utils";
 
@@ -45,6 +46,7 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
   const [linkingTaskId, setLinkingTaskId] = useState<string | null>(null);
   const [linkingEngagements, setLinkingEngagements] = useState<{ id: string; name: string }[]>([]);
   const [linkingLoading, setLinkingLoading] = useState(false);
+  const [mutationError, setMutationError] = useState<string | null>(null);
 
   // Form state
   const [formPartnerId, setFormPartnerId] = useState("");
@@ -78,6 +80,7 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
     } catch {
       // Revert on error
       setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: currentStatus as Task["status"] } : t));
+      setMutationError("Failed to update task");
     }
   }
 
@@ -91,6 +94,7 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
     } catch {
       // Revert on error
       setTasks((prev) => [...prev, task]);
+      setMutationError("Failed to delete task");
     }
   }
 
@@ -114,6 +118,7 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
       if (!res.ok) throw new Error("Failed to update task");
     } catch {
       setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, description: originalDescription } : t));
+      setMutationError("Failed to save description");
     }
   }
 
@@ -127,6 +132,7 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
       setLinkingEngagements(engagements.map((e: { id: string; name: string }) => ({ id: e.id, name: e.name })));
     } catch {
       setLinkingEngagements([]);
+      setMutationError("Failed to load engagements");
     } finally {
       setLinkingLoading(false);
     }
@@ -146,6 +152,7 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
       if (!res.ok) throw new Error("Failed to update engagement link");
     } catch {
       if (prev) setTasks((ts) => ts.map((t) => t.id === taskId ? { ...t, engagement_id: prev.engagement_id, engagement_name: prev.engagement_name } : t));
+      setMutationError("Failed to link engagement");
     }
   }
 
@@ -229,7 +236,7 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
       if (!res.ok) return;
       const { engagements } = await res.json();
       setFormEngagements(engagements.map((e: { id: string; name: string }) => ({ id: e.id, name: e.name })));
-    } catch { /* ignore */ } finally {
+    } catch { setMutationError("Failed to load engagements"); } finally {
       setFormEngagementsLoading(false);
     }
   }
@@ -558,6 +565,7 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
         />
       ) : (
         <>
+          {mutationError && <div className="mb-3"><InlineError message={mutationError} onDismiss={() => setMutationError(null)} /></div>}
           <div className="flex items-center gap-3">
             <div className="flex-1">
               <FilterBar

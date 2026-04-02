@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useUnsavedChanges } from "@/components/shared/UnsavedChangesProvider";
+import InlineError from "@/components/shared/InlineError";
 
 interface EventParticipation {
   id: string;
@@ -59,6 +60,7 @@ export default function EventParticipationSection({
   const [formError, setFormError] = useState<string | null>(null);
   const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [inlineError, setInlineError] = useState<string | null>(null);
 
   // Form state
   const [formEventId, setFormEventId] = useState("");
@@ -144,10 +146,12 @@ export default function EventParticipationSection({
       setParticipations((list) =>
         list.map((p) => (p.id === participationId ? { ...p, status: prev.status } : p))
       );
+      setInlineError("Failed to update status");
     }
   }
 
   async function handleDelete(participationId: string) {
+    const snapshot = [...participations];
     setParticipations((list) => list.filter((p) => p.id !== participationId));
     setDeletingId(null);
 
@@ -157,7 +161,8 @@ export default function EventParticipationSection({
       });
       if (!res.ok) throw new Error();
     } catch {
-      window.location.reload();
+      setParticipations(snapshot);
+      setInlineError("Failed to delete participation");
     }
   }
 
@@ -256,6 +261,8 @@ export default function EventParticipationSection({
           ))
         )}
       </div>
+
+      {inlineError && <div className="mt-2"><InlineError message={inlineError} onDismiss={() => setInlineError(null)} /></div>}
 
       {/* Create Modal */}
       {showModal && (
