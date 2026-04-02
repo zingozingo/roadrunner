@@ -482,6 +482,7 @@ Every user-triggered mutation in the app falls into one of four classes. This fr
 **Shared utilities:**
 - **`useMutation`** — `src/hooks/useMutation.ts` — returns `{ execute, isLoading, error, clearError }`. Generic async wrapper with loading and error tracking.
 - **`InlineError`** — `src/components/shared/InlineError.tsx` — compact red-tinted inline error display. Auto-dismisses after 8 seconds. Props: `message`, `onDismiss`.
+- **`useNavigationGuard`** — `src/hooks/useNavigationGuard.ts` *(planned)* — blocks navigation while mutations are in-flight. See "Navigation Guard During Mutations" below.
 
 ### Class 1 — Optimistic Toggle
 
@@ -508,11 +509,9 @@ Every user-triggered mutation in the app falls into one of four classes. This fr
 
 **Behavior:**
 1. Use `useMutation` hook (or equivalent loading/error state management)
-2. Button enters loading state: label changes to `"{Verb}ing..."` (e.g., "Saving...", "Creating...", "Assigning...", "Synthesizing...")
-3. Button gets `disabled opacity-50 pointer-events-none`
-4. Button width must remain stable (use `min-w` or consistent label length)
-5. On success: UI updates (router.refresh, state update, or optimistic add)
-6. On failure: `InlineError` appears near the button, button re-enables for retry
+2. Loading state activates (see "Mutation Loading States" below for which level to use)
+3. On success: UI updates (router.refresh, state update, or optimistic add)
+4. On failure: `InlineError` appears near the action, trigger re-enables for retry
 
 **Loading label convention:** Always verb-based. "Saving...", "Creating...", "Deleting...", "Assigning...", "Linking...", "Synthesizing...". Never "Loading..." or "Please wait..." or "Working...".
 
@@ -556,6 +555,86 @@ Every user-triggered mutation in the app falls into one of four classes. This fr
 
 ---
 
+### Mutation Loading States
+
+Two levels of loading feedback. Use the right one for the context.
+
+**Component-level loading (default):**
+- The trigger button shows loading label (`"{Verb}ing..."`) + `disabled opacity-50 pointer-events-none`
+- Button width must remain stable (use `min-w` or consistent label length)
+- **When to use:** Single button action — save, synthesize, delete confirmation, link. The mutation target is one small element in a toolbar or form.
+- **Examples:** "Save" → "Saving...", "Create Meeting" → "Creating...", "Generate Synthesis" → "Synthesizing..."
+
+**Row/card-level loading (for list item mutations):**
+- When a mutation affects a whole item in a list, the ENTIRE row/card enters loading state
+- Row gets: `opacity-60 pointer-events-none` on all content
+- Action buttons are REPLACED (not relabeled) by a status line: inline spinner (16px, `text-muted animate-spin`) + action text (`text-sm text-muted`)
+- Status text describes what's happening: "Discarding...", "Assigning to engagement...", "Creating engagement..."
+- The row cannot be interacted with while loading — no accidental double-clicks, no confusion about state
+- **When to use:** List item action where the whole row is the context — inbox route/discard, task delete from list, bulk operations.
+- **Examples:** Inbox item being discarded, task being deleted from /tasks, engagement being merged.
+
+**Choosing the right level:**
+| Context | Level | Rationale |
+|---------|-------|-----------|
+| Button in a toolbar/header | Component | Only the button needs to show state |
+| Button in a form/modal | Component | Form stays visible for context |
+| Action on a list row (inbox, tasks) | Row/card | The whole row is the target — make it unmistakable |
+| Inline toggle (checkbox, status pill) | Neither (Class 1) | Optimistic — no visible loading |
+
+---
+
+### Action Button Group Spec
+
+How to lay out multiple action buttons on the same item (list rows, card headers, panel footers).
+
+**Layout:** Right-aligned in a row, `flex items-center gap-3 shrink-0`.
+
+**Ordering convention (left to right):**
+1. **Safe/routing actions** — "Assign", "Link" — `text-xs text-muted hover:text-foreground`
+2. **Creation actions** — "New", "Create" — `text-xs text-accent hover:text-accent-hover` (or `bg-accent text-white rounded-md px-3 py-1.5 text-sm` if it's the primary CTA)
+3. **Destructive actions** — "Discard", "Delete" — `text-xs text-muted hover:text-red-400` (always rightmost)
+4. **Cancel/dismiss** — "Cancel" — `text-xs text-muted hover:text-foreground` (only in expanded panels, not in the collapsed row)
+
+**Sizing:** All action buttons in a group: `text-xs` or `text-sm` (consistent within the group), `min-h-[32px]` touch target (achieved via padding or line-height).
+
+**Overflow rule:** If there are more than 4 visible actions, move the less common ones into an overflow menu (`⋮` button, `text-muted hover:text-foreground`). The overflow menu is a simple dropdown, not a modal.
+
+**Disabled state during mutations:** All buttons in the group get `disabled:opacity-50` when any mutation in the group is in-flight. This prevents double-submissions and makes it clear the UI is busy.
+
+**Constraints:** Destructive actions are ALWAYS rightmost and visually distinct. Never place a destructive action first or style it as the primary button. Never mix `text-xs` and `text-sm` within the same action group.
+
+---
+
+### Navigation Guard During Mutations
+
+Any page with mutations MUST block navigation while an async operation is in-flight. This prevents data loss from accidental back-button clicks, sidebar navigation, or page reload during a multi-second operation (e.g., AI synthesis, engagement creation with Airtable push).
+
+**Hook:** `useNavigationGuard(blocked: boolean)` *(planned: `src/hooks/useNavigationGuard.ts`)*
+
+**Three interception points:**
+1. `beforeunload` — browser close, reload, or external navigation. Standard `event.preventDefault()`.
+2. `popstate` — browser back/forward button. Push current URL back to prevent navigation.
+3. Sidebar/internal link click — Next.js `router.push`. Intercept via `useEffect` on route change or wrapping navigation calls.
+
+**When blocked and user tries to navigate:**
+- Show modal: "Operation in progress. Leaving now may cause data loss."
+- Actions: "Stay" (primary accent button) + "Leave" (ghost/danger)
+- Modal uses same ConfirmDialog component as other confirmations
+
+**Usage:** Components pass `busyAction !== null` or `isLoading` as the `blocked` flag:
+```typescript
+useNavigationGuard(busyAction !== null);
+```
+
+**Guard drops automatically** when the mutation completes (blocked becomes false). No manual cleanup needed.
+
+**Relationship to `useUnsavedChanges`:** These are separate concerns. `useUnsavedChanges` protects dirty form state (user has typed but not saved). `useNavigationGuard` protects in-flight mutations (user has clicked save and the request is pending). A page can use both — they compose independently. If both are active, the mutation guard takes priority (its message is more urgent).
+
+**Constraints:** Don't block navigation for Class 1 (optimistic toggle) — those complete instantly. Only block for Class 2/3/4 where the operation takes visible time. Don't leave the guard active after the component unmounts — clean up in `useEffect` return.
+
+---
+
 ### Universal Rules
 
 1. **No silent failures.** Every `catch` block must surface the error to the user via `InlineError`. `console.error` is allowed for logging but never as the ONLY error handling.
@@ -564,17 +643,21 @@ Every user-triggered mutation in the app falls into one of four classes. This fr
 4. **InlineError placement.** Below the trigger button or inside the card/section where the action lives. Never a toast. Never a page-level banner for component-level errors.
 5. **Destructive actions are never the primary button.** Always `text-red-400` or secondary styling. Always separated from safe actions.
 6. **Scope before execute.** For Class 4 actions, always resolve the full target set before mutating. Never assume the caller's ID is the only affected record.
+7. **Guard navigation during mutations.** Every page with Class 2/3/4 mutations must use `useNavigationGuard` to block navigation while operations are in-flight.
 
 ### Adoption Checklist
 
 For each mutation surface, verify:
 - [ ] Classified as Class 1/2/3/4
-- [ ] Loading state present (Class 2/3/4)
+- [ ] Loading state present and uses correct level — component vs row/card (Class 2/3/4)
 - [ ] Error surfaced to user via InlineError (all classes)
 - [ ] Confirmation present (Class 3)
 - [ ] Scope resolved before execution (Class 4)
 - [ ] Button label follows verb convention (Class 2/3/4)
 - [ ] InlineError positioned near the trigger, not at page level
+- [ ] Action button group follows ordering spec (safe → create → destructive)
+- [ ] Navigation guard active during in-flight mutations (useNavigationGuard)
+- [ ] Destructive action is rightmost and never primary-styled
 
 ---
 
