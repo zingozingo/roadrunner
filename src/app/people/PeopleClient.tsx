@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import PageContainer from "@/components/layout/PageContainer";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 
 interface PersonResult {
   id: string;
@@ -51,6 +52,7 @@ export default function PeopleClient({ partners }: PeopleClientProps) {
   const [partnerFilter, setPartnerFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  useNavigationGuard(submitting);
   const [formError, setFormError] = useState<string | null>(null);
   const [duplicateInfo, setDuplicateInfo] = useState<{ id: string; name: string; email: string } | null>(null);
 

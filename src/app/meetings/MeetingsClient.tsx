@@ -6,6 +6,7 @@ import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
 import PageContainer from "@/components/layout/PageContainer";
 import EmptyState from "@/components/layout/EmptyState";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 import FilterBar from "@/components/layout/FilterBar";
 import { Meeting, Partner, Engagement } from "@/lib/types";
 import { cleanMeetingTitle } from "@/lib/format-utils";
@@ -71,6 +72,7 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
   // Modal state
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  useNavigationGuard(submitting);
   const [formError, setFormError] = useState<string | null>(null);
 
   // Form fields

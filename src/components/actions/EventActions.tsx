@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Event } from "@/lib/types";
 import ConfirmDialog from "../shared/ConfirmDialog";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 
 const TYPE_OPTIONS: Event["type"][] = [
   "conference", "summit", "workshop", "kickoff",
@@ -15,6 +16,7 @@ export default function EventActions({ event }: { event: Event }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  useNavigationGuard(saving || deleting);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

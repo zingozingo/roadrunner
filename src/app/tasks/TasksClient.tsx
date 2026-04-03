@@ -6,6 +6,7 @@ import PageHeader from "@/components/layout/PageHeader";
 import PageContainer from "@/components/layout/PageContainer";
 import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 import { useUnsavedChanges } from "@/components/shared/UnsavedChangesProvider";
 import InlineError from "@/components/shared/InlineError";
 import { Task } from "@/lib/types";
@@ -40,6 +41,7 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  useNavigationGuard(submitting);
   const [showCompleted, setShowCompleted] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
