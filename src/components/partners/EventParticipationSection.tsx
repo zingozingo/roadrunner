@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useUnsavedChanges } from "@/components/shared/UnsavedChangesProvider";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 import InlineError from "@/components/shared/InlineError";
 
 interface EventParticipation {
@@ -57,6 +58,7 @@ export default function EventParticipationSection({
   const [participations, setParticipations] = useState(initialParticipations);
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  useNavigationGuard(submitting);
   const [formError, setFormError] = useState<string | null>(null);
   const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);

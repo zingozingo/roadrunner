@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 
 interface BrainSynthesisProps {
   partnerId: string;
@@ -18,6 +19,7 @@ export default function BrainSynthesis({
   const [synthesis, setSynthesis] = useState<string | null>(initialContent);
   const [synthesisDate, setSynthesisDate] = useState<string | null>(initialDate);
   const [isSynthesizing, setIsSynthesizing] = useState(false);
+  useNavigationGuard(isSynthesizing);
   const [synthError, setSynthError] = useState<string | null>(null);
 
   const hasNewContext =

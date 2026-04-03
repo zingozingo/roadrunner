@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import type { PartnerContextEntry } from "@/lib/types";
 import { useUnsavedChanges } from "@/components/shared/UnsavedChangesProvider";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 import InlineError from "@/components/shared/InlineError";
 
 interface PartnerScratchpadProps {
@@ -39,6 +40,7 @@ export default function PartnerScratchpad({
   const [scratchEntries, setScratchEntries] = useState<PartnerContextEntry[]>(initialEntries);
   const [input, setInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  useNavigationGuard(submitting);
   const [showAll, setShowAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { setDirty, clearDirty } = useUnsavedChanges("partner-scratchpad");

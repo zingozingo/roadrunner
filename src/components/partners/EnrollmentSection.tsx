@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useUnsavedChanges } from "@/components/shared/UnsavedChangesProvider";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 import InlineError from "@/components/shared/InlineError";
 
 interface Enrollment {
@@ -75,6 +76,7 @@ export default function EnrollmentSection({
   const [enrollments, setEnrollments] = useState(initialEnrollments);
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  useNavigationGuard(submitting);
   const [formError, setFormError] = useState<string | null>(null);
   const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
