@@ -201,7 +201,7 @@ docs/sessions/
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → human-guided routing → AI synthesis → structured engagements → Airtable sync.
-> 83 migrations · 17 tables · 35 API routes · 13 UI pages · 444 passing tests
+> 83 migrations · 17 tables · 35 API routes · 14 UI pages · 444 passing tests
 
 ---
 
@@ -262,7 +262,7 @@ roadrunner/
 │       │   ├── session-start.md     #   Claude.ai: session startup context
 │       │   └── session-end.md       #   Claude.ai: wrap-up protocol
 │       └── summaries/             #     Session summaries (one per session)
-├── decisions.md                   # Append-only architectural decision log (397 entries)
+├── decisions.md                   # Append-only architectural decision log (404 entries)
 ├── src/
 │   ├── app/                       # Next.js App Router
 │   │   ├── api/                   #   API routes (35 route files, grouped by entity)
@@ -589,7 +589,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-082). New migratio
 | `docs/sessions/templates/plan-template.md` | Plan structure — task format, pre-flight, verification, checkpoints | Creating new plans |
 | `docs/sessions/templates/` | Session templates — diagnostic, plan template, Claude.ai prompts | Reference when needed |
 | `docs/sessions/summaries/` | Session summaries — one per session, latest is handoff for next session | Session start (paste latest into Claude.ai) |
-| `decisions.md` | Append-only architectural decision log (397 entries) | When you need "why" |
+| `decisions.md` | Append-only architectural decision log (404 entries) | When you need "why" |
 
 ---
 

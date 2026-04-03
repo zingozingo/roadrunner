@@ -7141,3 +7141,108 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** Development workflow fully redesigned. Future plans will have built-in quality gates that match interactive session rigor.
 
 ---
+
+### #398 — useNavigationGuard full rollout (per-component, not page-level)
+
+**Date:** 2026-04-03
+**Status:** ✅ Implemented
+
+**Decision:** Multi-component pages (partner detail, meeting detail) use per-component guards rather than composed page-level busy signals. Each component hooks into its own existing isBusy state. Multiple instances on the same page compose naturally — any one being true blocks navigation. 18 total guarded components. PartnersClient excluded (catalog sync has no data-loss risk).
+
+**Context:** After building useNavigationGuard and wiring InboxClient + NoteWorkspace as reference implementations, the remaining 16 mutation-owning components needed guards. The question was whether to compose busy signals at the page level or wire each component individually.
+
+**Rationale:** Per-component is simpler — each component already has a local loading state variable. Multiple hooks on the same page compose naturally via the shared UnsavedChangesProvider context. No page-level orchestration needed.
+
+**Impact:** All 18 mutation surfaces now block navigation during in-flight mutations. Zero chance of data loss from browser close, back button, or sidebar navigation during saves.
+
+---
+
+### #399 — PartnersClient catalog sync excluded from navigation guard
+
+**Date:** 2026-04-03
+**Status:** ✅ Implemented
+
+**Decision:** PartnersClient's "Sync Catalogs" mutation is intentionally not guarded by useNavigationGuard. Catalog sync pulls from Airtable (the authority). Navigating away mid-sync risks nothing — just re-sync.
+
+**Context:** During the useNavigationGuard rollout audit, PartnersClient was the only mutation-owning component deliberately skipped.
+
+**Rationale:** Guard protects user data at risk of loss. Catalog sync pulls from an external authority (Airtable). Interrupting it leaves Supabase in a stale but not corrupted state. Re-syncing is cheap and idempotent.
+
+**Impact:** 18 of 19 mutation-owning components guarded. The one exception is documented and justified.
+
+---
+
+### #400 — Engagements list page design
+
+**Date:** 2026-04-03
+**Status:** ✅ Implemented
+
+**Decision:** New /engagements list page uses status-grouped collapsible sections (active/planned/blocked open by default, completed/archived collapsed). Partner pill filter, no search. Topic field as row subtitle (not condensed). Sorted by updated_at DESC within groups. Read-only list — engagements created from inbox or meeting detail, not from the list.
+
+**Context:** The engagements list page was previously deleted. With engagements as the hub entity, a dedicated list page was needed for cross-partner visibility.
+
+**Rationale:** Status grouping matches how a PDM thinks about engagements — active work at top, historical at bottom. Partner pill filter is the primary dimension (which partner's engagements?). No search needed — at 41 engagements, scan + filter is sufficient. No create button — engagements are born from inbox routing or meeting detail, not from a blank form.
+
+**Impact:** /engagements list page restored. Accessible from sidebar. Every engagement visible at a glance with status, partner, topic, pillar, and recency.
+
+---
+
+### #401 — Engagements sidebar placement in Secondary tier
+
+**Date:** 2026-04-03
+**Status:** ✅ Implemented
+
+**Decision:** Engagements added as first item in the Secondary sidebar tier, above Tasks. The Secondary tier is now: Engagements, Tasks, Meetings, People.
+
+**Context:** Engagements were previously only accessible through partner detail pages. The sidebar needed a direct link.
+
+**Rationale:** Engagements are the hub entity in the data model — everything (messages, meetings, tasks, participants) connects through them. They belong in the daily-use tier alongside Tasks and Meetings, not buried in a detail page. Positioned first in Secondary because they're the organizational layer above tasks and meetings.
+
+**Impact:** Sidebar now has 9 items across 3 tiers. Engagements accessible in one click from anywhere.
+
+---
+
+### #402 — Topic vs condensed for engagement display
+
+**Date:** 2026-04-03
+**Status:** ✅ Implemented
+
+**Decision:** List views show the topic field (short human-scannable descriptor like "AWS Marketplace CPPO Integration") as the row subtitle. Condensed is the AI-generated multi-sentence digest reserved for the AI pipeline (brain synthesis, meeting context).
+
+**Context:** Initial engagements list implementation used condensed as the subtitle, which was too verbose for a list view.
+
+**Rationale:** Topic is a one-liner written for human consumption. Condensed is a multi-sentence AI digest written for upstream AI consumption. Different audiences, different fields. List views need scannable text.
+
+**Impact:** Engagement list rows show clean one-line topics. AI pipeline continues using condensed for context building.
+
+---
+
+### #403 — Completed tasks: separate DB function, bidirectional toggle, 30-day window
+
+**Date:** 2026-04-03
+**Status:** ✅ Implemented
+
+**Decision:** New getCompletedTasks() DB function mirrors getOpenTasks() for status='done' with 30-day lookback. Tasks page shows collapsed "Completed in last 30 days" section at bottom. Bidirectional toggle moves tasks between active and completed sections immediately. Server-fetched data persists across refresh.
+
+**Context:** The existing showCompleted toggle was broken — it only showed tasks completed during the current browser session. On refresh, completed tasks disappeared because getOpenTasks() only fetches status='open'.
+
+**Rationale:** Separate DB function avoids modifying the well-tested getOpenTasks(). 30-day window keeps the completed section manageable (not accumulating forever). Bidirectional toggle avoids undo/toast patterns — just uncheck to reopen. Server-fetched data means completed tasks persist across refresh, which is the expected behavior.
+
+**Impact:** Tasks page now properly shows completed work. PDM can see what was done recently, toggle tasks back to open if needed, and trust that the page reflects the real state.
+
+---
+
+### #404 — Visual conformance audit: all 14 pages pass SKILL.md
+
+**Date:** 2026-04-03
+**Status:** ✅ Confirmed
+
+**Decision:** Systematic Playwright screenshot audit at 1280px of all 14 pages found zero SKILL.md violations. The design system is consistently applied across the entire app.
+
+**Context:** Before planning any UI polish work, a full audit was needed to identify actual violations vs. assumed ones. Screenshots of every page were captured and compared against SKILL.md specs.
+
+**Rationale:** Measure before fixing. The audit revealed that density/scalability concerns (partner detail page length, people page with 227 participants, programs list without grouping) are feature-level improvements, not conformance issues. This changes the priority from "fix violations" to "evolve patterns."
+
+**Impact:** No remediation plan needed. Future UI work focuses on feature evolution (partner detail tabs, people page pagination) rather than conformance fixes.
+
+---

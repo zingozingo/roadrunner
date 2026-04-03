@@ -6,7 +6,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 83 migrations, 17 active tables, 35 API routes, 13 UI pages, 444 passing tests (0 failures), tsc --noEmit passes clean, 38 components, decisions through #397
+- 83 migrations, 17 active tables, 35 API routes, 14 UI pages, 444 passing tests (0 failures), tsc --noEmit passes clean, 38 components, decisions through #404
 - Human-guided intake pipeline fully operational: webhook → mechanical partner detection → ICS partner backfill → inbox triage (with unknown partner picker) → single-phase AI synthesis (decisions #223-252)
 - Meetings Motion complete (decisions #253-259): 10 interaction-based meeting types, recurring meeting engine with auto-spawn, series tracking via self-referential FK, RecurrenceEditor UI, synthesis-on-link, conference boilerplate pre-split fix, ICS multi-VEVENT guardrail confirmed
 - AI Brain Overhaul Phases 1-3 complete (decisions #260-269): goal field eliminated (migration 069), condensed columns on engagements + meeting_notes (migration 068), meeting summarization restructured with scoped context builder, structured output (Discussion/Decisions/Key Context), condensed 3-5 bullet digest, non-redundancy with tasks
@@ -58,19 +58,17 @@ A system where a PDM forwards an email and Roadrunner:
 ## What's Next
 
 ### Immediate
-- Merge Plan 3 branch to main, deploy to Vercel. All detection and mutation fixes go live.
-- useNavigationGuard on remaining pages (partner detail, engagement detail, tasks, meetings list) — inbox and meeting notes done, other pages still unguarded
-- Bring Engagements back to sidebar nav (currently only accessible through partner detail)
+- Merge plan-3/daily-driver-mvp branch to main, deploy to Vercel. All detection, mutation, navigation guard, and UI fixes go live. Inbox QA pass post-deploy.
 
 ### Soon
-- Partner detail page reorganization — page growing too large, needs tabs or progressive disclosure
-- Full UI polish plan — font sizes, touch targets, hover states, visual hierarchy, spacing consistency
-- Page scalability audit — how each page handles growing data (61 tasks, 80 enrollments, 227 participants)
-- People page evolution — participant detail cards, better linking experience
+- Plan 4 — Partner detail page reorganization: tabs or progressive disclosure for the longest page in the app, where Steven spends the most working time
+- People page evolution — alphabetical grouping or pagination for 227+ participants
+- Programs list grouping by type (currently flat list of 76 items)
 
 ### Later
-- Meeting data cleanup — Vasion duplicate series merge, standalone-to-series conversions (KnowBe4, NinjaOne, Cloudaware)
+- Completed tasks pattern on partner detail page (same collapsed section approach)
 - Task backfill — 41 tasks without engagement_id need linking via meeting→engagement chain
+- Meeting data cleanup — Vasion duplicate series merge, standalone-to-series conversions (KnowBe4, NinjaOne, Cloudaware)
 - Airtable exit path — AT push for manually-created enrollments and event participations
 - Email-less participant support (5 null-email participants in registry)
 
@@ -155,6 +153,10 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~Mutation Lifecycle Framework + shared utilities~~ ✅ (decisions #393-395, useMutation hook, InlineError component, useNavigationGuard hook, SKILL.md Layer 2)
 - ~~App-wide mutation conformance — 42 surfaces, zero gaps~~ ✅ (decision #396, zero silent failures, zero unconfirmed destructive actions)
 - ~~Session template and workflow redesign~~ ✅ (decision #397, single diagnostic, plan template with pre-flight and checkpoints)
+- ~~useNavigationGuard full rollout~~ ✅ (decisions #398-399, 18 components guarded, per-component approach)
+- ~~Engagements list page + sidebar~~ ✅ (decisions #400-402, status grouping, partner filter, topic subtitle, Secondary tier)
+- ~~Completed tasks visibility~~ ✅ (decision #403, separate DB function, bidirectional toggle, 30-day window)
+- ~~Visual conformance audit~~ ✅ (decision #404, all 14 pages pass SKILL.md at 1280px)
 
 ## Architecture Principles
 
