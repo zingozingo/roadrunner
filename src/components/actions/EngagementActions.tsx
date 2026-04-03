@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Engagement, Pillar } from "@/lib/types";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 
 const STATUS_OPTIONS: Engagement["status"][] = ["active", "blocked", "completed", "archived"];
 const PILLAR_OPTIONS: Pillar[] = ["Co-Sell", "Co-Market", "Co-Build"];
@@ -18,6 +19,7 @@ export default function EngagementActions({
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  useNavigationGuard(saving || deleting);
   const [deleteMode, setDeleteMode] = useState<null | "keep" | "remove">(null);
   const [error, setError] = useState<string | null>(null);
 
