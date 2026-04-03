@@ -30,11 +30,13 @@ const OWNER_OPTIONS = [
 
 interface TasksClientProps {
   tasks: TaskWithContext[];
+  completedTasks: TaskWithContext[];
   partners: { id: string; name: string }[];
 }
 
-export default function TasksClient({ tasks: initialTasks, partners }: TasksClientProps) {
+export default function TasksClient({ tasks: initialTasks, completedTasks: initialCompleted, partners }: TasksClientProps) {
   const [tasks, setTasks] = useState(initialTasks);
+  const [completedTasksList, setCompletedTasksList] = useState(initialCompleted);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string | null>("me");
   const [groupByPartner, setGroupByPartner] = useState(true);
@@ -42,7 +44,6 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   useNavigationGuard(submitting);
-  const [showCompleted, setShowCompleted] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [linkingTaskId, setLinkingTaskId] = useState<string | null>(null);
@@ -67,11 +68,25 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
   }, [showForm, formDescription, setDirty, clearDirty]);
 
   const openCount = useMemo(() => tasks.filter((t) => t.status === "open").length, [tasks]);
+  const completedCount = completedTasksList.length;
 
   async function handleToggleStatus(taskId: string, currentStatus: string) {
     const newStatus = currentStatus === "open" ? "done" : "open";
-    // Optimistic update
-    setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: newStatus as Task["status"] } : t));
+    if (newStatus === "done") {
+      // Move from active → completed
+      const task = tasks.find((t) => t.id === taskId);
+      if (task) {
+        setTasks((prev) => prev.filter((t) => t.id !== taskId));
+        setCompletedTasksList((prev) => [{ ...task, status: "done" }, ...prev]);
+      }
+    } else {
+      // Move from completed → active
+      const task = completedTasksList.find((t) => t.id === taskId);
+      if (task) {
+        setCompletedTasksList((prev) => prev.filter((t) => t.id !== taskId));
+        setTasks((prev) => [{ ...task, status: "open" }, ...prev]);
+      }
+    }
     try {
       const res = await fetch(`/api/notes/tasks/${taskId}`, {
         method: "PUT",
@@ -81,7 +96,19 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
       if (!res.ok) throw new Error("Failed to update task status");
     } catch {
       // Revert on error
-      setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: currentStatus as Task["status"] } : t));
+      if (newStatus === "done") {
+        const task = completedTasksList.find((t) => t.id === taskId);
+        if (task) {
+          setCompletedTasksList((prev) => prev.filter((t) => t.id !== taskId));
+          setTasks((prev) => [{ ...task, status: "open" }, ...prev]);
+        }
+      } else {
+        const task = tasks.find((t) => t.id === taskId);
+        if (task) {
+          setTasks((prev) => prev.filter((t) => t.id !== taskId));
+          setCompletedTasksList((prev) => [{ ...task, status: "done" }, ...prev]);
+        }
+      }
       setMutationError("Failed to update task");
     }
   }
@@ -160,8 +187,7 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
-      // Hide completed unless showCompleted is on
-      if (task.status !== "open" && !showCompleted) return false;
+      if (task.status !== "open") return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const matchesDesc = task.description.toLowerCase().includes(q);
@@ -173,7 +199,22 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
       if (activeFilter && task.owner !== activeFilter) return false;
       return true;
     });
-  }, [tasks, searchQuery, activeFilter, showCompleted]);
+  }, [tasks, searchQuery, activeFilter]);
+
+  const filteredCompleted = useMemo(() => {
+    return completedTasksList.filter((task) => {
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const matchesDesc = task.description.toLowerCase().includes(q);
+        const matchesPartner = task.partner_name?.toLowerCase().includes(q);
+        const matchesOwner = task.owner_name?.toLowerCase().includes(q);
+        const matchesNote = task.note_title?.toLowerCase().includes(q);
+        if (!matchesDesc && !matchesPartner && !matchesOwner && !matchesNote) return false;
+      }
+      if (activeFilter && task.owner !== activeFilter) return false;
+      return true;
+    });
+  }, [completedTasksList, searchQuery, activeFilter]);
 
   // Flat list sorted by recency (newest first), then completed at bottom
   const sortedFlatTasks = useMemo(() => {
@@ -443,16 +484,8 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
         <div>
           <PageHeader
             title="Tasks"
-            subtitle={`${openCount} open task${openCount !== 1 ? "s" : ""}${tasks.length - openCount > 0 ? ` \u00b7 ${tasks.length - openCount} done` : ""}`}
+            subtitle={`${openCount} open task${openCount !== 1 ? "s" : ""}${completedCount > 0 ? ` \u00b7 ${completedCount} done` : ""}`}
           />
-          {tasks.length - openCount > 0 && (
-            <button
-              onClick={() => setShowCompleted((v) => !v)}
-              className="mt-1 text-xs text-muted hover:text-foreground transition-colors"
-            >
-              {showCompleted ? "Hide completed" : "Show completed"}
-            </button>
-          )}
         </div>
         <button
           onClick={() => { resetForm(); setShowForm(true); }}
@@ -614,6 +647,36 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
             <div>
               {sortedFlatTasks.map(renderTaskRow)}
             </div>
+          )}
+
+          {/* Completed tasks section */}
+          {filteredCompleted.length > 0 && (
+            <details className="mt-8 group">
+              <summary className="flex cursor-pointer list-none items-center gap-2 pb-2 text-xs font-medium uppercase tracking-wider text-muted/60 [&::-webkit-details-marker]:hidden">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  className="shrink-0 transition-transform group-open:rotate-90"
+                >
+                  <path d="M6 4l4 4-4 4" />
+                </svg>
+                Completed in last 30 days
+                <span className="font-normal text-muted/40">
+                  {filteredCompleted.length}
+                </span>
+              </summary>
+              <div>
+                {filteredCompleted.map((task) => (
+                  <div key={task.id} className="opacity-60">
+                    {renderTaskRow(task)}
+                  </div>
+                ))}
+              </div>
+            </details>
           )}
         </>
       )}

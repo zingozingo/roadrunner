@@ -103,6 +103,7 @@ export {
   deleteAiTasksForNote,
   getTasksByPartner,
   getOpenTasks,
+  getCompletedTasks,
   getRecentNoteSummaries,
   getCondensedDigestsByEngagement,
   getStandaloneCondensedDigests,
