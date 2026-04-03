@@ -129,16 +129,63 @@ When borders are needed, use `border-border/50` (half opacity). Full-opacity bor
 
 ---
 
+## Layout System
+
+### PageContainer
+
+**Component:** `PageContainer` (`src/components/layout/PageContainer.tsx`)
+**Used on:** Every page in the app (all 13 pages)
+**Behavior:** Fluid container with `max-w-[1600px] mx-auto px-6 py-6 lg:py-8`. Pages control their internal layout — PageContainer only handles max-width and horizontal padding.
+**Design rationale:** Replaces ad-hoc `mx-auto max-w-*` patterns that varied inconsistently across pages. A single layout primitive ensures every page has the same outer shell. At 1280px viewport (13" laptop), content area is ~1008px after sidebar and padding. At 1440px, ~1168px.
+**Constraints:** No width overrides on PageContainer. If a page needs different internal width behavior, constrain the internal content, not the container.
+
+### Root Layout Shell
+
+**Component:** Root layout (`src/app/layout.tsx`)
+**Behavior:**
+- `<div className="flex min-h-screen bg-background">` wraps sidebar + main
+- `<main className="flex-1 min-w-0 overflow-y-auto">` wraps page content
+- `min-w-0` on `<main>` is **required** — prevents flex child from overflowing when content has intrinsic minimum width
+**Constraints:** Never remove `min-w-0` from main — it prevents horizontal overflow on all pages.
+
+### Two-Column Page Pattern
+
+Used on: Today page, Meeting detail, Engagement detail.
+
+**Structure:** `grid grid-cols-1 lg:grid-cols-[Xfr_Yfr] gap-6` with `min-w-0` on both grid children.
+
+**Critical rule:** Grid children must have `min-w-0`. CSS Grid defaults to `min-width: auto` which prevents children from shrinking below their content's intrinsic minimum width. Without `min-w-0`, long text will force horizontal overflow.
+
+**Right column separator:** `lg:border-l lg:border-border/20 lg:pl-6` — subtle vertical border with 24px padding. Don't double-space with both `gap` and `pl` at large values.
+
+**Proportions by page type:**
+| Page | Grid | Rationale |
+|------|------|-----------|
+| Today | `11fr_9fr` (55/45) | Meetings need room for partner+title; tasks need room for descriptions |
+| Meeting detail | `3fr_2fr` (60/40) | Workspace is the hero; context sidebar is reference |
+| Engagement detail | `3fr_2fr` (60/40) | Same pattern as meeting detail |
+
+### Section Pairing Pattern
+
+**Used on:** Partner detail page
+**Structure:** `grid grid-cols-1 lg:grid-cols-2 gap-6` with `min-w-0` on grid children.
+**When to pair:** Complementary reference sections that are both short lists or metadata. Examples: Program Enrollments + Strategic Goals, Funding + Event Participations, Solution Profile + Operational Status.
+**When NOT to pair:** Content-heavy sections (Brain, Engagements, Tasks, Meetings) or interactive sections (People, Scratchpad) that benefit from full width.
+**Design rationale:** Reduces scroll depth on data-rich partners without sacrificing readability. Stacks to single column below 1024px.
+
+---
+
 ## Component Patterns
 
 ### Sidebar
 
-Three-tier navigation without section labels. Hierarchy communicated through text brightness alone.
+Three-tier navigation without section labels. Hierarchy communicated through text brightness alone. Vertical distribution: daily-use items (Primary, Secondary) at top, reference catalogs (Tertiary) anchored at bottom via `flex-1` spacer. No dead space — the sidebar feels intentionally composed at any viewport height.
 
 - **Width:** 224px (`w-56`)
-- **Background:** `bg-surface` with `border-r border-border/40`
-- **Brand:** `text-[15px] font-semibold tracking-tight text-foreground`
-- **Tier spacing:** 24px (`mt-6`) between tiers
+- **Background:** `bg-surface` with `border-r border-border/40`. Solid color, no gradients.
+- **Brand:** `text-[15px] font-semibold tracking-tight text-foreground`, `mb-6`
+- **Layout:** `flex h-full flex-col px-3 pt-5 pb-4` — Primary and Secondary grouped at top, `flex-1` spacer, Tertiary at bottom
+- **Tier spacing:** 24px (`mt-6`) between Primary and Secondary
 - **Item spacing:** 2px (`gap-0.5`) within tiers
 - **Item padding:** `px-3 py-1.5` (32px row height)
 - **Item shape:** `rounded-md`
@@ -146,7 +193,7 @@ Three-tier navigation without section labels. Hierarchy communicated through tex
 | Tier | Items | Idle text | Hover | Active |
 |------|-------|-----------|-------|--------|
 | Primary | Today, Partners, Inbox | `text-foreground/80` | `text-foreground bg-white/[0.04]` | `text-accent bg-accent/[0.08]` |
-| Secondary | Tasks, Meetings | `text-muted` | `text-foreground/70 bg-white/[0.04]` | `text-accent bg-accent/[0.08]` |
+| Secondary | Engagements, Tasks, Meetings, People | `text-muted` | `text-foreground/70 bg-white/[0.04]` | `text-accent bg-accent/[0.08]` |
 | Tertiary | Programs, Events | `text-muted/60` | `text-muted bg-white/[0.04]` | `text-accent bg-accent/[0.08]` |
 
 Badge (Inbox count): `h-[18px] min-w-[18px] rounded-full bg-accent text-[10px] font-semibold text-white`
@@ -230,7 +277,9 @@ Clean, not broken-looking:
 - **Short (<1s):** Subtle inline spinner, 16px, `text-muted`
 - **Medium (1-5s):** Contextual message + spinner ("Generating summary...")
 - **Long (5s+):** Progress indicator with steps
-- **Button loading:** Replace label with spinner, keep button width stable, `pointer-events-none`
+- **Button loading:** Replace label with verb-based text ("{Verb}ing..."), keep button width stable, `disabled opacity-50 pointer-events-none`
+
+See **Mutation Lifecycle Framework** (Layer 2) for the complete specification of how loading states, error handling, and confirmation dialogs compose across all 4 mutation classes.
 
 ### Confirmation Dialogs
 
@@ -279,6 +328,7 @@ const [{ data: meetings }, { data: engagements }] = await Promise.all([
 | `/` | Today — daily launchpad | Redesigning |
 | `/partners` | Partner directory by segment | Redesigning |
 | `/partners/[id]` | Partner dossier | Redesigning |
+| `/engagements` | Engagement list by status | Active |
 | `/engagements/[id]` | Engagement detail (via partner) | Redesigning |
 | `/meetings` | Cross-partner meetings | Redesigning |
 | `/meetings/[id]` | Meeting detail + notes workspace | Redesigning |
@@ -289,7 +339,7 @@ const [{ data: meetings }, { data: engagements }] = await Promise.all([
 | `/events` | Event catalog | Light refresh |
 | `/events/[id]` | Event detail | Light refresh |
 
-**Deleted:** `/engagements` (list), `/relationships` (dissolved), `/notes/*` (legacy)
+**Deleted:** `/relationships` (dissolved), `/notes/*` (legacy)
 
 ---
 
@@ -308,6 +358,7 @@ const [{ data: meetings }, { data: engagements }] = await Promise.all([
 - Hardcoded hex colors (use CSS variables)
 - Spacing values outside the 4px scale
 - Section labels that say "No data" with broken-looking empty UI
+- Unicode escapes (`\u2026`, `\u2019`, etc.) in JSX text content — they render as literal characters, not the intended glyph. Use the actual character (`…`, `'`) or wrap in a JS expression (`{"…"}`). Unicode escapes only work inside JavaScript string literals.
 
 ---
 
@@ -399,7 +450,23 @@ Reusable behavior patterns for interactive elements. Any pattern established her
 **Design rationale:** Most visits to /meetings are about upcoming meetings. Past meetings are reference material. Default collapsed keeps the page focused.
 **Constraints:** Always show both sections — even if UPCOMING is empty, show the empty section header.
 
+### Completed Items Section (Tasks)
+
+**Component:** Collapsed `<details>` section in `TasksClient` (`src/app/tasks/TasksClient.tsx`)
+**Used on:** Tasks page
+**Behavior:**
+- Collapsed by default at bottom of list
+- Header: "COMPLETED IN LAST 30 DAYS" + count, section header style (`text-xs font-medium uppercase tracking-wider text-muted/60`)
+- Rows rendered at `opacity-60` with strikethrough text and checked checkbox
+- Bidirectional: checking an active task moves it here immediately; unchecking moves it back to active
+- Fetched server-side (`getCompletedTasks`) — persists across refresh
+- Partner/owner filters apply to both active and completed sections
+**Design rationale:** Completed tasks should be accessible but not cluttering the working view. The 30-day window keeps the section manageable. Bidirectional toggle avoids the need for undo/toast patterns.
+**Constraints:** Don't show completed tasks older than 30 days. Don't default to open — the working set is always the priority.
+
 ## Confirmation & Destructive Actions
+
+See **Mutation Lifecycle Framework** below for the canonical Class 3 (Destructive) specification. The patterns here describe the visual implementation.
 
 ### Browser `window.confirm()` for Destructive Actions
 
@@ -423,6 +490,192 @@ Reusable behavior patterns for interactive elements. Any pattern established her
 - "End Series" uses `text-muted hover:text-red-400` — escalating visual severity on hover
 **Design rationale:** Destructive actions should be findable but not prominent. The hover color escalation serves as a micro-confirmation.
 **Constraints:** Never make a destructive action the primary (accent-colored) button.
+
+## Mutation Lifecycle Framework
+
+Every user-triggered mutation in the app falls into one of four classes. This framework is the canonical definition of how mutations behave — loading, error handling, confirmation, and scope resolution. No mutation surface should deviate from these patterns.
+
+**Shared utilities:**
+- **`useMutation`** — `src/hooks/useMutation.ts` — returns `{ execute, isLoading, error, clearError }`. Generic async wrapper with loading and error tracking.
+- **`InlineError`** — `src/components/shared/InlineError.tsx` — compact red-tinted inline error display. Auto-dismisses after 8 seconds. Props: `message`, `onDismiss`.
+- **`useNavigationGuard`** — `src/hooks/useNavigationGuard.ts` *(planned)* — blocks navigation while mutations are in-flight. See "Navigation Guard During Mutations" below.
+
+### Class 1 — Optimistic Toggle
+
+**Used for:** Checkbox, status pill, inline toggle — any action that feels instant and is reversible.
+**Examples:** Task checkbox (Today, Tasks page), enrollment status, event participation status.
+
+**Behavior:**
+1. UI updates immediately (before API call)
+2. API call fires in background
+3. On failure: revert UI state to previous value + show `InlineError` with message
+4. No confirmation needed (action is reversible)
+5. No loading state on the trigger (instant feel)
+
+**Error handling:** The revert-on-failure pattern means the component manages its own state. The `catch` block must (a) revert the optimistic state, AND (b) surface the error via `InlineError`. `console.error` alone is never sufficient.
+
+**Constraints:** Don't use optimistic toggle for irreversible actions. If toggling off requires confirmation (e.g., completing a series), that's Class 3.
+
+---
+
+### Class 2 — Async Submit
+
+**Used for:** Save, create, assign, link, synthesize — any action that takes visible time and creates/modifies data.
+**Examples:** Meeting create, engagement save, brain synthesize, inbox assign, recurrence save, engagement link, scratchpad add.
+
+**Behavior:**
+1. Use `useMutation` hook (or equivalent loading/error state management)
+2. Loading state activates (see "Mutation Loading States" below for which level to use)
+3. On success: UI updates (router.refresh, state update, or optimistic add)
+4. On failure: `InlineError` appears near the action, trigger re-enables for retry
+
+**Loading label convention:** Always verb-based. "Saving...", "Creating...", "Deleting...", "Assigning...", "Linking...", "Synthesizing...". Never "Loading..." or "Please wait..." or "Working...".
+
+**Error placement:** `InlineError` renders below the trigger button or inside the card/section where the action lives. Never a toast. Never a page-level banner for component-level errors.
+
+**Constraints:** Don't use Class 2 for toggles (those are Class 1). Don't skip the loading label — a disabled button without text change looks broken.
+
+---
+
+### Class 3 — Destructive
+
+**Used for:** Delete, discard, end series, unlink, skip — any action that removes data or is hard to reverse.
+**Examples:** Meeting delete, inbox discard, engagement delete, task delete, series end, engagement unlink, meeting skip.
+
+**Behavior:**
+1. Confirmation FIRST:
+   - Simple cases: `window.confirm("Delete this task?")` — native browser dialog
+   - Contextual cases: `ConfirmDialog` component showing what will be affected (e.g., "Delete engagement and all linked messages?")
+2. After confirmation: follows Class 2 pattern (loading state + error handling)
+3. On success: item removed from UI (optimistic removal or router.refresh)
+4. On failure: `InlineError` appears, item remains in UI for retry
+
+**Button styling:** `text-red-400 hover:text-red-300` or `text-muted hover:text-red-400` (escalating severity). Never accent-colored. Always positioned separately from safe actions.
+
+**Constraints:** Every destructive action must have a confirmation step. No exceptions. If the action affects multiple records (e.g., deleting a partner cascades to engagements), the confirmation must mention the cascade.
+
+---
+
+### Class 4 — Scoped
+
+**Used for:** Actions that affect multiple records where the scope must be resolved before execution.
+**Examples:** Inbox discard (message group), scope-aware meeting edit (`this_and_future`), series end (affects future meetings).
+
+**Behavior:**
+1. Resolve the full scope BEFORE executing — e.g., `getMessagesForInboxItem()` for inbox groups, series siblings for scope-aware edits
+2. Scope resolution itself can fail — handle that error (show InlineError, don't proceed)
+3. Once scope is resolved, follow Class 2 (non-destructive) or Class 3 (destructive) pattern
+4. If the scope is visually non-obvious, communicate it: "This will affect 5 messages" or "Changes apply to this and all future meetings"
+
+**Constraints:** Never execute a scoped action on a single record when the intent is the group. The inbox discard bug (deleting 1 of N messages) is the canonical anti-pattern.
+
+---
+
+### Mutation Loading States
+
+Two levels of loading feedback. Use the right one for the context.
+
+**Component-level loading (default):**
+- The trigger button shows loading label (`"{Verb}ing..."`) + `disabled opacity-50 pointer-events-none`
+- Button width must remain stable (use `min-w` or consistent label length)
+- **When to use:** Single button action — save, synthesize, delete confirmation, link. The mutation target is one small element in a toolbar or form.
+- **Examples:** "Save" → "Saving...", "Create Meeting" → "Creating...", "Generate Synthesis" → "Synthesizing..."
+
+**Row/card-level loading (for list item mutations):**
+- When a mutation affects a whole item in a list, the ENTIRE row/card enters loading state
+- Row gets: `opacity-60 pointer-events-none` on all content
+- Action buttons are REPLACED (not relabeled) by a status line: inline spinner (16px, `text-muted animate-spin`) + action text (`text-sm text-muted`)
+- Status text describes what's happening: "Discarding...", "Assigning to engagement...", "Creating engagement..."
+- The row cannot be interacted with while loading — no accidental double-clicks, no confusion about state
+- **When to use:** List item action where the whole row is the context — inbox route/discard, task delete from list, bulk operations.
+- **Examples:** Inbox item being discarded, task being deleted from /tasks, engagement being merged.
+
+**Choosing the right level:**
+| Context | Level | Rationale |
+|---------|-------|-----------|
+| Button in a toolbar/header | Component | Only the button needs to show state |
+| Button in a form/modal | Component | Form stays visible for context |
+| Action on a list row (inbox, tasks) | Row/card | The whole row is the target — make it unmistakable |
+| Inline toggle (checkbox, status pill) | Neither (Class 1) | Optimistic — no visible loading |
+
+---
+
+### Action Button Group Spec
+
+How to lay out multiple action buttons on the same item (list rows, card headers, panel footers).
+
+**Layout:** Right-aligned in a row, `flex items-center gap-3 shrink-0`.
+
+**Ordering convention (left to right):**
+1. **Safe/routing actions** — "Assign", "Link" — `text-xs text-muted hover:text-foreground`
+2. **Creation actions** — "New", "Create" — `text-xs text-accent hover:text-accent-hover` (or `bg-accent text-white rounded-md px-3 py-1.5 text-sm` if it's the primary CTA)
+3. **Destructive actions** — "Discard", "Delete" — `text-xs text-muted hover:text-red-400` (always rightmost)
+4. **Cancel/dismiss** — "Cancel" — `text-xs text-muted hover:text-foreground` (only in expanded panels, not in the collapsed row)
+
+**Sizing:** All action buttons in a group: `text-xs` or `text-sm` (consistent within the group), `min-h-[32px]` touch target (achieved via padding or line-height).
+
+**Overflow rule:** If there are more than 4 visible actions, move the less common ones into an overflow menu (`⋮` button, `text-muted hover:text-foreground`). The overflow menu is a simple dropdown, not a modal.
+
+**Disabled state during mutations:** All buttons in the group get `disabled:opacity-50` when any mutation in the group is in-flight. This prevents double-submissions and makes it clear the UI is busy.
+
+**Constraints:** Destructive actions are ALWAYS rightmost and visually distinct. Never place a destructive action first or style it as the primary button. Never mix `text-xs` and `text-sm` within the same action group.
+
+---
+
+### Navigation Guard During Mutations
+
+Any page with mutations MUST block navigation while an async operation is in-flight. This prevents data loss from accidental back-button clicks, sidebar navigation, or page reload during a multi-second operation (e.g., AI synthesis, engagement creation with Airtable push).
+
+**Hook:** `useNavigationGuard(blocked: boolean)` *(planned: `src/hooks/useNavigationGuard.ts`)*
+
+**Three interception points:**
+1. `beforeunload` — browser close, reload, or external navigation. Standard `event.preventDefault()`.
+2. `popstate` — browser back/forward button. Push current URL back to prevent navigation.
+3. Sidebar/internal link click — Next.js `router.push`. Intercept via `useEffect` on route change or wrapping navigation calls.
+
+**When blocked and user tries to navigate:**
+- Show modal: "Operation in progress. Leaving now may cause data loss."
+- Actions: "Stay" (primary accent button) + "Leave" (ghost/danger)
+- Modal uses same ConfirmDialog component as other confirmations
+
+**Usage:** Components pass `busyAction !== null` or `isLoading` as the `blocked` flag:
+```typescript
+useNavigationGuard(busyAction !== null);
+```
+
+**Guard drops automatically** when the mutation completes (blocked becomes false). No manual cleanup needed.
+
+**Relationship to `useUnsavedChanges`:** These are separate concerns. `useUnsavedChanges` protects dirty form state (user has typed but not saved). `useNavigationGuard` protects in-flight mutations (user has clicked save and the request is pending). A page can use both — they compose independently. If both are active, the mutation guard takes priority (its message is more urgent).
+
+**Constraints:** Don't block navigation for Class 1 (optimistic toggle) — those complete instantly. Only block for Class 2/3/4 where the operation takes visible time. Don't leave the guard active after the component unmounts — clean up in `useEffect` return.
+
+---
+
+### Universal Rules
+
+1. **No silent failures.** Every `catch` block must surface the error to the user via `InlineError`. `console.error` is allowed for logging but never as the ONLY error handling.
+2. **Loading labels are verb-based.** "Saving...", "Creating...", "Deleting...". Never "Loading..." or "Please wait...".
+3. **`useMutation` is the default.** Every Class 2/3/4 mutation should use the `useMutation` hook unless there's a specific reason not to (e.g., Class 1 optimistic toggles that manage their own state).
+4. **InlineError placement.** Below the trigger button or inside the card/section where the action lives. Never a toast. Never a page-level banner for component-level errors.
+5. **Destructive actions are never the primary button.** Always `text-red-400` or secondary styling. Always separated from safe actions.
+6. **Scope before execute.** For Class 4 actions, always resolve the full target set before mutating. Never assume the caller's ID is the only affected record.
+7. **Guard navigation during mutations.** Every page with Class 2/3/4 mutations must use `useNavigationGuard` to block navigation while operations are in-flight.
+
+### Adoption Checklist
+
+For each mutation surface, verify:
+- [ ] Classified as Class 1/2/3/4
+- [ ] Loading state present and uses correct level — component vs row/card (Class 2/3/4)
+- [ ] Error surfaced to user via InlineError (all classes)
+- [ ] Confirmation present (Class 3)
+- [ ] Scope resolved before execution (Class 4)
+- [ ] Button label follows verb convention (Class 2/3/4)
+- [ ] InlineError positioned near the trigger, not at page level
+- [ ] Action button group follows ordering spec (safe → create → destructive)
+- [ ] Navigation guard active during in-flight mutations (useNavigationGuard)
+- [ ] Destructive action is rightmost and never primary-styled
+
+---
 
 ## Forms & Creation
 
@@ -601,56 +854,61 @@ Patterns for rendering complex information visually. Status indicators, timeline
 **Design rationale:** Consistent with owner badge colors so the user learns one color language for "who is this person?"
 **Constraints:** Same colors as owner badges — never diverge.
 
-## Series & Timeline Visualization
+## Recurrence
 
-### SeriesDisplay (Unified Series Component)
+### RecurrenceCard (Unified Recurrence Section)
 
-**Component:** `SeriesDisplay` (`src/components/shared/SeriesDisplay.tsx`)
-**Used on:** Meeting detail page (replaces both the old nav bar and sidebar recurrence field)
+**Component:** `RecurrenceCard` (`src/components/shared/RecurrenceCard.tsx`)
+**Used on:** Meeting detail page — replaces the former SeriesDisplay + SeriesTimeline + SeriesActions
+**When to show:** Any meeting with `recurrence_pattern` or `series_id` (siblings.length > 1)
 **Behavior:**
-- Line 1: ↻ icon + rhythm text + "Since {date}" + optional "Ends {date}" + optional shifted indicator
-- Line 2: ← Previous / Next → navigation (disabled at boundaries)
-- Rhythm text: "Weekly on Fridays", "Biweekly on Wednesdays", "Monthly on the 15th"
-- **Always reads anchor_day from the series root** (resolved server-side), not the current meeting
-- No occurrence count ("N of M") — meaningless for indefinite series
-- Container: `rounded-lg border border-border/20 bg-surface/50 px-4 py-3`
-**Design rationale:** Unifies two previously separate displays (nav bar + sidebar field) into one clean component. The series root resolves rhythm info so children show the correct pattern even though their own anchor_day is null.
-**Constraints:** Don't show for standalone meetings. Don't add occurrence count back.
+- Line 1: ↻ icon + ← arrow + rhythm text + → arrow + "Since {date}" + "Edit pattern" link + ⋮ overflow menu
+  - Arrows navigate to previous/next in series (disabled at boundaries)
+  - Rhythm text: "Weekly on Fridays", "Biweekly on Wednesdays", "Monthly on the 15th"
+  - **Always reads anchor_day from the series root** (resolved server-side)
+- Line 2: Date list — 5 nearest occurrences centered on current meeting
+  - Past dates: `text-muted/40` (muted)
+  - Current meeting: `text-accent font-semibold` (highlighted)
+  - Future dates: `text-foreground/60`
+  - Cancelled: `text-muted/20 line-through`
+  - "..." ellipsis at edges if more exist
+  - Each date is a link to that meeting (except current)
+- Actions: "Edit pattern" opens modal editor; overflow ⋮ has "Skip this one" and "End series"
+- Container: `rounded-lg border border-border/20 bg-surface/50 px-4 py-3 mb-6`
+**Design rationale:** One compact card replaces 3 separate components (display, timeline strip, actions). The date list is more readable than colored boxes. No legend needed — dates are self-explanatory. Edit affordance is subtle (text link, not button) because editing is infrequent.
+**Constraints:** Don't show for standalone meetings. Don't add colored boxes or legends back. Don't show occurrence count.
+
+### RecurrenceEditor (Modal)
+
+**Component:** `RecurrenceEditor` (`src/components/shared/RecurrenceEditor.tsx`)
+**Used on:** Meeting detail page — opened from RecurrenceCard "Edit pattern" or MakeRecurringButton
+**Behavior:**
+- Modal dialog (z-50, backdrop, centered, max-w-sm)
+- Fields: Pattern dropdown (Weekly/Biweekly/Monthly/Quarterly), Day picker, End date (hidden by default, "Add end date" link)
+- Preview: "Next 3: Apr 27 → May 11 → May 25" updates live
+- Save: calls PUT /api/meetings/{id} with pattern + anchor_day + end date. For existing series, passes `scope: "this_and_future"`
+- **Save state protection**: useUnsavedChanges("recurrence-editor") tracks dirty state by comparing form values to initial props
+- **Discard confirmation**: On close/Cancel/ESC with dirty form → "Discard changes?" dialog (z-60, layered above editor modal). Stay returns to editor. Discard closes both.
+- On save success: clears dirty, calls onSave callback
+**Design rationale:** Modal instead of inline because the editor pushes page content down and loses visual context. The discard dialog prevents accidental data loss. The dirty check is value-based (not interaction-based) so clicking a select without changing the value doesn't trigger it.
+**Constraints:** Never render inline — always as a modal. Always protect with discard confirmation.
+
+### MakeRecurringButton
+
+**Component:** `MakeRecurringButton` (`src/components/shared/MakeRecurringButton.tsx`)
+**Used on:** Meeting detail page — in Details sidebar for standalone (non-series) meetings only
+**Behavior:** Text link "Make recurring" → opens RecurrenceEditor modal with null initial values
+**Constraints:** Only show when `!meeting.series_id && !meeting.recurrence_pattern`. Never show on already-recurring meetings.
 
 ### Shifted-Occurrence Indicator
 
-**Component:** Inline text in `SeriesDisplay` + date color in list views
-**Used on:** Meeting detail (inside SeriesDisplay), Meetings list, Today page, Partner detail recent meetings
+**Component:** Date color in list views
+**Used on:** Meetings list, Today page, Partner detail recent meetings
 **Behavior:**
-- **Detail page:** Amber text "Moved to {day}" appended to SeriesDisplay line 1 (`text-status-blocked/70`)
-- **List views:** Date text renders in `text-status-blocked/70` (amber) instead of `text-muted` when day-of-week ≠ root's anchor_day
+- Date text renders in `text-status-blocked/70` (amber) instead of `text-muted` when day-of-week ≠ root's anchor_day
 - Detection: compare meeting_date day-of-week against root's anchor_day (weekly/biweekly only)
-- Title attribute: "Rescheduled from regular day" on hover
-- Server-side: root anchor_days batch-looked-up for list views that may not include roots in dataset
-**Design rationale:** Subtle but unmissable. Amber is the "attention" color (already used for overdue tasks). Users learn the pattern quickly: amber date = off-rhythm.
-**Constraints:** Only applies to weekly/biweekly patterns (monthly/quarterly have variable day-of-week by nature). Don't use for standalone meetings.
-
-### Series Timeline Strip
-
-**Component:** `SeriesTimeline` (`src/components/shared/SeriesTimeline.tsx`)
-**Used on:** Meeting detail page (below SeriesDisplay, for series meetings only)
-**Behavior:**
-- Inline legend row: "SERIES" label + color swatches for Done/Past/Scheduled/Skipped (`text-[10px]`)
-- Horizontal row of 16px rounded-square blocks (`w-4 h-4 rounded-sm`), one per occurrence, chronological
-- Color coding by status:
-  - Completed: solid `bg-status-active` (green)
-  - Past due: `bg-accent/50` (muted indigo)
-  - Scheduled (future): outline `border border-accent/40 bg-transparent`
-  - Cancelled/skipped: `bg-muted/20` (faint gray)
-- Shifted indicator: amber border (`border-2 border-status-blocked/60`) on blocks where day-of-week ≠ anchor
-- Current meeting highlight: `ring-2 ring-foreground/60 ring-offset-1 ring-offset-background`
-- Hover: `title` tooltip with weekday + date + status + shift info + meeting title
-- Click: navigates to that meeting's detail page
-- Date labels below blocks: shown at adaptive intervals (every block for ≤8, every 2nd for ≤16, every 4th for ≤24)
-- Invisible spacer on unlabeled blocks to keep vertical alignment
-- Horizontal overflow with scroll for long series
-**Design rationale:** Contribution-graph inspired. Larger blocks (16px vs 12px) are easily scannable. Legend eliminates guessing about color meaning. Rounded squares differentiate from status dots used elsewhere.
-**Constraints:** Read-only visualization — no editing. Don't add navigation or pagination. Blocks at 16px are the right balance of scannable and compact.
+**Design rationale:** Subtle but unmissable. Amber is the "attention" color (already used for overdue tasks).
+**Constraints:** Only applies to weekly/biweekly patterns. Don't use for standalone meetings.
 
 ## Financial Displays
 
@@ -748,15 +1006,16 @@ Patterns for rendering complex information visually. Status indicators, timeline
 **Component:** Grid layout on Today page (`src/app/page.tsx`)
 **Used on:** Today page (desktop ≥1024px)
 **Behavior:**
-- Container: `max-w-7xl` (1280px) — matches meeting/engagement detail pages
-- `grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8`
-- Left column (60%): Today's Meetings + Upcoming Meetings — the schedule
-- Right column (40%): My Tasks (capped at 6) + Inbox signal — what needs attention
-- Right column has `lg:border-l lg:border-border/20 lg:pl-8` separator
+- Container: PageContainer (fluid, max-w-[1600px])
+- `grid-cols-1 lg:grid-cols-[11fr_9fr] gap-6` — 55/45 split
+- Both grid children have `min-w-0` to prevent CSS Grid overflow
+- Left column (55%): Today's Meetings + Upcoming Meetings — the schedule
+- Right column (45%): My Tasks (capped at 12) + Inbox signal — what needs attention
+- Right column has `lg:border-l lg:border-border/20 lg:pl-6` separator
 - Stacks to single column on <1024px (meetings first, then tasks + inbox)
 - "+N more tasks" link when tasks exceed cap
 - "No meetings scheduled this week" empty state in left column
-**Design rationale:** Meetings and tasks live side-by-side so neither buries the other. The 3:2 ratio gives meetings more space (they have more metadata per row). The schedule is the hero; tasks are the companion.
+**Design rationale:** Meetings and tasks live side-by-side so neither buries the other. The 55/45 ratio gives meetings slightly more space (metadata per row) while allowing tasks enough room for descriptions. Cap at 12 shows a useful task list without making the right column dominate. `min-w-0` on grid children is required to prevent content overflow — see Layout System pattern.
 **Constraints:** This is the only two-column launchpad page. Don't apply this layout to list pages (meetings, tasks, partners) — those are single-column with full-width rows.
 
 ### Tasks Grouped by Partner (Today Page)
@@ -769,6 +1028,6 @@ Patterns for rendering complex information visually. Status indicators, timeline
 - Each task row: checkbox + description + due date (overdue highlighted) + partner context
 - Overdue dates: `text-status-blocked` (amber)
 - "View all" link in section header to /tasks page
-- Capped at 6 items with "+N more tasks" link below
-**Design rationale:** Grouping by partner matches how the PDM thinks — "what do I owe Spacelift? What do I owe OPSWAT?" The sort order surfaces urgent items first. Cap at 6 keeps the right column compact.
+- Capped at 12 items with "+N more tasks" link below
+**Design rationale:** Grouping by partner matches how the PDM thinks — "what do I owe Spacelift? What do I owe OPSWAT?" The sort order surfaces urgent items first. Cap at 12 shows a useful task list while keeping the page manageable.
 **Constraints:** Today page tasks are read-only (no inline editing). Full task management happens on /tasks.

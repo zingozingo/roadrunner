@@ -7,6 +7,7 @@ import {
 } from "@/lib/db";
 import { cleanMeetingTitle } from "@/lib/format-utils";
 import { MEETING_TYPE_DISPLAY } from "@/lib/sync/field-maps";
+import PageContainer from "@/components/layout/PageContainer";
 import TodayTasks from "./TodayTasks";
 import type { Meeting } from "@/lib/types";
 
@@ -103,7 +104,7 @@ export default async function TodayPage() {
     upcomingMeetings.length > 0;
 
   return (
-    <div className="mx-auto max-w-7xl p-6 lg:p-8">
+    <PageContainer>
       {/* ---- Header ---- */}
       <div className="mb-8 flex items-baseline justify-between">
         <h1 className="text-xl font-semibold text-foreground">Today</h1>
@@ -117,10 +118,10 @@ export default async function TodayPage() {
       )}
 
       {hasContent && (
-        <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[11fr_9fr] gap-6">
 
           {/* ─── LEFT COLUMN: Schedule ─── */}
-          <div>
+          <div className="min-w-0">
             {/* Today's Meetings */}
             {todaysMeetings.length > 0 && (
               <section className="mb-8">
@@ -197,7 +198,7 @@ export default async function TodayPage() {
           </div>
 
           {/* ─── RIGHT COLUMN: Tasks + Inbox ─── */}
-          <div className="lg:border-l lg:border-border/20 lg:pl-8">
+          <div className="min-w-0 lg:border-l lg:border-border/20 lg:pl-6">
             {/* My Tasks */}
             {myTasks.length > 0 && (
               <section className="mb-8">
@@ -210,13 +211,13 @@ export default async function TodayPage() {
                     View all
                   </Link>
                 </div>
-                <TodayTasks tasks={myTasks.slice(0, 6)} today={today} />
-                {myTasks.length > 6 && (
+                <TodayTasks tasks={myTasks.slice(0, 12)} today={today} />
+                {myTasks.length > 12 && (
                   <Link
                     href="/tasks"
                     className="mt-2 block text-center text-xs text-muted hover:text-foreground transition-colors"
                   >
-                    +{myTasks.length - 6} more tasks
+                    +{myTasks.length - 12} more tasks
                   </Link>
                 )}
               </section>
@@ -243,7 +244,7 @@ export default async function TodayPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }
 
@@ -312,7 +313,7 @@ function MeetingRow({
       {/* Recurrence indicator + type badge + action */}
       <div className="flex items-center gap-3 shrink-0 ml-4">
         {(meeting.recurrence_pattern || meeting.series_id) && (
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted/70">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-accent/70">
             <path d="M2 8a6 6 0 0 1 10.47-4M14 8a6 6 0 0 1-10.47 4" />
             <path d="M14 2v4h-4M2 14v-4h4" />
           </svg>

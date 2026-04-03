@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import PageContainer from "@/components/layout/PageContainer";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 
 interface PersonResult {
   id: string;
@@ -10,7 +12,7 @@ interface PersonResult {
   title: string | null;
   organization: string | null;
   org_type: string | null;
-  partners: { id: string; name: string; role: string | null }[];
+  partners: { id: string; name: string; role: string | null; source: "curated" | "engagement" }[];
 }
 
 const ORG_TYPE_FILTERS = [
@@ -50,6 +52,7 @@ export default function PeopleClient({ partners }: PeopleClientProps) {
   const [partnerFilter, setPartnerFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  useNavigationGuard(submitting);
   const [formError, setFormError] = useState<string | null>(null);
   const [duplicateInfo, setDuplicateInfo] = useState<{ id: string; name: string; email: string } | null>(null);
 
@@ -144,7 +147,7 @@ export default function PeopleClient({ partners }: PeopleClientProps) {
   const sortedPartners = [...partners].sort((a, b) => a.name.localeCompare(b.name));
 
   return (
-    <div className="mx-auto max-w-5xl p-6 lg:p-8">
+    <PageContainer>
       {/* Header */}
       <div className="mb-6 flex items-start justify-between">
         <div>
@@ -379,8 +382,16 @@ export default function PeopleClient({ partners }: PeopleClientProps) {
                       <Link
                         key={p.id}
                         href={`/partners/${p.id}`}
-                        className="text-xs text-accent hover:underline whitespace-nowrap"
-                        title={p.role ? `${p.name} (${p.role})` : p.name}
+                        className={`text-xs whitespace-nowrap transition-colors ${
+                          p.source === "curated"
+                            ? "text-accent hover:underline"
+                            : "text-muted/50 hover:text-muted/70"
+                        }`}
+                        title={
+                          p.source === "curated"
+                            ? (p.role ? `${p.name} (${p.role})` : p.name)
+                            : `${p.name} (via engagement)`
+                        }
                       >
                         {p.name}
                       </Link>
@@ -397,6 +408,6 @@ export default function PeopleClient({ partners }: PeopleClientProps) {
           })}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

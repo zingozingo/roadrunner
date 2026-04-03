@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import type { Task } from "@/lib/types";
+import InlineError from "@/components/shared/InlineError";
 
 const OWNER_LABELS: Record<string, string> = {
   me: "My Tasks",
@@ -21,51 +22,108 @@ interface TaskEditorProps {
   noteId: string;
   contacts?: ContactEntry[];
   onRefresh: () => void;
+  onBusyChange?: (busy: boolean) => void;
 }
 
-export default function TaskEditor({ tasks, noteId, contacts, onRefresh }: TaskEditorProps) {
+export default function TaskEditor({ tasks, noteId, contacts, onRefresh, onBusyChange }: TaskEditorProps) {
   const [showForm, setShowForm] = useState(false);
   const [desc, setDesc] = useState("");
   const [owner, setOwner] = useState<"me" | "internal" | "partner" | "third_party">("me");
   const [ownerName, setOwnerName] = useState("");
   const [dueDate, setDueDate] = useState("");
 
+  // Mutation state
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Optimistic state for toggles and deletes
+  const [optimisticTasks, setOptimisticTasks] = useState<Task[] | null>(null);
+  const displayTasks = optimisticTasks ?? tasks;
+
+  const clearError = useCallback(() => setError(null), []);
+
   // Group tasks by owner
   const taskGroups = new Map<string, Task[]>();
-  for (const t of tasks) {
+  for (const t of displayTasks) {
     const group = taskGroups.get(t.owner) ?? [];
     group.push(t);
     taskGroups.set(t.owner, group);
   }
 
-  const openCount = tasks.filter((t) => t.status === "open").length;
+  const openCount = displayTasks.filter((t) => t.status === "open").length;
 
+  // ── Add Task (Class 2 — Async Submit) ─────────────────────
   async function handleAddTask() {
     if (!desc.trim()) return;
-    await fetch(`/api/notes/${noteId}/tasks`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ description: desc.trim(), owner, owner_name: ownerName.trim() || null, due_date: dueDate || null }),
-    });
-    setDesc("");
-    setOwnerName("");
-    setDueDate("");
-    setShowForm(false);
-    onRefresh();
+    setAdding(true);
+    setError(null);
+    onBusyChange?.(true);
+    try {
+      const res = await fetch(`/api/notes/${noteId}/tasks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: desc.trim(), owner, owner_name: ownerName.trim() || null, due_date: dueDate || null }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Add task failed (${res.status})`);
+      }
+      setDesc("");
+      setOwnerName("");
+      setDueDate("");
+      setShowForm(false);
+      onRefresh();
+    } catch (err) {
+      console.error("Add task failed:", err);
+      setError(err instanceof Error ? err.message : "Failed to add task");
+    } finally {
+      setAdding(false);
+      onBusyChange?.(false);
+    }
   }
 
+  // ── Toggle Task (Class 1 — Optimistic Toggle) ────────────
   async function handleToggle(task: Task) {
-    await fetch(`/api/notes/tasks/${task.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: task.status === "open" ? "done" : "open" }),
-    });
-    onRefresh();
+    const newStatus = task.status === "open" ? "done" : "open";
+    // Optimistic update
+    setOptimisticTasks(
+      displayTasks.map((t) => (t.id === task.id ? { ...t, status: newStatus } : t))
+    );
+    try {
+      const res = await fetch(`/api/notes/tasks/${task.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) throw new Error(`Toggle failed (${res.status})`);
+      setOptimisticTasks(null);
+      onRefresh();
+    } catch (err) {
+      console.error("Toggle task failed:", err);
+      setOptimisticTasks(null); // revert
+      setError(err instanceof Error ? err.message : "Failed to update task");
+    }
   }
 
-  async function handleDelete(taskId: string) {
-    await fetch(`/api/notes/tasks/${taskId}`, { method: "DELETE" });
-    onRefresh();
+  // ── Delete Task (Class 3 — Destructive) ───────────────────
+  async function handleDelete(task: Task) {
+    if (!confirm(`Delete task: "${task.description}"?`)) return;
+    // Optimistic removal with snapshot for revert
+    const snapshot = [...displayTasks];
+    setOptimisticTasks(displayTasks.filter((t) => t.id !== task.id));
+    onBusyChange?.(true);
+    try {
+      const res = await fetch(`/api/notes/tasks/${task.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`Delete failed (${res.status})`);
+      setOptimisticTasks(null);
+      onRefresh();
+    } catch (err) {
+      console.error("Delete task failed:", err);
+      setOptimisticTasks(snapshot); // revert
+      setError(err instanceof Error ? err.message : "Failed to delete task");
+    } finally {
+      onBusyChange?.(false);
+    }
   }
 
   return (
@@ -81,6 +139,13 @@ export default function TaskEditor({ tasks, noteId, contacts, onRefresh }: TaskE
           </button>
         </div>
 
+        {/* Inline error */}
+        {error && (
+          <div className="mb-3">
+            <InlineError message={error} onDismiss={clearError} />
+          </div>
+        )}
+
         {showForm && (
           <div className="mb-4 space-y-2 rounded-lg border border-border bg-background p-3">
             <input
@@ -89,7 +154,7 @@ export default function TaskEditor({ tasks, noteId, contacts, onRefresh }: TaskE
               onChange={(e) => setDesc(e.target.value)}
               placeholder="Task description..."
               className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
-              onKeyDown={(e) => { if (e.key === "Enter") handleAddTask(); }}
+              onKeyDown={(e) => { if (e.key === "Enter" && !adding) handleAddTask(); }}
               autoFocus
             />
             <div className="flex items-center gap-2">
@@ -111,9 +176,10 @@ export default function TaskEditor({ tasks, noteId, contacts, onRefresh }: TaskE
               />
               <button
                 onClick={handleAddTask}
-                className="ml-auto rounded-lg bg-accent px-3 py-1 text-xs font-medium text-white hover:bg-accent-hover"
+                disabled={adding || !desc.trim()}
+                className="ml-auto rounded-lg bg-accent px-3 py-1 text-xs font-medium text-white hover:bg-accent-hover disabled:opacity-50"
               >
-                Add
+                {adding ? "Adding..." : "Add"}
               </button>
             </div>
             {owner !== "me" && (
@@ -153,7 +219,7 @@ export default function TaskEditor({ tasks, noteId, contacts, onRefresh }: TaskE
           </div>
         )}
 
-        {tasks.length === 0 ? (
+        {displayTasks.length === 0 ? (
           <p className="text-sm text-muted">No tasks yet</p>
         ) : (
           <div className="space-y-4">
@@ -192,7 +258,7 @@ export default function TaskEditor({ tasks, noteId, contacts, onRefresh }: TaskE
                           </div>
                         </div>
                         <button
-                          onClick={() => handleDelete(t.id)}
+                          onClick={() => handleDelete(t)}
                           className="shrink-0 text-muted opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all"
                         >
                           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">

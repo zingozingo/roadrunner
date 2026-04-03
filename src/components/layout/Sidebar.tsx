@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useUnsavedChangesContext } from "@/components/shared/UnsavedChangesProvider";
 
 /* ------------------------------------------------------------------ */
 /*  Nav structure — 3 tiers, 7 items                                  */
@@ -52,6 +53,15 @@ const primaryItems: NavItem[] = [
 ];
 
 const secondaryItems: NavItem[] = [
+  {
+    href: "/engagements",
+    label: "Engagements",
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 17 17" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M2.5 8.5h4l2-3 3 6 2-3h1" />
+      </svg>
+    ),
+  },
   {
     href: "/tasks",
     label: "Tasks",
@@ -138,6 +148,8 @@ export default function Sidebar({
   initialBadgeCount: number;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { requestNavigation } = useUnsavedChangesContext();
   const [badgeCount, setBadgeCount] = useState(initialBadgeCount);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -178,7 +190,13 @@ export default function Sidebar({
       <Link
         key={item.href}
         href={item.href}
-        onClick={() => setMobileOpen(false)}
+        onClick={(e) => {
+          setMobileOpen(false);
+          // If we're already on this page, no interception needed
+          if (active) return;
+          e.preventDefault();
+          requestNavigation(item.href, () => router.push(item.href));
+        }}
         className={`flex items-center gap-2.5 rounded-md px-3 py-1.5 text-[13px] transition-colors ${
           active ? style.active : style.idle
         }`}
@@ -206,9 +224,9 @@ export default function Sidebar({
   /* ---- nav tree ---- */
 
   const nav = (
-    <nav className="flex h-full flex-col px-3 pt-5">
+    <nav className="flex h-full flex-col px-3 pt-5 pb-4">
       {/* Brand */}
-      <div className="mb-8 px-3">
+      <div className="mb-6 px-3">
         <span className="text-[15px] font-semibold tracking-tight text-foreground">
           Roadrunner
         </span>
@@ -222,8 +240,11 @@ export default function Sidebar({
         {renderTier(secondaryItems, "secondary")}
       </div>
 
+      {/* Spacer — pushes tertiary to bottom */}
+      <div className="flex-1" />
+
       {/* Tertiary — reference catalogs */}
-      <div className="mt-6">
+      <div>
         {renderTier(tertiaryItems, "tertiary")}
       </div>
     </nav>

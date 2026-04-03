@@ -5,6 +5,9 @@ import type {
   Task,
   NoteSummaryResult,
 } from "@/lib/types";
+import { useUnsavedChanges } from "@/components/shared/UnsavedChangesProvider";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
+import InlineError from "@/components/shared/InlineError";
 import ContextSidebar from "./ContextSidebar";
 import PreviousNotes from "./PreviousNotes";
 import TaskEditor from "./TaskEditor";
@@ -52,7 +55,12 @@ export default function NoteWorkspace({
   const [summarizing, setSummarizing] = useState(false);
   const [summarizeError, setSummarizeError] = useState<string | null>(null);
   const [finalizing, setFinalizing] = useState(false);
+  const [finalizeError, setFinalizeError] = useState<string | null>(null);
   const [finalized, setFinalized] = useState(false);
+
+  // Save summary edit state
+  const [savingSummary, setSavingSummary] = useState(false);
+  const [saveSummaryError, setSaveSummaryError] = useState<string | null>(null);
 
   // Review state
   const [summary, setSummary] = useState(initialSummary ?? "");
@@ -61,8 +69,16 @@ export default function NoteWorkspace({
   const [summaryDraft, setSummaryDraft] = useState("");
   const [tasks, setTasks] = useState<Task[]>(initialTasks ?? []);
 
+  // Track if TaskEditor has in-flight mutations
+  const [taskEditorBusy, setTaskEditorBusy] = useState(false);
+
   const lastSavedRef = useRef(initialRawNotes ?? "");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { setDirty, clearDirty } = useUnsavedChanges("note-workspace");
+
+  // Navigation guard — block during any in-flight mutation
+  const isMutating = summarizing || finalizing || savingSummary || taskEditorBusy;
+  useNavigationGuard(isMutating);
 
   /* ---- Auto-resize textarea ---- */
   const autoResize = useCallback(() => {
@@ -115,15 +131,17 @@ export default function NoteWorkspace({
     return () => document.removeEventListener("visibilitychange", handler);
   }, [rawNotes, phase, saveDraft]);
 
-  /* ---- Navigation safety: warn if unsaved review ---- */
+  /* ---- Navigation safety via useUnsavedChanges ---- */
   useEffect(() => {
-    if (phase !== "review") return;
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [phase]);
+    if (phase === "editing" && rawNotes !== lastSavedRef.current) {
+      setDirty();
+    } else if (phase === "review") {
+      // Review phase is always dirty — summary not yet saved
+      setDirty();
+    } else {
+      clearDirty();
+    }
+  }, [phase, rawNotes, setDirty, clearDirty]);
 
   /* ---- Focus on mount ---- */
   useEffect(() => {
@@ -175,28 +193,51 @@ export default function NoteWorkspace({
     }
   }
 
+  // ── Save Summary Edit (Class 2 — Async Submit) ───────────
   async function handleSaveSummary() {
-    await fetch(`/api/notes/${noteId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ai_summary: summaryDraft }),
-    });
-    setSummary(summaryDraft);
-    setEditingSummary(false);
+    setSavingSummary(true);
+    setSaveSummaryError(null);
+    try {
+      const res = await fetch(`/api/notes/${noteId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ai_summary: summaryDraft }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Save failed (${res.status})`);
+      }
+      setSummary(summaryDraft);
+      setEditingSummary(false);
+    } catch (err) {
+      console.error("Save summary failed:", err);
+      setSaveSummaryError(err instanceof Error ? err.message : "Failed to save summary");
+    } finally {
+      setSavingSummary(false);
+    }
   }
 
+  // ── Finalize / Save & Lock (Class 2 — Async Submit) ──────
   async function handleFinalize() {
     setFinalizing(true);
+    setFinalizeError(null);
     try {
       await saveDraft(rawNotes);
-      await fetch(`/api/notes/${noteId}`, {
+      const res = await fetch(`/api/notes/${noteId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "complete" }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Finalize failed (${res.status})`);
+      }
       setFinalized(true);
       setTimeout(() => setFinalized(false), 3000);
       setPhase("saved");
+    } catch (err) {
+      console.error("Finalize failed:", err);
+      setFinalizeError(err instanceof Error ? err.message : "Failed to save & lock");
     } finally {
       setFinalizing(false);
     }
@@ -263,7 +304,7 @@ export default function NoteWorkspace({
               <div className="absolute bottom-3 right-3">
                 {saveStatus === "saving" && (
                   <span className="text-xs text-muted animate-pulse">
-                    Saving\u2026
+                    Saving…
                   </span>
                 )}
                 {saveStatus === "saved" && (
@@ -281,7 +322,7 @@ export default function NoteWorkspace({
                 {summarizing ? (
                   <span className="flex items-center gap-2">
                     <Spinner />
-                    Generating summary\u2026
+                    Generating summary…
                   </span>
                 ) : (
                   "Generate Summary"
@@ -345,6 +386,7 @@ export default function NoteWorkspace({
                       onClick={() => {
                         setSummaryDraft(summary);
                         setEditingSummary(true);
+                        setSaveSummaryError(null);
                       }}
                       className="text-xs text-muted hover:text-foreground transition-colors"
                     >
@@ -360,20 +402,25 @@ export default function NoteWorkspace({
                       rows={14}
                       className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none resize-y"
                     />
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-2">
                       <button
                         onClick={handleSaveSummary}
-                        className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-hover"
+                        disabled={savingSummary}
+                        className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-hover disabled:opacity-50"
                       >
-                        Save
+                        {savingSummary ? "Saving..." : "Save"}
                       </button>
                       <button
-                        onClick={() => setEditingSummary(false)}
-                        className="rounded-md border border-border/50 bg-surface px-3 py-1.5 text-xs text-muted hover:text-foreground"
+                        onClick={() => { setEditingSummary(false); setSaveSummaryError(null); }}
+                        disabled={savingSummary}
+                        className="rounded-md border border-border/50 bg-surface px-3 py-1.5 text-xs text-muted hover:text-foreground disabled:opacity-50"
                       >
                         Cancel
                       </button>
                     </div>
+                    {saveSummaryError && (
+                      <InlineError message={saveSummaryError} onDismiss={() => setSaveSummaryError(null)} />
+                    )}
                   </div>
                 ) : (
                   <div className="text-sm text-foreground/85 leading-relaxed whitespace-pre-wrap">
@@ -389,36 +436,42 @@ export default function NoteWorkspace({
                   noteId={noteId}
                   contacts={context.contacts}
                   onRefresh={refreshNote}
+                  onBusyChange={setTaskEditorBusy}
                 />
               </Card>
             </div>
 
             {/* Action bar */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleFinalize}
-                disabled={finalizing}
-                className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50 disabled:pointer-events-none"
-              >
-                {finalizing ? (
-                  <span className="flex items-center gap-2">
-                    <Spinner />
-                    Saving\u2026
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleFinalize}
+                  disabled={finalizing}
+                  className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  {finalizing ? (
+                    <span className="flex items-center gap-2">
+                      <Spinner />
+                      Saving…
+                    </span>
+                  ) : (
+                    "Save & Lock"
+                  )}
+                </button>
+                <button
+                  onClick={() => setPhase("editing")}
+                  className="text-sm text-muted hover:text-foreground transition-colors"
+                >
+                  Back to Notes
+                </button>
+                {finalized && (
+                  <span className="text-xs text-status-active">
+                    Saved successfully
                   </span>
-                ) : (
-                  "Save & Lock"
                 )}
-              </button>
-              <button
-                onClick={() => setPhase("editing")}
-                className="text-sm text-muted hover:text-foreground transition-colors"
-              >
-                Back to Notes
-              </button>
-              {finalized && (
-                <span className="text-xs text-status-active">
-                  Saved successfully
-                </span>
+              </div>
+              {finalizeError && (
+                <InlineError message={finalizeError} onDismiss={() => setFinalizeError(null)} />
               )}
             </div>
           </>

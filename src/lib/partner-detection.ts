@@ -1,19 +1,19 @@
 import { getPartnerContactDomains } from "./db";
+import { getPartners } from "./db/partners";
 
 /**
- * AWS-owned email domains to skip during partner detection.
- * These are internal — never match to a partner.
+ * Check if a domain belongs to Amazon/AWS.
+ * Pattern-based to catch all regional variants (amazon.ch, amazon.com.au, etc.)
+ * and subdomains (*.amazonaws.com, *.aws.dev) automatically.
  */
-export const AWS_DOMAINS = new Set([
-  "amazon.com",
-  "amazon.co.uk",
-  "amazon.de",
-  "amazon.fr",
-  "amazon.co.jp",
-  "amazon.es",
-  "amazon.it",
-  "amazonaws.com",
-]);
+export function isAWSDomain(domain: string): boolean {
+  return (
+    domain === "amazonaws.com" ||
+    domain.startsWith("amazon.") ||
+    domain.endsWith(".amazonaws.com") ||
+    domain.endsWith(".aws.dev")
+  );
+}
 
 /**
  * Extract all email addresses from a text string.
@@ -54,11 +54,37 @@ export async function detectPartnerFromEmail(
   for (const email of allEmails) {
     const domain = email.split("@")[1];
     if (!domain) continue;
-    if (AWS_DOMAINS.has(domain)) continue;
+    if (isAWSDomain(domain)) continue;
 
     const match = domainMap.get(domain);
     if (match) return match;
   }
 
   return null;
+}
+
+/**
+ * Fallback: match partner names against the email subject line.
+ * Only used when domain matching finds nothing (all-AWS or unknown-domain threads).
+ * Longest match wins to prevent "Salt" matching before "Salt Security".
+ */
+export async function detectPartnerFromSubject(
+  subject: string
+): Promise<{ partnerId: string; partnerName: string } | null> {
+  if (!subject) return null;
+
+  const partners = await getPartners();
+  const subjectLower = subject.toLowerCase();
+
+  let best: { partnerId: string; partnerName: string } | null = null;
+  let bestLength = 0;
+
+  for (const partner of partners) {
+    if (subjectLower.includes(partner.name.toLowerCase()) && partner.name.length > bestLength) {
+      best = { partnerId: partner.id, partnerName: partner.name };
+      bestLength = partner.name.length;
+    }
+  }
+
+  return best;
 }

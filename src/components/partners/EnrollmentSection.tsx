@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useUnsavedChanges } from "@/components/shared/UnsavedChangesProvider";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
+import InlineError from "@/components/shared/InlineError";
 
 interface Enrollment {
   id: string;
@@ -52,7 +55,11 @@ const STATUS_COLORS: Record<string, string> = {
 
 function shortDate(d: string | null): string {
   if (!d) return "";
-  return new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const date = new Date(d + "T12:00:00");
+  const currentYear = new Date().getFullYear();
+  const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
+  if (date.getFullYear() !== currentYear) opts.year = "numeric";
+  return date.toLocaleDateString("en-US", opts);
 }
 
 interface EnrollmentSectionProps {
@@ -69,9 +76,11 @@ export default function EnrollmentSection({
   const [enrollments, setEnrollments] = useState(initialEnrollments);
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  useNavigationGuard(submitting);
   const [formError, setFormError] = useState<string | null>(null);
   const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [inlineError, setInlineError] = useState<string | null>(null);
 
   // Form state
   const [formProgramName, setFormProgramName] = useState("");
@@ -80,6 +89,12 @@ export default function EnrollmentSection({
   const [formDate, setFormDate] = useState("");
   const [formNotes, setFormNotes] = useState("");
   const [formProgramId, setFormProgramId] = useState("");
+  const { setDirty, clearDirty } = useUnsavedChanges("enrollment-form");
+
+  useEffect(() => {
+    if (showModal && formProgramName.trim().length > 0) setDirty();
+    else clearDirty();
+  }, [showModal, formProgramName, setDirty, clearDirty]);
 
   function openModal() {
     setFormProgramName("");
@@ -157,10 +172,12 @@ export default function EnrollmentSection({
       setEnrollments((list) =>
         list.map((e) => (e.id === enrollmentId ? { ...e, status: prev.status } : e))
       );
+      setInlineError("Failed to update status");
     }
   }
 
   async function handleDelete(enrollmentId: string) {
+    const snapshot = [...enrollments];
     setEnrollments((list) => list.filter((e) => e.id !== enrollmentId));
     setDeletingId(null);
 
@@ -170,12 +187,8 @@ export default function EnrollmentSection({
       });
       if (!res.ok) throw new Error();
     } catch {
-      // Refetch on error — simpler than tracking the removed item
-      const res = await fetch(`/api/partners/${partnerId}`);
-      if (res.ok) {
-        // Ideally we'd refetch just enrollments, but a page refresh is safest
-        window.location.reload();
-      }
+      setEnrollments(snapshot);
+      setInlineError("Failed to delete enrollment");
     }
   }
 
@@ -283,6 +296,8 @@ export default function EnrollmentSection({
           ))
         )}
       </div>
+
+      {inlineError && <div className="mt-2"><InlineError message={inlineError} onDismiss={() => setInlineError(null)} /></div>}
 
       {/* Create Modal */}
       {showModal && (

@@ -1,10 +1,14 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
+import PageContainer from "@/components/layout/PageContainer";
 import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
+import { useUnsavedChanges } from "@/components/shared/UnsavedChangesProvider";
+import InlineError from "@/components/shared/InlineError";
 import { Task } from "@/lib/types";
 import { stripPartnerPrefix } from "@/lib/format-utils";
 
@@ -26,23 +30,26 @@ const OWNER_OPTIONS = [
 
 interface TasksClientProps {
   tasks: TaskWithContext[];
+  completedTasks: TaskWithContext[];
   partners: { id: string; name: string }[];
 }
 
-export default function TasksClient({ tasks: initialTasks, partners }: TasksClientProps) {
+export default function TasksClient({ tasks: initialTasks, completedTasks: initialCompleted, partners }: TasksClientProps) {
   const [tasks, setTasks] = useState(initialTasks);
+  const [completedTasksList, setCompletedTasksList] = useState(initialCompleted);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string | null>("me");
   const [groupByPartner, setGroupByPartner] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [showCompleted, setShowCompleted] = useState(false);
+  useNavigationGuard(submitting);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [linkingTaskId, setLinkingTaskId] = useState<string | null>(null);
   const [linkingEngagements, setLinkingEngagements] = useState<{ id: string; name: string }[]>([]);
   const [linkingLoading, setLinkingLoading] = useState(false);
+  const [mutationError, setMutationError] = useState<string | null>(null);
 
   // Form state
   const [formPartnerId, setFormPartnerId] = useState("");
@@ -52,13 +59,34 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
   const [formEngagementId, setFormEngagementId] = useState("");
   const [formEngagements, setFormEngagements] = useState<{ id: string; name: string }[]>([]);
   const [formEngagementsLoading, setFormEngagementsLoading] = useState(false);
+  const { setDirty, clearDirty } = useUnsavedChanges("task-create-form");
+
+  // Dirty tracking for the task creation modal
+  useEffect(() => {
+    if (showForm && formDescription.trim().length > 0) setDirty();
+    else clearDirty();
+  }, [showForm, formDescription, setDirty, clearDirty]);
 
   const openCount = useMemo(() => tasks.filter((t) => t.status === "open").length, [tasks]);
+  const completedCount = completedTasksList.length;
 
   async function handleToggleStatus(taskId: string, currentStatus: string) {
     const newStatus = currentStatus === "open" ? "done" : "open";
-    // Optimistic update
-    setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: newStatus as Task["status"] } : t));
+    if (newStatus === "done") {
+      // Move from active → completed
+      const task = tasks.find((t) => t.id === taskId);
+      if (task) {
+        setTasks((prev) => prev.filter((t) => t.id !== taskId));
+        setCompletedTasksList((prev) => [{ ...task, status: "done" }, ...prev]);
+      }
+    } else {
+      // Move from completed → active
+      const task = completedTasksList.find((t) => t.id === taskId);
+      if (task) {
+        setCompletedTasksList((prev) => prev.filter((t) => t.id !== taskId));
+        setTasks((prev) => [{ ...task, status: "open" }, ...prev]);
+      }
+    }
     try {
       const res = await fetch(`/api/notes/tasks/${taskId}`, {
         method: "PUT",
@@ -68,7 +96,20 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
       if (!res.ok) throw new Error("Failed to update task status");
     } catch {
       // Revert on error
-      setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: currentStatus as Task["status"] } : t));
+      if (newStatus === "done") {
+        const task = completedTasksList.find((t) => t.id === taskId);
+        if (task) {
+          setCompletedTasksList((prev) => prev.filter((t) => t.id !== taskId));
+          setTasks((prev) => [{ ...task, status: "open" }, ...prev]);
+        }
+      } else {
+        const task = tasks.find((t) => t.id === taskId);
+        if (task) {
+          setTasks((prev) => prev.filter((t) => t.id !== taskId));
+          setCompletedTasksList((prev) => [{ ...task, status: "done" }, ...prev]);
+        }
+      }
+      setMutationError("Failed to update task");
     }
   }
 
@@ -82,6 +123,7 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
     } catch {
       // Revert on error
       setTasks((prev) => [...prev, task]);
+      setMutationError("Failed to delete task");
     }
   }
 
@@ -105,6 +147,7 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
       if (!res.ok) throw new Error("Failed to update task");
     } catch {
       setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, description: originalDescription } : t));
+      setMutationError("Failed to save description");
     }
   }
 
@@ -118,6 +161,7 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
       setLinkingEngagements(engagements.map((e: { id: string; name: string }) => ({ id: e.id, name: e.name })));
     } catch {
       setLinkingEngagements([]);
+      setMutationError("Failed to load engagements");
     } finally {
       setLinkingLoading(false);
     }
@@ -137,13 +181,13 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
       if (!res.ok) throw new Error("Failed to update engagement link");
     } catch {
       if (prev) setTasks((ts) => ts.map((t) => t.id === taskId ? { ...t, engagement_id: prev.engagement_id, engagement_name: prev.engagement_name } : t));
+      setMutationError("Failed to link engagement");
     }
   }
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
-      // Hide completed unless showCompleted is on
-      if (task.status !== "open" && !showCompleted) return false;
+      if (task.status !== "open") return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const matchesDesc = task.description.toLowerCase().includes(q);
@@ -155,7 +199,22 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
       if (activeFilter && task.owner !== activeFilter) return false;
       return true;
     });
-  }, [tasks, searchQuery, activeFilter, showCompleted]);
+  }, [tasks, searchQuery, activeFilter]);
+
+  const filteredCompleted = useMemo(() => {
+    return completedTasksList.filter((task) => {
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const matchesDesc = task.description.toLowerCase().includes(q);
+        const matchesPartner = task.partner_name?.toLowerCase().includes(q);
+        const matchesOwner = task.owner_name?.toLowerCase().includes(q);
+        const matchesNote = task.note_title?.toLowerCase().includes(q);
+        if (!matchesDesc && !matchesPartner && !matchesOwner && !matchesNote) return false;
+      }
+      if (activeFilter && task.owner !== activeFilter) return false;
+      return true;
+    });
+  }, [completedTasksList, searchQuery, activeFilter]);
 
   // Flat list sorted by recency (newest first), then completed at bottom
   const sortedFlatTasks = useMemo(() => {
@@ -220,7 +279,7 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
       if (!res.ok) return;
       const { engagements } = await res.json();
       setFormEngagements(engagements.map((e: { id: string; name: string }) => ({ id: e.id, name: e.name })));
-    } catch { /* ignore */ } finally {
+    } catch { setMutationError("Failed to load engagements"); } finally {
       setFormEngagementsLoading(false);
     }
   }
@@ -280,7 +339,7 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
     return (
       <div
         key={task.id}
-        className={`flex items-center gap-3 border-b border-border/20 px-3 py-3.5 transition-colors hover:bg-surface/50${isDone ? " opacity-50" : ""}`}
+        className={`flex items-center gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50${isDone ? " opacity-50" : ""}`}
       >
         <button
           onClick={() => handleToggleStatus(task.id, task.status)}
@@ -420,21 +479,13 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
   }
 
   return (
-    <div className="mx-auto max-w-5xl p-6 lg:p-8">
+    <PageContainer>
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <PageHeader
             title="Tasks"
-            subtitle={`${openCount} open task${openCount !== 1 ? "s" : ""}${tasks.length - openCount > 0 ? ` \u00b7 ${tasks.length - openCount} done` : ""}`}
+            subtitle={`${openCount} open task${openCount !== 1 ? "s" : ""}${completedCount > 0 ? ` \u00b7 ${completedCount} done` : ""}`}
           />
-          {tasks.length - openCount > 0 && (
-            <button
-              onClick={() => setShowCompleted((v) => !v)}
-              className="mt-1 text-xs text-muted hover:text-foreground transition-colors"
-            >
-              {showCompleted ? "Hide completed" : "Show completed"}
-            </button>
-          )}
         </div>
         <button
           onClick={() => { resetForm(); setShowForm(true); }}
@@ -549,6 +600,7 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
         />
       ) : (
         <>
+          {mutationError && <div className="mb-3"><InlineError message={mutationError} onDismiss={() => setMutationError(null)} /></div>}
           <div className="flex items-center gap-3">
             <div className="flex-1">
               <FilterBar
@@ -596,8 +648,38 @@ export default function TasksClient({ tasks: initialTasks, partners }: TasksClie
               {sortedFlatTasks.map(renderTaskRow)}
             </div>
           )}
+
+          {/* Completed tasks section */}
+          {filteredCompleted.length > 0 && (
+            <details className="mt-8 group">
+              <summary className="flex cursor-pointer list-none items-center gap-2 pb-2 text-xs font-medium uppercase tracking-wider text-muted/60 [&::-webkit-details-marker]:hidden">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  className="shrink-0 transition-transform group-open:rotate-90"
+                >
+                  <path d="M6 4l4 4-4 4" />
+                </svg>
+                Completed in last 30 days
+                <span className="font-normal text-muted/40">
+                  {filteredCompleted.length}
+                </span>
+              </summary>
+              <div>
+                {filteredCompleted.map((task) => (
+                  <div key={task.id} className="opacity-60">
+                    {renderTaskRow(task)}
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
         </>
       )}
-    </div>
+    </PageContainer>
   );
 }

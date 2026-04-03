@@ -1,133 +1,36 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Meeting, Engagement, MeetingStatus } from "@/lib/types";
+import { Meeting } from "@/lib/types";
 import ConfirmDialog from "../shared/ConfirmDialog";
-
-const MEETING_STATUSES: MeetingStatus[] = [
-  "scheduled",
-  "completed",
-  "cancelled",
-  "did_not_occur",
-];
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
+import MeetingEditModal from "./MeetingEditModal";
 
 export default function MeetingActions({
   meeting,
-  partnerName: initialPartnerName,
-  engagements: initialEngagements,
+  partnerName,
 }: {
   meeting: Meeting;
   partnerName?: string | null;
-  engagements?: Engagement[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  useNavigationGuard(deleting);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [engagements, setEngagements] = useState<Engagement[]>(initialEngagements ?? []);
-
-  // Edit form state
-  const [title, setTitle] = useState(meeting.title);
-  const [meetingDate, setMeetingDate] = useState(meeting.meeting_date ?? "");
-  const [status, setStatus] = useState<string>(meeting.status);
-  const [engagementId, setEngagementId] = useState(meeting.engagement_id ?? "");
-  const [partnerName, setPartnerName] = useState(initialPartnerName ?? "");
-  const [startTime, setStartTime] = useState(meeting.start_time ?? "");
-  const [endTime, setEndTime] = useState(meeting.end_time ?? "");
-  const [location, setLocation] = useState(meeting.location ?? "");
-  const [notes, setNotes] = useState(meeting.notes ?? "");
-
-  // Fetch engagements for dropdown if not passed as props
-  useEffect(() => {
-    if (!initialEngagements) {
-      fetch("/api/engagements")
-        .then((res) => res.json())
-        .then((data) => setEngagements(data.engagements ?? []))
-        .catch(() => {});
-    }
-  }, [initialEngagements]);
-
-  function startEdit() {
-    setTitle(meeting.title);
-    setMeetingDate(meeting.meeting_date ?? "");
-    setStatus(meeting.status);
-    setEngagementId(meeting.engagement_id ?? "");
-    setPartnerName(initialPartnerName ?? "");
-    setStartTime(meeting.start_time ?? "");
-    setEndTime(meeting.end_time ?? "");
-    setLocation(meeting.location ?? "");
-    setNotes(meeting.notes ?? "");
-    setError(null);
-    setEditing(true);
-  }
-
-  // Auto-populate partner_name when engagement changes
-  function handleEngagementChange(engId: string) {
-    setEngagementId(engId);
-    // Partner name auto-population removed — engagements no longer carry partner_name
-  }
-
-  function cancelEdit() {
-    setEditing(false);
-    setError(null);
-  }
-
-  async function handleSave() {
-    if (!title.trim()) {
-      setError("Title is required");
-      return;
-    }
-
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/meetings/${meeting.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: title.trim(),
-          meeting_date: meetingDate || null,
-          status: status || "scheduled",
-          engagement_id: engagementId || null,
-          partner_name: partnerName.trim() || null,
-          start_time: startTime.trim() || null,
-          end_time: endTime.trim() || null,
-          location: location.trim() || null,
-          notes: notes.trim() || null,
-        }),
-      });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || `Server returned ${res.status}`);
-      }
-
-      setEditing(false);
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save");
-    } finally {
-      setSaving(false);
-    }
-  }
 
   async function handleDelete() {
     setShowDeleteConfirm(false);
     setDeleting(true);
     setError(null);
     try {
-      const res = await fetch(`/api/meetings/${meeting.id}`, {
-        method: "DELETE",
-      });
-
+      const res = await fetch(`/api/meetings/${meeting.id}`, { method: "DELETE" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || `Server returned ${res.status}`);
       }
-
       router.push("/meetings");
       router.refresh();
     } catch (err) {
@@ -136,168 +39,11 @@ export default function MeetingActions({
     }
   }
 
-  const inputClass =
-    "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none";
-  const labelClass =
-    "mb-1 block text-xs font-semibold uppercase tracking-wider text-muted";
-
-  // ── Edit mode ──────────────────────────────────────────────
-  if (editing) {
-    return (
-      <div className="rounded-xl border border-border bg-surface p-5">
-        <div className="space-y-4">
-          {/* Title */}
-          <div>
-            <label className={labelClass}>Title</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            {/* Date */}
-            <div>
-              <label className={labelClass}>Date</label>
-              <input
-                type="date"
-                value={meetingDate}
-                onChange={(e) => setMeetingDate(e.target.value)}
-                className={inputClass}
-              />
-            </div>
-
-            {/* Status */}
-            <div>
-              <label className={labelClass}>Status</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className={inputClass}
-              >
-                {MEETING_STATUSES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Partner */}
-            <div>
-              <label className={labelClass}>Partner</label>
-              <input
-                type="text"
-                value={partnerName}
-                onChange={(e) => setPartnerName(e.target.value)}
-                placeholder="Partner name..."
-                className={inputClass}
-              />
-            </div>
-
-            {/* Start Time */}
-            <div>
-              <label className={labelClass}>Start Time</label>
-              <input
-                type="text"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                placeholder="e.g. 10:00 AM"
-                className={inputClass}
-              />
-            </div>
-
-            {/* End Time */}
-            <div>
-              <label className={labelClass}>End Time</label>
-              <input
-                type="text"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                placeholder="e.g. 11:00 AM"
-                className={inputClass}
-              />
-            </div>
-
-            {/* Location */}
-            <div>
-              <label className={labelClass}>Location</label>
-              <input
-                type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="Location or meeting link..."
-                className={inputClass}
-              />
-            </div>
-
-            {/* Engagement */}
-            <div>
-              <label className={labelClass}>Engagement</label>
-              <select
-                value={engagementId}
-                onChange={(e) => handleEngagementChange(e.target.value)}
-                className={inputClass}
-              >
-                <option value="">None</option>
-                {engagements
-                  .filter((e) => e.status === "active")
-                  .map((e) => (
-                    <option key={e.id} value={e.id}>
-                      {e.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Notes */}
-          <div>
-            <label className={labelClass}>Notes</label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={4}
-              placeholder="Meeting notes..."
-              className={`${inputClass} resize-y min-h-[80px]`}
-            />
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2">
-              <p className="text-sm text-red-400">{error}</p>
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex gap-3">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
-            >
-              {saving ? "Saving..." : "Save"}
-            </button>
-            <button
-              onClick={cancelEdit}
-              disabled={saving}
-              className="rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground transition-colors hover:border-muted disabled:opacity-50"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── View mode ──────────────────────────────────────────────
   return (
     <>
       <div className="flex gap-2">
         <button
-          onClick={startEdit}
+          onClick={() => setEditing(true)}
           className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground transition-colors hover:border-accent hover:text-accent"
         >
           Edit
@@ -314,12 +60,7 @@ export default function MeetingActions({
       {error && (
         <div className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2">
           <p className="text-sm text-red-400">{error}</p>
-          <button
-            onClick={() => setError(null)}
-            className="mt-1 text-xs text-red-400/70 hover:text-red-400"
-          >
-            Dismiss
-          </button>
+          <button onClick={() => setError(null)} className="mt-1 text-xs text-red-400/70 hover:text-red-400">Dismiss</button>
         </div>
       )}
 
@@ -332,6 +73,14 @@ export default function MeetingActions({
         confirmLabel="Delete"
         confirmStyle="danger"
       />
+
+      {editing && (
+        <MeetingEditModal
+          meeting={meeting}
+          partnerName={partnerName ?? null}
+          onClose={() => setEditing(false)}
+        />
+      )}
     </>
   );
 }

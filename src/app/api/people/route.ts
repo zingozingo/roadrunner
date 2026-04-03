@@ -66,11 +66,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Enrich with partner connections
+    // Enrich with partner connections from BOTH paths
     const participantIds = (participants ?? []).map((p) => p.id);
 
-    let partnerConnections = new Map<string, { id: string; name: string; role: string | null }[]>();
+    let partnerConnections = new Map<string, { id: string; name: string; role: string | null; source: "curated" | "engagement" }[]>();
     if (participantIds.length > 0) {
+      // Path 1: curated partner_participants links
       const { data: ppLinks } = await db
         .from("partner_participants")
         .select("participant_id, role, partner:partners!inner(id, name)")
@@ -78,8 +79,24 @@ export async function GET(request: NextRequest) {
 
       for (const row of (ppLinks ?? []) as unknown as { participant_id: string; role: string | null; partner: { id: string; name: string } }[]) {
         const existing = partnerConnections.get(row.participant_id) ?? [];
-        existing.push({ id: row.partner.id, name: row.partner.name, role: row.role });
+        existing.push({ id: row.partner.id, name: row.partner.name, role: row.role, source: "curated" });
         partnerConnections.set(row.participant_id, existing);
+      }
+
+      // Path 2: engagement-derived partner connections
+      const { data: epLinks } = await db
+        .from("engagement_participants")
+        .select("participant_id, engagement:engagements!inner(partner_id, partner:partners!inner(id, name))")
+        .in("participant_id", participantIds);
+
+      for (const row of (epLinks ?? []) as unknown as { participant_id: string; engagement: { partner_id: string; partner: { id: string; name: string } } }[]) {
+        const existing = partnerConnections.get(row.participant_id) ?? [];
+        const partner = row.engagement.partner;
+        // Skip if this participant already has a curated link to this partner
+        if (!existing.some((e) => e.id === partner.id)) {
+          existing.push({ id: partner.id, name: partner.name, role: null, source: "engagement" });
+          partnerConnections.set(row.participant_id, existing);
+        }
       }
     }
 

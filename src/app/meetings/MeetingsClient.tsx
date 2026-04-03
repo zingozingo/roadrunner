@@ -4,7 +4,9 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
+import PageContainer from "@/components/layout/PageContainer";
 import EmptyState from "@/components/layout/EmptyState";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 import FilterBar from "@/components/layout/FilterBar";
 import { Meeting, Partner, Engagement } from "@/lib/types";
 import { cleanMeetingTitle } from "@/lib/format-utils";
@@ -70,6 +72,7 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
   // Modal state
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  useNavigationGuard(submitting);
   const [formError, setFormError] = useState<string | null>(null);
 
   // Form fields
@@ -248,7 +251,7 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
   }, [filteredMeetings]);
 
   return (
-    <div className="mx-auto max-w-7xl p-6 lg:p-8">
+    <PageContainer>
       <div className="mb-6 flex items-start justify-between">
         <PageHeader
           title="Meetings"
@@ -325,8 +328,8 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
                               {cleanMeetingTitle(m.title)}
                             </span>
                             {(m.recurrence_pattern || m.series_id) && (
-                              <span className="shrink-0 flex items-center gap-1 text-[10px] text-muted/60" title={m.recurrence_pattern ? m.recurrence_pattern.charAt(0).toUpperCase() + m.recurrence_pattern.slice(1) : "Recurring"}>
-                                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="shrink-0">
+                              <span className="shrink-0 flex items-center gap-1 text-accent/70" title={m.recurrence_pattern ? m.recurrence_pattern.charAt(0).toUpperCase() + m.recurrence_pattern.slice(1) : "Recurring"}>
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="shrink-0">
                                   <path d="M2 8a6 6 0 0 1 10.47-4M14 8a6 6 0 0 1-10.47 4" />
                                   <path d="M14 2v4h-4M2 14v-4h4" />
                                 </svg>
@@ -563,6 +566,6 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

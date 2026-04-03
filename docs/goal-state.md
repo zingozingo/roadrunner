@@ -6,13 +6,13 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 82 migrations, 17 active tables, 34 API routes, 13 UI pages, 444 passing tests (0 failures), tsc --noEmit passes clean, 35 components
+- 83 migrations, 17 active tables, 35 API routes, 14 UI pages, 444 passing tests (0 failures), tsc --noEmit passes clean, 38 components, decisions through #404
 - Human-guided intake pipeline fully operational: webhook → mechanical partner detection → ICS partner backfill → inbox triage (with unknown partner picker) → single-phase AI synthesis (decisions #223-252)
 - Meetings Motion complete (decisions #253-259): 10 interaction-based meeting types, recurring meeting engine with auto-spawn, series tracking via self-referential FK, RecurrenceEditor UI, synthesis-on-link, conference boilerplate pre-split fix, ICS multi-VEVENT guardrail confirmed
 - AI Brain Overhaul Phases 1-3 complete (decisions #260-269): goal field eliminated (migration 069), condensed columns on engagements + meeting_notes (migration 068), meeting summarization restructured with scoped context builder, structured output (Discussion/Decisions/Key Context), condensed 3-5 bullet digest, non-redundancy with tasks
 - Phase D cleanup complete: dead tests deleted, stale assertions fixed, dead types/routes removed
 - Entity model fully rewritten with ring architecture (Catalog → Activity → People → Posture) in docs/entity-model.md
-- Documentation consolidated: 6 docs total (CLAUDE.md master orientation, entity-model.md schema reference, ai-call-map.md AI call reference, north-star.md vision spec, goal-state.md status, decisions.md through #373)
+- Documentation consolidated: 6 docs total (CLAUDE.md master orientation, entity-model.md schema reference, ai-call-map.md AI call reference, north-star.md vision spec, goal-state.md status, decisions.md through #387)
 - Dead weight cleaned: notes table dropped (migration 061), orphaned components removed (PillGrid, CalendarCard, TableList, SyncStatus), decisions.md merged from two files into one
 - Zero polymorphic tables: entity_links replaced with typed junction tables (migration 065, decisions #221-222), later dissolved at engagement level (migration 081, decision #363) — programs/events now partner-level only via Ring 3
 - Contact registry complete: 76 participants, 85 partner links, 4 dedicated join tables, sync layer auto-maintains registry — all reads and writes flow through registry, JSONB columns dropped (Decisions #182, #218)
@@ -58,29 +58,19 @@ A system where a PDM forwards an email and Roadrunner:
 ## What's Next
 
 ### Immediate
-- Navigation safety — CRITICAL: Meeting notes workflow has no unsaved-changes protection. After AI summarization but before save & lock, user can navigate away or refresh and lose all work. Need beforeunload browser event + Next.js route interception + confirmation dialog on all note workspace exits. This is a data loss bug, not a polish item. North Star Part 8 explicitly specifies this.
-- Recurrence editor save broken for pattern changes: Changing recurrence_pattern (e.g., weekly → biweekly) via RecurrenceEditor does not persist. The anchor_day PUT route gap was fixed but pattern changes may have a similar issue or a different bug. Needs diagnostic — check if RecurrenceEditor sends recurrence_pattern in the PUT body and if the route processes it correctly.
-- Today page CSS — right column still clips content, needs viewport/overflow investigation beyond container width
-- Timeline strip visual simplification — reduce competing states/colors to clearer encoding
-- Program enrollment date formatting — show year for non-current-year dates
+- Merge plan-3/daily-driver-mvp branch to main, deploy to Vercel. All detection, mutation, navigation guard, and UI fixes go live. Inbox QA pass post-deploy.
 
 ### Soon
-- People linkability — participant names clickable across all surfaces, linking to /people or person detail
-- Recurrence display coherence pass — series info, timeline strip, management actions as unified component
-- Meeting data cleanup session — merge Vasion duplicate series, convert standalones (KnowBe4, NinjaOne, Cloudaware) to series roots
-- Calendar/timeline view for cross-partner meeting history
-- Navigation safety (unsaved changes warnings on note workspace)
-- Enterprise loading states on all async operations
+- Plan 4 — Partner detail page reorganization: tabs or progressive disclosure for the longest page in the app, where Steven spends the most working time
+- People page evolution — alphabetical grouping or pagination for 227+ participants
+- Programs list grouping by type (currently flat list of 76 items)
 
 ### Later
+- Completed tasks pattern on partner detail page (same collapsed section approach)
+- Task backfill — 41 tasks without engagement_id need linking via meeting→engagement chain
+- Meeting data cleanup — Vasion duplicate series merge, standalone-to-series conversions (KnowBe4, NinjaOne, Cloudaware)
 - Airtable exit path — AT push for manually-created enrollments and event participations
-- Pydantic agent harness for structured autonomous loops
-- Mobile sidebar behavior
-- Programs page pagination or progressive disclosure (80+ items)
-- Finish program enrollment linking — 58/80 enrollments have null program_id
-- Pre-meeting briefing (AI-generated)
 - Email-less participant support (5 null-email participants in registry)
-- 41-task engagement backfill — link meetings to engagements so cascade populates task.engagement_id
 
 ### Completed
 - ~~Meeting notes feature~~ ✅ (decisions 101-108)
@@ -155,6 +145,18 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~Plan 2 executed~~ ✅ (decisions #367-370): 17 tasks, 4 phases — Foundation (anchor_day fix, doc cleanup, SKILL.md population), Recurrence Overhaul (SeriesDisplay, RecurrenceEditor simplification, SeriesActions, standalone-to-series, anchor snap verification, SeriesTimeline), People Page (search + filters + create), Today Layout (two-column)
 - ~~Post-Plan 2 fixes~~ ✅ (decision #371): RecurrenceEditor startEditing prop, Today page container, timeline strip sizing
 - ~~Program enrollment + event participation CRUD~~ ✅ (decisions #372-373): 6 API endpoints, 2 client components, inline status editing, event participations always visible
+- ~~Plan 3 — Daily Driver MVP~~ ✅ (20 tasks, 6 phases): Universal PageContainer (max-w-[1600px]), sidebar vertical distribution, useUnsavedChanges framework (7 protected surfaces), Today page 55/45 split + 12-task cap, Tasks page density, Partner detail section pairings, scope-aware recurrence editing ("this and future"), Reschedule button, simplified timeline strip, people linkability (names → /people?q=), enrollment date year formatting, full Playwright audit clean
+- ~~Post-Plan 3 interactive polish~~ ✅ (decisions #381-387): RecurrenceCard consolidation (4→1 components, timeline strip killed), meeting Edit as modal (not inline), Reschedule merged into Edit modal (header: Edit+Delete only), scope-aware propagation with notes protection, People page partner badge enrichment from engagements (143 previously invisible participants), duplicate participant merge (2 pairs), defensive meeting_notes query
+- ~~UNIQUE constraint on meeting_notes.meeting_id~~ ✅ (migration 083, decision #388)
+- ~~Partner detection: all-message iteration + pattern-based isAWSDomain + subject-line name fallback~~ ✅ (decisions #389-391, new /api/inbox/redetect route)
+- ~~Inbox discard: group-aware deletion~~ ✅ (decision #392, uses getMessagesForInboxItem)
+- ~~Mutation Lifecycle Framework + shared utilities~~ ✅ (decisions #393-395, useMutation hook, InlineError component, useNavigationGuard hook, SKILL.md Layer 2)
+- ~~App-wide mutation conformance — 42 surfaces, zero gaps~~ ✅ (decision #396, zero silent failures, zero unconfirmed destructive actions)
+- ~~Session template and workflow redesign~~ ✅ (decision #397, single diagnostic, plan template with pre-flight and checkpoints)
+- ~~useNavigationGuard full rollout~~ ✅ (decisions #398-399, 18 components guarded, per-component approach)
+- ~~Engagements list page + sidebar~~ ✅ (decisions #400-402, status grouping, partner filter, topic subtitle, Secondary tier)
+- ~~Completed tasks visibility~~ ✅ (decision #403, separate DB function, bidirectional toggle, 30-day window)
+- ~~Visual conformance audit~~ ✅ (decision #404, all 14 pages pass SKILL.md at 1280px)
 
 ## Architecture Principles
 

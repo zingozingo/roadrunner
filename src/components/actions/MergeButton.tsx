@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 
 interface Props {
   engagementId: string;
@@ -21,6 +22,7 @@ export default function MergeButton({ engagementId, engagementName, partnerId }:
   const [loadingList, setLoadingList] = useState(false);
   const [selected, setSelected] = useState<EngagementOption | null>(null);
   const [merging, setMerging] = useState(false);
+  useNavigationGuard(merging);
   const [error, setError] = useState<string | null>(null);
 
   async function handleOpen() {

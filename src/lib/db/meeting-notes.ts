@@ -81,13 +81,16 @@ export async function getMeetingNoteByMeetingId(
 ): Promise<MeetingNoteWithTasks | null> {
   const db = getSupabaseClient();
 
-  const { data: note, error } = await db
+  // Use order + limit instead of maybeSingle to handle rare duplicates gracefully
+  const { data: notes, error } = await db
     .from("meeting_notes")
     .select("*")
     .eq("meeting_id", meetingId)
-    .maybeSingle();
+    .order("created_at", { ascending: false })
+    .limit(1);
 
   if (error) throw new Error(`Failed to fetch meeting note by meeting_id: ${error.message}`);
+  const note = notes?.[0] ?? null;
   if (!note) return null;
 
   const typedNote = note as MeetingNote;
@@ -395,6 +398,91 @@ export async function getOpenTasks(): Promise<
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(`Failed to fetch open tasks: ${error.message}`);
+
+  const typedTasks = (tasks ?? []) as Task[];
+  if (typedTasks.length === 0) return [];
+
+  // Resolve partner names
+  const partnerIds = [...new Set(typedTasks.map((t) => t.partner_id))];
+  const partnerNames = new Map<string, string>();
+  if (partnerIds.length > 0) {
+    const { data: partners } = await db
+      .from("partners")
+      .select("id, name")
+      .in("id", partnerIds);
+    for (const p of (partners ?? []) as { id: string; name: string }[]) {
+      partnerNames.set(p.id, p.name);
+    }
+  }
+
+  // Resolve note titles + meeting_ids from meeting_notes
+  const noteIds = [...new Set(typedTasks.map((t) => t.meeting_note_id).filter((id): id is string => id !== null))];
+  const noteInfo = new Map<string, { title: string | null; meeting_id: string | null }>();
+  if (noteIds.length > 0) {
+    const { data: notes } = await db
+      .from("meeting_notes")
+      .select("id, title, meeting_id")
+      .in("id", noteIds);
+    for (const n of (notes ?? []) as { id: string; title: string | null; meeting_id: string | null }[]) {
+      noteInfo.set(n.id, { title: n.title, meeting_id: n.meeting_id });
+    }
+  }
+
+  // Resolve meeting titles from meetings table
+  const meetingIds = [...new Set([...noteInfo.values()].map((n) => n.meeting_id).filter((id): id is string => id !== null))];
+  const meetingTitles = new Map<string, string>();
+  if (meetingIds.length > 0) {
+    const { data: meetings } = await db
+      .from("meetings")
+      .select("id, title")
+      .in("id", meetingIds);
+    for (const m of (meetings ?? []) as { id: string; title: string | null }[]) {
+      meetingTitles.set(m.id, m.title ?? "Untitled Meeting");
+    }
+  }
+
+  // Resolve engagement names
+  const engagementIds = [...new Set(typedTasks.map((t) => t.engagement_id).filter((id): id is string => id !== null))];
+  const engagementNames = new Map<string, string>();
+  if (engagementIds.length > 0) {
+    const { data: engagements } = await db
+      .from("engagements")
+      .select("id, name")
+      .in("id", engagementIds);
+    for (const e of (engagements ?? []) as { id: string; name: string | null }[]) {
+      engagementNames.set(e.id, e.name ?? "Untitled Engagement");
+    }
+  }
+
+  return typedTasks.map((t) => {
+    const note = t.meeting_note_id ? noteInfo.get(t.meeting_note_id) : null;
+    const meetingId = note?.meeting_id ?? null;
+    return {
+      ...t,
+      partner_name: partnerNames.get(t.partner_id) ?? null,
+      note_title: note?.title ?? null,
+      meeting_id: meetingId,
+      meeting_title: meetingId ? meetingTitles.get(meetingId) ?? null : null,
+      engagement_name: t.engagement_id ? engagementNames.get(t.engagement_id) ?? null : null,
+    };
+  });
+}
+
+export async function getCompletedTasks(): Promise<
+  (Task & { partner_name: string | null; note_title: string | null; meeting_id: string | null; meeting_title: string | null; engagement_name: string | null })[]
+> {
+  const db = getSupabaseClient();
+
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: tasks, error } = await db
+    .from("tasks")
+    .select("*")
+    .eq("status", "done")
+    .gte("updated_at", thirtyDaysAgo)
+    .order("updated_at", { ascending: false });
+
+  if (error) throw new Error(`Failed to fetch completed tasks: ${error.message}`);
 
   const typedTasks = (tasks ?? []) as Task[];
   if (typedTasks.length === 0) return [];

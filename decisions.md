@@ -6809,3 +6809,440 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** Pattern established: CRUD-enabled sections should always render so the user can discover and use the create action. Applies to any section where the user can add records.
 
 ---
+
+### #374 — Fluid PageContainer layout system
+
+**Date:** 2026-03-30
+**Status:** ✅ Implemented
+
+**Decision:** Universal max-w-[1600px] container replaces 11+ ad-hoc mx-auto max-w-* patterns across all 13 pages. Single layout primitive, consistent padding (px-6, py-6 lg:py-8). Root layout main gets min-w-0 to prevent flex child overflow. Two-column pages use CSS Grid with fractional units and min-w-0 on children.
+
+**Rationale:** Every page had a different container width and padding. Narrow max-widths (960px, 1024px) wasted space on wide monitors. The 1600px cap with 24px padding gives content room to breathe while preventing unreadably long text lines.
+
+**Impact:** PageContainer component (`src/components/layout/PageContainer.tsx`) used by all 13 pages. Root layout `<main>` gets `min-w-0`. SKILL.md documents the Layout System pattern.
+
+---
+
+### #375 — CLAUDE.md confidence-tiered guardrails
+
+**Date:** 2026-03-30
+**Status:** ✅ Implemented
+
+**Decision:** Replaced rigid READ-ONLY/WRITE-ALLOWED paths with three tiers: high confidence (UI components, pages, docs — change freely), medium confidence (API routes, lib files — change when needed, note in commit), requires approval (migrations, env, core architecture).
+
+**Rationale:** The old guardrails required explicit permission for every API or lib change, creating friction during plan execution. The tiered model matches real risk levels.
+
+**Impact:** CLAUDE.md Path Guardrails section rewritten. Enables autonomous plan execution without per-task permission grants.
+
+---
+
+### #376 — Git branching workflow with draft PRs
+
+**Date:** 2026-03-30
+**Status:** ✅ Implemented
+
+**Decision:** Plan execution uses feature branches (`plan-{n}/{name}`). Agent creates branch at plan start, pushes after each task, pauses after first commit for draft PR creation. One commit per task. Steven reviews incrementally via GitHub draft PR. Merge after plan completion.
+
+**Rationale:** Working directly on main during multi-task plans risks deploying incomplete work to Vercel. Branches give visibility and safe iteration.
+
+**Impact:** CLAUDE.md Git Branching & PR Workflow section added. First used for Plan 3 (`plan-3/daily-driver-mvp`).
+
+---
+
+### #377 — Sidebar revamp — full-height, no gradient
+
+**Date:** 2026-03-30
+**Status:** ✅ Implemented
+
+**Decision:** Sidebar stretches full viewport height via flex layout, solid --surface background, subtle border-right separator. Primary/Secondary nav groups at top, Tertiary (Programs, Events) anchored to bottom with flex-1 spacer. No gradient, no dead space below nav items.
+
+**Rationale:** Previous sidebar had a gradient that looked unfinished and a large dead space below the nav. Full-height with anchored tertiary nav uses the space purposefully.
+
+**Impact:** `src/components/layout/Sidebar.tsx` updated. SKILL.md Sidebar pattern documented.
+
+---
+
+### #378 — useUnsavedChanges navigation safety framework
+
+**Date:** 2026-03-30
+**Status:** ✅ Implemented
+
+**Decision:** Reusable hook providing three layers of protection: browser beforeunload (native dialog on tab close), popstate interception (browser back button), and sidebar/Link click interception via custom navigation wrapper. Protects 7 surfaces: NoteWorkspace editing phase, NoteWorkspace review phase, PartnerScratchpad, TasksClient modal, EnrollmentSection modal, EventParticipationSection modal, RecurrenceEditor modal.
+
+**Rationale:** Next.js 16 App Router has no built-in route interception API. Three separate interception layers are needed to cover all navigation paths.
+
+**Impact:** `UnsavedChangesProvider` wraps the app in root layout. `useUnsavedChanges(surfaceId)` hook used by 7+ components. `ConfirmDialog` rendered via portal. `leavingRef` pattern prevents cleanup from undoing intentional navigation.
+
+---
+
+### #379 — Today page proper two-column grid (55/45)
+
+**Date:** 2026-03-30
+**Status:** ✅ Implemented
+
+**Decision:** CSS Grid with grid-cols-[11fr_9fr] (55/45 split), min-w-0 on both children. Task cap increased from 6 to 12. Responsive: stacks to single column below lg breakpoint.
+
+**Rationale:** 50/50 split truncated partner names at 1280px. 60/40 was too generous for the right column. 55/45 is the sweet spot.
+
+**Impact:** Today page layout updated. SKILL.md documents the Two-Column Launchpad pattern.
+
+---
+
+### #380 — Partner detail smart section pairings
+
+**Date:** 2026-03-30
+**Status:** ✅ Implemented
+
+**Decision:** Three section pairs rendered side-by-side via CSS Grid: Program Enrollments + Strategic Goals, Funding + Event Participations, Solution Profile + Operational Status. Reduces scroll depth ~30% while preserving top-to-bottom dossier narrative. Full-width sections: Brain, Engagements, Tasks, Meetings, People, Scratchpad.
+
+**Rationale:** Partner detail page had 12+ sections stacked vertically, requiring excessive scrolling. Complementary sections (enrollments + goals, funding + events) pair naturally.
+
+**Impact:** Partner detail page layout restructured. Section Pairing Pattern added to SKILL.md.
+
+---
+
+### #381 — Recurrence card consolidation
+
+**Date:** 2026-03-31
+**Status:** ✅ Implemented
+
+**Decision:** 4 separate components (SeriesDisplay, SeriesActions, SeriesTimeline, RecurrenceEditor inline expansion) replaced by 1 unified RecurrenceCard component + modal editor. Colored timeline boxes with legend replaced by simple date list (5 nearest dates, current highlighted). Skip/End actions moved to overflow menu (⋮). Net reduction of 31 lines. 3 component files deleted.
+
+**Rationale:** The timeline strip used a legend key for 2-3 colored boxes — overengineered. The editor opened inline and pushed page content down. Skip/End were rarely-used actions displayed as primary UI. One cohesive card is more intuitive than 4 scattered pieces.
+
+**Impact:** SeriesDisplay.tsx, SeriesActions.tsx, SeriesTimeline.tsx deleted. RecurrenceCard.tsx created. RecurrenceEditor.tsx rewritten as modal. SKILL.md updated with RecurrenceCard pattern.
+
+---
+
+### #382 — Meeting edit as modal, not inline expansion
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** Universal anti-pattern established: inline form expansions that push page content down are eliminated. All editing actions use modals. Meeting Edit modal shows context-aware fields (recurring meetings hide Date field by default, show Reschedule affordance instead).
+
+**Rationale:** Inline form expansions lose the user's visual context as content shifts below the form. Modals overlay the page, preserving context.
+
+**Impact:** MeetingEditModal.tsx created. MeetingActions.tsx simplified from 3 modes (view/edit/reschedule) to 1 mode (view) + modal triggers. Pattern applies to RecurrenceEditor (decision #381) and all future edit forms.
+
+---
+
+### #383 — Reschedule merged into Edit modal
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** Meeting detail header simplified from Edit/Reschedule/Delete to Edit/Delete. Date changes for recurring meetings handled inside Edit modal via "Reschedule" link that reveals date picker + scope selector. Standalone meetings show normal date input. Single entry point for all meeting-instance changes.
+
+**Rationale:** Having Reschedule as a separate top-level button was confusing — users expect "Edit" to handle all field changes including date. The scope selector ("Just this meeting" / "This and all future") only appears when relevant (series children).
+
+**Impact:** Reschedule button and inline reschedule bar removed from MeetingActions. Edit modal gains date section with context-aware behavior.
+
+---
+
+### #384 — Scope-aware meeting editing with propagation
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** PUT /api/meetings/[id] accepts scope parameter ("this_one" | "this_and_future"). "this_and_future" updates series root anchor_day and recalculates all future unattended meetings via calculateNextDate. Meetings with notes (meeting_notes rows) are protected — never moved during propagation. Series roots always propagate (no scope selector shown).
+
+**Rationale:** Rescheduling one meeting in a series should optionally cascade to future occurrences. Meetings with notes represent real work and must not be silently moved.
+
+**Impact:** PUT /api/meetings/[id] route enhanced with propagation logic. MeetingEditModal sends scope + anchor_day when appropriate. Series root date changes always propagate.
+
+---
+
+### #385 — People page partner badge enrichment from engagements
+
+**Date:** 2026-03-31
+**Status:** ✅ Implemented
+
+**Decision:** API enriches participant partner associations from both partner_participants (curated team — solid accent badge) and engagement_participants → engagements.partner_id (activity-derived — muted badge). Curated takes priority for same partner. 143 previously invisible participants (63% of registry) now show partner connections.
+
+**Rationale:** The enrichment query only joined through partner_participants, but 143 participants were connected to partners through engagement_participants. The filter found them, but the display didn't show the connection.
+
+**Impact:** GET /api/people enrichment query expanded. PeopleClient updated with source-aware badge styling.
+
+---
+
+### #386 — Duplicate participant merge pattern
+
+**Date:** 2026-03-31
+**Status:** ✅ Implemented
+
+**Decision:** Reusable script (scripts/merge-duplicate-participants.ts) for consolidating duplicate participant records. Moves all FK references (partner_participants, engagement_participants, meeting_participants, relationship_participants) to canonical record, handles unique constraint conflicts via skip-and-delete, then deletes duplicate.
+
+**Rationale:** Participant upsert keys on email. Same person with different email addresses creates duplicates. Manual merge needed for 2 confirmed pairs (Jordan Spiers, Sebastien Ronzeaud).
+
+**Impact:** 2 duplicate pairs merged. 227 → 225 participants. Reusable script for future duplicates.
+
+---
+
+### #387 — Defensive meeting_notes query for shared database
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** getMeetingNoteByMeetingId changed from .maybeSingle() (crashes on multiple rows) to .order("created_at", desc).limit(1) (takes most recent row gracefully). Future migration needed: UNIQUE constraint on meeting_notes.meeting_id.
+
+**Rationale:** Duplicate meeting_notes rows caused page crash ("JSON object requested, multiple rows returned"). Root cause: two note-taking sessions for the same meeting created two rows. No UNIQUE constraint prevented this.
+
+**Impact:** Meeting detail page no longer crashes on duplicate notes. Older duplicate deleted for Supabase meeting. UNIQUE constraint migration documented for future.
+
+---
+
+### #388 — UNIQUE constraint on meeting_notes.meeting_id
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** Migration 083 replaces the non-unique index on meeting_notes.meeting_id (from migration 051) with a UNIQUE index. Enforces one-note-per-meeting at the database level.
+
+**Context:** A duplicate meeting_notes row caused a page crash (Decision #387). The app-level defensive fix handles the symptom; the UNIQUE constraint prevents the root cause.
+
+**Rationale:** Belt-and-suspenders with the app-level defensive query. The constraint prevents future duplicates regardless of which code path creates notes.
+
+**Impact:** meeting_notes.meeting_id now has a UNIQUE constraint. Zero duplicates confirmed before applying (41 rows, 0 conflicts).
+
+---
+
+### #389 — Partner detection: all-message iteration
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** Inbound route now iterates ALL parsed messages for domain matching, not just parsed[0]. First partner-domain match across any message wins.
+
+**Context:** Multi-message email threads where parsed[0] was from a non-partner (agency like bridge.partners, or AWS internal) failed to match even though later messages contained partner-domain senders (e.g., garethk@spacelift.io).
+
+**Rationale:** The detection function signature is per-message, but the caller was only passing the first message. The fix is in the caller (inbound route), not the detection function.
+
+**Impact:** Spacelift threads (30+ messages, first from bridge.partners agency) now correctly match. Any thread with at least one partner-domain sender will match.
+
+---
+
+### #390 — Pattern-based AWS domain blocking
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** Replaced static AWS_DOMAINS Set (7 domains) with isAWSDomain() function using pattern matching: domain === "amazonaws.com" || domain.startsWith("amazon.") || domain.endsWith(".amazonaws.com") || domain.endsWith(".aws.dev").
+
+**Context:** amazon.ch existed in the participant data but wasn't in the static blocklist. The static list required manual maintenance for every new regional Amazon domain.
+
+**Rationale:** Pattern-based is strictly safer — no false positives (no partner will ever have an amazon.* domain) and catches all regional variants automatically.
+
+**Impact:** amazon.ch, amazon.com.au, *.aws.dev (like Meetings Summary service) all blocked without maintaining a list. Tests updated with new coverage.
+
+---
+
+### #391 — Subject-line partner name fallback
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** Added detectPartnerFromSubject() as a fallback when domain matching finds nothing across all messages. Case-insensitive substring match of partner names against the email subject line. Longest match wins.
+
+**Context:** "Fw: Meeting summary: Anaconda EBC | 10493" from balmic@amazon.com — all AWS senders, no partner-domain email anywhere in the thread. Domain matching returns null. But "Anaconda" is clearly in the subject.
+
+**Rationale:** Simple string matching is sufficient for this fallback. Longest-match-wins prevents partial collisions. Only fires when zero domain matches exist, so false positive risk is minimal.
+
+**Impact:** Fully-internal forwards with partner names in the subject line now auto-match. Added GET /api/inbox/redetect route for backfilling existing unmatched messages.
+
+---
+
+### #392 — Inbox group-aware operations
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** discardInboxItem() now calls getMessagesForInboxItem() to resolve the full message group before deleting, matching how assign already works. Establishes principle: any action on a grouped item must resolve the full scope before executing.
+
+**Context:** Inbox discard was only deleting the group key message (1 of N). Surviving messages reappeared on page refresh with different sender/subject because the original primary was deleted. The assign flow already worked correctly because it used getMessagesForInboxItem().
+
+**Rationale:** The bug was a scope resolution failure. The fix aligns discard with assign by resolving the full group first. This became Class 4 (Scoped) in the Mutation Lifecycle Framework.
+
+**Impact:** Discard now deletes all messages in the timestamp group plus their linked meetings. Items no longer reappear on refresh.
+
+---
+
+### #393 — Mutation Lifecycle Framework
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** Four-class system for all user-triggered mutations, added to SKILL.md Layer 2: Class 1 (Optimistic Toggle — instant UI, revert on failure), Class 2 (Async Submit — loading label + InlineError), Class 3 (Destructive — confirm first, then Class 2 pattern), Class 4 (Scoped — resolve scope first, then Class 2 or 3).
+
+**Context:** Mutation audit found 42 surfaces across 13 pages with 14 silent failures, 6 with zero error handling, and 4 destructive actions without confirmation. Ad-hoc patterns per component caused the inconsistency.
+
+**Rationale:** A framework that defines behavior per mutation class prevents ad-hoc invention. Includes two-level loading spec (component vs row/card), action button group ordering (safe → create → destructive), navigation guard requirement, and 10-point adoption checklist.
+
+**Impact:** Constitutional document for all UI mutation behavior. Every new mutation surface must classify and implement per framework.
+
+---
+
+### #394 — Shared mutation utilities (useMutation + InlineError)
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** useMutation hook (src/hooks/useMutation.ts) wraps async functions with isLoading/error/clearError state. InlineError component (src/components/shared/InlineError.tsx) renders inline red-tinted error with 8s auto-dismiss.
+
+**Context:** Every mutation surface needed the same loading + error pattern. Without shared utilities, each component reinvented try/catch/setState.
+
+**Rationale:** useMutation is the default for Class 2/3/4. InlineError is the only error display pattern — never toasts, never page-level banners for component-level errors.
+
+**Impact:** Two building blocks used across all 42 mutation surfaces. Consistent UX for every async operation.
+
+---
+
+### #395 — useNavigationGuard hook
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** useNavigationGuard(blocked: boolean) blocks navigation during in-flight mutations via three interception points: beforeunload (browser close), popstate (back button), and internal navigation (integrates with UnsavedChangesProvider context). Separate from useUnsavedChanges.
+
+**Context:** Users could navigate away during multi-second operations (AI synthesis, engagement creation with Airtable push) causing silent data loss. Needed to block all three navigation vectors.
+
+**Rationale:** Integrates with existing UnsavedChangesProvider for sidebar click interception rather than duplicating that infrastructure. A page can use both hooks — they compose independently.
+
+**Impact:** Inbox and meeting notes pages now block navigation during mutations. Remaining pages to be wired in a subsequent pass.
+
+---
+
+### #396 — App-wide mutation conformance sweep
+
+**Date:** 2026-04-01
+**Status:** ✅ Implemented
+
+**Decision:** All 42 mutation surfaces across 13 pages upgraded to follow the Mutation Lifecycle Framework. Zero console.error-only catches. Zero destructive actions without confirmation. Zero mutations without loading states.
+
+**Context:** After building the framework and shared utilities, a systematic sweep upgraded every remaining surface: EngagementLinker (3), RecurrenceCard/Editor (3), PartnerScratchpad (2), EnrollmentSection (2), EventParticipationSection (2), TodayTasks (1), TasksClient (2), plus the previously completed Inbox (4) and NoteWorkspace/TaskEditor (5).
+
+**Rationale:** Piecemeal adoption creates inconsistency. A single sweep ensures uniform behavior before any new features are added.
+
+**Impact:** Every mutation in the app now has loading feedback, error handling, and (where appropriate) confirmation. InlineError replaces window.location.reload() in enrollment/event delete. Scratchpad delete now has confirmation.
+
+---
+
+### #397 — Session template and process redesign
+
+**Date:** 2026-04-02
+**Status:** ✅ Implemented
+
+**Decision:** Consolidated quick/deep diagnostics into single diagnostic.md. Created plan-template.md with mandatory pre-flight diagnostics, SKILL.md conformance checks, adjacent surface checks, and Steven checkpoints. Created plan-startup.md for plan execution initialization. Updated session-start.md and session-end.md.
+
+**Context:** The quick/deep diagnostic split added friction without value — every session needed the full picture. Plan execution was cutting corners because the plan structure didn't encode the diagnostic instinct that makes interactive sessions successful.
+
+**Rationale:** Plans need to encode the same rigor as interactive sessions: diagnose before building, check adjacent surfaces, verify against SKILL.md. The plan template makes these steps mandatory per task, not optional.
+
+**Impact:** Development workflow fully redesigned. Future plans will have built-in quality gates that match interactive session rigor.
+
+---
+
+### #398 — useNavigationGuard full rollout (per-component, not page-level)
+
+**Date:** 2026-04-03
+**Status:** ✅ Implemented
+
+**Decision:** Multi-component pages (partner detail, meeting detail) use per-component guards rather than composed page-level busy signals. Each component hooks into its own existing isBusy state. Multiple instances on the same page compose naturally — any one being true blocks navigation. 18 total guarded components. PartnersClient excluded (catalog sync has no data-loss risk).
+
+**Context:** After building useNavigationGuard and wiring InboxClient + NoteWorkspace as reference implementations, the remaining 16 mutation-owning components needed guards. The question was whether to compose busy signals at the page level or wire each component individually.
+
+**Rationale:** Per-component is simpler — each component already has a local loading state variable. Multiple hooks on the same page compose naturally via the shared UnsavedChangesProvider context. No page-level orchestration needed.
+
+**Impact:** All 18 mutation surfaces now block navigation during in-flight mutations. Zero chance of data loss from browser close, back button, or sidebar navigation during saves.
+
+---
+
+### #399 — PartnersClient catalog sync excluded from navigation guard
+
+**Date:** 2026-04-03
+**Status:** ✅ Implemented
+
+**Decision:** PartnersClient's "Sync Catalogs" mutation is intentionally not guarded by useNavigationGuard. Catalog sync pulls from Airtable (the authority). Navigating away mid-sync risks nothing — just re-sync.
+
+**Context:** During the useNavigationGuard rollout audit, PartnersClient was the only mutation-owning component deliberately skipped.
+
+**Rationale:** Guard protects user data at risk of loss. Catalog sync pulls from an external authority (Airtable). Interrupting it leaves Supabase in a stale but not corrupted state. Re-syncing is cheap and idempotent.
+
+**Impact:** 18 of 19 mutation-owning components guarded. The one exception is documented and justified.
+
+---
+
+### #400 — Engagements list page design
+
+**Date:** 2026-04-03
+**Status:** ✅ Implemented
+
+**Decision:** New /engagements list page uses status-grouped collapsible sections (active/planned/blocked open by default, completed/archived collapsed). Partner pill filter, no search. Topic field as row subtitle (not condensed). Sorted by updated_at DESC within groups. Read-only list — engagements created from inbox or meeting detail, not from the list.
+
+**Context:** The engagements list page was previously deleted. With engagements as the hub entity, a dedicated list page was needed for cross-partner visibility.
+
+**Rationale:** Status grouping matches how a PDM thinks about engagements — active work at top, historical at bottom. Partner pill filter is the primary dimension (which partner's engagements?). No search needed — at 41 engagements, scan + filter is sufficient. No create button — engagements are born from inbox routing or meeting detail, not from a blank form.
+
+**Impact:** /engagements list page restored. Accessible from sidebar. Every engagement visible at a glance with status, partner, topic, pillar, and recency.
+
+---
+
+### #401 — Engagements sidebar placement in Secondary tier
+
+**Date:** 2026-04-03
+**Status:** ✅ Implemented
+
+**Decision:** Engagements added as first item in the Secondary sidebar tier, above Tasks. The Secondary tier is now: Engagements, Tasks, Meetings, People.
+
+**Context:** Engagements were previously only accessible through partner detail pages. The sidebar needed a direct link.
+
+**Rationale:** Engagements are the hub entity in the data model — everything (messages, meetings, tasks, participants) connects through them. They belong in the daily-use tier alongside Tasks and Meetings, not buried in a detail page. Positioned first in Secondary because they're the organizational layer above tasks and meetings.
+
+**Impact:** Sidebar now has 9 items across 3 tiers. Engagements accessible in one click from anywhere.
+
+---
+
+### #402 — Topic vs condensed for engagement display
+
+**Date:** 2026-04-03
+**Status:** ✅ Implemented
+
+**Decision:** List views show the topic field (short human-scannable descriptor like "AWS Marketplace CPPO Integration") as the row subtitle. Condensed is the AI-generated multi-sentence digest reserved for the AI pipeline (brain synthesis, meeting context).
+
+**Context:** Initial engagements list implementation used condensed as the subtitle, which was too verbose for a list view.
+
+**Rationale:** Topic is a one-liner written for human consumption. Condensed is a multi-sentence AI digest written for upstream AI consumption. Different audiences, different fields. List views need scannable text.
+
+**Impact:** Engagement list rows show clean one-line topics. AI pipeline continues using condensed for context building.
+
+---
+
+### #403 — Completed tasks: separate DB function, bidirectional toggle, 30-day window
+
+**Date:** 2026-04-03
+**Status:** ✅ Implemented
+
+**Decision:** New getCompletedTasks() DB function mirrors getOpenTasks() for status='done' with 30-day lookback. Tasks page shows collapsed "Completed in last 30 days" section at bottom. Bidirectional toggle moves tasks between active and completed sections immediately. Server-fetched data persists across refresh.
+
+**Context:** The existing showCompleted toggle was broken — it only showed tasks completed during the current browser session. On refresh, completed tasks disappeared because getOpenTasks() only fetches status='open'.
+
+**Rationale:** Separate DB function avoids modifying the well-tested getOpenTasks(). 30-day window keeps the completed section manageable (not accumulating forever). Bidirectional toggle avoids undo/toast patterns — just uncheck to reopen. Server-fetched data means completed tasks persist across refresh, which is the expected behavior.
+
+**Impact:** Tasks page now properly shows completed work. PDM can see what was done recently, toggle tasks back to open if needed, and trust that the page reflects the real state.
+
+---
+
+### #404 — Visual conformance audit: all 14 pages pass SKILL.md
+
+**Date:** 2026-04-03
+**Status:** ✅ Confirmed
+
+**Decision:** Systematic Playwright screenshot audit at 1280px of all 14 pages found zero SKILL.md violations. The design system is consistently applied across the entire app.
+
+**Context:** Before planning any UI polish work, a full audit was needed to identify actual violations vs. assumed ones. Screenshots of every page were captured and compared against SKILL.md specs.
+
+**Rationale:** Measure before fixing. The audit revealed that density/scalability concerns (partner detail page length, people page with 227 participants, programs list without grouping) are feature-level improvements, not conformance issues. This changes the priority from "fix violations" to "evolve patterns."
+
+**Impact:** No remediation plan needed. Future UI work focuses on feature evolution (partner detail tabs, people page pagination) rather than conformance fixes.
+
+---

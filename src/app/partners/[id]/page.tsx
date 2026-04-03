@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import PageContainer from "@/components/layout/PageContainer";
 import PillarBadge from "@/components/shared/PillarBadge";
 import BrainSynthesis from "@/components/partners/BrainSynthesis";
 import EnrollmentSection from "@/components/partners/EnrollmentSection";
@@ -252,7 +253,7 @@ export default async function PartnerDetailPage({
   /* ---------------------------------------------------------------- */
 
   return (
-    <div className="mx-auto max-w-5xl p-6 lg:p-8">
+    <PageContainer>
       {/* Back link */}
       <Link
         href="/partners"
@@ -451,7 +452,7 @@ export default async function PartnerDetailPage({
                   <div className="min-w-0 flex-1">
                     <span className="flex items-center gap-1.5 text-sm text-foreground/80 truncate">
                       {(m.recurrence_pattern || m.series_id) && (
-                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted/70 shrink-0">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-accent/70 shrink-0">
                           <path d="M2 8a6 6 0 0 1 10.47-4M14 8a6 6 0 0 1-10.47 4" />
                           <path d="M14 2v4h-4M2 14v-4h4" />
                         </svg>
@@ -468,58 +469,60 @@ export default async function PartnerDetailPage({
           </Section>
         )}
 
-        {/* Program Enrollments (interactive) */}
-        <section>
-          <EnrollmentSection
-            partnerId={id}
-            initialEnrollments={programEnrollments.map((e) => ({
-              id: e.id,
-              partner_id: e.partner_id,
-              program_id: e.program_id,
-              program_name: e.program_name ?? null,
-              type: e.type,
-              status: e.status,
-              date_achieved: e.date_achieved,
-              notes: e.notes,
-            }))}
-            programs={allPrograms.map((p) => ({ id: p.id, name: p.name }))}
-          />
-        </section>
+        {/* Program Enrollments + Strategic Goals — side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <section className="min-w-0">
+            <EnrollmentSection
+              partnerId={id}
+              initialEnrollments={programEnrollments.map((e) => ({
+                id: e.id,
+                partner_id: e.partner_id,
+                program_id: e.program_id,
+                program_name: e.program_name ?? null,
+                type: e.type,
+                status: e.status,
+                date_achieved: e.date_achieved,
+                notes: e.notes,
+              }))}
+              programs={allPrograms.map((p) => ({ id: p.id, name: p.name }))}
+            />
+          </section>
 
-        {/* Strategic Goals */}
-        <Section title="Strategic Goals" count={partnerGoals.length}>
-          {partnerGoals.length === 0 ? (
-            <div className="px-4 py-4 text-sm text-muted/60">
-              No strategic goals set
-            </div>
-          ) : (
-            partnerGoals.map((g) => (
-              <div key={g.id} className="flex items-center gap-3 border-b border-border/30 px-4 py-2.5 last:border-b-0">
-                <span className="min-w-0 flex-1 text-sm text-foreground/80">{g.goal}</span>
-                {g.category && (
-                  <span className="shrink-0 rounded-full bg-accent/8 px-2 py-0.5 text-[11px] font-medium text-accent/70">
-                    {g.category.replace(/_/g, " ")}
-                  </span>
-                )}
-                {g.status && (
-                  <span className={`shrink-0 text-[11px] ${
-                    g.status === "in_progress" ? "text-status-active" :
-                    g.status === "completed" ? "text-status-completed" :
-                    g.status === "deferred" ? "text-status-blocked" :
-                    "text-muted"
-                  }`}>
-                    {g.status === "in_progress" ? "Active" :
-                     g.status === "not_started" ? "Planned" :
-                     g.status === "completed" ? "Done" :
-                     g.status === "deferred" ? "Blocked" : g.status}
-                  </span>
-                )}
+          <Section title="Strategic Goals" count={partnerGoals.length}>
+            {partnerGoals.length === 0 ? (
+              <div className="px-4 py-4 text-sm text-muted/60">
+                No strategic goals set
               </div>
-            ))
-          )}
-        </Section>
+            ) : (
+              partnerGoals.map((g) => (
+                <div key={g.id} className="flex items-center gap-3 border-b border-border/30 px-4 py-2.5 last:border-b-0">
+                  <span className="min-w-0 flex-1 text-sm text-foreground/80">{g.goal}</span>
+                  {g.category && (
+                    <span className="shrink-0 rounded-full bg-accent/8 px-2 py-0.5 text-[11px] font-medium text-accent/70">
+                      {g.category.replace(/_/g, " ")}
+                    </span>
+                  )}
+                  {g.status && (
+                    <span className={`shrink-0 text-[11px] ${
+                      g.status === "in_progress" ? "text-status-active" :
+                      g.status === "completed" ? "text-status-completed" :
+                      g.status === "deferred" ? "text-status-blocked" :
+                      "text-muted"
+                    }`}>
+                      {g.status === "in_progress" ? "Active" :
+                       g.status === "not_started" ? "Planned" :
+                       g.status === "completed" ? "Done" :
+                       g.status === "deferred" ? "Blocked" : g.status}
+                    </span>
+                  )}
+                </div>
+              ))
+            )}
+          </Section>
+        </div>
 
-        {/* Funding */}
+        {/* Funding + Event Participations — side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {(mpoppFunding.length > 0 || mdfFunding.length > 0) && (
           <Section title="Funding" count={mpoppFunding.length + mdfFunding.length}>
             {mpoppFunding.length > 0 && (
@@ -568,7 +571,7 @@ export default async function PartnerDetailPage({
         )}
 
         {/* Event Participations (interactive — always shown, even when empty) */}
-        <section>
+        <section className="min-w-0">
           <EventParticipationSection
             partnerId={id}
             initialParticipations={eventParticipations.map((e) => ({
@@ -583,6 +586,7 @@ export default async function PartnerDetailPage({
             events={allEvents.map((e) => ({ id: e.id, name: e.name, start_date: e.start_date }))}
           />
         </section>
+        </div>
 
         {/* People */}
         {hasPeople && (
@@ -592,7 +596,7 @@ export default async function PartnerDetailPage({
                 <div className="px-4 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted/40">AWS Team</div>
                 {awsTeam.map((c, i) => (
                   <div key={i} className="flex items-center gap-3 border-b border-border/30 px-4 py-2 last:border-b-0">
-                    <span className="text-sm text-foreground/80">{c.name ?? c.email}</span>
+                    <Link href={`/people?q=${encodeURIComponent(c.name ?? c.email ?? "")}`} className="text-sm text-foreground/80 hover:text-accent transition-colors">{c.name ?? c.email}</Link>
                     {c.role && <span className="text-[11px] text-muted">{c.role}</span>}
                     {c.email && c.name && <span className="text-[11px] text-muted/40">{c.email}</span>}
                   </div>
@@ -604,7 +608,7 @@ export default async function PartnerDetailPage({
                 <div className="px-4 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted/40">Partner Team</div>
                 {partnerTeam.map((c, i) => (
                   <div key={i} className="flex items-center gap-3 border-b border-border/30 px-4 py-2 last:border-b-0">
-                    <span className="text-sm text-foreground/80">{c.name ?? c.email}</span>
+                    <Link href={`/people?q=${encodeURIComponent(c.name ?? c.email ?? "")}`} className="text-sm text-foreground/80 hover:text-accent transition-colors">{c.name ?? c.email}</Link>
                     {c.role && <span className="text-[11px] text-muted">{c.role}</span>}
                     {c.email && c.name && <span className="text-[11px] text-muted/40">{c.email}</span>}
                   </div>
@@ -616,7 +620,7 @@ export default async function PartnerDetailPage({
                 <div className="px-4 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted/40">Third Parties</div>
                 {thirdParties.map((c, i) => (
                   <div key={i} className="flex items-center gap-3 border-b border-border/30 px-4 py-2 last:border-b-0">
-                    <span className="text-sm text-foreground/80">{c.name ?? c.email}</span>
+                    <Link href={`/people?q=${encodeURIComponent(c.name ?? c.email ?? "")}`} className="text-sm text-foreground/80 hover:text-accent transition-colors">{c.name ?? c.email}</Link>
                     {c.role && <span className="text-[11px] text-muted">{c.role}</span>}
                     {c.email && c.name && <span className="text-[11px] text-muted/40">{c.email}</span>}
                   </div>
@@ -634,7 +638,7 @@ export default async function PartnerDetailPage({
                       <div className="text-[11px] font-medium text-muted/50 mb-1">{group.engagement_name}</div>
                       {group.contributors.map((c) => (
                         <div key={c.id} className="flex items-center gap-3 py-1">
-                          <span className="text-sm text-foreground/70">{c.name ?? c.email}</span>
+                          <Link href={`/people?q=${encodeURIComponent(c.name ?? c.email ?? "")}`} className="text-sm text-foreground/70 hover:text-accent transition-colors">{c.name ?? c.email}</Link>
                           {c.org_type && (
                             <span className={`text-[10px] font-medium rounded-full px-2 py-0.5 ${
                               c.org_type === "internal"
@@ -657,7 +661,8 @@ export default async function PartnerDetailPage({
           </Section>
         )}
 
-        {/* Solution Profile */}
+        {/* Solution Profile + Operational Status — side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {(partner.what_they_do || partner.joint_value_proposition || partner.architecture) && (
           <Section title="Solution Profile">
             <div className="space-y-3 px-4 py-3">
@@ -744,6 +749,7 @@ export default async function PartnerDetailPage({
             </div>
           </Section>
         )}
+        </div>
 
         {/* Scratchpad — always at bottom */}
         <section>
@@ -755,7 +761,7 @@ export default async function PartnerDetailPage({
           </div>
         </section>
       </div>
-    </div>
+    </PageContainer>
   );
 }
 

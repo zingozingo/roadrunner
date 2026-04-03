@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getDisplayRole, isNamedRole } from "@/lib/contact-display";
 
 export interface ContactRowProps {
@@ -23,6 +24,7 @@ export default function ContactRow({
   // Name line: name or email prefix fallback
   const displayName =
     name ?? (email ? email.split("@")[0] : "Unknown");
+  const peopleHref = `/people?q=${encodeURIComponent(name ?? email ?? "")}`;
 
   if (isCurrentUser) {
     return (
@@ -38,7 +40,7 @@ export default function ContactRow({
   return (
     <div>
       <div className="text-sm text-foreground">
-        <span className="font-medium">{displayName}</span>
+        <Link href={peopleHref} className="font-medium hover:text-accent transition-colors">{displayName}</Link>
         {displayLabel && (
           <span className="text-xs text-muted ml-1.5">{displayLabel}</span>
         )}

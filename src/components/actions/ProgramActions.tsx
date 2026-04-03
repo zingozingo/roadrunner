@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Program, ProgramType } from "@/lib/types";
 import ConfirmDialog from "../shared/ConfirmDialog";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 
 const TYPE_OPTIONS: (ProgramType | "")[] = [
   "",
@@ -23,6 +24,7 @@ export default function ProgramActions({ program }: { program: Program }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  useNavigationGuard(saving || deleting);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

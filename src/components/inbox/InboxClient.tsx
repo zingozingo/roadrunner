@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { INBOX_GROUP_WINDOW_MS, type InboxItem } from "@/lib/db/inbox";
 import EmptyState from "@/components/layout/EmptyState";
+import InlineError from "@/components/shared/InlineError";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 
 interface Props {
   items: InboxItem[];
@@ -57,14 +59,28 @@ function makeGroup(items: InboxItem[]): InboxGroup {
   return { key: items[0].id, items, primary };
 }
 
+/** 16px inline spinner */
+function Spinner() {
+  return (
+    <svg className="h-4 w-4 animate-spin text-muted" viewBox="0 0 24 24" fill="none">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
+  );
+}
+
 export default function InboxClient({ items: initialItems }: Props) {
   const [items, setItems] = useState(initialItems);
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [actionMode, setActionMode] = useState<"none" | "assign" | "create" | "pick-partner">("none");
   const [engagements, setEngagements] = useState<EngagementOption[]>([]);
   const [newTitle, setNewTitle] = useState("");
-  const [loading, setLoading] = useState(false);
   const [loadingEngagements, setLoadingEngagements] = useState(false);
+
+  // Per-group mutation state: which group is busy, with what status text
+  const [busyGroup, setBusyGroup] = useState<string | null>(null);
+  const [busyLabel, setBusyLabel] = useState("");
+  const [actionError, setActionError] = useState<{ groupKey: string; message: string } | null>(null);
 
   // Partner picker state — cached across interactions
   const partnersCache = useRef<PartnerOption[] | null>(null);
@@ -73,6 +89,11 @@ export default function InboxClient({ items: initialItems }: Props) {
   const [partnerFilter, setPartnerFilter] = useState("");
 
   const groups = useMemo(() => groupByForwardedAt(items), [items]);
+
+  // Navigation guard — blocks sidebar/back/reload during any mutation
+  useNavigationGuard(busyGroup !== null);
+
+  const clearError = useCallback(() => setActionError(null), []);
 
   if (groups.length === 0) {
     return <EmptyState title="Inbox is empty" description="Forward emails to your Relay address to see them here" />;
@@ -85,28 +106,52 @@ export default function InboxClient({ items: initialItems }: Props) {
     setItems((prev) => prev.filter((item) => !idsToRemove.has(item.id)));
   }
 
+  function restoreGroup(snapshot: InboxItem[]) {
+    setItems((prev) => [...prev, ...snapshot]);
+  }
+
+  // ── Discard (Class 3 — Destructive + Scoped) ──────────────
   async function handleDiscard(groupKey: string) {
-    if (!confirm("Delete this message? This cannot be undone.")) return;
-    setLoading(true);
+    if (!confirm("Delete this message group? This cannot be undone.")) return;
+
+    const group = groups.find((g) => g.key === groupKey);
+    const snapshot = group ? [...group.items] : [];
+
+    setBusyGroup(groupKey);
+    setBusyLabel("Discarding...");
+    setActionError(null);
+    removeGroup(groupKey);
+
     try {
       const res = await fetch("/api/reviews/resolve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message_id: groupKey, action: "discard" }),
       });
-      if (res.ok) removeGroup(groupKey);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Discard failed (${res.status})`);
+      }
     } catch (err) {
       console.error("Discard failed:", err);
+      restoreGroup(snapshot);
+      setActionError({
+        groupKey,
+        message: err instanceof Error ? err.message : "Discard failed",
+      });
     } finally {
-      setLoading(false);
+      setBusyGroup(null);
+      setBusyLabel("");
     }
   }
 
+  // ── Start Assign (fetch engagements) ──────────────────────
   async function startAssign(group: InboxGroup) {
     const item = group.primary;
     if (!item.partner_id) return;
     setActiveGroup(group.key);
     setActionMode("assign");
+    setActionError(null);
     setLoadingEngagements(true);
     try {
       const res = await fetch(`/api/engagements?partner_id=${item.partner_id}`);
@@ -116,6 +161,10 @@ export default function InboxClient({ items: initialItems }: Props) {
       );
     } catch (err) {
       console.error("Failed to fetch engagements:", err);
+      setActionError({
+        groupKey: group.key,
+        message: "Failed to load engagements",
+      });
     } finally {
       setLoadingEngagements(false);
     }
@@ -125,16 +174,18 @@ export default function InboxClient({ items: initialItems }: Props) {
     const item = group.primary;
     setActiveGroup(group.key);
     setActionMode("create");
+    setActionError(null);
     const partnerPrefix = item.partner_name ? `${item.partner_name} - ` : "";
     setNewTitle(`${partnerPrefix}${cleanSubject(item.subject)}`);
   }
 
+  // ── Pick Partner (fetch + select) ─────────────────────────
   async function startPickPartner(group: InboxGroup) {
     setActiveGroup(group.key);
     setActionMode("pick-partner");
     setPartnerFilter("");
+    setActionError(null);
 
-    // Use cache if available
     if (partnersCache.current) {
       setPartners(partnersCache.current);
       return;
@@ -151,38 +202,51 @@ export default function InboxClient({ items: initialItems }: Props) {
       setPartners(list);
     } catch (err) {
       console.error("Failed to fetch partners:", err);
+      setActionError({
+        groupKey: group.key,
+        message: "Failed to load partners",
+      });
     } finally {
       setLoadingPartners(false);
     }
   }
 
+  // ── Confirm Pick Partner (Class 2 — Async Submit) ─────────
   async function confirmPickPartner(groupKey: string, partnerId: string, partnerName: string) {
-    setLoading(true);
+    setBusyGroup(groupKey);
+    setBusyLabel(`Setting partner to ${partnerName}...`);
+    setActionError(null);
     try {
       const res = await fetch("/api/inbox/set-partner", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message_id: groupKey, partner_id: partnerId }),
       });
-      if (res.ok) {
-        // Update local state — stamp partner on all items in this group
-        const group = groups.find((g) => g.key === groupKey);
-        if (group) {
-          const groupIds = new Set(group.items.map((i) => i.id));
-          setItems((prev) =>
-            prev.map((item) =>
-              groupIds.has(item.id)
-                ? { ...item, partner_id: partnerId, partner_name: partnerName }
-                : item
-            )
-          );
-        }
-        cancelAction();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Set partner failed (${res.status})`);
       }
+      const group = groups.find((g) => g.key === groupKey);
+      if (group) {
+        const groupIds = new Set(group.items.map((i) => i.id));
+        setItems((prev) =>
+          prev.map((item) =>
+            groupIds.has(item.id)
+              ? { ...item, partner_id: partnerId, partner_name: partnerName }
+              : item
+          )
+        );
+      }
+      cancelAction();
     } catch (err) {
       console.error("Set partner failed:", err);
+      setActionError({
+        groupKey,
+        message: err instanceof Error ? err.message : "Failed to set partner",
+      });
     } finally {
-      setLoading(false);
+      setBusyGroup(null);
+      setBusyLabel("");
     }
   }
 
@@ -192,10 +256,14 @@ export default function InboxClient({ items: initialItems }: Props) {
     setEngagements([]);
     setNewTitle("");
     setPartnerFilter("");
+    setActionError(null);
   }
 
-  async function confirmAssign(groupKey: string, engagementId: string) {
-    setLoading(true);
+  // ── Confirm Assign (Class 2 — Async Submit) ──────────────
+  async function confirmAssign(groupKey: string, engagementId: string, engagementName: string) {
+    setBusyGroup(groupKey);
+    setBusyLabel(`Assigning to ${engagementName}...`);
+    setActionError(null);
     try {
       const res = await fetch("/api/reviews/resolve", {
         method: "POST",
@@ -206,20 +274,30 @@ export default function InboxClient({ items: initialItems }: Props) {
           engagement_id: engagementId,
         }),
       });
-      if (res.ok) {
-        removeGroup(groupKey);
-        cancelAction();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Assign failed (${res.status})`);
       }
+      removeGroup(groupKey);
+      cancelAction();
     } catch (err) {
       console.error("Assign failed:", err);
+      setActionError({
+        groupKey,
+        message: err instanceof Error ? err.message : "Failed to assign",
+      });
     } finally {
-      setLoading(false);
+      setBusyGroup(null);
+      setBusyLabel("");
     }
   }
 
+  // ── Confirm Create (Class 2 — Async Submit) ──────────────
   async function confirmCreate(groupKey: string) {
     if (!newTitle.trim()) return;
-    setLoading(true);
+    setBusyGroup(groupKey);
+    setBusyLabel("Creating engagement...");
+    setActionError(null);
     try {
       const res = await fetch("/api/reviews/resolve", {
         method: "POST",
@@ -230,14 +308,21 @@ export default function InboxClient({ items: initialItems }: Props) {
           title: newTitle.trim(),
         }),
       });
-      if (res.ok) {
-        removeGroup(groupKey);
-        cancelAction();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Create failed (${res.status})`);
       }
+      removeGroup(groupKey);
+      cancelAction();
     } catch (err) {
       console.error("Create failed:", err);
+      setActionError({
+        groupKey,
+        message: err instanceof Error ? err.message : "Failed to create engagement",
+      });
     } finally {
-      setLoading(false);
+      setBusyGroup(null);
+      setBusyLabel("");
     }
   }
 
@@ -256,11 +341,15 @@ export default function InboxClient({ items: initialItems }: Props) {
         {groups.map((group) => {
           const item = group.primary;
           const count = group.items.length;
+          const isBusy = busyGroup === group.key;
+          const error = actionError?.groupKey === group.key ? actionError : null;
 
           return (
             <div
               key={group.key}
-              className="border-b border-border/20 px-3 py-3 transition-colors hover:bg-surface/50"
+              className={`border-b border-border/20 px-3 py-3 transition-colors ${
+                isBusy ? "opacity-60 pointer-events-none" : "hover:bg-surface/50"
+              }`}
             >
               {/* Main row */}
               <div className="flex items-center gap-3">
@@ -273,7 +362,7 @@ export default function InboxClient({ items: initialItems }: Props) {
                     ) : (
                       <button
                         onClick={() => startPickPartner(group)}
-                        disabled={loading}
+                        disabled={busyGroup !== null}
                         className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400 whitespace-nowrap hover:bg-amber-500/20 transition-colors disabled:opacity-50"
                       >
                         Pick Partner
@@ -301,40 +390,53 @@ export default function InboxClient({ items: initialItems }: Props) {
                   )}
                 </div>
 
-                {/* Actions — only when not expanded */}
-                {activeGroup !== group.key && (
+                {/* Row-level loading: spinner + status replaces action buttons */}
+                {isBusy ? (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Spinner />
+                    <span className="text-sm text-muted">{busyLabel}</span>
+                  </div>
+                ) : activeGroup !== group.key ? (
+                  /* Action button group: safe → creation → destructive */
                   <div className="flex items-center gap-3 shrink-0">
-                    {item.partner_id ? (
+                    {item.partner_id && (
                       <button
                         onClick={() => startAssign(group)}
-                        disabled={loading}
-                        className="text-xs text-muted hover:text-foreground transition-colors disabled:opacity-50"
+                        disabled={busyGroup !== null}
+                        className="text-sm text-muted hover:text-foreground transition-colors disabled:opacity-50 min-h-[32px]"
                       >
                         Assign
                       </button>
-                    ) : null}
-                    {item.partner_id ? (
+                    )}
+                    {item.partner_id && (
                       <button
                         onClick={() => startCreate(group)}
-                        disabled={loading}
-                        className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
+                        disabled={busyGroup !== null}
+                        className="text-sm text-accent hover:text-accent-hover transition-colors disabled:opacity-50 min-h-[32px]"
                       >
                         New
                       </button>
-                    ) : null}
+                    )}
                     <button
                       onClick={() => handleDiscard(group.key)}
-                      disabled={loading}
-                      className="text-xs text-muted hover:text-red-400 transition-colors disabled:opacity-50"
+                      disabled={busyGroup !== null}
+                      className="text-sm text-muted hover:text-red-400 transition-colors disabled:opacity-50 min-h-[32px]"
                     >
                       Discard
                     </button>
                   </div>
-                )}
+                ) : null}
               </div>
 
+              {/* Inline error for this group */}
+              {error && (
+                <div className="mt-2">
+                  <InlineError message={error.message} onDismiss={clearError} />
+                </div>
+              )}
+
               {/* Partner picker panel */}
-              {activeGroup === group.key && actionMode === "pick-partner" && (
+              {activeGroup === group.key && actionMode === "pick-partner" && !isBusy && (
                 <div className="mt-3 pt-3 border-t border-border/20">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-muted">
@@ -342,13 +444,16 @@ export default function InboxClient({ items: initialItems }: Props) {
                     </span>
                     <button
                       onClick={cancelAction}
-                      className="text-xs text-muted hover:text-foreground transition-colors"
+                      className="text-sm text-muted hover:text-foreground transition-colors min-h-[32px]"
                     >
                       Cancel
                     </button>
                   </div>
                   {loadingPartners ? (
-                    <p className="text-xs text-muted">Loading...</p>
+                    <div className="flex items-center gap-2 py-2">
+                      <Spinner />
+                      <span className="text-sm text-muted">Loading partners...</span>
+                    </div>
                   ) : (
                     <>
                       <input
@@ -364,8 +469,8 @@ export default function InboxClient({ items: initialItems }: Props) {
                           <button
                             key={p.id}
                             onClick={() => confirmPickPartner(group.key, p.id, p.name)}
-                            disabled={loading}
-                            className="w-full text-left flex items-baseline gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
+                            disabled={busyGroup !== null}
+                            className="w-full text-left flex items-baseline gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50 disabled:opacity-50"
                           >
                             <span className="text-sm font-medium text-foreground">{p.name}</span>
                           </button>
@@ -380,7 +485,7 @@ export default function InboxClient({ items: initialItems }: Props) {
               )}
 
               {/* Assign panel */}
-              {activeGroup === group.key && actionMode === "assign" && (
+              {activeGroup === group.key && actionMode === "assign" && !isBusy && (
                 <div className="mt-3 pt-3 border-t border-border/20">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-muted">
@@ -388,13 +493,16 @@ export default function InboxClient({ items: initialItems }: Props) {
                     </span>
                     <button
                       onClick={cancelAction}
-                      className="text-xs text-muted hover:text-foreground transition-colors"
+                      className="text-sm text-muted hover:text-foreground transition-colors min-h-[32px]"
                     >
                       Cancel
                     </button>
                   </div>
                   {loadingEngagements ? (
-                    <p className="text-xs text-muted">Loading...</p>
+                    <div className="flex items-center gap-2 py-2">
+                      <Spinner />
+                      <span className="text-sm text-muted">Loading engagements...</span>
+                    </div>
                   ) : engagements.length === 0 ? (
                     <p className="text-xs text-muted">
                       No existing engagements.{" "}
@@ -410,9 +518,9 @@ export default function InboxClient({ items: initialItems }: Props) {
                       {engagements.map((eng) => (
                         <button
                           key={eng.id}
-                          onClick={() => confirmAssign(group.key, eng.id)}
-                          disabled={loading}
-                          className="w-full text-left flex items-baseline gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
+                          onClick={() => confirmAssign(group.key, eng.id, eng.name)}
+                          disabled={busyGroup !== null}
+                          className="w-full text-left flex items-baseline gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50 disabled:opacity-50"
                         >
                           <span className="text-sm font-medium text-foreground">{eng.name}</span>
                         </button>
@@ -423,7 +531,7 @@ export default function InboxClient({ items: initialItems }: Props) {
               )}
 
               {/* Create panel */}
-              {activeGroup === group.key && actionMode === "create" && (
+              {activeGroup === group.key && actionMode === "create" && !isBusy && (
                 <div className="mt-3 pt-3 border-t border-border/20">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-muted">
@@ -431,7 +539,7 @@ export default function InboxClient({ items: initialItems }: Props) {
                     </span>
                     <button
                       onClick={cancelAction}
-                      className="text-xs text-muted hover:text-foreground transition-colors"
+                      className="text-sm text-muted hover:text-foreground transition-colors min-h-[32px]"
                     >
                       Cancel
                     </button>
@@ -448,10 +556,10 @@ export default function InboxClient({ items: initialItems }: Props) {
                     />
                     <button
                       onClick={() => confirmCreate(group.key)}
-                      disabled={loading || !newTitle.trim()}
-                      className="text-xs text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
+                      disabled={busyGroup !== null || !newTitle.trim()}
+                      className="bg-accent text-white rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent-hover transition-colors disabled:opacity-50"
                     >
-                      {loading ? "Creating..." : "Create"}
+                      Create
                     </button>
                   </div>
                 </div>

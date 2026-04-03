@@ -393,7 +393,7 @@ Output format: one `Name <email> (Title)` per line (universal contact format).
 |-------|---------|-------|-----|
 | id | uuid PK | RR | meeting detail (inline NoteWorkspace) |
 | partner_id | uuid NOT NULL FK → partners (CASCADE) | RR | notes list, detail |
-| meeting_id | uuid FK → meetings (CASCADE) | RR | notes detail |
+| meeting_id | uuid UNIQUE FK → meetings (CASCADE) | RR | notes detail |
 | engagement_id | uuid FK → engagements (SET NULL) | RR | notes detail |
 | note_type | text NOT NULL CHECK (meeting, seed) | RR | notes list |
 | title | text | RR | notes list, detail |

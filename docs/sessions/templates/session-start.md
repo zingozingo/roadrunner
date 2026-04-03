@@ -21,9 +21,17 @@ Principles:
 
 ## Two Modes
 
-**Interactive mode (default):** I direct work in real-time. You generate one command at a time. I run it, report results, we verify before continuing.
+**Interactive mode (default):** I direct work in real-time. You generate one command at a time. I run it, report results, we verify before continuing. This is the right mode when: exploring a problem, doing quick fixes, prototyping an approach, or when the work is small enough that a formal plan would be overhead.
 
-**Task mode:** We create a structured task plan with ordered tasks (scope, intent, context, done-when). The plan goes into `docs/plans/active.md`. I tell Claude Code to execute it with more autonomy while I supervise. Planning happens here. Execution happens in Claude Code.
+**Plan mode:** We create a structured task plan following the plan template (`docs/sessions/templates/plan-template.md`). The plan goes into `docs/plans/active.md`. Claude Code executes tasks with more autonomy while I supervise at checkpoints.
+
+Plan mode is the right choice when:
+- The work has 4+ distinct tasks with dependencies
+- Multiple files/pages need coordinated changes
+- We want Claude Code to work with more autonomy between checkpoints
+- The work would benefit from a pre-flight diagnostic per task
+
+If I say "let's create a plan" — ask me if I want you to reference the plan template. I may paste it to you, or I may ask you to work from memory of its structure. Either way, follow the plan template structure for all plans.
 
 ## Project Documents
 
@@ -36,16 +44,17 @@ These live in the project. Claude Code reads them directly. You don't need them 
 | `docs/goal-state.md` | Living status — current stats, what's complete, what's next. THE canonical home for all numbers. | Always — this is where we are |
 | `docs/entity-model.md` | Schema — all tables, FKs, AT field IDs, ring model, cascade rules | Data/schema work |
 | `docs/ai-call-map.md` | AI pipeline — 3 calls: synthesis, summarization, brain | AI/prompt work |
-| `docs/plans/active.md` | Current task plan (empty when no plan) | Task mode |
+| `docs/plans/active.md` | Current task plan (empty when no plan) | Plan mode |
 | `docs/plans/archive/` | Completed plans with completion summaries | Reference |
+| `docs/sessions/templates/plan-template.md` | Plan structure — task format, verification, checkpoints | Creating new plans |
 | `decisions.md` | Append-only architectural decision log | "Why did we decide X?" |
-| `.claude/roadrunner-ui/SKILL.md` | Living design system — evolves during UI work | UI work |
+| `.claude/roadrunner-ui/SKILL.md` | Living design system — visual foundations, interaction patterns, data visualization | UI work |
 | `.claude/references/` | Screenshots + ui-ux-best-practices.md | UI quality bar |
 
 ## Session Startup
 
 I'll paste three things after this:
-1. **Diagnostic output** — from Claude Code (quick or deep diagnostic)
+1. **Diagnostic output** — from Claude Code (`run the diagnostic`)
 2. **Latest session summary** — from `docs/sessions/summaries/`
 3. **What I want to work on today**
 
@@ -53,16 +62,18 @@ Your job after receiving these:
 
 1. **Absorb the diagnostic.** Note the stats (migrations, tests, pages, components, routes). Note the git history — what happened recently. Note any issues flagged.
 
-2. **Absorb the session summary.** Note where we left off. Note what was planned for next session. Note any open questions.
+2. **Absorb the session summary.** Note where we left off. Note what was planned for next session. Note any open questions or pre-existing issues.
 
 3. **Run a light Airtable recon via MCP:**
-   - `list_tables` with `tableIdentifiersOnly` — confirm table count (should be 11 active tables)
+   - `list_tables` with `tableIdentifiersOnly` — confirm table count
    - Spot-check record counts on key synced tables: Partners, Engagements, Meetings — just counts, not full pulls
-   - Only do a deep Airtable pull if we're doing sync work, schema changes, or you suspect drift between AT and Supabase
+   - Only do a deep Airtable pull if we're doing sync work, schema changes, or you suspect drift
 
-4. **If anything doesn't add up** — stats don't match, docs seem stale, Airtable counts don't align with what the diagnostic shows — flag it before we start working.
+4. **Proactive SKILL.md check:** Based on what I say I want to work on, identify which SKILL.md patterns are relevant. If I say "inbox work" — note the Mutation Lifecycle Framework, Action Button Group Spec, and any inbox-specific patterns. If I say "partner detail" — note the Section Pairing Pattern, Collapsible Sections, and any relevant data visualization patterns. Call out any gaps you notice ("SKILL.md doesn't have a pattern for X, we may need to establish one").
 
-5. **Confirm you're ready** and propose how to approach today's work.
+5. **If anything doesn't add up** — stats don't match, docs seem stale, Airtable counts don't align — flag it before we start.
+
+6. **Confirm you're ready** and propose how to approach today's work. If the work seems like it warrants a plan, suggest plan mode. If it's quick fixes or exploration, suggest interactive mode. Let me decide.
 
 ## Command Formats
 

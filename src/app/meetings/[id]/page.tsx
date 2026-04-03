@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import PageContainer from "@/components/layout/PageContainer";
 import MeetingActions from "@/components/actions/MeetingActions";
 import {
   getMeeting,
@@ -18,9 +19,8 @@ import MeetingNotesSection from "@/components/notes/MeetingNotesSection";
 import ContactGroup from "@/components/shared/ContactGroup";
 import { USER_CONFIG } from "@/lib/user-config";
 import EngagementLinker from "@/components/shared/EngagementLinker";
-import RecurrenceEditor from "@/components/shared/RecurrenceEditor";
-import SeriesDisplay from "@/components/shared/SeriesDisplay";
-import SeriesTimeline from "@/components/shared/SeriesTimeline";
+import RecurrenceCard from "@/components/shared/RecurrenceCard";
+import MakeRecurringButton from "@/components/shared/MakeRecurringButton";
 import type { DisplayContext } from "@/lib/types";
 import { MEETING_TYPE_DISPLAY } from "@/lib/sync/field-maps";
 
@@ -127,7 +127,7 @@ export default async function MeetingDetailPage({
   );
   const totalAttendees = filteredAttendees.length;
 
-  // Resolve series root data for SeriesDisplay
+  // Resolve series root data for RecurrenceCard
   const seriesRoot = meeting.series_id
     ? seriesSiblings.find((s) => s.id === meeting.series_id)
     : null;
@@ -141,7 +141,7 @@ export default async function MeetingDetailPage({
     : null;
 
   return (
-    <div className="mx-auto max-w-7xl p-6 lg:p-8">
+    <PageContainer>
       <Link
         href="/meetings"
         className="mb-4 inline-flex items-center gap-1 text-xs text-muted hover:text-foreground transition-colors"
@@ -153,8 +153,8 @@ export default async function MeetingDetailPage({
       </Link>
 
       {/* ═══ IDENTITY BAR ═══ */}
-      <div className="flex items-center gap-3 mb-6">
-        <h1 className="text-xl font-semibold text-foreground">{cleanMeetingTitle(meeting.title)}</h1>
+      <div className="flex items-center gap-3 mb-6 min-w-0">
+        <h1 className="text-xl font-semibold text-foreground truncate">{cleanMeetingTitle(meeting.title)}</h1>
         <span className={`shrink-0 h-2 w-2 rounded-full ${dotColor}`} title={meeting.status} />
         {partner && (
           <Link href={`/partners/${partner.id}`} className="text-sm font-medium text-accent hover:underline">
@@ -174,8 +174,8 @@ export default async function MeetingDetailPage({
         </div>
       </div>
 
-      {/* ═══ SERIES DISPLAY ═══ */}
-      <SeriesDisplay
+      {/* ═══ RECURRENCE SECTION — unified card ═══ */}
+      <RecurrenceCard
         meetingId={id}
         meetingDate={meeting.meeting_date}
         recurrencePattern={meeting.recurrence_pattern}
@@ -186,19 +186,11 @@ export default async function MeetingDetailPage({
         rootDate={rootDate}
       />
 
-      {/* ═══ SERIES TIMELINE ═══ */}
-      <SeriesTimeline
-        siblings={seriesSiblings}
-        rootAnchorDay={rootAnchorDay}
-        currentMeetingId={id}
-        recurrencePattern={meeting.recurrence_pattern}
-      />
-
       {/* ═══ TWO-COLUMN LAYOUT ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8 lg:gap-12">
+      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-6">
 
         {/* ─── LEFT COLUMN: Workspace ─── */}
-        <div>
+        <div className="min-w-0">
           {partner && partnerContext && (
             <MeetingNotesSection
               meetingId={id}
@@ -214,7 +206,7 @@ export default async function MeetingDetailPage({
         </div>
 
         {/* ─── RIGHT COLUMN: Context ─── */}
-        <div className="lg:border-l lg:border-border/20 lg:pl-8 space-y-0">
+        <div className="min-w-0 lg:border-l lg:border-border/20 lg:pl-6 space-y-0">
 
           {/* Details */}
           <section className="pb-6">
@@ -250,17 +242,13 @@ export default async function MeetingDetailPage({
                   <span className="text-sm text-foreground">{MEETING_TYPE_DISPLAY[meeting.meeting_type] ?? meeting.meeting_type}</span>
                 </div>
               )}
-              {/* Recurrence field only for standalone (non-series) meetings — series meetings use SeriesDisplay above */}
+              {/* Recurrence field only for standalone (non-series) meetings — series meetings use RecurrenceCard above */}
               {!meeting.series_id && !meeting.recurrence_pattern && (
                 <div>
                   <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Recurrence</span>
-                  <RecurrenceEditor
+                  <MakeRecurringButton
                     meetingId={id}
                     meetingDate={meeting.meeting_date}
-                    initialPattern={meeting.recurrence_pattern}
-                    initialEnd={meeting.recurrence_end}
-                    initialSeriesId={meeting.series_id}
-                    initialAnchorDay={meeting.anchor_day}
                   />
                 </div>
               )}
@@ -339,6 +327,6 @@ export default async function MeetingDetailPage({
           </p>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }

@@ -52,7 +52,8 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { title, engagement_id, partner_name, status, meeting_date, start_time, end_time, location, notes, recurrence_pattern, recurrence_end, series_id, anchor_day } = body;
+    const { title, engagement_id, partner_name, status, meeting_date, start_time, end_time, location, notes, recurrence_pattern, recurrence_end, series_id, anchor_day, scope } = body;
+    // scope: "this_one" (default) | "this_and_future" — for series-aware editing
 
     if (title !== undefined && (typeof title !== "string" || !title.trim())) {
       return NextResponse.json(
@@ -106,6 +107,71 @@ export async function PUT(
     if (anchor_day !== undefined) updates.anchor_day = anchor_day;
 
     const updated = await updateMeeting(id, updates);
+
+    // Scope-aware propagation: update future meetings in the series
+    if (scope === "this_and_future" && existing.series_id) {
+      const rootId = existing.series_id;
+      const patternChanged = recurrence_pattern !== undefined || anchor_day !== undefined;
+
+      if (patternChanged) {
+        try {
+          const { getSupabaseClient } = await import("@/lib/db");
+          const { calculateNextDate } = await import("@/lib/meeting-recurrence");
+          const db = getSupabaseClient();
+          const today = new Date().toISOString().slice(0, 10);
+
+          // Update series root with new pattern/anchor
+          const rootUpdates: Record<string, unknown> = {};
+          if (recurrence_pattern !== undefined) rootUpdates.recurrence_pattern = recurrence_pattern || null;
+          if (anchor_day !== undefined) rootUpdates.anchor_day = anchor_day;
+          if (recurrence_end !== undefined) rootUpdates.recurrence_end = recurrence_end || null;
+          if (id !== rootId) {
+            await updateMeeting(rootId, rootUpdates);
+          }
+
+          // Find future meetings in the series with no notes taken
+          const { data: futureMeetings } = await db
+            .from("meetings")
+            .select("id, meeting_date")
+            .eq("series_id", rootId)
+            .gte("meeting_date", today)
+            .neq("id", id)
+            .order("meeting_date", { ascending: true });
+
+          // Check which have no notes (safe to reschedule)
+          if (futureMeetings && futureMeetings.length > 0) {
+            const { data: notedMeetingIds } = await db
+              .from("meeting_notes")
+              .select("meeting_id")
+              .in("meeting_id", futureMeetings.map((m) => m.id));
+            const notedSet = new Set((notedMeetingIds ?? []).map((n: { meeting_id: string }) => n.meeting_id));
+
+            const newPattern = (recurrence_pattern ?? existing.recurrence_pattern) as import("@/lib/types").RecurrencePattern;
+            const newAnchor = anchor_day ?? existing.anchor_day ?? undefined;
+
+            // Recalculate dates for unattended future meetings
+            let prevDate = updated.meeting_date ?? existing.meeting_date ?? today;
+            for (const fm of futureMeetings) {
+              if (notedSet.has(fm.id)) {
+                prevDate = fm.meeting_date;
+                continue; // Skip meetings with notes
+              }
+              if (newPattern) {
+                const nextDate = calculateNextDate(prevDate, newPattern, newAnchor);
+                await updateMeeting(fm.id, {
+                  meeting_date: nextDate,
+                  recurrence_pattern: newPattern,
+                  anchor_day: newAnchor ?? null,
+                });
+                prevDate = nextDate;
+              }
+            }
+          }
+        } catch (err) {
+          console.error(`Scope propagation failed for series ${rootId}:`, err);
+        }
+      }
+    }
 
     // Push to Airtable when engagement link changes
     if (engagement_id !== undefined) {
