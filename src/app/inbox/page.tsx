@@ -10,7 +10,10 @@ export default async function InboxPage() {
 
   return (
     <PageContainer>
-      <PageHeader title="Inbox" />
+      <PageHeader
+        title="Inbox"
+        subtitle={items.length === 0 ? "No items in inbox" : `${items.length} item${items.length !== 1 ? "s" : ""} in inbox`}
+      />
       <InboxClient items={items} />
     </PageContainer>
   );

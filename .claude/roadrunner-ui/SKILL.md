@@ -193,7 +193,7 @@ Three-tier navigation without section labels. Hierarchy communicated through tex
 | Tier | Items | Idle text | Hover | Active |
 |------|-------|-----------|-------|--------|
 | Primary | Today, Partners, Inbox | `text-foreground/80` | `text-foreground bg-white/[0.04]` | `text-accent bg-accent/[0.08]` |
-| Secondary | Tasks, Meetings | `text-muted` | `text-foreground/70 bg-white/[0.04]` | `text-accent bg-accent/[0.08]` |
+| Secondary | Engagements, Tasks, Meetings, People | `text-muted` | `text-foreground/70 bg-white/[0.04]` | `text-accent bg-accent/[0.08]` |
 | Tertiary | Programs, Events | `text-muted/60` | `text-muted bg-white/[0.04]` | `text-accent bg-accent/[0.08]` |
 
 Badge (Inbox count): `h-[18px] min-w-[18px] rounded-full bg-accent text-[10px] font-semibold text-white`
@@ -328,6 +328,7 @@ const [{ data: meetings }, { data: engagements }] = await Promise.all([
 | `/` | Today — daily launchpad | Redesigning |
 | `/partners` | Partner directory by segment | Redesigning |
 | `/partners/[id]` | Partner dossier | Redesigning |
+| `/engagements` | Engagement list by status | Active |
 | `/engagements/[id]` | Engagement detail (via partner) | Redesigning |
 | `/meetings` | Cross-partner meetings | Redesigning |
 | `/meetings/[id]` | Meeting detail + notes workspace | Redesigning |
@@ -338,7 +339,7 @@ const [{ data: meetings }, { data: engagements }] = await Promise.all([
 | `/events` | Event catalog | Light refresh |
 | `/events/[id]` | Event detail | Light refresh |
 
-**Deleted:** `/engagements` (list), `/relationships` (dissolved), `/notes/*` (legacy)
+**Deleted:** `/relationships` (dissolved), `/notes/*` (legacy)
 
 ---
 
@@ -448,6 +449,20 @@ Reusable behavior patterns for interactive elements. Any pattern established her
 - Within UPCOMING, meetings grouped by date with date shown only on first row of each group
 **Design rationale:** Most visits to /meetings are about upcoming meetings. Past meetings are reference material. Default collapsed keeps the page focused.
 **Constraints:** Always show both sections — even if UPCOMING is empty, show the empty section header.
+
+### Completed Items Section (Tasks)
+
+**Component:** Collapsed `<details>` section in `TasksClient` (`src/app/tasks/TasksClient.tsx`)
+**Used on:** Tasks page
+**Behavior:**
+- Collapsed by default at bottom of list
+- Header: "COMPLETED IN LAST 30 DAYS" + count, section header style (`text-xs font-medium uppercase tracking-wider text-muted/60`)
+- Rows rendered at `opacity-60` with strikethrough text and checked checkbox
+- Bidirectional: checking an active task moves it here immediately; unchecking moves it back to active
+- Fetched server-side (`getCompletedTasks`) — persists across refresh
+- Partner/owner filters apply to both active and completed sections
+**Design rationale:** Completed tasks should be accessible but not cluttering the working view. The 30-day window keeps the section manageable. Bidirectional toggle avoids the need for undo/toast patterns.
+**Constraints:** Don't show completed tasks older than 30 days. Don't default to open — the working set is always the priority.
 
 ## Confirmation & Destructive Actions
 
