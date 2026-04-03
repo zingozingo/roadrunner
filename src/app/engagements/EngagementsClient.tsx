@@ -197,8 +197,6 @@ function EngagementRow({
   engagement: EngagementWithContext;
   isLast: boolean;
 }) {
-  const summary = engagement.condensed || engagement.current_state;
-
   return (
     <Link
       href={`/engagements/${engagement.id}`}
@@ -221,12 +219,12 @@ function EngagementRow({
         </span>
       </div>
 
-      {/* Bottom line: summary + pillar */}
-      {(summary || engagement.pillar) && (
+      {/* Bottom line: topic + pillar */}
+      {(engagement.topic || engagement.pillar) && (
         <div className="mt-1 flex items-center gap-3">
-          {summary && (
-            <span className="min-w-0 flex-1 truncate text-sm text-muted line-clamp-1">
-              {summary}
+          {engagement.topic && (
+            <span className="min-w-0 flex-1 truncate text-sm text-muted">
+              {engagement.topic}
             </span>
           )}
           {engagement.pillar && (

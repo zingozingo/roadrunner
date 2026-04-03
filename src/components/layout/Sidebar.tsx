@@ -54,6 +54,15 @@ const primaryItems: NavItem[] = [
 
 const secondaryItems: NavItem[] = [
   {
+    href: "/engagements",
+    label: "Engagements",
+    icon: (
+      <svg width="17" height="17" viewBox="0 0 17 17" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M2.5 8.5h4l2-3 3 6 2-3h1" />
+      </svg>
+    ),
+  },
+  {
     href: "/tasks",
     label: "Tasks",
     icon: (
