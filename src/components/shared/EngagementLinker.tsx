@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 import InlineError from "@/components/shared/InlineError";
 
 interface EngagementOption {
@@ -35,6 +36,7 @@ export default function EngagementLinker({
   const [engagements, setEngagements] = useState<EngagementOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  useNavigationGuard(saving);
   const [newTitle, setNewTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
   const clearError = useCallback(() => setError(null), []);

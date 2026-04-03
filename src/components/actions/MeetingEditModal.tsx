@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { Meeting, MeetingStatus, MeetingType, Engagement } from "@/lib/types";
 import { useUnsavedChanges } from "@/components/shared/UnsavedChangesProvider";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 
 const MEETING_STATUSES: MeetingStatus[] = ["scheduled", "completed", "cancelled", "did_not_occur"];
 
@@ -51,6 +52,7 @@ export default function MeetingEditModal({ meeting, partnerName, onClose }: Meet
   const [engagementId, setEngagementId] = useState(meeting.engagement_id ?? "");
   const [notes, setNotes] = useState(meeting.notes ?? "");
   const [saving, setSaving] = useState(false);
+  useNavigationGuard(saving);
   const [error, setError] = useState<string | null>(null);
   const [showDiscard, setShowDiscard] = useState(false);
   const [engagements, setEngagements] = useState<Engagement[]>([]);

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { Meeting, RecurrencePattern } from "@/lib/types";
 import RecurrenceEditor from "./RecurrenceEditor";
 import ConfirmDialog from "./ConfirmDialog";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 import InlineError from "@/components/shared/InlineError";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -53,6 +54,7 @@ export default function RecurrenceCard({
   const [showOverflow, setShowOverflow] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
+  useNavigationGuard(saving);
   const [error, setError] = useState<string | null>(null);
 
   // Don't render if not a recurring series

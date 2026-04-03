@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { RecurrencePattern } from "@/lib/types";
 import { useUnsavedChanges } from "@/components/shared/UnsavedChangesProvider";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 import InlineError from "@/components/shared/InlineError";
 
 const PATTERN_LABELS: Record<RecurrencePattern, string> = {
@@ -76,6 +77,7 @@ export default function RecurrenceEditor({
   const [formAnchorDay, setFormAnchorDay] = useState<number>(defaultAnchorDay);
   const [showEndDate, setShowEndDate] = useState(!!initialEnd);
   const [saving, setSaving] = useState(false);
+  useNavigationGuard(saving);
   const [showDiscard, setShowDiscard] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 

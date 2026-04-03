@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Meeting } from "@/lib/types";
 import ConfirmDialog from "../shared/ConfirmDialog";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 import MeetingEditModal from "./MeetingEditModal";
 
 export default function MeetingActions({
@@ -16,6 +17,7 @@ export default function MeetingActions({
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  useNavigationGuard(deleting);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
