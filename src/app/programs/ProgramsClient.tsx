@@ -6,27 +6,27 @@ import PageHeader from "@/components/layout/PageHeader";
 import PageContainer from "@/components/layout/PageContainer";
 import EmptyState from "@/components/layout/EmptyState";
 import FilterBar from "@/components/layout/FilterBar";
-import { ProgramTypeBadge } from "@/components/shared/TypeBadge";
-import { Program, ProgramType } from "@/lib/types";
+import { ProgramCategoryBadge } from "@/components/shared/TypeBadge";
+import { Program, ProgramCategory } from "@/lib/types";
 
 type ProgramWithCount = Program & { linked_count: number };
 
-const TYPE_ORDER: ProgramType[] = [
-  "Competency",
-  "Service Ready",
-  "Program",
-  "SCA",
-  "Credit Program",
+const CATEGORY_ORDER: ProgramCategory[] = [
+  "Specialization",
   "Funding",
-  "Channel",
+  "Agreement",
+  "Operational",
   "Enablement",
 ];
 
-const TYPE_FILTER_OPTIONS = TYPE_ORDER.map((t) => ({
-  label: t,
-  value: t,
+const CATEGORY_FILTER_OPTIONS = CATEGORY_ORDER.map((c) => ({
+  label: c,
+  value: c,
 }));
 
+function formatCurrency(value: number): string {
+  return "$" + value.toLocaleString("en-US");
+}
 
 interface ProgramsClientProps {
   programs: ProgramWithCount[];
@@ -43,10 +43,11 @@ export default function ProgramsClient({ programs }: ProgramsClientProps) {
         const q = searchQuery.toLowerCase();
         const matchesName = program.name.toLowerCase().includes(q);
         const matchesDesc = program.description?.toLowerCase().includes(q);
-        if (!matchesName && !matchesDesc) return false;
+        const matchesSubtype = program.subtype?.toLowerCase().includes(q);
+        if (!matchesName && !matchesDesc && !matchesSubtype) return false;
       }
-      // Type filter
-      if (activeFilter && program.type !== activeFilter) {
+      // Category filter
+      if (activeFilter && program.category !== activeFilter) {
         return false;
       }
       return true;
@@ -70,7 +71,7 @@ export default function ProgramsClient({ programs }: ProgramsClientProps) {
         <>
           <FilterBar
             searchPlaceholder="Search programs..."
-            filterOptions={TYPE_FILTER_OPTIONS}
+            filterOptions={CATEGORY_FILTER_OPTIONS}
             activeFilter={activeFilter}
             onSearchChange={setSearchQuery}
             onFilterChange={setActiveFilter}
@@ -97,9 +98,17 @@ export default function ProgramsClient({ programs }: ProgramsClientProps) {
                   <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
                     {program.name}
                   </span>
-                  <span className="shrink-0">
-                    <ProgramTypeBadge type={program.type} />
-                  </span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <ProgramCategoryBadge category={program.category} />
+                    {program.subtype && (
+                      <span className="text-xs text-muted">{program.subtype}</span>
+                    )}
+                  </div>
+                  {program.mdf_value != null && (
+                    <span className="shrink-0 text-xs text-muted">
+                      {formatCurrency(program.mdf_value)}
+                    </span>
+                  )}
                   {program.linked_count > 0 && (
                     <span className="shrink-0 text-xs text-muted">
                       {program.linked_count} engagement{program.linked_count !== 1 ? "s" : ""}

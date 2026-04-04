@@ -19,7 +19,12 @@ export const RING3_TABLES = {
 
 export const PF = {
   name: "fldlJgX0tVWwA516E",
-  type: "fldCd7TnUOgxnWmNt",
+  category: "fldB1x5c1mKfnI4wc",
+  subtype: "fldHUaRMCXF2GbwJX",
+  mdfValue: "fldKcSAyeQnFFqKeJ",
+  scaStackable: "fldXOzJka0JaD3g6G",
+  partnerPath: "fldRmJcmF5xgrwppo",
+  parentProgram: "fldybElR4kAXUWGi1",
   description: "fldHN5mCWH6lXmoY1",
   requirements: "fldxxsFFMc649nZft",
   whatItUnlocks: "fld4870bblJTGbAgn",

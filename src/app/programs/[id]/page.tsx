@@ -3,10 +3,14 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import PageContainer from "@/components/layout/PageContainer";
-import { ProgramTypeBadge } from "@/components/shared/TypeBadge";
+import { ProgramCategoryBadge } from "@/components/shared/TypeBadge";
 import ProgramActions from "@/components/actions/ProgramActions";
 import { formatFooterDate } from "@/lib/format-utils";
 import { getProgramById } from "@/lib/db";
+
+function formatCurrency(value: number): string {
+  return "$" + value.toLocaleString("en-US");
+}
 
 export default async function ProgramDetailPage({
   params,
@@ -33,7 +37,17 @@ export default async function ProgramDetailPage({
       {/* ═══ IDENTITY BAR ═══ */}
       <div className="flex items-center gap-3 pb-4 mb-6 border-b border-border/30">
         <h1 className="text-xl font-semibold text-foreground">{program.name}</h1>
-        <ProgramTypeBadge type={program.type} />
+        <ProgramCategoryBadge category={program.category} />
+        {program.subtype && (
+          <span className="rounded-full bg-border/30 px-2 py-0.5 text-xs font-medium text-muted">
+            {program.subtype}
+          </span>
+        )}
+        {program.sca_stackable && (
+          <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 text-xs font-medium text-cyan-400">
+            SCA Stackable
+          </span>
+        )}
         <div className="ml-auto">
           <ProgramActions program={program} />
         </div>
@@ -41,6 +55,24 @@ export default async function ProgramDetailPage({
 
       {/* ═══ CONTENT ═══ */}
       <div className="space-y-8">
+
+        {/* Metadata row */}
+        {(program.partner_path || program.mdf_value != null) && (
+          <div className="flex gap-8">
+            {program.partner_path && (
+              <div>
+                <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">Partner Path</span>
+                <span className="text-sm text-foreground">{program.partner_path}</span>
+              </div>
+            )}
+            {program.mdf_value != null && (
+              <div>
+                <span className="block text-[10px] font-semibold uppercase tracking-widest text-muted/50 mb-1">MDF Value</span>
+                <span className="text-sm text-foreground">{formatCurrency(program.mdf_value)}</span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Description */}
         {program.description && (

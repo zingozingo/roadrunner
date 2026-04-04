@@ -22,7 +22,7 @@ import {
 import {
   str, strArr, arr, selectName,
   hasChanges,
-  VALID_PROGRAM_TYPES, VALID_EVENT_TYPES, VALID_LIFECYCLE_TYPES,
+  VALID_PROGRAM_CATEGORIES, VALID_PROGRAM_SUBTYPES, VALID_EVENT_TYPES, VALID_LIFECYCLE_TYPES,
 } from "./utils";
 import { parseRoleContact, parseContactList } from "../contact-parser";
 import type { RoleContact } from "../types";
@@ -63,17 +63,28 @@ function mapProgram(rec: AirtableRecord): Record<string, unknown> | null {
   const name = str(rec.fields[PF.name]);
   if (!name) return null;
 
-  const rawType = str(rec.fields[PF.type]);
-  const type = rawType && VALID_PROGRAM_TYPES.has(rawType) ? rawType : null;
+  const rawCategory = str(rec.fields[PF.category]);
+  const category = rawCategory && VALID_PROGRAM_CATEGORIES.has(rawCategory) ? rawCategory : null;
+
+  const rawSubtype = str(rec.fields[PF.subtype]);
+  const subtype = rawSubtype && VALID_PROGRAM_SUBTYPES.has(rawSubtype) ? rawSubtype : null;
 
   const rawLifecycle = str(rec.fields[PF.lifecycle]);
   const lifecycle = rawLifecycle && VALID_LIFECYCLE_TYPES.has(rawLifecycle)
     ? rawLifecycle
     : "indefinite";
 
+  // AT linked record returns array of record IDs — extract first or null
+  const parentIds = arr(rec.fields[PF.parentProgram]);
+
   return {
     name,
-    type,
+    category,
+    subtype,
+    mdf_value: rec.fields[PF.mdfValue] != null ? Number(rec.fields[PF.mdfValue]) || null : null,
+    sca_stackable: rec.fields[PF.scaStackable] === true,
+    partner_path: str(rec.fields[PF.partnerPath]),
+    parent_program_airtable_id: parentIds[0] ?? null,
     description: str(rec.fields[PF.description]),
     requirements: str(rec.fields[PF.requirements]),
     what_it_unlocks: str(rec.fields[PF.whatItUnlocks]),

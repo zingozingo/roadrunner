@@ -56,8 +56,13 @@ export function hasChanges(
 
 // ── Valid value sets (must match DB CHECK constraints) ───────
 
-export const VALID_PROGRAM_TYPES = new Set([
-  "Competency", "Service Ready", "SCA", "Program", "Credit Program", "Funding", "Channel", "Enablement",
+export const VALID_PROGRAM_CATEGORIES = new Set([
+  "Specialization", "Funding", "Agreement", "Operational", "Enablement",
+]);
+
+export const VALID_PROGRAM_SUBTYPES = new Set([
+  "Competency", "Service Ready", "MSP", "Sub-Category", "MDF", "Credit Program",
+  "Hybrid", "SCA", "Co-Sell", "Channel", "Migration", "Workshop", "Certification",
 ]);
 
 export const VALID_EVENT_TYPES = new Set([

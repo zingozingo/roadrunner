@@ -1,14 +1,11 @@
-import { ProgramType, MeetingStatus } from "@/lib/types";
+import { ProgramCategory, MeetingStatus } from "@/lib/types";
 import { Event } from "@/lib/types";
 
-const programTypeColors: Record<ProgramType, string> = {
-  Competency: "bg-[var(--program-competency)]/20 text-[var(--program-competency)]",
-  "Service Ready": "bg-[var(--program-service-ready)]/20 text-[var(--program-service-ready)]",
-  SCA: "bg-[var(--program-sca)]/20 text-[var(--program-sca)]",
-  Program: "bg-[var(--program-program)]/20 text-[var(--program-program)]",
-  "Credit Program": "bg-[var(--program-credit)]/20 text-[var(--program-credit)]",
+const programCategoryColors: Record<ProgramCategory, string> = {
+  Specialization: "bg-[var(--program-specialization)]/20 text-[var(--program-specialization)]",
   Funding: "bg-[var(--program-funding)]/20 text-[var(--program-funding)]",
-  Channel: "bg-[var(--program-channel)]/20 text-[var(--program-channel)]",
+  Agreement: "bg-[var(--program-agreement)]/20 text-[var(--program-agreement)]",
+  Operational: "bg-[var(--program-operational)]/20 text-[var(--program-operational)]",
   Enablement: "bg-[var(--program-enablement)]/20 text-[var(--program-enablement)]",
 };
 
@@ -23,12 +20,12 @@ const eventTypeColors: Record<Event["type"], string> = {
   training: "bg-[var(--event-training)]/20 text-[var(--event-training)]",
 };
 
-export function ProgramTypeBadge({ type }: { type: ProgramType | null }) {
-  if (!type) return null;
-  const colors = programTypeColors[type] ?? "bg-border text-muted";
+export function ProgramCategoryBadge({ category }: { category: ProgramCategory | null }) {
+  if (!category) return null;
+  const colors = programCategoryColors[category] ?? "bg-border text-muted";
   return (
     <span className={`rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${colors}`}>
-      {type}
+      {category}
     </span>
   );
 }

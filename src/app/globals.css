@@ -21,15 +21,12 @@
   --confidence-medium: #f59e0b;
   --confidence-low: #ef4444;
 
-  /* Program type colors */
-  --program-competency: #3b82f6;
-  --program-service-ready: #06b6d4;
-  --program-sca: #a855f7;
-  --program-program: #22c55e;
-  --program-credit: #f97316;
-  --program-funding: #eab308;
-  --program-channel: #f59e0b;
-  --program-enablement: #8b5cf6;
+  /* Program category colors */
+  --program-specialization: #3b82f6;
+  --program-funding: #22c55e;
+  --program-agreement: #a855f7;
+  --program-operational: #f97316;
+  --program-enablement: #14b8a6;
 
   /* Event type colors */
   --event-conference: #8b5cf6;

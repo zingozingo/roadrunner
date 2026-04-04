@@ -37,7 +37,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, type, description, requirements } = body;
+    const { name, category, description, requirements } = body;
 
     if (name !== undefined && typeof name === "string" && !name.trim()) {
       return NextResponse.json(
@@ -54,17 +54,17 @@ export async function PUT(
       );
     }
 
-    const VALID_TYPES = new Set(["Competency", "Service Ready", "SCA", "Program", "Credit Program", "Funding", "Channel", "Enablement"]);
-    if (type !== undefined && type !== null && !VALID_TYPES.has(type)) {
+    const VALID_CATEGORIES = new Set(["Specialization", "Funding", "Agreement", "Operational", "Enablement"]);
+    if (category !== undefined && category !== null && !VALID_CATEGORIES.has(category)) {
       return NextResponse.json(
-        { error: `Invalid type "${type}". Must be one of: ${[...VALID_TYPES].join(", ")}` },
+        { error: `Invalid category "${category}". Must be one of: ${[...VALID_CATEGORIES].join(", ")}` },
         { status: 400 }
       );
     }
 
     const updates: Record<string, unknown> = {};
     if (name !== undefined) updates.name = name.trim();
-    if (type !== undefined) updates.type = type || null;
+    if (category !== undefined) updates.category = category || null;
     if (description !== undefined) updates.description = description || null;
     if (requirements !== undefined) updates.requirements = requirements || null;
 

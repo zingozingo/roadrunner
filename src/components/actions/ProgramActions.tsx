@@ -2,19 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Program, ProgramType } from "@/lib/types";
+import { Program, ProgramCategory } from "@/lib/types";
 import ConfirmDialog from "../shared/ConfirmDialog";
 import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 
-const TYPE_OPTIONS: (ProgramType | "")[] = [
+const CATEGORY_OPTIONS: (ProgramCategory | "")[] = [
   "",
-  "Competency",
-  "Service Ready",
-  "SCA",
-  "Program",
-  "Credit Program",
+  "Specialization",
   "Funding",
-  "Channel",
+  "Agreement",
+  "Operational",
   "Enablement",
 ];
 const LIFECYCLE_OPTIONS: Program["lifecycle_type"][] = ["indefinite", "recurring", "expiring"];
@@ -30,13 +27,13 @@ export default function ProgramActions({ program }: { program: Program }) {
 
   // Edit form state
   const [name, setName] = useState(program.name);
-  const [type, setType] = useState<ProgramType | "">(program.type ?? "");
+  const [category, setCategory] = useState<ProgramCategory | "">(program.category ?? "");
   const [description, setDescription] = useState(program.description ?? "");
   const [requirements, setRequirements] = useState(program.requirements ?? "");
 
   function startEdit() {
     setName(program.name);
-    setType(program.type ?? "");
+    setCategory(program.category ?? "");
     setDescription(program.description ?? "");
     setRequirements(program.requirements ?? "");
     setError(null);
@@ -62,7 +59,7 @@ export default function ProgramActions({ program }: { program: Program }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
-          type: type || null,
+          category: category || null,
           description: description.trim() || null,
           requirements: requirements.trim() || null,
         }),
@@ -125,16 +122,16 @@ export default function ProgramActions({ program }: { program: Program }) {
             />
           </div>
 
-          {/* Type */}
+          {/* Category */}
           <div>
-            <label className={labelClass}>Type</label>
+            <label className={labelClass}>Category</label>
             <select
-              value={type}
-              onChange={(e) => setType(e.target.value as ProgramType | "")}
+              value={category}
+              onChange={(e) => setCategory(e.target.value as ProgramCategory | "")}
               className={inputClass}
             >
-              <option value="">No type</option>
-              {TYPE_OPTIONS.filter(Boolean).map((opt) => (
+              <option value="">No category</option>
+              {CATEGORY_OPTIONS.filter(Boolean).map((opt) => (
                 <option key={opt} value={opt}>
                   {opt}
                 </option>

@@ -53,12 +53,19 @@ export interface Event {
   created_at: string;
 }
 
-export type ProgramType = "Competency" | "Service Ready" | "SCA" | "Program" | "Credit Program" | "Funding" | "Channel" | "Enablement";
+export type ProgramCategory = "Specialization" | "Funding" | "Agreement" | "Operational" | "Enablement";
+
+export type ProgramSubtype = "Competency" | "Service Ready" | "MSP" | "Sub-Category" | "MDF" | "Credit Program" | "Hybrid" | "SCA" | "Co-Sell" | "Channel" | "Migration" | "Workshop" | "Certification";
 
 export interface Program {
   id: string;
   name: string;
-  type: ProgramType | null;
+  category: ProgramCategory | null;
+  subtype: ProgramSubtype | null;
+  mdf_value: number | null;
+  sca_stackable: boolean;
+  partner_path: string | null;
+  parent_program_airtable_id: string | null;
   description: string | null;
   requirements: string | null;
   what_it_unlocks: string | null;

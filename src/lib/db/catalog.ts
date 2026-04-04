@@ -121,7 +121,12 @@ export async function updateProgram(
   id: string,
   updates: {
     name?: string;
-    type?: Program["type"];
+    category?: Program["category"];
+    subtype?: Program["subtype"];
+    mdf_value?: number | null;
+    sca_stackable?: boolean;
+    partner_path?: string | null;
+    parent_program_airtable_id?: string | null;
     description?: string | null;
     requirements?: string | null;
     what_it_unlocks?: string | null;
