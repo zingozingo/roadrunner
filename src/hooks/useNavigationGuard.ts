@@ -62,8 +62,10 @@ export function useNavigationGuard(blocked: boolean) {
   useEffect(() => {
     if (!blocked) return;
     window.history.pushState({ navGuard: true }, "");
-    const handler = () => {
-      // Re-push guard so subsequent back presses also get caught
+    const handler = (e: PopStateEvent) => {
+      // Spurious popstate (macOS window switch, etc.) — guard entry still current
+      if (e.state?.navGuard) return;
+      // Real back press — guard entry was popped. Re-push to block.
       window.history.pushState({ navGuard: true }, "");
     };
     window.addEventListener("popstate", handler);

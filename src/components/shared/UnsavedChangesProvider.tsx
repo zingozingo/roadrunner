@@ -89,8 +89,10 @@ export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
     if (!isDirty) return;
     // Push a guard entry so pressing back triggers popstate instead of leaving
     window.history.pushState({ unsavedGuard: true }, "");
-    const handler = () => {
-      // User pressed back — show confirmation instead of navigating
+    const handler = (e: PopStateEvent) => {
+      // Spurious popstate (macOS window switch, etc.) — guard entry still current
+      if (e.state?.unsavedGuard) return;
+      // Real back press — guard entry was popped. Show confirmation.
       setPendingNavigation({
         href: "",
         navigate: () => window.history.back(),

@@ -297,6 +297,7 @@ If unsaved changes exist:
 - Block navigation with `beforeunload` + Next.js route interception
 - Modal: "You have unsaved changes. Leave anyway?"
 - Actions: "Stay" (primary) + "Leave" (ghost/danger)
+- **popstate handlers must include spurious-event check** — see "Navigation Guard During Mutations" in Layer 2 for the full pattern. Unconditional popstate handlers false-trigger on macOS window switching.
 
 ---
 
@@ -630,8 +631,12 @@ Any page with mutations MUST block navigation while an async operation is in-fli
 
 **Three interception points:**
 1. `beforeunload` — browser close, reload, or external navigation. Standard `event.preventDefault()`.
-2. `popstate` — browser back/forward button. Push current URL back to prevent navigation.
+2. `popstate` — browser back/forward button. Push a guard history entry with a state marker; on popstate, re-push to prevent navigation.
 3. Sidebar/internal link click — Next.js `router.push`. Intercept via `useEffect` on route change or wrapping navigation calls.
+
+**popstate spurious-event guard:** On macOS, browser window switching (Cmd+Tab, Stage Manager, Mission Control) can fire spurious popstate events without actually navigating. Both `UnsavedChangesProvider` and `useNavigationGuard` guard against this: when pushing a history entry, a marker is included in the state object (`unsavedGuard: true` or `navGuard: true`). When popstate fires, if the marker is still present in `event.state`, the event is spurious (the guard entry wasn't actually popped) — bail without showing the dialog. Only when the marker is absent (real Back press popped the entry) does the handler show the dialog and re-push the guard.
+
+**Constraint:** Any future popstate-based navigation interception MUST include this spurious-event check. Unconditional popstate handlers will false-trigger on macOS window management.
 
 **When blocked and user tries to navigate:**
 - Show modal: "Operation in progress. Leaving now may cause data loss."
