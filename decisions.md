@@ -7246,3 +7246,18 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** No remediation plan needed. Future UI work focuses on feature evolution (partner detail tabs, people page pagination) rather than conformance fixes.
 
 ---
+
+### #405 — Popstate spurious-event guard for navigation interception
+
+**Date:** 2026-04-03
+**Status:** ✅ Implemented
+
+**Decision:** Both UnsavedChangesProvider and useNavigationGuard push marker entries to browser history and listen for popstate. On macOS, window switching (Cmd+Tab, Stage Manager) can fire spurious popstate events without actual navigation. Fix: check if the marker is still in event.state — if present, the guard entry wasn't popped (spurious), bail. If absent, real Back press — show dialog and re-push. Constraint documented in SKILL.md: any future popstate handler MUST include this check.
+
+**Context:** After deploying the navigation guard rollout, the "Unsaved changes" modal appeared when switching to a different application window (Cmd+Tab) on macOS, even though no navigation occurred.
+
+**Rationale:** The popstate event fires on some macOS/browser combinations during window management without actually popping a history entry. By checking whether our marker is still in event.state, we can distinguish real Back presses (marker absent — it was popped) from spurious events (marker present — nothing was popped).
+
+**Impact:** Zero false-positive unsaved changes dialogs on macOS window switching. Pattern documented as a constraint in SKILL.md for all future popstate handlers.
+
+---

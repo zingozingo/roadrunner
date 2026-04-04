@@ -10,6 +10,8 @@ Third, completed tasks visibility was built properly — a new getCompletedTasks
 
 Fourth, the inbox subtitle was added for consistency — every list page now shows a count subtitle. A comprehensive visual conformance audit of all 14 pages at 1280px found zero SKILL.md violations, validating that the design system is consistently applied across the entire app.
 
+Fifth, after merging to main, a bug was diagnosed where the "Unsaved changes" modal appeared when switching to a different application window (Cmd+Tab) on macOS. The root cause: both UnsavedChangesProvider and useNavigationGuard push marker entries to browser history and listen for popstate, but macOS window switching can fire spurious popstate events without actual navigation. Both handlers were fixed to check if the marker is still in event.state — if present, the event is spurious (bail); if absent, real Back press (show dialog). The constraint was documented in SKILL.md for all future popstate handlers.
+
 ## Key Changes
 
 - useNavigationGuard wired into 18 components (was 2): PartnerScratchpad, EnrollmentSection, EventParticipationSection, BrainSynthesis, EngagementLinker, RecurrenceCard, RecurrenceEditor, MeetingEditModal, MeetingActions, EngagementActions, MergeButton, TasksClient, MeetingsClient, PeopleClient, ProgramActions, EventActions
@@ -19,8 +21,9 @@ Fourth, the inbox subtitle was added for consistency — every list page now sho
 - TasksClient: replaced broken showCompleted toggle with proper collapsed completed section, bidirectional toggle, server-fetched data
 - InboxClient: added count subtitle for consistency
 - SKILL.md: pages table updated, sidebar spec updated, completed items section pattern documented
+- Popstate spurious-event guard in UnsavedChangesProvider and useNavigationGuard — prevents false dialog triggers on macOS window switching
 
-## Decisions Logged: #398–#404
+## Decisions Logged: #398–#405
 
 | # | Title | Impact |
 |---|-------|--------|
@@ -31,17 +34,18 @@ Fourth, the inbox subtitle was added for consistency — every list page now sho
 | 402 | Topic vs condensed for display | Topic for humans, condensed for AI pipeline |
 | 403 | Completed tasks design | Separate DB function, bidirectional, 30-day window |
 | 404 | Visual conformance audit passes | All 14 pages conform to SKILL.md |
+| 405 | Popstate spurious-event guard | Prevents false dialog triggers on macOS window switching |
 
 ## Docs Updated
 
-- decisions.md: +7 entries (#398–#404)
+- decisions.md: +8 entries (#398–#405)
 - docs/goal-state.md: completed items moved, new priorities added, stats updated
 - CLAUDE.md: stats updated (page count 13→14, decision count 397→404)
-- .claude/roadrunner-ui/SKILL.md: updated during session (pages table, sidebar spec, completed items pattern)
+- .claude/roadrunner-ui/SKILL.md: updated during session (pages table, sidebar spec, completed items pattern, popstate spurious-event guard constraint)
 
 ## Current State
 
-83 migrations, 17 tables, 35 API routes, 14 pages, 444 tests, tsc clean, audit clean. Branch plan-3/daily-driver-mvp has accumulated significant work across Plan 3 and two follow-up sessions — ready for merge to main and deploy to Vercel. All 18 mutation surfaces have navigation guards. Every page passes SKILL.md conformance. The engagements list page completes the sidebar navigation story.
+83 migrations, 17 tables, 35 API routes, 14 pages, 444 tests, tsc clean, audit clean. Merged to main and deployed. All 18 mutation surfaces have navigation guards with spurious-event protection. Every page passes SKILL.md conformance. The engagements list page completes the sidebar navigation story. Decisions through #405.
 
 ## Next Session Priorities
 
