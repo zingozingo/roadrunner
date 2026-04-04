@@ -610,10 +610,8 @@ export async function syncPartnerProgramEnrollments(): Promise<SyncResult> {
         partner_id: partnerId,
         program_id: programId,
         program_name: programName,
-        type: toSnake(rec.fields[PARTNER_PROGRAMS_FIELDS.type]),
         status: toSnake(rec.fields[PARTNER_PROGRAMS_FIELDS.status]),
         date_achieved: str(rec.fields[PARTNER_PROGRAMS_FIELDS.dateAchieved]),
-        aws_stakeholder: str(rec.fields[PARTNER_PROGRAMS_FIELDS.awsStakeholder]),
         notes,
         airtable_id: rec.id,
       });

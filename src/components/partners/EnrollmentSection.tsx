@@ -11,7 +11,6 @@ interface Enrollment {
   partner_id: string;
   program_id: string | null;
   program_name: string | null;
-  type: string | null;
   status: string | null;
   date_achieved: string | null;
   notes: string | null;
@@ -21,13 +20,6 @@ interface ProgramOption {
   id: string;
   name: string;
 }
-
-const TYPE_OPTIONS = [
-  { value: "competency", label: "Competency" },
-  { value: "service_ready", label: "Service Ready" },
-  { value: "program", label: "Program" },
-  { value: "credit_program", label: "Credit Program" },
-];
 
 const STATUS_OPTIONS = [
   { value: "not_started", label: "Not Started" },
@@ -84,7 +76,6 @@ export default function EnrollmentSection({
 
   // Form state
   const [formProgramName, setFormProgramName] = useState("");
-  const [formType, setFormType] = useState("program");
   const [formStatus, setFormStatus] = useState("not_started");
   const [formDate, setFormDate] = useState("");
   const [formNotes, setFormNotes] = useState("");
@@ -98,7 +89,6 @@ export default function EnrollmentSection({
 
   function openModal() {
     setFormProgramName("");
-    setFormType("program");
     setFormStatus("not_started");
     setFormDate("");
     setFormNotes("");
@@ -127,7 +117,6 @@ export default function EnrollmentSection({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           program_name: formProgramName.trim(),
-          type: formType,
           status: formStatus,
           date_achieved: formDate || null,
           notes: formNotes.trim() || null,
@@ -227,13 +216,6 @@ export default function EnrollmentSection({
               ) : (
                 <span className="min-w-0 flex-1 truncate text-sm text-foreground/80">
                   {e.program_name ?? "Unknown"}
-                </span>
-              )}
-
-              {/* Type badge */}
-              {e.type && (
-                <span className="shrink-0 rounded-full bg-accent/8 px-2 py-0.5 text-[11px] font-medium text-accent/70">
-                  {TYPE_OPTIONS.find((o) => o.value === e.type)?.label ?? e.type}
                 </span>
               )}
 
@@ -348,35 +330,19 @@ export default function EnrollmentSection({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-medium text-muted/60 mb-1">
-                    Type <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={formType}
-                    onChange={(ev) => setFormType(ev.target.value)}
-                    className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
-                  >
-                    {TYPE_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-medium text-muted/60 mb-1">
-                    Status <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={formStatus}
-                    onChange={(ev) => setFormStatus(ev.target.value)}
-                    className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
-                  >
-                    {STATUS_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
-                </div>
+              <div>
+                <label className="block text-[10px] font-medium text-muted/60 mb-1">
+                  Status <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formStatus}
+                  onChange={(ev) => setFormStatus(ev.target.value)}
+                  className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
+                >
+                  {STATUS_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
               </div>
 
               <div>

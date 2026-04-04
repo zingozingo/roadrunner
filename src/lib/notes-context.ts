@@ -541,22 +541,21 @@ export async function buildBrainContext(partnerId: string): Promise<string> {
   // 7. Program Enrollments
   if (programEnrollments.length > 0) {
     const lines = ["## Program Enrollments\n"];
-    // Summary by type
-    const typeCounts: Record<string, number> = {};
+    // Summary by status
+    const statusCounts: Record<string, number> = {};
     for (const e of programEnrollments) {
-      const t = e.type ?? "Unknown";
-      typeCounts[t] = (typeCounts[t] || 0) + 1;
+      const s = e.status ?? "unknown";
+      statusCounts[s] = (statusCounts[s] || 0) + 1;
     }
-    const typeSummary = Object.entries(typeCounts)
-      .map(([t, c]) => `${c} ${t}`)
+    const statusSummary = Object.entries(statusCounts)
+      .map(([s, c]) => `${c} ${s}`)
       .join(", ");
-    lines.push(`${programEnrollments.length} programs enrolled: ${typeSummary}\n`);
+    lines.push(`${programEnrollments.length} programs enrolled: ${statusSummary}\n`);
     for (const e of programEnrollments) {
       const name = e.program_name ?? "Unlinked Program";
-      const type = e.type ? ` (${e.type})` : "";
       const status = e.status ? ` — ${e.status}` : "";
       const achieved = e.date_achieved ? ` [achieved ${e.date_achieved}]` : "";
-      lines.push(`- ${name}${type}${status}${achieved}`);
+      lines.push(`- ${name}${status}${achieved}`);
     }
     sections.push(lines.join("\n"));
   }

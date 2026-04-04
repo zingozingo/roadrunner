@@ -146,10 +146,8 @@ export const PARTNER_PROGRAMS_FIELDS = {
   programId: "fldmaD6ZTY7XvXkjw",   // text shorthand (legacy)
   program: "flduk1vdlcOFmAnaa",      // linked record → Programs table
   partner: "fldXXpf6zyDLLAKOz",
-  type: "fldu4oNGIHu7h5et5",
   status: "flddDihdNtRaLgYqn",
   dateAchieved: "fldJNF6KO3Osq2AWg",
-  awsStakeholder: "fldi0bBVH4VHkjIM3",
   notes: "fldqpulJjUKcro1xM",
 } as const;
 

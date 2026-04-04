@@ -588,10 +588,8 @@ export interface PartnerProgramEnrollment {
   partner_id: string;
   program_id: string | null;
   program_name: string | null;
-  type: string | null;
   status: string | null;
   date_achieved: string | null;
-  aws_stakeholder: string | null;
   notes: string | null;
   airtable_id: string | null;
   created_at: string;

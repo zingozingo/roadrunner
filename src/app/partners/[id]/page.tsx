@@ -479,7 +479,6 @@ export default async function PartnerDetailPage({
                 partner_id: e.partner_id,
                 program_id: e.program_id,
                 program_name: e.program_name ?? null,
-                type: e.type,
                 status: e.status,
                 date_achieved: e.date_achieved,
                 notes: e.notes,

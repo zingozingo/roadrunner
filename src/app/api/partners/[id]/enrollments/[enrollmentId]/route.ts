@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseClient } from "@/lib/db/client";
 
-const VALID_TYPES = new Set(["competency", "service_ready", "program", "credit_program"]);
 const VALID_STATUSES = new Set(["not_started", "in_progress", "submitted", "approved", "interested", "denied", "expired"]);
 
 export async function PUT(
@@ -17,12 +16,6 @@ export async function PUT(
   if (body.date_achieved !== undefined) updates.date_achieved = body.date_achieved || null;
   if (body.notes !== undefined) updates.notes = body.notes?.trim() || null;
 
-  if (body.type !== undefined) {
-    if (!VALID_TYPES.has(body.type)) {
-      return NextResponse.json({ error: `type must be one of: ${[...VALID_TYPES].join(", ")}` }, { status: 400 });
-    }
-    updates.type = body.type;
-  }
   if (body.status !== undefined) {
     if (!VALID_STATUSES.has(body.status)) {
       return NextResponse.json({ error: `status must be one of: ${[...VALID_STATUSES].join(", ")}` }, { status: 400 });
