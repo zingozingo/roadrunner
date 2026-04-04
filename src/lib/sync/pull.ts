@@ -250,7 +250,7 @@ export async function syncPrograms(): Promise<SyncResult> {
       } else {
         const { error } = await supabase
           .from("programs")
-          .insert({ ...mapped, airtable_record_id: rec.id, status: "active" });
+          .insert({ ...mapped, airtable_record_id: rec.id });
 
         if (error) {
           result.errors.push(`Insert program "${mapped.name}": ${error.message}`);
