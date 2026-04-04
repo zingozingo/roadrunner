@@ -7261,3 +7261,107 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** Zero false-positive unsaved changes dialogs on macOS window switching. Pattern documented as a constraint in SKILL.md for all future popstate handlers.
 
 ---
+### #406 — Programs two-level taxonomy: Category + Subtype replaces flat Type
+
+**Date:** 2026-04-04
+**Status:** ✅ Implemented
+
+**Decision:** The flat "Type" field on Programs (8 values: Competency, Service Ready, SCA, Program, Credit Program, Funding, Channel, Enablement) was replaced with a two-level taxonomy: Category (5 values: Specialization, Funding, Agreement, Operational, Enablement) × Subtype (13 values: Competency, Service Ready, MSP, Sub-Category, MDF, Credit Program, Hybrid, SCA, Co-Sell, Channel, Migration, Workshop, Certification). Old Type column and CHECK constraint dropped entirely — clean break, not deprecated. Migration 084.
+
+**Context:** The flat Type mixed fundamentally different program mechanisms (competencies are technical validations, SCAs are bilateral agreements, MDF is funding). Grouping by Type produced incoherent lists. The two-level taxonomy groups by business function (Category) while preserving mechanism specificity (Subtype).
+
+**Rationale:** Clean break over deprecation — the AT field was deleted, the DB column was dropped, the TypeScript union was replaced. No migration path needed because this is a catalog restructure (AT-owned data), not a user data migration. All 85 records were re-tagged in Airtable before the sync pipeline was updated.
+
+**Impact:** Programs page filters by 5 categories instead of 8 types. ProgramType union → ProgramCategory + ProgramSubtype. ProgramTypeBadge → ProgramCategoryBadge. All downstream consumers updated.
+
+---
+
+### #407 — Structured MDF/funding fields on Programs catalog
+
+**Date:** 2026-04-04
+**Status:** ✅ Implemented
+
+**Decision:** Three new structured fields added to Programs: mdf_value (INTEGER, nullable — dollar amount), sca_stackable (BOOLEAN, default false), partner_path (TEXT, CHECK: Software/Services/Both). These extract machine-readable data from what was previously buried in freetext Requirements and What It Unlocks fields.
+
+**Context:** MDF dollar amounts were mentioned in text like "Up to $50,000 in MDF funding." SCA stackability and partner path eligibility were similarly embedded in prose. Querying or filtering by these values required parsing freetext.
+
+**Rationale:** First-class columns enable filtering (e.g., "show all programs with MDF > $10,000"), sorting, and display without text parsing. Currency stored as INTEGER (no cents in MDF values). Boolean for stackability is cleaner than text. Partner Path uses CHECK constraint to prevent drift.
+
+**Impact:** Program detail page shows MDF Value formatted as currency, SCA Stackable pill, Partner Path label. Programs list shows MDF value inline. Filtering by these fields is now possible.
+
+---
+
+### #408 — Parent Program self-referencing link for sub-categories
+
+**Date:** 2026-04-04
+**Status:** ✅ Implemented
+
+**Decision:** parent_program_airtable_id (TEXT, nullable) added to Programs table. Stores the Airtable record ID of the parent program. Soft reference — no FK constraint, resolved via airtable_record_id lookups. Enables hierarchy like Agentic AI Category → AI Competency. CRITICAL LESSON: Airtable self-referencing linked record fields create paired forward/inverse fields. Deleting the auto-generated inverse field ("From field: Parent Program") DESTROYS the forward link. Inverse fields must be HIDDEN, never deleted.
+
+**Context:** The Agentic AI Category in AT is a sub-category of AI Competency. A Parent Program link field was created in AT, which auto-generated an inverse "From field: Parent Program" field. Deleting the inverse (thinking it was clutter) destroyed the forward link and required recreating the field with a new ID.
+
+**Rationale:** Soft reference (AT record ID text) rather than FK UUID because: (1) parent resolution only matters for display, not integrity; (2) avoids circular FK complexity; (3) AT record IDs are stable identifiers. Only 1 record currently uses this (Agentic AI Category), but the pattern is available for future sub-categorization.
+
+**Impact:** Parent-child program relationships can be expressed. Pattern available for MSSP security categories and Resilience categories if cataloged later. AT field management constraint documented.
+
+---
+
+### #409 — Competencies and Service Ready lifecycle = indefinite
+
+**Date:** 2026-04-04
+**Status:** ✅ Implemented
+
+**Decision:** All Competency and Service Ready programs changed from lifecycle_type "recurring" to "indefinite" with lifecycle_duration "Maintained while FTR and prerequisites are met." Previous "rolling 12-month renewal" language was misleading and removed from both Airtable and Supabase.
+
+**Context:** The original data population assumed competencies had a 12-month renewal cycle. In practice, AWS Competencies and Service Ready designations persist indefinitely as long as the partner maintains Foundational Technical Review (FTR) compliance and program-specific prerequisites. There is no expiration date or renewal clock.
+
+**Rationale:** Accurate lifecycle data prevents false urgency in future renewal tracking features. "Indefinite" correctly communicates that these designations are maintained, not renewed.
+
+**Impact:** 55 programs (42 Competency + 13 Service Ready) corrected. SCAs separately corrected to lifecycle_duration "1–3 years, individually negotiated."
+
+---
+
+### #410 — Programs catalog expanded: 72 → 85 records
+
+**Date:** 2026-04-04
+**Status:** ✅ Implemented
+
+**Decision:** 13 new Service Ready designations added from AWS research: Amazon SageMaker, Amazon Security Lake, AWS Security Incident Response, Amazon EKS, Amazon API Gateway, AWS Outposts, Amazon Redshift, Amazon Connect, Amazon EC2 Spot, AWS Direct Connect, AWS Config, AWS Control Tower, Amazon CloudFront. Full Service Ready catalog now matches AWS's published list.
+
+**Context:** The original catalog had 72 programs but was missing Service Ready designations for major AWS services. Web research against AWS's official Service Ready program page identified the 13 gaps.
+
+**Rationale:** Complete catalog enables accurate enrollment tracking. Missing records meant partners with these designations couldn't be properly tracked in the system.
+
+**Impact:** Programs table: 72 → 85 records. All 13 new records tagged as Category=Specialization, Subtype=Service Ready, lifecycle_type=indefinite. Bug found during insert: syncPrograms() was setting `status: "active"` on insert — a leftover from when programs had a status column (dropped in migration 041). Fixed.
+
+---
+
+### #411 — Programs text field boilerplate extraction
+
+**Date:** 2026-04-04
+**Status:** ✅ Implemented
+
+**Decision:** Requirements and What It Unlocks text fields stripped of repeated boilerplate: MDF dollar amounts (now in structured mdf_value field), "annual renewal" language (inaccurate — removed per decision #409), and shared competency mechanics that were copy-pasted across records. Each record now contains only domain-specific unique content. Shared benefits (badge, PSF listing, co-marketing eligibility) intentionally kept per-record for self-contained display.
+
+**Context:** Before extraction, every Competency record repeated "$50,000 in MDF funding" in text (now in mdf_value=50000), "rolling 12-month renewal" (now corrected to indefinite lifecycle), and generic prerequisite text. This made the text fields noisy and the structured fields redundant with prose.
+
+**Rationale:** Structured fields should be the source of truth for structured data. Text fields should contain only narrative content that adds unique value. Shared benefits kept because each program detail page should be self-contained — a user viewing "AI Competency" shouldn't need to read a separate "common benefits" section.
+
+**Impact:** Cleaner text fields across 85 records. MDF amounts readable from structured field, not parsed from prose.
+
+---
+
+### #412 — Programs sync pipeline: full field map overhaul
+
+**Date:** 2026-04-04
+**Status:** ✅ Implemented
+
+**Decision:** Complete sync pipeline update for Programs restructure. field-maps.ts PF constant updated from 8 to 13 entries (old Type field ID removed, 6 new field IDs added). mapProgram() in pull.ts rewritten for new fields. VALID_PROGRAM_TYPES replaced with VALID_PROGRAM_CATEGORIES + VALID_PROGRAM_SUBTYPES in utils.ts. ProgramType union replaced with ProgramCategory + ProgramSubtype in types.ts. ProgramTypeBadge → ProgramCategoryBadge in TypeBadge.tsx. API PUT validation updated. 7 files changed across sync, types, UI, and API layers.
+
+**Context:** Migration 084 added the new columns and dropped the old type column. The sync pipeline still referenced the deleted AT field ID fldCd7TnUOgxnWmNt. Without the pipeline update, the next sync would have nulled all program types.
+
+**Rationale:** Compiler-driven refactoring: types.ts changed first (breaking ProgramType consumers), then tsc --noEmit error list used as the fix list. All 9 type errors resolved across 5 files. Sync, types, UI, and API updated in one commit for atomic consistency.
+
+**Impact:** Full round-trip working: AT → field-maps → pull.ts → Supabase → types.ts → UI components → API validation. 85 records synced successfully with all 6 new fields populated.
+
+---

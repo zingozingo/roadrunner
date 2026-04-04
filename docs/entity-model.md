@@ -145,13 +145,18 @@ erDiagram
 
 ### PROGRAMS (Synced — AT-owned catalog, pulled into RR)
 
-**Airtable Table:** `tblpnW8ibVmkWi5Dt` · **Sync constant:** `PF`
+**Airtable Table:** `tblpnW8ibVmkWi5Dt` · **Sync constant:** `PF` · **85 records** (42 Competency, 19 Service Ready, 1 MSP, 1 Sub-Category, 6 MDF, 2 Credit Program, 3 Hybrid, 3 Co-Sell, 2 Channel, 1 Migration, 3 SCA, 2 Workshop)
 
 | Field | SB Type | AT Type | Owner | Sync | AT Field ID | UI |
 |-------|---------|---------|-------|------|-------------|-----|
 | id | uuid PK | — | RR | — | — | program detail |
 | name | text NOT NULL | singleLineText | AT | ← AT | fldlJgX0tVWwA516E | program list, detail, classifier |
-| type | text CHECK (8 options) | singleSelect (8 options) | AT | ← AT | fldCd7TnUOgxnWmNt | program list, detail, classifier |
+| category | text CHECK (5 options: Specialization, Funding, Agreement, Operational, Enablement) | singleSelect | AT | ← AT | fldB1x5c1mKfnI4wc | program list, detail, filter bar |
+| subtype | text CHECK (13 options: Competency, Service Ready, MSP, Sub-Category, MDF, Credit Program, Hybrid, SCA, Co-Sell, Channel, Migration, Workshop, Certification) | singleSelect | AT | ← AT | fldHUaRMCXF2GbwJX | program list, detail |
+| mdf_value | integer | currency | AT | ← AT | fldKcSAyeQnFFqKeJ | program list (currency), detail |
+| sca_stackable | boolean DEFAULT false | checkbox | AT | ← AT | fldXOzJka0JaD3g6G | program detail (pill) |
+| partner_path | text CHECK (3 options: Software, Services, Both) | singleSelect | AT | ← AT | fldRmJcmF5xgrwppo | program detail |
+| parent_program_airtable_id | text | linkedRecord → Programs (self-ref) | AT | ← AT (first element) | fldI4mLHW39Abk2c4 | — |
 | description | text | multilineText | AT | ← AT | fldHN5mCWH6lXmoY1 | program detail, classifier |
 | requirements | text | multilineText | AT | ← AT | fldxxsFFMc649nZft | program detail, classifier |
 | what_it_unlocks | text | multilineText | AT | ← AT | fld4870bblJTGbAgn | program detail |
@@ -167,6 +172,7 @@ erDiagram
 | AT Field | AT Type | AT Field ID | Plan |
 |----------|---------|-------------|------|
 | Partner Engagements | linkedRecord → Engagements | fldotD0TG22LiWMPF | computed (reverse link) — no action needed |
+| From field: Parent Program | linkedRecord (auto-inverse) | — | HIDDEN in AT, never delete — destroying inverse destroys forward link |
 
 ---
 
