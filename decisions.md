@@ -7365,3 +7365,32 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** Full round-trip working: AT → field-maps → pull.ts → Supabase → types.ts → UI components → API validation. 85 records synced successfully with all 6 new fields populated.
 
 ---
+### #413 — Partner Programs junction: Type and AWS Stakeholder fields removed
+
+**Date:** 2026-04-04
+**Status:** ✅ Implemented
+
+**Decision:** Type and AWS Stakeholder columns dropped from partner_program_enrollments (migration 085). The AT fields were deleted first — Type was redundant with the linked Program catalog's Category + Subtype (decision #406), and AWS Stakeholder data is better tracked through the engagement participant model. Notes field intentionally kept for personal reference that doesn't fit elsewhere.
+
+**Context:** The Partner Programs junction table (tbl1CPtbVzQvRN8LA) had a 4-value Type field (Competency, Service Ready, Program, Credit Program) that was a simplified duplicate of the Programs catalog's now-13-value Subtype. AWS Stakeholder was a freetext field that overlapped with engagement participant tracking.
+
+**Rationale:** Enrollment type should be derived from the linked program, not stored redundantly on the junction record. This eliminates the mismatch (4 values vs 13) and ensures enrollments always reflect the catalog's current taxonomy without manual sync. AWS Stakeholder removal follows the principle that contact data belongs in the participant model.
+
+**Impact:** Migration 085 drops both columns. PARTNER_PROGRAMS_FIELDS reduced from 8 to 6 entries. EnrollmentSection no longer shows type badge or type selector. API routes no longer validate or accept type. Brain context builder summarizes enrollments by status instead of type.
+
+---
+
+### #414 — Partner Programs junction: enrollment type display derived from catalog
+
+**Date:** 2026-04-04
+**Status:** ✅ Implemented
+
+**Decision:** EnrollmentSection.tsx no longer stores or displays a standalone enrollment type. The linked program's category and subtype are inherited through the program_id FK join. TYPE_OPTIONS array, type badge rendering, type form selector, formType state, and VALID_TYPES validation sets all removed from UI and API layers. 9 files changed across migration, sync, types, UI, API, and context builder.
+
+**Context:** With the Programs catalog now having a proper two-level taxonomy (Category × Subtype, decision #406), storing a separate simplified type on each enrollment was redundant and divergent. The enrollment's "type" is inherently the type of program it enrolls in.
+
+**Rationale:** Single source of truth — the program defines its own classification. The enrollment records the relationship (which partner, what status, when achieved) but not a copy of the program's metadata. This follows the "resolve, don't duplicate" principle.
+
+**Impact:** Enrollment rows show program name + status. Type information is available on the linked program detail page. Create enrollment modal simplified (one fewer required field). API POST no longer requires type, fixing a broken validation that would have rejected typeless enrollments.
+
+---

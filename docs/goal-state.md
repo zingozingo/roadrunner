@@ -6,7 +6,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 84 migrations, 17 active tables, 35 API routes, 14 UI pages, 444 passing tests (0 failures), tsc --noEmit passes clean, 38 components, decisions through #412
+- 85 migrations, 17 active tables, 35 API routes, 14 UI pages, 444 passing tests (0 failures), tsc --noEmit passes clean, 38 components, decisions through #414
 - Human-guided intake pipeline fully operational: webhook → mechanical partner detection → ICS partner backfill → inbox triage (with unknown partner picker) → single-phase AI synthesis (decisions #223-252)
 - Meetings Motion complete (decisions #253-259): 10 interaction-based meeting types, recurring meeting engine with auto-spawn, series tracking via self-referential FK, RecurrenceEditor UI, synthesis-on-link, conference boilerplate pre-split fix, ICS multi-VEVENT guardrail confirmed
 - AI Brain Overhaul Phases 1-3 complete (decisions #260-269): goal field eliminated (migration 069), condensed columns on engagements + meeting_notes (migration 068), meeting summarization restructured with scoped context builder, structured output (Discussion/Decisions/Key Context), condensed 3-5 bullet digest, non-redundancy with tasks
@@ -58,12 +58,11 @@ A system where a PDM forwards an email and Roadrunner:
 ## What's Next
 
 ### Immediate
-- Partner Programs junction table — review structure, verify enrollment data accuracy, ensure all records link to catalog, clean up Type mismatch (junction has 4 subtypes vs catalog's 13)
-- Events catalog — same structural analysis and data quality sweep as Programs (44 records currently)
-- Partner Events junction table — currently empty, needs seeding after Events catalog is clean
+- Events catalog — structural analysis, field schema review, research current 2026 event data, verify dates/locations, check for missing events, improve metadata (44 records currently)
+- Partner Events junction — structure review + seeding (currently 0 records)
+- Docs — entity-model.md needs Partner Program Enrollments section updated for migration 085
 
 ### Soon
-- Docs update pass — entity-model.md Programs section rewritten this session, broader refresh may be needed after junction tables restructured
 - Programs page UI polish — consider grouping by Category with Subtype sections
 - Plan 4 — Partner detail page reorganization: tabs or progressive disclosure for the longest page in the app
 - People page evolution — alphabetical grouping or pagination for 227+ participants
@@ -161,6 +160,7 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~Completed tasks visibility~~ ✅ (decision #403, separate DB function, bidirectional toggle, 30-day window)
 - ~~Visual conformance audit~~ ✅ (decision #404, all 14 pages pass SKILL.md at 1280px)
 - ~~Programs catalog restructure~~ ✅ (decisions #406-412): Two-level taxonomy (Category × Subtype), 6 new structured fields, 13 new Service Ready records, lifecycle corrections, boilerplate extraction, full sync pipeline overhaul, 72→85 records, migration 084
+- ~~Partner Programs junction cleanup~~ ✅ (decisions #413-414): Type and AWS Stakeholder columns dropped (migration 085), enrollment type now derived from linked program's category/subtype, 9 files cleaned
 
 ## Architecture Principles
 

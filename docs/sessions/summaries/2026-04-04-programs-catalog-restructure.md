@@ -14,15 +14,17 @@ After the structural work, all 85 records were corrected for lifecycle accuracy:
 
 One mistake occurred: I advised Steven to delete the "From field: Parent Program" inverse link field, which destroyed the Parent Program forward link. This was fixed by recreating the link field with a new field ID and re-linking the Agentic AI Category record. Lesson documented in decision #408.
 
+After the Programs catalog work, the Partner Programs junction table (partner_program_enrollments) was cleaned up. Steven deleted the Type and AWS Stakeholder fields from Airtable — Type was redundant with the linked program's new Category/Subtype taxonomy, and AWS Stakeholder data is better tracked through the engagement participant model. Migration 085 dropped both columns from Supabase. The EnrollmentSection component was simplified (type badge, type selector, and TYPE_OPTIONS removed), API routes no longer validate or accept type, and the brain context builder now summarizes enrollments by status instead of type. 9 files changed.
+
 ## Stats Change
 
 | Metric | Before | After |
 |--------|--------|-------|
-| Migrations | 83 | 84 |
+| Migrations | 83 | 85 |
 | Programs records | 72 | 85 |
 | Tests | 444 | 444 |
 | Pages | 14 | 14 |
-| Decisions | #405 | #412 |
+| Decisions | #405 | #414 |
 
 ## Key Changes
 
@@ -38,8 +40,13 @@ One mistake occurred: I advised Steven to delete the "From field: Parent Program
 - API PUT validation updated for new field set
 - All 85 records: lifecycle corrected, text boilerplate stripped, structured fields populated
 - Parent Program link field recreated after accidental deletion (new field ID: fldI4mLHW39Abk2c4)
+- Migration 085: Dropped type column (+ CHECK constraint) and aws_stakeholder column from partner_program_enrollments
+- EnrollmentSection.tsx: TYPE_OPTIONS, type badge, type selector, formType state all removed
+- API enrollment routes: VALID_TYPES removed, type no longer validated or accepted on POST/PUT
+- Brain context builder: enrollment summary changed from type-based to status-based grouping
+- PARTNER_PROGRAMS_FIELDS reduced from 8 to 6 entries in field-maps.ts
 
-## Decisions Logged: #406–#412
+## Decisions Logged: #406–#414
 
 | # | Title | Impact |
 |---|-------|--------|
@@ -50,29 +57,31 @@ One mistake occurred: I advised Steven to delete the "From field: Parent Program
 | 410 | Programs catalog expanded 72→85 | 13 new Service Ready designations from AWS research |
 | 411 | Text field boilerplate extraction | Stripped repeated MDF/renewal language, kept domain-specific content |
 | 412 | Sync pipeline full field map overhaul | 7 files updated across sync, types, UI, API layers |
+| 413 | Enrollment Type + AWS Stakeholder removed | Migration 085, redundant with catalog taxonomy and participant model |
+| 414 | Enrollment type derived from catalog | EnrollmentSection simplified, API routes cleaned, 9 files changed |
 
 ## Docs Updated
 
-- decisions.md: +7 entries (#406–#412)
+- decisions.md: +9 entries (#406–#414)
 - docs/goal-state.md: completed items, new catalog-focused priorities, stats updated
-- docs/entity-model.md: Programs table section rewritten for new schema
+- docs/entity-model.md: Programs table section rewritten for new schema, Partner Program Enrollments section updated for migration 085
 - CLAUDE.md: migration count, decision count updated
 
 ## Current State
 
-84 migrations, 17 tables, 35 API routes, 14 pages, 444 tests, tsc clean. Programs catalog fully restructured with 85 records across 5 categories, all with accurate lifecycle data, structured MDF values, and clean text fields. Sync pipeline pulls all new fields. /programs page displays category badges, subtype labels, and MDF values. Programs is production-ready.
+85 migrations, 17 tables, 35 API routes, 14 pages, 444 tests, tsc clean. Programs catalog fully restructured with 85 records across 5 categories, all with accurate lifecycle data, structured MDF values, and clean text fields. Sync pipeline pulls all new fields. /programs page displays category badges, subtype labels, and MDF values. Partner Programs junction table cleaned — type and aws_stakeholder columns dropped, enrollment type derived from linked program catalog. Programs pipeline is production-ready end-to-end.
 
 ## Next Session Priorities
 
-1. **Immediate: Partner Programs junction table** — Review the structure of the Partner Programs table (tbl1CPtbVzQvRN8LA, ~80 records). Key issues to address: Type field only has 4 values vs catalog's 13 subtypes, 58/80 records have null program_id (not linked to catalog), freetext "Program ID" field is inconsistent with catalog names. Goal: clean structure, accurate enrollment data, every record linked to catalog.
-2. **Immediate: Events catalog** — Same structural analysis as Programs. Review field schema, research current 2026 event data, verify dates/locations, check for missing events, improve metadata. 44 records currently.
-3. **Immediate: Partner Events junction** — Currently 0 records. After Events catalog is clean, seed partner event participation data.
-4. **Soon: Docs update pass** — entity-model.md Programs section was rewritten this session, but a broader docs refresh may be needed after junction tables are also restructured.
+1. **Immediate: Events catalog** — Same structural analysis as Programs. Review field schema, research current 2026 event data, verify dates/locations, check for missing events, improve metadata. 44 records currently.
+2. **Immediate: Partner Events junction** — Structure review + seeding. Currently 0 records. After Events catalog is clean, seed partner event participation data.
+3. **Soon: Docs update pass** — entity-model.md Partner Program Enrollments section updated this session. Broader refresh may be needed after Events work.
+4. **Soon: Programs page UI polish** — Consider grouping by Category with Subtype sections.
 
 ## Open Questions
 
-- Should the Partner Programs junction table adopt the same Category/Subtype taxonomy as the catalog, or keep its own simplified classification?
 - For Events catalog: do we need a "Relevance" or "Priority" field to distinguish events Steven actively tracks vs. reference events?
+- 58/80 Partner Programs junction records still have null program_id — linking these to the catalog (now with 85 records) is a data quality task for a future session.
 
 ## Pre-existing Issues
 

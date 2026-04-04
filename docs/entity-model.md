@@ -657,15 +657,15 @@ erDiagram
 | Program ID | multilineText | fldmaD6ZTY7XvXkjw | program_name TEXT — primary display label |
 | Program | linkedRecord → Programs | flduk1vdlcOFmAnaa | program_id UUID FK SET NULL (optional click-through) |
 | Partner | linkedRecord → Partners | fldXXpf6zyDLLAKOz | partner_id UUID FK CASCADE |
-| Type | singleSelect (4 options: Competency, Service Ready, Program, Credit Program) | fldu4oNGIHu7h5et5 | type TEXT |
 | Status | singleSelect (7 options: Not Started, In Progress, Submitted, Approved, Interested, Denied, Expired) | flddDihdNtRaLgYqn | status TEXT |
 | Date Achieved | date | fldJNF6KO3Osq2AWg | date_achieved TEXT |
-| AWS Stakeholder | multilineText | fldi0bBVH4VHkjIM3 | aws_stakeholder TEXT |
 | Notes | multilineText | fldqpulJjUKcro1xM | notes TEXT |
 
-Additional Supabase columns: airtable_id TEXT UNIQUE (sync dedup key).
+Additional Supabase columns: airtable_id TEXT UNIQUE (sync dedup key), created_at, updated_at.
 
-`program_name` is always populated from AT "Program ID" text field. `program_id` FK resolves when AT has a linked record to the Programs table (22/80 currently). UI shows program_name as primary label; if program_id is resolved, the name is a clickable link to the program detail page.
+**Dropped columns (migration 085):** `type` (was 4-value CHECK — now derived from linked program's category/subtype via program_id FK), `aws_stakeholder` (AT field deleted — contact data tracked through engagement participant model).
+
+`program_name` is always populated from AT "Program ID" text field. `program_id` FK resolves when AT has a linked record to the Programs table. UI shows program_name as primary label; if program_id is resolved, the name is a clickable link to the program detail page.
 
 ---
 
