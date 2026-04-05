@@ -17,9 +17,8 @@ const TYPE_FILTER_OPTIONS = [
   { label: "Workshop", value: "workshop" },
   { label: "Training", value: "training" },
   { label: "Trade Show", value: "trade_show" },
-  { label: "Kickoff", value: "kickoff" },
-  { label: "Deadline", value: "deadline" },
-  { label: "Review Cycle", value: "review_cycle" },
+  { label: "Webinar", value: "webinar" },
+  { label: "Roundtable", value: "roundtable" },
 ];
 
 function getMonthKey(dateStr: string): string {
@@ -47,8 +46,11 @@ export default function EventsClient({ events }: { events: EventWithCount[] }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
 
+  const [showArchived, setShowArchived] = useState(false);
+
   const filteredEvents = useMemo(() => {
     return events.filter((event) => {
+      if (!showArchived && event.archived) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const matchesName = event.name.toLowerCase().includes(q);
@@ -60,7 +62,9 @@ export default function EventsClient({ events }: { events: EventWithCount[] }) {
       if (typeFilter && event.type !== typeFilter) return false;
       return true;
     });
-  }, [events, searchQuery, typeFilter]);
+  }, [events, searchQuery, typeFilter, showArchived]);
+
+  const archivedCount = useMemo(() => events.filter((e) => e.archived).length, [events]);
 
   const sections = useMemo(() => {
     const now = new Date();
@@ -146,6 +150,17 @@ export default function EventsClient({ events }: { events: EventWithCount[] }) {
             entityName="events"
           />
 
+          {archivedCount > 0 && (
+            <div className="mb-4 flex items-center gap-2">
+              <button
+                onClick={() => setShowArchived(!showArchived)}
+                className={`text-xs transition-colors ${showArchived ? "text-accent" : "text-muted/60 hover:text-muted"}`}
+              >
+                {showArchived ? "Hide" : "Show"} {archivedCount} archived
+              </button>
+            </div>
+          )}
+
           {filteredEvents.length === 0 ? (
             <EmptyState
               title="No matching events"
@@ -188,13 +203,16 @@ export default function EventsClient({ events }: { events: EventWithCount[] }) {
                                 <Link
                                   key={event.id}
                                   href={`/events/${event.id}`}
-                                  className="flex items-baseline gap-4 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
+                                  className={`flex items-baseline gap-4 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50 ${event.archived ? "opacity-50" : ""}`}
                                 >
                                   <span className="w-24 shrink-0 text-xs text-muted">
                                     {formatCompactDateRange(event.start_date ?? "", event.end_date ?? null)}
                                   </span>
                                   <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
                                     {event.name}
+                                    {event.archived && (
+                                      <span className="ml-2 text-[10px] font-normal text-muted/50">archived</span>
+                                    )}
                                   </span>
                                   {extractCity(event.location) && (
                                     <span className="shrink-0 text-xs text-muted">

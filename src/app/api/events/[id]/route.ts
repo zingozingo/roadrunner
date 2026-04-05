@@ -7,8 +7,8 @@ import {
 import { Event } from "@/lib/types";
 
 const VALID_TYPES = new Set<Event["type"]>([
-  "conference", "summit", "workshop", "kickoff",
-  "trade_show", "deadline", "review_cycle", "training",
+  "conference", "summit", "workshop", "trade_show",
+  "training", "webinar", "roundtable",
 ]);
 
 export async function GET(

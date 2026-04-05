@@ -7,8 +7,8 @@ import ConfirmDialog from "../shared/ConfirmDialog";
 import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 
 const TYPE_OPTIONS: Event["type"][] = [
-  "conference", "summit", "workshop", "kickoff",
-  "trade_show", "deadline", "review_cycle", "training",
+  "conference", "summit", "workshop", "trade_show",
+  "training", "webinar", "roundtable",
 ];
 
 export default function EventActions({ event }: { event: Event }) {

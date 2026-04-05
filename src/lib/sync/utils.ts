@@ -66,8 +66,8 @@ export const VALID_PROGRAM_SUBTYPES = new Set([
 ]);
 
 export const VALID_EVENT_TYPES = new Set([
-  "conference", "summit", "workshop", "kickoff", "trade_show",
-  "deadline", "review_cycle", "training",
+  "conference", "summit", "workshop", "trade_show", "training",
+  "webinar", "roundtable",
 ]);
 
 export const VALID_RELATIONSHIP_TYPES = new Set([

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseClient } from "@/lib/db/client";
 
-const VALID_STATUSES = new Set(["invited", "registered", "sponsoring", "confirming"]);
+const VALID_STATUSES = new Set(["interested", "invited", "registered", "attended", "declined"]);
 
 export async function PUT(
   request: NextRequest,
@@ -12,6 +12,7 @@ export async function PUT(
   const updates: Record<string, unknown> = {};
 
   if (body.notes !== undefined) updates.notes = body.notes?.trim() || null;
+  if (body.sponsoring !== undefined) updates.sponsoring = body.sponsoring === true;
 
   if (body.status !== undefined) {
     if (!VALID_STATUSES.has(body.status)) {

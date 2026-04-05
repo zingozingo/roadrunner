@@ -13,11 +13,10 @@ const eventTypeColors: Record<Event["type"], string> = {
   conference: "bg-[var(--event-conference)]/20 text-[var(--event-conference)]",
   summit: "bg-[var(--event-summit)]/20 text-[var(--event-summit)]",
   workshop: "bg-[var(--event-workshop)]/20 text-[var(--event-workshop)]",
-  kickoff: "bg-[var(--event-kickoff)]/20 text-[var(--event-kickoff)]",
   trade_show: "bg-[var(--event-trade-show)]/20 text-[var(--event-trade-show)]",
-  deadline: "bg-[var(--event-deadline)]/20 text-[var(--event-deadline)]",
-  review_cycle: "bg-[var(--event-review-cycle)]/20 text-[var(--event-review-cycle)]",
   training: "bg-[var(--event-training)]/20 text-[var(--event-training)]",
+  webinar: "bg-[var(--event-webinar)]/20 text-[var(--event-webinar)]",
+  roundtable: "bg-[var(--event-roundtable)]/20 text-[var(--event-roundtable)]",
 };
 
 export function ProgramCategoryBadge({ category }: { category: ProgramCategory | null }) {

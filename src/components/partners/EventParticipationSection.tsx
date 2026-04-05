@@ -10,6 +10,7 @@ interface EventParticipation {
   partner_id: string;
   event_id: string;
   status: string | null;
+  sponsoring: boolean;
   notes: string | null;
   event_name?: string;
   event_start_date?: string | null;
@@ -22,10 +23,11 @@ interface EventOption {
 }
 
 const STATUS_OPTIONS = [
+  { value: "interested", label: "Interested" },
   { value: "invited", label: "Invited" },
   { value: "registered", label: "Registered" },
-  { value: "sponsoring", label: "Sponsoring" },
-  { value: "confirming", label: "Confirming" },
+  { value: "attended", label: "Attended" },
+  { value: "declined", label: "Declined" },
 ];
 
 const STATUS_DISPLAY: Record<string, string> = Object.fromEntries(
@@ -33,10 +35,11 @@ const STATUS_DISPLAY: Record<string, string> = Object.fromEntries(
 );
 
 const STATUS_COLORS: Record<string, string> = {
-  registered: "text-status-active",
-  sponsoring: "text-accent",
-  confirming: "text-status-blocked",
-  invited: "text-muted",
+  interested: "text-status-blocked",
+  invited: "text-accent",
+  registered: "text-[#06b6d4]",
+  attended: "text-status-active",
+  declined: "text-muted",
 };
 
 function shortDate(d: string | null): string {
@@ -66,7 +69,8 @@ export default function EventParticipationSection({
 
   // Form state
   const [formEventId, setFormEventId] = useState("");
-  const [formStatus, setFormStatus] = useState("invited");
+  const [formStatus, setFormStatus] = useState("interested");
+  const [formSponsoring, setFormSponsoring] = useState(false);
   const [formNotes, setFormNotes] = useState("");
   const { setDirty, clearDirty } = useUnsavedChanges("event-participation-form");
 
@@ -77,7 +81,8 @@ export default function EventParticipationSection({
 
   function openModal() {
     setFormEventId("");
-    setFormStatus("invited");
+    setFormStatus("interested");
+    setFormSponsoring(false);
     setFormNotes("");
     setFormError(null);
     setShowModal(true);
@@ -96,6 +101,7 @@ export default function EventParticipationSection({
         body: JSON.stringify({
           event_id: formEventId,
           status: formStatus,
+          sponsoring: formSponsoring,
           notes: formNotes.trim() || null,
         }),
       });
@@ -152,6 +158,29 @@ export default function EventParticipationSection({
     }
   }
 
+  async function handleSponsoringToggle(participationId: string, newValue: boolean) {
+    const prev = participations.find((p) => p.id === participationId);
+    if (!prev) return;
+
+    setParticipations((list) =>
+      list.map((p) => (p.id === participationId ? { ...p, sponsoring: newValue } : p))
+    );
+
+    try {
+      const res = await fetch(`/api/partners/${partnerId}/event-participations/${participationId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sponsoring: newValue }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setParticipations((list) =>
+        list.map((p) => (p.id === participationId ? { ...p, sponsoring: prev.sponsoring } : p))
+      );
+      setInlineError("Failed to update sponsoring");
+    }
+  }
+
   async function handleDelete(participationId: string) {
     const snapshot = [...participations];
     setParticipations((list) => list.filter((p) => p.id !== participationId));
@@ -203,6 +232,15 @@ export default function EventParticipationSection({
               <span className="min-w-0 flex-1 truncate text-sm text-foreground/80">
                 {p.event_name ?? "Unknown Event"}
               </span>
+
+              {/* Sponsoring toggle */}
+              <button
+                onClick={() => handleSponsoringToggle(p.id, !p.sponsoring)}
+                className={`shrink-0 text-[11px] transition-colors ${p.sponsoring ? "text-accent" : "text-muted/20 opacity-0 group-hover:opacity-100"}`}
+                title={p.sponsoring ? "Sponsoring (click to remove)" : "Mark as sponsoring"}
+              >
+                ★
+              </button>
 
               {/* Event date */}
               {p.event_start_date && (
@@ -321,6 +359,16 @@ export default function EventParticipationSection({
                   ))}
                 </select>
               </div>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formSponsoring}
+                  onChange={(ev) => setFormSponsoring(ev.target.checked)}
+                  className="rounded border-border"
+                />
+                <span className="text-sm text-foreground/80">Sponsoring</span>
+              </label>
 
               <div>
                 <label className="block text-[10px] font-medium text-muted/60 mb-1">Notes</label>

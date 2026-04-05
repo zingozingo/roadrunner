@@ -32,11 +32,10 @@
   --event-conference: #8b5cf6;
   --event-summit: #6366f1;
   --event-workshop: #06b6d4;
-  --event-kickoff: #10b981;
   --event-trade-show: #ec4899;
-  --event-deadline: #ef4444;
-  --event-review-cycle: #f59e0b;
   --event-training: #14b8a6;
+  --event-webinar: #eab308;
+  --event-roundtable: #9ca3af;
 }
 
 @theme inline {

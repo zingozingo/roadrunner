@@ -37,7 +37,7 @@ export interface Engagement {
 export interface Event {
   id: string;
   name: string;
-  type: "conference" | "summit" | "workshop" | "kickoff" | "trade_show" | "deadline" | "review_cycle" | "training";
+  type: "conference" | "summit" | "workshop" | "trade_show" | "training" | "webinar" | "roundtable";
   start_date: string | null;
   end_date: string | null;
   host: string | null;
@@ -47,8 +47,10 @@ export interface Event {
   source: "seed" | "email_extracted" | "user_created";
   verified: boolean;
   sponsor_option: boolean;
-  partner_day: boolean;
   partner_day_date: string | null;
+  event_url: string | null;
+  internal_links: string | null;
+  archived: boolean;
   airtable_record_id: string | null;
   created_at: string;
 }
@@ -600,8 +602,8 @@ export interface PartnerEventParticipation {
   id: string;
   partner_id: string;
   event_id: string;
-  status: string | null;
-  contacts_attending: string | null;
+  status: "interested" | "invited" | "registered" | "attended" | "declined" | null;
+  sponsoring: boolean;
   notes: string | null;
   airtable_id: string | null;
   created_at: string;

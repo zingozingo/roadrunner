@@ -85,6 +85,7 @@ erDiagram
         text type
         date start_date
         text geo
+        boolean archived
         text airtable_record_id UK
     }
 ```
@@ -184,7 +185,7 @@ erDiagram
 |-------|---------|---------|-------|------|-------------|-----|
 | id | uuid PK | — | RR | — | — | event detail |
 | name | text NOT NULL | multilineText | AT | ← AT | fld1hURggkL0DTHnC | event list, detail, classifier |
-| type | text NOT NULL CHECK (8 options) | singleSelect (8 options) | AT | ← AT | fldpuxeQ5DRhMwizr | event list, detail |
+| type | text NOT NULL CHECK (7 options) | singleSelect (7 options) | AT | ← AT | fldpuxeQ5DRhMwizr | event list, detail |
 | start_date | date | date (Event Date) | AT | ← AT | fld62hHfwpOJw7nyZ | event list, detail, classifier |
 | end_date | date | date | AT | ← AT | fldTUy6jHj4KpR6SZ | event detail |
 | location | text | multilineText | AT | ← AT | fldwjmRq0saFpFHao | event detail |
@@ -192,13 +193,19 @@ erDiagram
 | description | text | multilineText | AT | ← AT | fldTMiRJ7mqMzGqXY | event detail, classifier |
 | geo | text CHECK (NAMER, EMEA, APJ, LATAM, GCR) | singleSelect (5 options) | AT | ← AT | fld9idvQawFVNu5sa | event list, detail |
 | sponsor_option | boolean | checkbox | AT | ← AT | fldyAVpfZbG1SaDJz | event detail |
-| partner_day | boolean | checkbox | AT | ← AT | fldTWZbQSEruQYdLe | event detail |
 | partner_day_date | date | date | AT | ← AT | fldo8mDJ5vvXK5bu7 | event detail |
+| event_url | text | url | AT | ← AT | fld1i1Man1gLytyHo | event detail |
+| internal_links | text | multilineText | AT | ← AT | fldEqolJfYdvh6nBN | — |
+| archived | boolean NOT NULL DEFAULT false | checkbox | AT | ← AT | flddY9M5bISisWwRb | event list, detail |
 | source | text NOT NULL CHECK (seed, email_extracted, user_created) | — | RR | — | — | — |
 | verified | boolean | — | RR | — | — | — |
 | airtable_record_id | text UNIQUE | — | RR | — | — | — |
 | created_at | timestamptz | — | RR | — | — | — |
 | updated_at | timestamptz | — | RR | — | — | — |
+
+**Type CHECK constraint:** `conference`, `summit`, `workshop`, `trade_show`, `training`, `webinar`, `roundtable`
+
+**Dropped columns (migration 086):** `partner_day` boolean (replaced by partner_day_date as sole indicator for Partner Day events).
 
 **AT fields NOT in Supabase:**
 
@@ -622,7 +629,7 @@ erDiagram
         uuid partner_id FK
         uuid event_id FK
         text status
-        text contacts_attending
+        boolean sponsoring
     }
     PARTNER_GOALS {
         uuid partner_id FK
@@ -671,18 +678,22 @@ Additional Supabase columns: airtable_id TEXT UNIQUE (sync dedup key), created_a
 
 ### PARTNER_EVENT_PARTICIPATIONS (AT → RR pull sync)
 
-**Airtable Table:** `tblYljQDnXwjTDy2T`
+**Airtable Table:** `tblYljQDnXwjTDy2T` · **Supabase Table:** `partner_event_participations`
 
-| AT Field | AT Type | AT Field ID | Future RR Role |
-|----------|---------|-------------|----------------|
-| Invitation Record | formula (Event - Partner) | fldvhMnIPETioD6FN | display name |
-| Partner | singleLineText | fldFA6221VhsyXG1v | FK → partners |
-| Events | linkedRecord → Events | fldIsEwvRqaszKMCh | FK → events |
-| Event Date (from Events) | lookup | fld7C5aJOuhcE5rsb | computed |
-| Status | singleSelect (4 options: Invited, Registered, Sponsoring, Confirming) | fldWjFeK3yyLo4N5U | status tracking |
-| Partner Contacts Attending | multilineText | fldtQthUjkw0028us | contacts |
-| Notes | multilineText | fldQHj66TZ81TSaMc | notes |
-| Co-Sell Goals 2026 | linkedRecord → Co-Sell Goals | fldBsfehaCJfvME9m | plan linking |
+| AT Field | AT Type | AT Field ID | Supabase Column |
+|----------|---------|-------------|-----------------|
+| Invitation Record | formula (Event - Partner) | fldvhMnIPETioD6FN | display name (not synced) |
+| Partner | singleLineText | fldFA6221VhsyXG1v | partner_id UUID FK CASCADE |
+| Events | linkedRecord → Events | fldIsEwvRqaszKMCh | event_id UUID FK CASCADE |
+| Event Date (from Events) | lookup | fld7C5aJOuhcE5rsb | computed (not synced) |
+| Status | singleSelect (5 options: Interested, Invited, Registered, Attended, Declined) | fldWjFeK3yyLo4N5U | status TEXT |
+| Sponsoring | checkbox | fldv8PMohQmCWIAu4 | sponsoring BOOLEAN DEFAULT false |
+| Notes | multilineText | fldQHj66TZ81TSaMc | notes TEXT |
+| Co-Sell Goals 2026 | linkedRecord → Co-Sell Goals | fldBsfehaCJfvME9m | plan linking (not synced) |
+
+Additional Supabase columns: airtable_id TEXT UNIQUE (sync dedup key), created_at, updated_at. UNIQUE(partner_id, event_id).
+
+**Dropped columns (migration 086):** `contacts_attending` (AT field deleted). **Status values changed:** removed Sponsoring/Confirming, added Interested/Attended/Declined. Sponsoring is now an orthogonal boolean checkbox, not a status value.
 
 ---
 

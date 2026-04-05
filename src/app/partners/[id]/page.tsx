@@ -578,6 +578,7 @@ export default async function PartnerDetailPage({
               partner_id: e.partner_id,
               event_id: e.event_id,
               status: e.status,
+              sponsoring: e.sponsoring ?? false,
               notes: e.notes,
               event_name: e.event_name,
               event_start_date: e.event_start_date,

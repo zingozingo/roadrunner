@@ -43,8 +43,10 @@ export const EF = {
   description: "fldTMiRJ7mqMzGqXY",
   geo: "fld9idvQawFVNu5sa",
   sponsorOption: "fldyAVpfZbG1SaDJz",
-  partnerDay: "fldTWZbQSEruQYdLe",
   partnerDayDate: "fldo8mDJ5vvXK5bu7",
+  eventUrl: "fld1i1Man1gLytyHo",
+  internalLinks: "fldEqolJfYdvh6nBN",
+  archived: "flddY9M5bISisWwRb",
 } as const;
 
 export const RF = {
@@ -155,8 +157,8 @@ export const PARTNER_EVENTS_FIELDS = {
   partner: "fldFA6221VhsyXG1v",
   events: "fldIsEwvRqaszKMCh",
   status: "fldWjFeK3yyLo4N5U",
-  contactsAttending: "fldtQthUjkw0028us",
   notes: "fldQHj66TZ81TSaMc",
+  sponsoring: "fldv8PMohQmCWIAu4",
 } as const;
 
 export const MPOPP_FIELDS = {

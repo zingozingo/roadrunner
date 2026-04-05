@@ -52,6 +52,11 @@ export default async function EventDetailPage({
             {event.geo}
           </span>
         )}
+        {event.archived && (
+          <span className="rounded-full bg-muted/15 px-2 py-0.5 text-xs font-medium text-muted/60">
+            Archived
+          </span>
+        )}
         <div className="ml-auto">
           <EventActions event={event} />
         </div>
@@ -92,6 +97,21 @@ export default async function EventDetailPage({
             )}
           </div>
         </section>
+
+        {/* Event URL */}
+        {event.event_url && (
+          <section className="pt-6 border-t border-border/20">
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Event URL</h2>
+            <a
+              href={event.event_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-accent hover:text-accent-hover transition-colors"
+            >
+              {event.event_url}
+            </a>
+          </section>
+        )}
 
         {/* Footer */}
         <p className="pt-6 text-xs text-muted">

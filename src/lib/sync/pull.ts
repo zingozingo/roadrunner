@@ -25,7 +25,7 @@ import {
   VALID_PROGRAM_CATEGORIES, VALID_PROGRAM_SUBTYPES, VALID_EVENT_TYPES, VALID_LIFECYCLE_TYPES,
 } from "./utils";
 import { parseRoleContact, parseContactList } from "../contact-parser";
-import type { RoleContact } from "../types";
+import type { RoleContact, PartnerEventParticipation } from "../types";
 import { syncEngagementsToAirtable, syncMeetingsToAirtable } from "./push";
 import {
   upsertPartnerGoal,
@@ -111,8 +111,10 @@ function mapEvent(rec: AirtableRecord): Record<string, unknown> | null {
     description: str(rec.fields[EF.description]),
     geo: str(rec.fields[EF.geo]),
     sponsor_option: !!rec.fields[EF.sponsorOption],
-    partner_day: !!rec.fields[EF.partnerDay],
     partner_day_date: str(rec.fields[EF.partnerDayDate]) || null,
+    event_url: str(rec.fields[EF.eventUrl]),
+    internal_links: str(rec.fields[EF.internalLinks]),
+    archived: !!rec.fields[EF.archived],
   };
 }
 
@@ -650,8 +652,8 @@ export async function syncPartnerEventParticipations(): Promise<SyncResult> {
       await upsertPartnerEventParticipation({
         partner_id: partnerId,
         event_id: eventId,
-        status: toSnake(rec.fields[PARTNER_EVENTS_FIELDS.status]),
-        contacts_attending: str(rec.fields[PARTNER_EVENTS_FIELDS.contactsAttending]),
+        status: toSnake(rec.fields[PARTNER_EVENTS_FIELDS.status]) as PartnerEventParticipation["status"],
+        sponsoring: !!rec.fields[PARTNER_EVENTS_FIELDS.sponsoring],
         notes: str(rec.fields[PARTNER_EVENTS_FIELDS.notes]),
         airtable_id: rec.id,
       });

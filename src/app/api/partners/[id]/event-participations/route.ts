@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseClient } from "@/lib/db/client";
 
-const VALID_STATUSES = new Set(["invited", "registered", "sponsoring", "confirming"]);
+const VALID_STATUSES = new Set(["interested", "invited", "registered", "attended", "declined"]);
 
 export async function POST(
   request: NextRequest,
@@ -9,7 +9,7 @@ export async function POST(
 ) {
   const { id: partnerId } = await params;
   const body = await request.json();
-  const { event_id, status, notes } = body;
+  const { event_id, status, sponsoring, notes } = body;
 
   if (!event_id) {
     return NextResponse.json({ error: "event_id is required" }, { status: 400 });
@@ -27,6 +27,7 @@ export async function POST(
         partner_id: partnerId,
         event_id,
         status,
+        sponsoring: sponsoring === true,
         notes: notes?.trim() || null,
       })
       .select()
