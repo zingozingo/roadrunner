@@ -21,9 +21,15 @@ Look back through EVERYTHING we discussed and decided this session. Identify arc
 
 **Format:** Sequential numbers continuing from the last entry in decisions.md. Present them to me as a numbered list with title and brief impact statement BEFORE generating the command. I may want to adjust wording or add/remove entries.
 
-## Step 2: Generate ONE Claude Code Command
+## Step 2: Write Session Summary
 
-After I approve the decisions list, generate a single implementation command that does ALL of the following.
+Write the session summary as a downloadable markdown artifact. Use the default format below (or milestone format for big sessions). Steven reviews and approves before it gets embedded in the command.
+
+**Why Claude.ai writes it:** Claude.ai has the full conversation context — every diagnosis, decision, and course correction. Claude Code only knows what's in the command. Content comes from where the context lives.
+
+## Step 3: Generate ONE Claude Code Command
+
+After I approve both the decisions list AND the session summary, generate a single implementation command that does ALL of the following. The session summary content from Step 2 should be embedded directly in the command — Claude Code places the file, it doesn't write the content.
 
 The command must:
 
@@ -189,4 +195,4 @@ Process learnings:
 
 ---
 
-*Present the decisions list first. I'll approve, then you generate the command.*
+*Present the decisions list first (Step 1). Then write the session summary artifact (Step 2). I'll approve both, then you generate the command (Step 3).*
