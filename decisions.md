@@ -7394,3 +7394,138 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** Enrollment rows show program name + status. Type information is available on the linked program detail page. Create enrollment modal simplified (one fewer required field). API POST no longer requires type, fixing a broken validation that would have rejected typeless enrollments.
 
 ---
+
+### #415 — Events: Partner Day? checkbox dropped, Partner Day Date is sole indicator
+
+**Date:** 2026-04-05
+**Status:** ✅ Implemented
+
+**Decision:** If Partner Day Date has a value, the event has a partner day. One field instead of two — the data is the signal. Migration 086, field-maps, sync, types updated.
+
+**Context:** Events table had both a `partner_day` boolean checkbox and a `partner_day_date` date field. The boolean was redundant — if a date exists, partner day is happening.
+
+**Rationale:** Eliminate redundancy. The date field carries strictly more information than the boolean. 19 events have Partner Day Dates populated, making the boolean vestigial.
+
+**Impact:** Migration 086 drops `partner_day` column. EF field map removes `partnerDay` entry. mapEvent() and Event type updated. No data loss — partner_day_date remains as the authoritative indicator.
+
+---
+
+### #416 — Events: Format taxonomy 8→7 (removed deadline/review_cycle/kickoff, added webinar/roundtable)
+
+**Date:** 2026-04-05
+**Status:** ✅ Implemented
+
+**Decision:** Deadline/review_cycle/kickoff were calendar milestones, not event formats. Workshop retained (zero records but realistic). Webinar and roundtable added for enablement series and executive discussions. Migration 086 CHECK, types union, UI filter buttons, TypeBadge colors.
+
+**Context:** Old set: conference, summit, workshop, kickoff, trade_show, deadline, review_cycle, training. Deadline/review_cycle had zero records and described calendar anchors, not gatherable events. Kickoff was a one-time type with zero records.
+
+**Rationale:** Event formats should describe how people gather. Webinar covers APN Software Path enablement series (3 added). Roundtable covers executive discussions. Workshop kept for future ISV workshops despite zero current records.
+
+**Impact:** Migration 086 updates CHECK constraint. VALID_EVENT_TYPES, Event type union, TypeBadge colors, EventActions TYPE_OPTIONS, EventsClient filter buttons all updated. CSS variables --event-webinar (#eab308) and --event-roundtable (#9ca3af) added.
+
+---
+
+### #417 — Events: Three new fields (event_url, internal_links, archived)
+
+**Date:** 2026-04-05
+**Status:** ✅ Implemented
+
+**Decision:** event_url = public registration link. internal_links = multiline for wiki/doc URLs. archived = manual "done thinking about this" override. Roadrunner derives temporal state from dates; archived is supplementary. Migration 086, field-maps, sync, types, event detail page.
+
+**Context:** Events lacked URLs for registration pages and internal documentation. No mechanism to mark events as "no longer relevant" without deleting them.
+
+**Rationale:** event_url enables quick access to registration/info pages. internal_links captures wiki links without cluttering the main description. Archived is orthogonal to date-based temporal grouping — an event can be past but still relevant, or future but no longer being tracked.
+
+**Impact:** Migration 086 adds 3 columns. EF field map gains 3 entries. mapEvent() maps all three. Event detail page shows event_url as clickable link and archived badge. Events list hides archived by default with toggle to show.
+
+---
+
+### #418 — Partner Events: Sponsoring extracted from status to orthogonal checkbox
+
+**Date:** 2026-04-05
+**Status:** ✅ Implemented
+
+**Decision:** Sponsoring is independent of attendance lifecycle — a partner can be Registered + Sponsoring simultaneously. Removed from status singleSelect, added as standalone checkbox. Migration 086, field-maps, sync, types, UI star toggle.
+
+**Context:** Old status values included "Sponsoring" as a status, which conflated two dimensions: attendance lifecycle and financial relationship. A partner sponsoring an event still goes through Invited → Registered → Attended.
+
+**Rationale:** Sponsoring is orthogonal to attendance status. Modeling it as a boolean lets both dimensions be tracked independently. The star (★) toggle in the UI makes sponsoring visible at a glance.
+
+**Impact:** Migration 086 adds `sponsoring BOOLEAN DEFAULT false`, removes "Sponsoring" from status CHECK. PARTNER_EVENTS_FIELDS adds `sponsoring` field ID. Sync maps checkbox. UI shows clickable ★ toggle on each participation row + checkbox in create modal.
+
+---
+
+### #419 — Partner Events: Status lifecycle redesigned (interested/invited/registered/attended/declined)
+
+**Date:** 2026-04-05
+**Status:** ✅ Implemented
+
+**Decision:** "Interested" = partner-initiated interest in open events. "Invited" = PDM-initiated for restricted events (PartnerEquip). Clear terminal states (attended/declined) for historical tracking. Replaced old set (invited/registered/sponsoring/confirming). Migration 086 CHECK, API VALID_STATUSES, UI status options.
+
+**Context:** Old status values (Invited, Registered, Sponsoring, Confirming) lacked clear lifecycle semantics. "Confirming" was ambiguous. No terminal states meant no historical record of what actually happened.
+
+**Rationale:** The new lifecycle maps to real-world event participation: Interested → Invited → Registered → Attended/Declined. Each status has a clear meaning and natural progression. Terminal states enable post-event analysis.
+
+**Impact:** Migration 086 updates status CHECK. API routes update VALID_STATUSES. UI STATUS_OPTIONS and STATUS_COLORS updated with color-coded display (interested=yellow, invited=blue, registered=cyan, attended=green, declined=gray).
+
+---
+
+### #420 — Partner Events: contacts_attending field removed
+
+**Date:** 2026-04-05
+**Status:** ✅ Implemented
+
+**Decision:** Too hard to maintain, doesn't link to participant model. Simplicity over completeness. Migration 086 drop column, field-maps, sync, types, UI.
+
+**Context:** contacts_attending was a freetext multilineText field listing who from the partner would attend. It duplicated information that should live in the participant model and was never reliably populated.
+
+**Rationale:** The participant model is the single source of truth for people. Freetext contact lists rot and don't link to anything. Removing it follows "resolve, don't duplicate."
+
+**Impact:** Migration 086 drops column. PARTNER_EVENTS_FIELDS removes `contactsAttending`. Sync, types, and UI all updated. No data loss — field had no meaningful data.
+
+---
+
+### #421 — Enablement webinars stored as Event Format = webinar in Events catalog
+
+**Date:** 2026-04-05
+**Status:** ✅ Implemented
+
+**Decision:** One record per series (not per instance), Event Date set to next upcoming instance. Same table, filtered by format taxonomy. Avoids separate table while keeping enablement visible and actionable. 3 APN Software Path series added.
+
+**Context:** AWS runs recurring webinar series (APN Software Path) covering ISV-relevant topics. These are events partners should attend but didn't fit the old format taxonomy.
+
+**Rationale:** Webinars are events. Storing them in the events table with format=webinar keeps the data model simple. One record per series avoids 50+ records for individual instances. Setting Event Date to next instance keeps them in the "Upcoming" section.
+
+**Impact:** 3 new event records added to Airtable (APN Software Path: Software, Services, Channel). Synced to Supabase via existing pull pipeline with new webinar format.
+
+---
+
+### #422 — PartnerEquip 2026 lineup corrected from internal wiki
+
+**Date:** 2026-04-05
+**Status:** ✅ Implemented
+
+**Decision:** Internal wiki confirmed 6 locations. Seattle replaced by San Francisco. No DC event. Dubai cancelled (not catalogued). Bangkok (Apr 28-30), SF (Aug 25-27), London (Sep 29-Oct 1), Tokyo (Oct 27-29) added/updated. 2 records deleted, 3 created, 1 updated.
+
+**Context:** Initial PartnerEquip data was based on preliminary planning. Internal wiki had the confirmed 2026 lineup with accurate dates and locations.
+
+**Rationale:** Authoritative source wins. Internal wiki is the source of truth for internal event logistics.
+
+**Impact:** Airtable corrected — 6 PartnerEquip events with accurate dates. Roadrunner syncs the corrected data. Partner Events junction records can now reference accurate events.
+
+---
+
+### #423 — MDF funding expiry derived on enrollment rows
+
+**Date:** 2026-04-05
+**Status:** ✅ Implemented
+
+**Decision:** For Specialization programs (competency + service ready) with mdf_value and date_achieved, UI computes "MDF through Dec YYYY" where YYYY = year_achieved + 1. Calendar-year rule: funding covers remainder of achievement year + full next year. No new fields — purely derived from existing data. 3 files changed (ring3.ts query, page.tsx prop mapping, EnrollmentSection.tsx display).
+
+**Context:** Specialization programs (category='Specialization') with MDF funding have a calendar-year-based expiry. When a partner achieves the designation, they get MDF for the rest of that year plus the entire next year. This was implicit knowledge not visible in the UI.
+
+**Rationale:** Derived data, not stored data. The expiry is deterministic from date_achieved and doesn't need a column. Query expanded to join program category and mdf_value. Display uses accent for active funding, muted for expired.
+
+**Impact:** ring3.ts query joins programs(category, mdf_value). EnrollmentSection shows "MDF through Dec YYYY" or "MDF expired Dec YYYY" next to date on qualifying rows. Cloudaware example: Security Comp achieved Nov 2025 → "MDF through Dec 2026", Cloud Ops achieved Sep 2018 → "MDF expired Dec 2019".
+
+---
