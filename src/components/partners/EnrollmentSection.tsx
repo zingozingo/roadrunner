@@ -14,6 +14,8 @@ interface Enrollment {
   status: string | null;
   date_achieved: string | null;
   notes: string | null;
+  program_category: string | null;
+  program_mdf_value: number | null;
 }
 
 interface ProgramOption {
@@ -52,6 +54,23 @@ function shortDate(d: string | null): string {
   const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
   if (date.getFullYear() !== currentYear) opts.year = "numeric";
   return date.toLocaleDateString("en-US", opts);
+}
+
+function getMdfExpiry(e: Enrollment): { label: string; expired: boolean } | null {
+  if (
+    e.program_category?.toLowerCase() !== "specialization" ||
+    !e.program_mdf_value ||
+    e.program_mdf_value <= 0 ||
+    !e.date_achieved
+  ) return null;
+
+  const achievedYear = new Date(e.date_achieved + "T12:00:00").getFullYear();
+  const expiryYear = achievedYear + 1;
+  const expired = new Date() > new Date(`${expiryYear}-12-31T23:59:59`);
+  return {
+    label: `MDF ${expired ? "expired" : "through"} Dec ${expiryYear}`,
+    expired,
+  };
 }
 
 interface EnrollmentSectionProps {
@@ -242,10 +261,21 @@ export default function EnrollmentSection({
                 </button>
               )}
 
-              {/* Date */}
-              {e.date_achieved && (
-                <span className="shrink-0 text-[11px] text-muted/60">{shortDate(e.date_achieved)}</span>
-              )}
+              {/* Date + MDF */}
+              <div className="shrink-0 flex items-center gap-2">
+                {e.date_achieved && (
+                  <span className="text-[11px] text-muted/60">{shortDate(e.date_achieved)}</span>
+                )}
+                {(() => {
+                  const mdf = getMdfExpiry(e);
+                  if (!mdf) return null;
+                  return (
+                    <span className={`text-[10px] ${mdf.expired ? "text-muted/40" : "text-accent/60"}`}>
+                      {mdf.label}
+                    </span>
+                  );
+                })()}
+              </div>
 
               {/* Delete */}
               {deletingId === e.id ? (

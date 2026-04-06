@@ -85,15 +85,20 @@ export async function getPartnerProgramEnrollments(
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from("partner_program_enrollments")
-    .select("*, programs(name)")
+    .select("*, programs(name, category, mdf_value)")
     .eq("partner_id", partnerId)
     .order("status", { ascending: true });
   if (error) throw new Error(`getPartnerProgramEnrollments: ${error.message}`);
-  return (data ?? []).map((row) => ({
-    ...row,
-    program_name: (row.programs as { name: string } | null)?.name ?? row.program_name ?? undefined,
-    programs: undefined,
-  }));
+  return (data ?? []).map((row) => {
+    const prog = row.programs as { name: string; category: string | null; mdf_value: number | null } | null;
+    return {
+      ...row,
+      program_name: prog?.name ?? row.program_name ?? undefined,
+      program_category: prog?.category ?? null,
+      program_mdf_value: prog?.mdf_value ?? null,
+      programs: undefined,
+    };
+  });
 }
 
 export async function getPartnerEventParticipations(

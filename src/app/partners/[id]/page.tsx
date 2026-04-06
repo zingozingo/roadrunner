@@ -482,6 +482,8 @@ export default async function PartnerDetailPage({
                 status: e.status,
                 date_achieved: e.date_achieved,
                 notes: e.notes,
+                program_category: (e as unknown as Record<string, unknown>).program_category as string | null ?? null,
+                program_mdf_value: (e as unknown as Record<string, unknown>).program_mdf_value as number | null ?? null,
               }))}
               programs={allPrograms.map((p) => ({ id: p.id, name: p.name }))}
             />
