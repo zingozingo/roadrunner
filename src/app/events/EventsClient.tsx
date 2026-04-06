@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/layout/PageHeader";
 import PageContainer from "@/components/layout/PageContainer";
@@ -47,6 +47,20 @@ export default function EventsClient({ events }: { events: EventWithCount[] }) {
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
 
   const [showArchived, setShowArchived] = useState(false);
+  const pastSectionRef = useRef<HTMLDivElement>(null);
+
+  const toggleArchived = useCallback(() => {
+    const next = !showArchived;
+    setShowArchived(next);
+    if (next) {
+      // Scroll to Past section after render
+      requestAnimationFrame(() => {
+        pastSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [showArchived]);
 
   const filteredEvents = useMemo(() => {
     return events.filter((event) => {
@@ -153,10 +167,10 @@ export default function EventsClient({ events }: { events: EventWithCount[] }) {
           {archivedCount > 0 && (
             <div className="mb-4 flex items-center gap-2">
               <button
-                onClick={() => setShowArchived(!showArchived)}
+                onClick={toggleArchived}
                 className={`text-xs transition-colors ${showArchived ? "text-accent" : "text-muted/60 hover:text-muted"}`}
               >
-                {showArchived ? "Hide" : "Show"} {archivedCount} archived
+                {showArchived ? "Hide archived" : `Show ${archivedCount} archived`}
               </button>
             </div>
           )}
@@ -173,8 +187,10 @@ export default function EventsClient({ events }: { events: EventWithCount[] }) {
                 const isTbd = section.label === "Date TBD";
                 const sectionCount = section.monthGroups.reduce((sum, g) => sum + g.events.length, 0);
 
+                const isPast = section.label === "Past";
+
                 return (
-                  <div key={section.label}>
+                  <div key={section.label} ref={isPast ? pastSectionRef : undefined}>
                     <h2 className="mb-4 text-lg font-semibold text-foreground">
                       {section.label}
                       <span className="ml-2 text-sm font-normal text-muted">
@@ -184,7 +200,7 @@ export default function EventsClient({ events }: { events: EventWithCount[] }) {
 
                     <div className="space-y-6">
                       {section.monthGroups.map((group) => {
-                        const monthDefaultOpen = isUpcoming || isTbd || !!searchQuery;
+                        const monthDefaultOpen = isUpcoming || isTbd || !!searchQuery || (isPast && showArchived);
                         return (
                           <details
                             key={group.key}
