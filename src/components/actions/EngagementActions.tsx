@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Engagement, Pillar } from "@/lib/types";
 import { useNavigationGuard } from "@/hooks/useNavigationGuard";
+import InlineError from "@/components/shared/InlineError";
 
 const STATUS_OPTIONS: Engagement["status"][] = ["active", "blocked", "completed", "archived"];
 const PILLAR_OPTIONS: Pillar[] = ["Co-Sell", "Co-Market", "Co-Build"];
@@ -198,9 +199,7 @@ export default function EngagementActions({
 
           {/* Error */}
           {error && (
-            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2">
-              <p className="text-sm text-red-400">{error}</p>
-            </div>
+            <InlineError message={error} onDismiss={() => setError(null)} />
           )}
 
           {/* Actions */}
@@ -245,14 +244,8 @@ export default function EngagementActions({
       </div>
 
       {error && (
-        <div className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2">
-          <p className="text-sm text-red-400">{error}</p>
-          <button
-            onClick={() => setError(null)}
-            className="mt-1 text-xs text-red-400/70 hover:text-red-400"
-          >
-            Dismiss
-          </button>
+        <div className="mt-2">
+          <InlineError message={error} onDismiss={() => setError(null)} />
         </div>
       )}
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Meeting, MeetingStatus, MeetingType, Engagement } from "@/lib/types";
 import { useUnsavedChanges } from "@/components/shared/UnsavedChangesProvider";
 import { useNavigationGuard } from "@/hooks/useNavigationGuard";
+import InlineError from "@/components/shared/InlineError";
 
 const MEETING_STATUSES: MeetingStatus[] = ["scheduled", "completed", "cancelled", "did_not_occur"];
 
@@ -348,7 +349,7 @@ export default function MeetingEditModal({ meeting, partnerName, onClose }: Meet
 
             {/* Error */}
             {error && (
-              <p className="text-sm text-red-400">{error}</p>
+              <InlineError message={error} onDismiss={() => setError(null)} />
             )}
 
             {/* Actions */}

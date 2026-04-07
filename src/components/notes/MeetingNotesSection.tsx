@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { MeetingNoteWithTasks, DisplayContext } from "@/lib/types";
 import NoteWorkspace from "./NoteWorkspace";
 
@@ -13,6 +13,7 @@ interface MeetingNotesSectionProps {
   meetingTitle: string;
   existingNote: MeetingNoteWithTasks | null;
   context: DisplayContext;
+  autoOpen?: boolean;
 }
 
 export default function MeetingNotesSection({
@@ -23,10 +24,28 @@ export default function MeetingNotesSection({
   meetingTitle,
   existingNote,
   context,
+  autoOpen,
 }: MeetingNotesSectionProps) {
   const [noteId, setNoteId] = useState<string | null>(existingNote?.id ?? null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const autoOpenHandled = useRef(false);
+
+  // Auto-open: scroll to notes if they exist, or auto-create if they don't
+  useEffect(() => {
+    if (!autoOpen || autoOpenHandled.current) return;
+    autoOpenHandled.current = true;
+
+    if (existingNote) {
+      // Notes exist — scroll to them
+      sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      // No notes — auto-create
+      handleStartNotes();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpen]);
 
   async function handleStartNotes() {
     setCreating(true);
@@ -62,6 +81,7 @@ export default function MeetingNotesSection({
   // Existing note — render workspace immediately
   if (existingNote && noteId) {
     return (
+      <div ref={sectionRef}>
       <NoteWorkspace
         noteId={existingNote.id}
         partnerName={partnerName}
@@ -75,12 +95,14 @@ export default function MeetingNotesSection({
         initialTasks={existingNote.tasks}
         initialPhase={existingNote.status === "complete" ? "saved" : "editing"}
       />
+      </div>
     );
   }
 
   // New note just created — render workspace blank
   if (noteId) {
     return (
+      <div ref={sectionRef}>
       <NoteWorkspace
         noteId={noteId}
         partnerName={partnerName}
@@ -90,6 +112,7 @@ export default function MeetingNotesSection({
         context={context}
         meetingId={meetingId}
       />
+      </div>
     );
   }
 

@@ -33,7 +33,7 @@ export function isClassifierRole(role: string): boolean {
 }
 
 /** AT-sourced roles sorted by display priority (lower = higher priority) */
-export const ROLE_PRIORITY: ReadonlyMap<string, number> = new Map([
+const ROLE_PRIORITY: ReadonlyMap<string, number> = new Map([
   ["Alliance Lead", 1],
   ["PSA", 2],
   ["Account Manager", 3],

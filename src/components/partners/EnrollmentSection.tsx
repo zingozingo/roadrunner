@@ -396,7 +396,7 @@ export default function EnrollmentSection({
                 />
               </div>
 
-              {formError && <p className="text-sm text-red-400">{formError}</p>}
+              {formError && <InlineError message={formError} onDismiss={() => setFormError(null)} />}
 
               <button
                 type="submit"

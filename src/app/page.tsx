@@ -128,21 +128,20 @@ export default async function TodayPage() {
                 <SectionHeader label="Today's Meetings" count={todaysMeetings.length} />
                 <div className="rounded-lg border border-border/50 bg-surface overflow-hidden">
                   {todaysMeetings.map((m, i) => (
-                    <Link
+                    <div
                       key={m.id}
-                      href={`/meetings/${m.id}`}
                       className={`flex items-center px-4 py-3 transition-colors hover:bg-surface-hover ${
                         i < todaysMeetings.length - 1 ? "border-b border-border/30" : ""
                       }`}
                     >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <Link href={`/meetings/${m.id}`} className="flex items-center gap-3 min-w-0 flex-1">
                         <span className="text-sm font-medium text-foreground truncate">
                           {m.partner_name ?? "Unknown"}
                         </span>
                         <span className="text-sm text-muted truncate">
                           {cleanMeetingTitle(m.title)}
                         </span>
-                      </div>
+                      </Link>
                       <div className="flex items-center gap-3 shrink-0 ml-4">
                         {(m.recurrence_pattern || m.series_id) && (
                           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted/70">
@@ -155,11 +154,14 @@ export default async function TodayPage() {
                             {MEETING_TYPE_DISPLAY[m.meeting_type] ?? m.meeting_type.replace(/_/g, " ")}
                           </span>
                         )}
-                        <span className="text-xs font-medium text-accent">
+                        <Link
+                          href={`/meetings/${m.id}?notes=true`}
+                          className="text-xs font-medium text-accent hover:text-accent-hover transition-colors"
+                        >
                           Open Notes
-                        </span>
+                        </Link>
                       </div>
-                    </Link>
+                    </div>
                   ))}
                 </div>
               </section>

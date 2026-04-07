@@ -52,10 +52,14 @@ function isRelayAddress(email: string): boolean {
 
 export default async function MeetingDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const { id } = await params;
+  const sp = await searchParams;
+  const autoOpenNotes = sp.notes === "true";
 
   const meeting = await getMeeting(id);
   if (!meeting) notFound();
@@ -201,6 +205,7 @@ export default async function MeetingDetailPage({
               meetingTitle={cleanMeetingTitle(meeting.title)}
               existingNote={existingNote}
               context={partnerContext}
+              autoOpen={autoOpenNotes}
             />
           )}
         </div>
