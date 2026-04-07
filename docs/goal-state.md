@@ -6,7 +6,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 86 migrations, 17 active tables, 35 API routes, 14 UI pages, 444 passing tests (0 failures), tsc --noEmit passes clean, 38 components, decisions through #423
+- 87 migrations, 17 active tables, 35 API routes, 14 UI pages, 444 passing tests (0 failures), tsc --noEmit passes clean, 36 components, decisions through #423
 - Human-guided intake pipeline fully operational: webhook → mechanical partner detection → ICS partner backfill → inbox triage (with unknown partner picker) → single-phase AI synthesis (decisions #223-252)
 - Meetings Motion complete (decisions #253-259): 10 interaction-based meeting types, recurring meeting engine with auto-spawn, series tracking via self-referential FK, RecurrenceEditor UI, synthesis-on-link, conference boilerplate pre-split fix, ICS multi-VEVENT guardrail confirmed
 - AI Brain Overhaul Phases 1-3 complete (decisions #260-269): goal field eliminated (migration 069), condensed columns on engagements + meeting_notes (migration 068), meeting summarization restructured with scoped context builder, structured output (Discussion/Decisions/Key Context), condensed 3-5 bullet digest, non-redundancy with tasks
@@ -58,7 +58,7 @@ A system where a PDM forwards an email and Roadrunner:
 ## What's Next
 
 ### Immediate
-- UI/UX polish pass — partner detail page layout for scale, Today page "Start notes" fix, SKILL.md layout patterns
+- UI/UX polish pass — partner detail page layout for scale, SKILL.md layout patterns
 - Partner profile data audit — architecture, deployment options, AWS stickiness fields review
 - Events page improvements — grouping by format, timeline view, upcoming vs past refinement
 
@@ -165,6 +165,10 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~Events catalog restructure~~ ✅ (decisions #415-422): Format taxonomy 8→7 (webinar/roundtable added, deadline/review_cycle/kickoff removed), 3 new fields (event_url, internal_links, archived), partner_day boolean dropped, 19 Partner Day Dates populated, 8 new records (3 PartnerEquip, 2 third-party, 3 webinar series), 5 archived. 44→50 event records. Migration 086
 - ~~Partner Events junction restructure + first seeding~~ ✅ (decisions #418-420): Sponsoring extracted to orthogonal checkbox, status lifecycle redesigned (5 values), contacts_attending removed, 5 partner event participation records seeded (Progress → 5 summits). 0→5 records
 - ~~MDF funding expiry indicator~~ ✅ (decision #423): Derived MDF window on Specialization enrollment rows — "MDF through Dec YYYY" or "MDF expired Dec YYYY", computed from date_achieved + 1 calendar year
+- ~~Sync audit + fixes~~ ✅ (2026-04-06): Ring 3 orphan cleanup (deleteOrphanedRows helper for all 5 posture tables), null program_id guard on enrollments, meeting push fires on every PUT (not just engagement_id change), notes auto-complete (scheduled→completed on note creation), bulk meeting sync gate removed (all meetings push, not just engagement-linked), dead sync constants removed (RELATIONSHIPS_TABLE, RF, VALID_RELATIONSHIP_TYPES). Migration 087 backfills 48 meetings with notes to completed status
+- ~~Today page Open Notes shortcut~~ ✅ (2026-04-07): Separate Link to /meetings/{id}?notes=true, auto-scrolls or auto-creates notes on arrival
+- ~~InlineError consistency~~ ✅ (2026-04-07): MeetingEditModal, EngagementActions, EnrollmentSection modal form standardized to InlineError component
+- ~~Dead code cleanup~~ ✅ (2026-04-07): SlideOverPanel, StatusBadge, useMutation hook deleted (orphaned). ROLE_PRIORITY export removed. Empty src/components/engagement/ directory removed
 
 ## Architecture Principles
 

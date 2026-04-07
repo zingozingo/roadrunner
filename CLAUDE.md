@@ -201,7 +201,7 @@ docs/sessions/
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → human-guided routing → AI synthesis → structured engagements → Airtable sync.
-> 86 migrations · 17 tables · 35 API routes · 14 UI pages · 444 passing tests
+> 87 migrations · 17 tables · 35 API routes · 14 UI pages · 444 passing tests
 
 ---
 
@@ -289,7 +289,7 @@ roadrunner/
 │   │   ├── tasks/                 #   Cross-partner task dashboard
 │   │   ├── layout.tsx             #   Root layout + sidebar
 │   │   └── page.tsx               #   Today page (two-column: meetings + tasks/inbox)
-│   ├── components/                # React components (38 across 6 groups)
+│   ├── components/                # React components (36 across 6 groups)
 │   │   ├── actions/               #   Entity action buttons + MergeButton + MeetingEditModal (6 files)
 │   │   ├── inbox/                 #   Inbox triage UI — InboxClient (1 file)
 │   │   ├── layout/                #   App structure — sidebar, headers, PageContainer (5 files)
@@ -338,7 +338,7 @@ roadrunner/
 │       │   └── utils.ts           #     Coercion helpers + validation
 │       └── __tests__/             #   435 passing tests across 14 test files
 ├── supabase/
-│   ├── migrations/                # 86 migration files (001-086)
+│   ├── migrations/                # 87 migration files (001-087)
 │   └── (authoritative schema lives in migrations/)
 ├── scripts/
 │   ├── screenshot.ts              # Playwright: screenshot a page at given viewport width
@@ -497,7 +497,7 @@ npx tsc --noEmit                   # TypeScript check (must pass with zero error
 
 ### Migrations
 
-Sequential numbering in `supabase/migrations/` (currently 001-082). New migrations get the next number (083, 084, ...). Write idempotent SQL where possible.
+Sequential numbering in `supabase/migrations/` (currently 001-087). New migrations get the next number (088, 089, ...). Write idempotent SQL where possible.
 
 ### Key Conventions
 

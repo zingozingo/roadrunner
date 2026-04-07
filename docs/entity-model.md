@@ -1,7 +1,7 @@
 # Roadrunner Entity Model
 
-> **Last updated**: 2026-03-29 (dissolved engagement junctions + relationships, program_name column, CI email index)
-> 17 active tables · 82 migrations · Ring 3 pull sync operational
+> **Last updated**: 2026-04-07 (migration 087 backfill meeting status, sync orphan cleanup, dead sync constants removed)
+> 17 active tables · 87 migrations · Ring 3 pull sync operational with orphan cleanup
 
 ---
 

@@ -58,7 +58,7 @@ export default function EngagementLinker({
       const res = await fetch(`/api/engagements?partner_id=${partnerId}`);
       const data = await res.json();
       const list: EngagementOption[] = (data.engagements ?? []).map(
-        (e: any) => ({ id: e.id, name: e.name })
+        (e: { id: string; name: string }) => ({ id: e.id, name: e.name })
       );
       cache.current = list;
       setEngagements(list);

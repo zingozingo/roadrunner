@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
           latestMessages as Message[],
           phase1
         );
-        await persistClassificationResult(result, target_id, latestMessages.map((m: any) => m.id), false);
+        await persistClassificationResult(result, target_id, latestMessages.map((m: { id: string }) => m.id), false);
         console.log("Re-synthesized merged engagement");
       }
     } catch (err) {

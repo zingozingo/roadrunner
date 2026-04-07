@@ -157,7 +157,7 @@ export default function InboxClient({ items: initialItems }: Props) {
       const res = await fetch(`/api/engagements?partner_id=${item.partner_id}`);
       const data = await res.json();
       setEngagements(
-        (data.engagements ?? []).map((e: any) => ({ id: e.id, name: e.name }))
+        (data.engagements ?? []).map((e: { id: string; name: string }) => ({ id: e.id, name: e.name }))
       );
     } catch (err) {
       console.error("Failed to fetch engagements:", err);
@@ -196,7 +196,7 @@ export default function InboxClient({ items: initialItems }: Props) {
       const res = await fetch("/api/partners");
       const data = await res.json();
       const list: PartnerOption[] = (data.partners ?? data ?? [])
-        .map((p: any) => ({ id: p.id, name: p.name }))
+        .map((p: { id: string; name: string }) => ({ id: p.id, name: p.name }))
         .sort((a: PartnerOption, b: PartnerOption) => a.name.localeCompare(b.name));
       partnersCache.current = list;
       setPartners(list);

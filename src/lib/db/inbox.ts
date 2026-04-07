@@ -37,7 +37,7 @@ export async function getInboxItems(): Promise<InboxItem[]> {
 
   // Batch-fetch partner names for detected partners
   const partnerIds = [...new Set(
-    messages.map((m: any) => m.partner_id).filter(Boolean)
+    messages.map((m: { partner_id: string | null }) => m.partner_id).filter(Boolean)
   )];
 
   const partnerMap = new Map<string, string>();
@@ -47,12 +47,12 @@ export async function getInboxItems(): Promise<InboxItem[]> {
       .select("id, name")
       .in("id", partnerIds);
 
-    for (const p of partners ?? []) {
-      partnerMap.set((p as any).id, (p as any).name);
+    for (const p of partners as { id: string; name: string }[] ?? []) {
+      partnerMap.set(p.id, p.name);
     }
   }
 
-  return messages.map((row: any) => ({
+  return messages.map((row: { id: string; sender_name: string | null; sender_email: string | null; subject: string | null; body_text: string | null; forwarded_at: string; partner_id: string | null; content_type: string | null; forwarder_note: string | null }) => ({
     id: row.id,
     sender_name: row.sender_name,
     sender_email: row.sender_email,
@@ -161,7 +161,7 @@ export async function setPartnerForInboxGroup(
 
   if (groupError) throw new Error(`Failed to fetch grouped messages: ${groupError.message}`);
 
-  const messageIds = (grouped ?? []).map((m: any) => m.id);
+  const messageIds = (grouped ?? []).map((m: { id: string }) => m.id);
   if (messageIds.length === 0) return { updatedMessages: 0 };
 
   // Stamp partner_id on all messages in group
