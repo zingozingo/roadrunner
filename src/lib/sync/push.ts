@@ -718,11 +718,6 @@ export async function syncMeetingsToAirtable(): Promise<SyncResult> {
 
   for (const mtg of meetings ?? []) {
     try {
-      // Engagement gate — skip meetings without an engagement
-      if (!mtg.engagement_id) {
-        continue;
-      }
-
       const rc = await getContactsByMeeting(mtg.id);
       const mtgContacts = rc.map(c => ({
         name: c.name,

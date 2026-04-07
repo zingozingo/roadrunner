@@ -33,21 +33,26 @@ export async function POST(request: NextRequest) {
       );
     }
     // Resolve engagement_id: explicit wins, otherwise inherit from meeting
+    const meetingId: string | null = body.meeting_id ?? null;
     let resolvedEngagementId: string | null = body.engagement_id ?? null;
-    if (body.meeting_id && !body.engagement_id) {
-      const meeting = await getMeeting(body.meeting_id);
+    let meeting: Awaited<ReturnType<typeof getMeeting>> | null = null;
+
+    if (meetingId) {
+      meeting = await getMeeting(meetingId);
       if (!meeting) {
         return NextResponse.json(
           { error: "Meeting not found" },
           { status: 400 }
         );
       }
-      resolvedEngagementId = meeting.engagement_id;
+      if (!body.engagement_id) {
+        resolvedEngagementId = meeting.engagement_id;
+      }
     }
 
     const note = await createMeetingNote({
       partner_id: body.partner_id,
-      meeting_id: body.meeting_id ?? null,
+      meeting_id: meetingId,
       engagement_id: resolvedEngagementId,
       note_type: body.note_type ?? "meeting",
       title: body.title ?? null,
@@ -56,6 +61,20 @@ export async function POST(request: NextRequest) {
       date_range_end: body.date_range_end ?? null,
       raw_notes: (body.raw_notes ?? "").trim(),
     });
+
+    // Auto-flip meeting status: scheduled → completed when notes are created
+    if (meeting && meeting.status === "scheduled") {
+      try {
+        const { updateMeeting } = await import("@/lib/db");
+        await updateMeeting(meetingId!, { status: "completed" });
+        console.log(`Meeting ${meetingId} auto-completed via notes save`);
+
+        const { pushMeetingToAirtable } = await import("@/lib/sync");
+        await pushMeetingToAirtable(meetingId!);
+      } catch (err) {
+        console.error(`Auto-complete failed for meeting ${meetingId}:`, err);
+      }
+    }
 
     return NextResponse.json({ note }, { status: 201 });
   } catch (error) {

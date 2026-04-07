@@ -173,15 +173,16 @@ export async function PUT(
       }
     }
 
-    // Push to Airtable when engagement link changes
-    if (engagement_id !== undefined) {
-      try {
-        const { pushMeetingToAirtable } = await import("@/lib/sync");
-        await pushMeetingToAirtable(id);
-      } catch (err) {
-        console.error(`Airtable push failed for meeting ${id}:`, err);
-      }
+    // Push meeting to Airtable on every update (status, title, date, etc.)
+    try {
+      const { pushMeetingToAirtable } = await import("@/lib/sync");
+      await pushMeetingToAirtable(id);
+    } catch (err) {
+      console.error(`Airtable push failed for meeting ${id}:`, err);
+    }
 
+    // Engagement-specific side effects: only when engagement link changes
+    if (engagement_id !== undefined) {
       // Re-synthesize engagement activity summary when linked (not unlinked)
       if (engagement_id) {
         try {
