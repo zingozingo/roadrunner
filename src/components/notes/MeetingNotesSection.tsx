@@ -4,6 +4,10 @@ import { useState, useEffect, useRef } from "react";
 import type { MeetingNoteWithTasks, DisplayContext } from "@/lib/types";
 import NoteWorkspace from "./NoteWorkspace";
 
+// Module-level set survives React strict mode unmount/remount cycles.
+// Tracks meeting IDs with an auto-create in flight to prevent double POSTs.
+const autoCreateInFlight = new Set<string>();
+
 interface MeetingNotesSectionProps {
   meetingId: string;
   partnerId: string;
@@ -40,8 +44,8 @@ export default function MeetingNotesSection({
     if (existingNote) {
       // Notes exist — scroll to them
       sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    } else {
-      // No notes — auto-create
+    } else if (!autoCreateInFlight.has(meetingId)) {
+      // No notes and no in-flight create — auto-create
       handleStartNotes();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -50,6 +54,7 @@ export default function MeetingNotesSection({
   async function handleStartNotes() {
     setCreating(true);
     setError(null);
+    autoCreateInFlight.add(meetingId);
     try {
       const res = await fetch("/api/notes", {
         method: "POST",
@@ -74,6 +79,7 @@ export default function MeetingNotesSection({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create note");
     } finally {
+      autoCreateInFlight.delete(meetingId);
       setCreating(false);
     }
   }

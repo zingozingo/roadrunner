@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listMeetingNotes, createMeetingNote, getMeeting } from "@/lib/db";
+import { listMeetingNotes, createMeetingNote, getMeeting, getMeetingNoteByMeetingId } from "@/lib/db";
 
 export async function GET(request: NextRequest) {
   try {
@@ -47,6 +47,14 @@ export async function POST(request: NextRequest) {
       }
       if (!body.engagement_id) {
         resolvedEngagementId = meeting.engagement_id;
+      }
+    }
+
+    // Idempotent: if a note already exists for this meeting, return it
+    if (meetingId) {
+      const existing = await getMeetingNoteByMeetingId(meetingId);
+      if (existing) {
+        return NextResponse.json({ note: existing }, { status: 200 });
       }
     }
 
