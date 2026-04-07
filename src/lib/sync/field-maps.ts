@@ -1,7 +1,6 @@
 // ── Airtable table IDs ──────────────────────────────────────
 export const PROGRAMS_TABLE = "tblpnW8ibVmkWi5Dt";
 export const EVENTS_TABLE = "tblPDGUSqSvn8mflJ";
-export const RELATIONSHIPS_TABLE = "tblqVBssFsUeAt9bj";
 export const PARTNERS_TABLE = "tbl9zC6nxfLEp8xUx";
 export const ENGAGEMENTS_TABLE = "tblTC491AUVcrKvq2";
 export const MEETINGS_TABLE = "tbl6LsEqSvEZgqBdW";
@@ -47,17 +46,6 @@ export const EF = {
   eventUrl: "fld1i1Man1gLytyHo",
   internalLinks: "fldEqolJfYdvh6nBN",
   archived: "flddY9M5bISisWwRb",
-} as const;
-
-export const RF = {
-  name: "fldeiFljVC5L61c3v",
-  awsOrg: "fldKSmvO7Lhr5v9Fy",
-  awsService: "fldiieBBkkAFYDOJC",
-  type: "fld2cjVCECNIPGw2d",
-  leadContact: "fldKELDdEYb8MsJCP",
-  teamContacts: "fld472yolP2ujyJ5w",
-  notes: "fldOcbNUrtfxjqiW5",
-  orgType: "fldmShxggHOAuioR4",
 } as const;
 
 export const PTRF = {

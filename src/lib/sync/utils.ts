@@ -70,10 +70,6 @@ export const VALID_EVENT_TYPES = new Set([
   "webinar", "roundtable",
 ]);
 
-export const VALID_RELATIONSHIP_TYPES = new Set([
-  "Exec/Leader", "Product Team", "Program Team", "Seller",
-]);
-
 export const VALID_LIFECYCLE_TYPES = new Set([
   "indefinite", "recurring", "expiring",
 ]);
