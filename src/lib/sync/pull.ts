@@ -531,6 +531,47 @@ async function buildEventLookup(): Promise<Map<string, string>> {
   return map;
 }
 
+// ── Ring 3 orphan cleanup ──────────────────────────────────
+
+/**
+ * Delete Supabase rows whose airtable_id is not in the set of AT record IDs just synced.
+ * All Ring 3 tables use `airtable_id` as the column name (vs Ring 1's `airtable_record_id`).
+ */
+async function deleteOrphanedRows(
+  table: string,
+  syncedAtIds: Set<string>,
+  result: SyncResult
+): Promise<void> {
+  const supabase = getSupabaseClient();
+  const { data: existing, error } = await supabase
+    .from(table)
+    .select("id, airtable_id");
+
+  if (error) {
+    result.errors.push(`Orphan check ${table}: ${error.message}`);
+    return;
+  }
+
+  const orphans = (existing ?? []).filter(
+    (r: { id: string; airtable_id: string | null }) =>
+      r.airtable_id && !syncedAtIds.has(r.airtable_id)
+  );
+
+  for (const orphan of orphans) {
+    try {
+      const { error: delErr } = await supabase.from(table).delete().eq("id", orphan.id);
+      if (delErr) {
+        result.errors.push(`Delete orphan ${table} ${orphan.id}: ${delErr.message}`);
+      } else {
+        console.log(`Deleted orphaned ${table} row: ${orphan.id} (airtable_id: ${orphan.airtable_id})`);
+        result.deleted++;
+      }
+    } catch (err) {
+      result.errors.push(`Delete orphan ${table} ${orphan.id}: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  }
+}
+
 // ── Ring 3 sync functions ───────────────────────────────────
 
 export async function syncPartnerGoals(): Promise<SyncResult> {
@@ -582,7 +623,11 @@ export async function syncPartnerGoals(): Promise<SyncResult> {
     }
   }
 
-  console.log(`syncPartnerGoals: ${result.inserted} upserted, ${result.errors.length} errors`);
+  // Delete orphans: Supabase rows with airtable_id not in current AT set
+  const syncedGoalIds = new Set(atRecords.map((r) => r.id));
+  await deleteOrphanedRows("partner_goals", syncedGoalIds, result);
+
+  console.log(`syncPartnerGoals: ${result.inserted} upserted, ${result.deleted} deleted, ${result.errors.length} errors`);
   return result;
 }
 
@@ -604,6 +649,12 @@ export async function syncPartnerProgramEnrollments(): Promise<SyncResult> {
 
       // Resolve program via linked record field (preferred)
       const programId = resolveLinkedRecord(rec.fields[PARTNER_PROGRAMS_FIELDS.program], programMap);
+      if (!programId) {
+        const programName = str(rec.fields[PARTNER_PROGRAMS_FIELDS.programId]);
+        console.warn(`Skipped enrollment ${rec.id}: no program resolved (program_name: ${programName ?? "none"})`);
+        result.errors.push(`Skipped enrollment ${rec.id}: no program resolved`);
+        continue;
+      }
 
       const programName = str(rec.fields[PARTNER_PROGRAMS_FIELDS.programId]);
       const notes = str(rec.fields[PARTNER_PROGRAMS_FIELDS.notes]);
@@ -623,7 +674,11 @@ export async function syncPartnerProgramEnrollments(): Promise<SyncResult> {
     }
   }
 
-  console.log(`syncPartnerProgramEnrollments: ${result.inserted} upserted, ${result.errors.length} errors`);
+  // Delete orphans: Supabase rows with airtable_id not in current AT set
+  const syncedEnrollmentIds = new Set(atRecords.map((r) => r.id));
+  await deleteOrphanedRows("partner_program_enrollments", syncedEnrollmentIds, result);
+
+  console.log(`syncPartnerProgramEnrollments: ${result.inserted} upserted, ${result.deleted} deleted, ${result.errors.length} errors`);
   return result;
 }
 
@@ -663,7 +718,11 @@ export async function syncPartnerEventParticipations(): Promise<SyncResult> {
     }
   }
 
-  console.log(`syncPartnerEventParticipations: ${result.inserted} upserted, ${result.errors.length} errors`);
+  // Delete orphans: Supabase rows with airtable_id not in current AT set
+  const syncedEventPartIds = new Set(atRecords.map((r) => r.id));
+  await deleteOrphanedRows("partner_event_participations", syncedEventPartIds, result);
+
+  console.log(`syncPartnerEventParticipations: ${result.inserted} upserted, ${result.deleted} deleted, ${result.errors.length} errors`);
   return result;
 }
 
@@ -698,7 +757,11 @@ export async function syncMpoppFunding(): Promise<SyncResult> {
     }
   }
 
-  console.log(`syncMpoppFunding: ${result.inserted} upserted, ${result.errors.length} errors`);
+  // Delete orphans: Supabase rows with airtable_id not in current AT set
+  const syncedMpoppIds = new Set(atRecords.map((r) => r.id));
+  await deleteOrphanedRows("partner_funding_mpopp", syncedMpoppIds, result);
+
+  console.log(`syncMpoppFunding: ${result.inserted} upserted, ${result.deleted} deleted, ${result.errors.length} errors`);
   return result;
 }
 
@@ -734,7 +797,11 @@ export async function syncMdfFunding(): Promise<SyncResult> {
     }
   }
 
-  console.log(`syncMdfFunding: ${result.inserted} upserted, ${result.errors.length} errors`);
+  // Delete orphans: Supabase rows with airtable_id not in current AT set
+  const syncedMdfIds = new Set(atRecords.map((r) => r.id));
+  await deleteOrphanedRows("partner_funding_mdf", syncedMdfIds, result);
+
+  console.log(`syncMdfFunding: ${result.inserted} upserted, ${result.deleted} deleted, ${result.errors.length} errors`);
   return result;
 }
 
