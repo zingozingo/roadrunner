@@ -182,6 +182,24 @@ export async function getMeetingNotesByPartner(
 }
 
 /**
+ * Get meeting IDs that have associated notes from a list of meeting IDs.
+ * Used to protect meetings with notes during scope-aware recurrence edits.
+ */
+export async function getMeetingIdsWithNotes(
+  meetingIds: string[]
+): Promise<Set<string>> {
+  if (meetingIds.length === 0) return new Set();
+
+  const { data, error } = await getSupabaseClient()
+    .from("meeting_notes")
+    .select("meeting_id")
+    .in("meeting_id", meetingIds);
+
+  if (error) throw new Error(`Failed to check meetings for notes: ${error.message}`);
+  return new Set((data ?? []).map((n: { meeting_id: string }) => n.meeting_id));
+}
+
+/**
  * Move all meeting_notes from one engagement to another.
  * Returns the number of notes moved.
  */

@@ -274,6 +274,27 @@ export async function insertSpawnedMeeting(
 }
 
 /**
+ * Get future meetings in a series, excluding a specific meeting.
+ * Used by scope-aware editing to find meetings that need date recalculation.
+ */
+export async function getFutureSeriesMeetingsExcluding(
+  seriesId: string,
+  afterDate: string,
+  excludeId: string
+): Promise<{ id: string; meeting_date: string }[]> {
+  const { data, error } = await getSupabaseClient()
+    .from("meetings")
+    .select("id, meeting_date")
+    .eq("series_id", seriesId)
+    .gte("meeting_date", afterDate)
+    .neq("id", excludeId)
+    .order("meeting_date", { ascending: true });
+
+  if (error) throw new Error(`Failed to fetch future series meetings: ${error.message}`);
+  return (data ?? []) as { id: string; meeting_date: string }[];
+}
+
+/**
  * Stamp a partner_id on a meeting.
  */
 export async function stampPartnerOnMeeting(

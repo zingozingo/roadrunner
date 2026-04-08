@@ -4,6 +4,10 @@ import {
   updateMeeting,
   deleteMeeting,
   resolvePartnerByName,
+  getEngagementById,
+  getFutureSeriesMeetingsExcluding,
+  getMeetingIdsWithNotes,
+  cascadeEngagementToTasks,
 } from "@/lib/db";
 import { VALID_MEETING_STATUSES, validateEnum } from "@/lib/validation";
 
@@ -25,7 +29,6 @@ export async function GET(
     // Resolve engagement name if linked
     let engagementName: string | null = null;
     if (meeting.engagement_id) {
-      const { getEngagementById } = await import("@/lib/db");
       const eng = await getEngagementById(meeting.engagement_id);
       engagementName = eng?.name ?? null;
     }
@@ -101,9 +104,7 @@ export async function PUT(
 
       if (patternChanged) {
         try {
-          const { getSupabaseClient } = await import("@/lib/db");
           const { calculateNextDate } = await import("@/lib/meeting-recurrence");
-          const db = getSupabaseClient();
           const today = new Date().toISOString().slice(0, 10);
 
           // Update series root with new pattern/anchor
@@ -116,21 +117,10 @@ export async function PUT(
           }
 
           // Find future meetings in the series with no notes taken
-          const { data: futureMeetings } = await db
-            .from("meetings")
-            .select("id, meeting_date")
-            .eq("series_id", rootId)
-            .gte("meeting_date", today)
-            .neq("id", id)
-            .order("meeting_date", { ascending: true });
+          const futureMeetings = await getFutureSeriesMeetingsExcluding(rootId, today, id);
 
-          // Check which have no notes (safe to reschedule)
-          if (futureMeetings && futureMeetings.length > 0) {
-            const { data: notedMeetingIds } = await db
-              .from("meeting_notes")
-              .select("meeting_id")
-              .in("meeting_id", futureMeetings.map((m) => m.id));
-            const notedSet = new Set((notedMeetingIds ?? []).map((n: { meeting_id: string }) => n.meeting_id));
+          if (futureMeetings.length > 0) {
+            const notedSet = await getMeetingIdsWithNotes(futureMeetings.map((m) => m.id));
 
             const newPattern = (recurrence_pattern ?? existing.recurrence_pattern) as import("@/lib/types").RecurrencePattern;
             const newAnchor = anchor_day ?? existing.anchor_day ?? undefined;
@@ -182,7 +172,6 @@ export async function PUT(
 
       // Cascade engagement_id to tasks from this meeting's notes
       try {
-        const { cascadeEngagementToTasks } = await import("@/lib/db");
         await cascadeEngagementToTasks(id, engagement_id || null, existing.engagement_id);
       } catch (err) {
         console.error(`Task cascade failed for meeting ${id}:`, err);

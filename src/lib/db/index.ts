@@ -40,6 +40,7 @@ export {
   getFutureMeetingsInSeries,
   getSeriesRootAnchorDay,
   insertSpawnedMeeting,
+  getFutureSeriesMeetingsExcluding,
   stampPartnerOnMeeting,
   reparentMeetingsToEngagement,
   getMeeting,
@@ -109,6 +110,7 @@ export type { InboxItem } from "./inbox";
 
 // Meeting Notes
 export {
+  getMeetingIdsWithNotes,
   reparentNotesToEngagement,
   reparentTasksToEngagement,
   createMeetingNote,
