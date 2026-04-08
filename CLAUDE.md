@@ -310,7 +310,10 @@ roadrunner/
 │       ├── name-resolver.ts       #   Contact name resolution from JSONB columns
 │       ├── contact-parser.ts      #   Universal "Name <email> (Title)" parser
 │       ├── format-utils.ts        #   Display name formatting + stripPartnerPrefix
-│       ├── meeting-recurrence.ts  #   Recurring meeting engine (spawn, overdue detection)
+│       ├── inbound-pipeline.ts    #   Email processing pipeline (body selection, parse, store, detect partner, ICS)
+│       ├── inbox-resolver.ts     #   Inbox resolution orchestration (synthesis, persist, link, AT push)
+│       ├── engagement-merge.ts   #   Engagement merge pipeline (reparent, delete, re-synthesize, AT sync)
+│       ├── meeting-recurrence.ts #   Recurring meeting engine (spawn, overdue detection, series propagation)
 │       ├── notes-summarizer.ts    #   AI meeting note summarizer (Claude API)
 │       ├── notes-context.ts       #   Context builders (buildPartnerContext, buildMeetingNoteContext, buildBrainContext)
 │       ├── contact-display.ts     #   Contact display formatting for UI
@@ -336,7 +339,7 @@ roadrunner/
 │       │   ├── push.ts            #     RR → AT activity sync
 │       │   ├── field-maps.ts      #     Airtable field ID constants (6 pull + 2 push + 5 Ring 3)
 │       │   └── utils.ts           #     Coercion helpers + validation
-│       └── __tests__/             #   435 passing tests across 14 test files
+│       └── __tests__/             #   444 passing tests across 14 test files
 ├── supabase/
 │   ├── migrations/                # 87 migration files (001-087)
 │   └── (authoritative schema lives in migrations/)
@@ -439,13 +442,15 @@ These are **NON-NEGOTIABLE**. Every code change must respect these:
 
 **Server Components (reads):** List and detail pages query Supabase directly via server-side functions in `db/`. No API route involved — the component IS the server.
 
-**Client Components (writes):** Action buttons, forms, and mutations call API routes. The routes validate input and call `db/` functions.
+**Client Components (writes):** Action buttons, forms, and mutations call API routes. Routes are thin wrappers: validate input → call service function → format response. Business logic lives in `src/lib/` service files, not in routes.
 
 **External Webhooks:** `/api/inbound` (Mailgun) and `/api/health` (monitoring) are called by external services, not the frontend.
 
 **No stubbed routes.** The old `/api/classify` 410 stub was removed in Phase D cleanup.
 
 **All Supabase queries live in `src/lib/db/`.** No direct `supabase.from()` or `getSupabaseClient()` calls outside `src/lib/db/` and `src/lib/sync/`. API routes, page files, and library files import db functions instead. This is a project rule enforced by Plan 6 — 57 rogue queries were extracted into 46 new db functions.
+
+**Three-layer architecture (Plan 7):** UI → thin API routes → service functions → db layer → Supabase. The 4 largest routes (inbound, reviews/resolve, engagements/merge, meetings/[id]) delegate business logic to dedicated service files: `inbound-pipeline.ts`, `inbox-resolver.ts`, `engagement-merge.ts`, `meeting-recurrence.ts`. Routes handle HTTP concerns only (request parsing, validation, response formatting).
 
 ---
 
@@ -565,15 +570,17 @@ Sequential numbering in `supabase/migrations/` (currently 001-087). New migratio
 
 ## File Quick Reference
 
+**Services (business logic):** `inbound-pipeline.ts` (email processing), `inbox-resolver.ts` (inbox resolution), `engagement-merge.ts` (merge orchestration), `meeting-recurrence.ts` (spawn + propagation)
+
 **Classification:** `classifier.ts` → `phase2-prompt.ts` → `claude.ts` · Partner detection: `partner-detection.ts` · Brain: `brain-synthesizer.ts` → `notes-context.ts` (buildBrainContext)
 
 **Sync:** `sync/pull.ts` / `sync/push.ts` → `sync/field-maps.ts` → `sync/utils.ts`
 
 **Data layer:** `db/index.ts` → `db/engagements.ts` → `db/messages.ts` → `db/meetings.ts` → `db/meeting-notes.ts` → `db/participants.ts` → `db/partner-context.ts` → `db/catalog.ts` → `db/partners.ts` → `db/inbox.ts` → `db/ring3.ts`
 
-**Email:** `email-parser.ts` → `ics-parser.ts` → `name-resolver.ts` → `contact-parser.ts` → `format-utils.ts` · Recurrence: `meeting-recurrence.ts`
+**Email:** `email-parser.ts` → `ics-parser.ts` → `name-resolver.ts` → `contact-parser.ts` → `format-utils.ts`
 
-**Entry points:** `/api/inbound` (Mailgun webhook), `/api/reviews/resolve` (inbox routing — assign/create/discard), `/api/engagements/merge` (engagement merge), `/api/sync` (catalog sync)
+**Entry points:** `/api/inbound` → `inbound-pipeline.ts`, `/api/reviews/resolve` → `inbox-resolver.ts`, `/api/engagements/merge` → `engagement-merge.ts`, `/api/sync` (catalog sync)
 
 ---
 

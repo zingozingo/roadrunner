@@ -58,7 +58,6 @@ A system where a PDM forwards an email and Roadrunner:
 ## What's Next
 
 ### Immediate
-- Plan 7 — Services layer extraction: extract business logic from 4 oversized routes (inbound 464L, meetings/[id] 218L, reviews/resolve 191L, merge 171L) into service functions
 - UI/UX polish pass — partner detail page layout for scale, SKILL.md layout patterns
 - Partner profile data audit — architecture, deployment options, AWS stickiness fields review
 - Events page improvements — grouping by format, timeline view, upcoming vs past refinement
@@ -173,6 +172,7 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~Idempotent note creation~~ ✅ (2026-04-08, decision #424): POST /api/notes checks for existing note before insert, returns with 200. Module-level Set guards against React strict mode double-mount race condition
 - ~~Plan 5: Validation Centralization~~ ✅ (2026-04-08, decisions #425-429): 12 VALID_* constants centralized in validation.ts, validateEnum() helper, resolvePartnerByName() extracted to db layer, cleanSubject() extracted to format-utils, all 10 DELETE responses normalized to { deleted: true }
 - ~~Plan 6: Data Layer Centralization~~ ✅ (2026-04-08, decisions #430-431): 79 rogue supabase.from() queries extracted from 23 files into 46 new db functions (114→160 total). Zero direct Supabase access remains outside db/ and sync/. CreateTaskInput.meeting_note_id made nullable. Project rule enforced: all queries in src/lib/db/
+- ~~Plan 7: Services Layer Extraction~~ ✅ (2026-04-08): Business logic extracted from 4 oversized routes into dedicated service files. inbound/route.ts 464→205, reviews/resolve 192→114, engagements/merge 172→65, meetings/[id] 219→185. 3 new service files (inbound-pipeline.ts, inbox-resolver.ts, engagement-merge.ts) + meeting-recurrence.ts extended. Three-layer architecture complete: UI → thin routes → services → db → Supabase
 
 ## Architecture Principles
 
