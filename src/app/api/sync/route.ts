@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { syncAllCatalogs, syncEntity } from "@/lib/sync";
-
-const VALID_ENTITIES = new Set(["partners", "programs", "events", "engagements", "meetings"]);
+import { VALID_SYNC_ENTITIES, validateEnum } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
   // Check for Airtable API key
@@ -15,11 +14,9 @@ export async function POST(request: NextRequest) {
   try {
     const entity = request.nextUrl.searchParams.get("entity");
 
-    if (entity && !VALID_ENTITIES.has(entity)) {
-      return NextResponse.json(
-        { error: `Invalid entity "${entity}". Must be one of: ${[...VALID_ENTITIES].join(", ")}` },
-        { status: 400 }
-      );
+    if (entity) {
+      const err = validateEnum("entity", entity, VALID_SYNC_ENTITIES);
+      if (err) return NextResponse.json({ error: err }, { status: 400 });
     }
 
     const result = entity

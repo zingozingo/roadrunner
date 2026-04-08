@@ -4,13 +4,7 @@ import {
   updateMeeting,
   deleteMeeting,
 } from "@/lib/db";
-
-const VALID_STATUSES = new Set([
-  "scheduled",
-  "completed",
-  "cancelled",
-  "did_not_occur",
-]);
+import { VALID_MEETING_STATUSES, validateEnum } from "@/lib/validation";
 
 export async function GET(
   _request: NextRequest,
@@ -62,11 +56,9 @@ export async function PUT(
       );
     }
 
-    if (status !== undefined && status !== null && !VALID_STATUSES.has(status)) {
-      return NextResponse.json(
-        { error: `Invalid status "${status}". Must be one of: ${[...VALID_STATUSES].join(", ")}` },
-        { status: 400 }
-      );
+    if (status !== undefined && status !== null) {
+      const err = validateEnum("status", status, VALID_MEETING_STATUSES);
+      if (err) return NextResponse.json({ error: err }, { status: 400 });
     }
 
     const existing = await getMeeting(id);

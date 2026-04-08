@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseClient } from "@/lib/db/client";
-
-const VALID_STATUSES = new Set(["interested", "invited", "registered", "attended", "declined"]);
+import { VALID_EVENT_PARTICIPATION_STATUSES, validateEnum } from "@/lib/validation";
 
 export async function POST(
   request: NextRequest,
@@ -14,8 +13,12 @@ export async function POST(
   if (!event_id) {
     return NextResponse.json({ error: "event_id is required" }, { status: 400 });
   }
-  if (!status || !VALID_STATUSES.has(status)) {
-    return NextResponse.json({ error: `status must be one of: ${[...VALID_STATUSES].join(", ")}` }, { status: 400 });
+  if (!status) {
+    return NextResponse.json({ error: "status is required" }, { status: 400 });
+  }
+  const statusErr = validateEnum("status", status, VALID_EVENT_PARTICIPATION_STATUSES);
+  if (statusErr) {
+    return NextResponse.json({ error: statusErr }, { status: 400 });
   }
 
   const db = getSupabaseClient();

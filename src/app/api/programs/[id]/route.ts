@@ -4,6 +4,7 @@ import {
   updateProgram,
   deleteProgram,
 } from "@/lib/db";
+import { VALID_PROGRAM_CATEGORIES, validateEnum } from "@/lib/validation";
 
 export async function GET(
   _request: NextRequest,
@@ -54,12 +55,9 @@ export async function PUT(
       );
     }
 
-    const VALID_CATEGORIES = new Set(["Specialization", "Funding", "Agreement", "Operational", "Enablement"]);
-    if (category !== undefined && category !== null && !VALID_CATEGORIES.has(category)) {
-      return NextResponse.json(
-        { error: `Invalid category "${category}". Must be one of: ${[...VALID_CATEGORIES].join(", ")}` },
-        { status: 400 }
-      );
+    if (category !== undefined && category !== null) {
+      const err = validateEnum("category", category, VALID_PROGRAM_CATEGORIES);
+      if (err) return NextResponse.json({ error: err }, { status: 400 });
     }
 
     const updates: Record<string, unknown> = {};

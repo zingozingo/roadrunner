@@ -7,6 +7,7 @@ import {
   deleteEngagement,
   deleteMessagesByEngagement,
 } from "@/lib/db";
+import { VALID_ENGAGEMENT_STATUSES, VALID_ENGAGEMENT_PILLARS, validateEnum } from "@/lib/validation";
 
 export async function GET(
   _request: NextRequest,
@@ -42,8 +43,6 @@ export async function GET(
   }
 }
 
-const VALID_STATUSES = new Set(["active", "blocked", "completed", "archived"]);
-const VALID_PILLARS = new Set(["Co-Sell", "Co-Market", "Co-Build"]);
 
 export async function PUT(
   request: NextRequest,
@@ -86,18 +85,14 @@ export async function PUT(
       );
     }
 
-    if (status !== undefined && !VALID_STATUSES.has(status)) {
-      return NextResponse.json(
-        { error: `Invalid status "${status}". Must be one of: active, blocked, completed, archived` },
-        { status: 400 }
-      );
+    if (status !== undefined) {
+      const err = validateEnum("status", status, VALID_ENGAGEMENT_STATUSES);
+      if (err) return NextResponse.json({ error: err }, { status: 400 });
     }
 
-    if (pillar !== undefined && pillar !== null && !VALID_PILLARS.has(pillar)) {
-      return NextResponse.json(
-        { error: `Invalid pillar "${pillar}". Must be one of: Co-Sell, Co-Market, Co-Build` },
-        { status: 400 }
-      );
+    if (pillar !== undefined && pillar !== null) {
+      const err = validateEnum("pillar", pillar, VALID_ENGAGEMENT_PILLARS);
+      if (err) return NextResponse.json({ error: err }, { status: 400 });
     }
 
     if (name !== undefined && typeof name === "string" && !name.trim()) {
