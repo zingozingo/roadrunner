@@ -59,7 +59,7 @@ export async function DELETE(
       .eq("id", enrollmentId);
 
     if (error) throw error;
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ deleted: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });

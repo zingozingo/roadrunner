@@ -35,7 +35,7 @@ export async function DELETE(
   try {
     const { taskId } = await params;
     await deleteTask(taskId);
-    return NextResponse.json({ status: "deleted" });
+    return NextResponse.json({ deleted: true });
   } catch (error) {
     console.error("DELETE /api/notes/tasks/[taskId] error:", error);
     return NextResponse.json(

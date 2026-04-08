@@ -158,7 +158,7 @@ export async function DELETE(
 
     await deleteEngagement(id);
 
-    return NextResponse.json({ status: "deleted", messagesDeleted });
+    return NextResponse.json({ deleted: true, messagesDeleted });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("DELETE /api/engagements/[id] error:", message);

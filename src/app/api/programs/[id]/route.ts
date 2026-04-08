@@ -96,7 +96,7 @@ export async function DELETE(
 
     await deleteProgram(id);
 
-    return NextResponse.json({ status: "deleted" });
+    return NextResponse.json({ deleted: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("DELETE /api/programs/[id] error:", message);
