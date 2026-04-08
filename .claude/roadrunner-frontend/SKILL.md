@@ -1,6 +1,6 @@
 ---
-name: roadrunner-ui
-description: UI design system reference for Roadrunner. Covers tokens, components, pages, patterns, and interaction standards. Read docs/north-star.md FIRST for vision and design decisions.
+name: roadrunner-frontend
+description: Frontend design system reference for Roadrunner. Covers tokens, components, pages, patterns, and interaction standards. Read docs/north-star.md FIRST for vision and design decisions.
 ---
 
 # Roadrunner UI Design System
@@ -306,11 +306,13 @@ If unsaved changes exist:
 **Server components (reads):** Query Supabase directly via `db/` functions with `Promise.all`:
 
 ```typescript
-const [{ data: meetings }, { data: engagements }] = await Promise.all([
-  db.from("meetings").select("*").eq("partner_id", id),
-  db.from("engagements").select("*").eq("partner_id", id),
+const [meetings, engagements] = await Promise.all([
+  getMeetingsByPartner(id),
+  getEngagementsByPartner(id),
 ]);
 ```
+
+All data access goes through typed db functions in `src/lib/db/` — never raw `supabase.from()` calls in pages or components.
 
 **Ring 3 data:** Import from `@/lib/db`: `getPartnerGoals`, `getPartnerProgramEnrollments`, `getPartnerEventParticipations`, `getPartnerMpoppFunding`, `getPartnerMdfFunding`.
 

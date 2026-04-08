@@ -48,7 +48,7 @@ These live in the project. Claude Code reads them directly. You don't need them 
 | `docs/plans/archive/` | Completed plans with completion summaries | Reference |
 | `docs/sessions/templates/plan-template.md` | Plan structure — task format, verification, checkpoints | Creating new plans |
 | `decisions.md` | Append-only architectural decision log | "Why did we decide X?" |
-| `.claude/roadrunner-ui/SKILL.md` | Living design system — visual foundations, interaction patterns, data visualization | UI work |
+| `.claude/roadrunner-frontend/SKILL.md` | Living design system — visual foundations, interaction patterns, data visualization | UI work |
 | `.claude/references/` | Screenshots + ui-ux-best-practices.md | UI quality bar |
 
 ## Session Startup

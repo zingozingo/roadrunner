@@ -27,9 +27,10 @@ In both modes, all rules below apply.
 
 Read these documents in this order before touching any UI code:
 1. `docs/north-star.md` — The vision: what Roadrunner should become, page specs, UX standards, design principles, anti-patterns
-2. `.claude/roadrunner-ui/SKILL.md` — The design system: tokens, components, patterns. This is a LIVING document — update it as you establish new patterns during implementation
-3. `docs/entity-model.md` — The schema: all 17 tables, FK cascades, Airtable field IDs, ring model. This is your reference for what data exists and how entities connect
-4. `.claude/references/ui-ux-best-practices.md` — Interaction patterns: button states, loading, errors, undo, navigation safety, dark theme, spacing, feedback timing
+2. `.claude/roadrunner-frontend/SKILL.md` — The frontend design system: tokens, components, patterns. This is a LIVING document — update it as you establish new patterns during implementation
+3. `.claude/roadrunner-backend/SKILL.md` — The backend architecture: three-layer architecture, data layer, services, validation, sync patterns
+4. `docs/entity-model.md` — The schema: all 17 tables, FK cascades, Airtable field IDs, ring model. This is your reference for what data exists and how entities connect
+5. `.claude/references/ui-ux-best-practices.md` — Interaction patterns: button states, loading, errors, undo, navigation safety, dark theme, spacing, feedback timing
 
 ### Path Guardrails — Minimum Necessary Changes
 
@@ -591,6 +592,8 @@ Sequential numbering in `supabase/migrations/` (currently 001-087). New migratio
 | Doc | Purpose | When to Read |
 |-----|---------|--------------|
 | `CLAUDE.md` | This file — project overview, architecture, development | Start of every session |
+| `.claude/roadrunner-frontend/SKILL.md` | Frontend design system — visual foundations, interaction patterns, data visualization | UI/UX work |
+| `.claude/roadrunner-backend/SKILL.md` | Backend architecture — three-layer architecture, data layer, services, validation, sync | Backend work |
 | `docs/entity-model.md` | Complete schema — 17 tables, all FKs, AT field IDs, ring model | Schema/data work |
 | `docs/north-star.md` | UI vision spec — page specs, UX standards, design principles | UI/UX work |
 | `docs/ai-call-map.md` | AI call reference — 3 calls: synthesis, summarization, brain | AI/prompt work |
