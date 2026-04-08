@@ -7619,3 +7619,33 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** 10 route files updated. Zero { status: "deleted" } or { success: true } patterns remain.
 
 ---
+
+### #430 — Data layer centralization: all Supabase queries in src/lib/db/
+
+**Date:** 2026-04-08
+**Status:** ✅ Implemented (Plan 6)
+
+**Decision:** Every `supabase.from()` call in the application codebase must live in `src/lib/db/` or `src/lib/sync/`. API routes, page files, and library files import typed db functions instead of accessing the Supabase client directly. This is an enforced project rule going forward.
+
+**Context:** A codebase audit found 82 direct Supabase queries scattered across 23 files (API routes, page files, library files). These queries were inline, untyped, and untestable. The same query patterns were duplicated across files (e.g., partner lookup by name in 3 routes, engagement-scoped note fetching in 2 files). Plan 6 systematically extracted all 79 rogue queries (3 were already extracted by Plan 5) into 46 new db functions across 8 db modules.
+
+**Rationale:** Centralized data access provides: (1) single point of change when schema evolves, (2) typed return values eliminate `as` casts in routes, (3) db functions are independently testable, (4) routes become thin validation→orchestration→response wrappers, (5) enables future migration away from Supabase without touching app code. The db layer went from 114 to 160 exported functions. All 444 tests pass unchanged — zero behavior modifications.
+
+**Impact:** Zero direct Supabase access remains outside db/ and sync/. CLAUDE.md updated with the rule in "API Route Patterns" and "What NOT to Do" sections. CreateTaskInput.meeting_note_id made nullable to support standalone tasks through the typed createTask() function.
+
+---
+
+### #431 — Composite db functions for multi-table operations
+
+**Date:** 2026-04-08
+**Status:** ✅ Implemented (Plan 6)
+
+**Decision:** Multi-table operations that are always performed together get composite db functions rather than requiring callers to orchestrate multiple low-level calls. Examples: `mergeEngagementParticipants(from, to)` handles select + loop + upsert; `replacePartnerSynthesis(partnerId, content)` handles delete + insert atomically; `searchParticipants(options)` handles partner-filter sub-queries + main query + pagination internally.
+
+**Context:** During Plan 6, some extractions were straightforward (single-table CRUD), but others involved 2-3 sequential queries that only made sense together. Extracting each as a separate function would force routes to orchestrate db internals.
+
+**Rationale:** The db layer should expose operations at the domain-concept level, not the SQL-statement level. A route calling `mergeEngagementParticipants()` is more readable and less error-prone than calling `getParticipantsByEngagement()` then looping with `upsertEngagementParticipant()`. The composite function owns the transaction semantics.
+
+**Impact:** 6 composite functions created: mergeEngagementParticipants, replacePartnerSynthesis, searchParticipants, copyMeetingParticipants, insertSpawnedMeeting (with 23505 handling), reparent* family (4 functions).
+
+---
