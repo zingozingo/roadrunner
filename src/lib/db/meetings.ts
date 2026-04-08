@@ -189,6 +189,49 @@ export async function stampPartnerOnMeetingsByMessageIds(
   if (error) throw new Error(`Failed to stamp partner on meetings: ${error.message}`);
 }
 
+/**
+ * Get meeting titles for a set of meeting IDs. Returns a Map of id → title.
+ */
+export async function getMeetingTitlesById(
+  meetingIds: string[]
+): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  if (meetingIds.length === 0) return result;
+
+  const { data, error } = await getSupabaseClient()
+    .from("meetings")
+    .select("id, title")
+    .in("id", meetingIds);
+
+  if (error) throw new Error(`Failed to fetch meeting titles: ${error.message}`);
+  for (const m of (data ?? []) as { id: string; title: string | null }[]) {
+    result.set(m.id, m.title ?? "Untitled");
+  }
+  return result;
+}
+
+/**
+ * Get anchor_days for a set of meeting IDs (series roots).
+ * Returns a Map of id → anchor_day.
+ */
+export async function getAnchorDaysByMeetingIds(
+  meetingIds: string[]
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>();
+  if (meetingIds.length === 0) return result;
+
+  const { data, error } = await getSupabaseClient()
+    .from("meetings")
+    .select("id, anchor_day")
+    .in("id", meetingIds);
+
+  if (error) throw new Error(`Failed to fetch anchor days: ${error.message}`);
+  for (const r of (data ?? []) as { id: string; anchor_day: number | null }[]) {
+    if (r.anchor_day !== null) result.set(r.id, r.anchor_day);
+  }
+  return result;
+}
+
 export async function getMeeting(id: string): Promise<Meeting | null> {
   const { data, error } = await getSupabaseClient()
     .from("meetings")

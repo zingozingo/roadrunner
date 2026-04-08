@@ -11,8 +11,9 @@ import {
   getMeetingNoteByMeetingId,
   getContactsByMeeting,
   getSeriesSiblings,
+  getPreviousNotesByEngagement,
+  getPreviousNotesBySeries,
 } from "@/lib/db";
-import { getSupabaseClient } from "@/lib/db/client";
 import { buildPartnerContext, formatContextForDisplay } from "@/lib/notes-context";
 import { cleanMeetingTitle, formatFooterDate } from "@/lib/format-utils";
 import MeetingNotesSection from "@/components/notes/MeetingNotesSection";
@@ -83,39 +84,15 @@ export default async function MeetingDetailPage({
       // Tier 1: engagement_id → same engagement notes
       // Tier 2: series_id (recurring, no engagement) → same series notes
       // Tier 3: neither → no previous context (empty)
-      const db = getSupabaseClient();
-      let scopedNotes: { title: string; meeting_date: string; ai_summary: string; note_type: string }[] | null = null;
+      let scopedNotes: { title: string; meeting_date: string; ai_summary: string; note_type: string }[] = [];
 
       if (meeting.engagement_id) {
-        // Tier 1: join through meetings to get reliable engagement_id
-        const { data } = await db
-          .from("meeting_notes")
-          .select("title, meeting_date, ai_summary, note_type, meetings!inner(engagement_id)")
-          .eq("partner_id", partner.id)
-          .eq("status", "complete")
-          .not("ai_summary", "is", null)
-          .neq("meeting_id", id)
-          .eq("meetings.engagement_id", meeting.engagement_id)
-          .order("meeting_date", { ascending: false, nullsFirst: false })
-          .limit(5);
-        scopedNotes = data;
+        scopedNotes = await getPreviousNotesByEngagement(partner.id, meeting.engagement_id, id);
       } else if (meeting.series_id) {
-        // Tier 2: join through meetings to filter by series_id
-        const { data } = await db
-          .from("meeting_notes")
-          .select("title, meeting_date, ai_summary, note_type, meetings!inner(series_id)")
-          .eq("partner_id", partner.id)
-          .eq("status", "complete")
-          .not("ai_summary", "is", null)
-          .neq("meeting_id", id)
-          .eq("meetings.series_id", meeting.series_id)
-          .order("meeting_date", { ascending: false, nullsFirst: false })
-          .limit(5);
-        scopedNotes = data;
+        scopedNotes = await getPreviousNotesBySeries(partner.id, meeting.series_id, id);
       }
-      // Tier 3: no engagement, no series → empty (no previous context)
 
-      partnerContext.previousNotes = (scopedNotes ?? []).map((n) => ({
+      partnerContext.previousNotes = scopedNotes.map((n) => ({
         title: n.title,
         meeting_date: n.meeting_date,
         ai_summary: n.ai_summary,

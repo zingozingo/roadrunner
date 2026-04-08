@@ -659,6 +659,81 @@ export async function getRecentCondensedDigests(
 }
 
 /**
+ * Get condensed digests for a set of meeting IDs.
+ * Returns a Map of meeting_id → condensed text.
+ */
+export async function getCondensedByMeetingIds(
+  meetingIds: string[]
+): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  if (meetingIds.length === 0) return result;
+
+  const { data, error } = await getSupabaseClient()
+    .from("meeting_notes")
+    .select("meeting_id, condensed")
+    .in("meeting_id", meetingIds)
+    .not("condensed", "is", null);
+
+  if (error) throw new Error(`Failed to fetch condensed digests: ${error.message}`);
+  for (const row of (data ?? []) as { meeting_id: string; condensed: string }[]) {
+    if (row.meeting_id && row.condensed) {
+      result.set(row.meeting_id, row.condensed);
+    }
+  }
+  return result;
+}
+
+/**
+ * Get previous note summaries scoped to the same engagement.
+ * Used by the three-tier cascade on meeting detail pages.
+ */
+export async function getPreviousNotesByEngagement(
+  partnerId: string,
+  engagementId: string,
+  excludeMeetingId: string,
+  limit: number = 5
+): Promise<{ title: string; meeting_date: string; ai_summary: string; note_type: string }[]> {
+  const { data, error } = await getSupabaseClient()
+    .from("meeting_notes")
+    .select("title, meeting_date, ai_summary, note_type, meetings!inner(engagement_id)")
+    .eq("partner_id", partnerId)
+    .eq("status", "complete")
+    .not("ai_summary", "is", null)
+    .neq("meeting_id", excludeMeetingId)
+    .eq("meetings.engagement_id", engagementId)
+    .order("meeting_date", { ascending: false, nullsFirst: false })
+    .limit(limit);
+
+  if (error) throw new Error(`Failed to fetch previous notes by engagement: ${error.message}`);
+  return (data ?? []) as { title: string; meeting_date: string; ai_summary: string; note_type: string }[];
+}
+
+/**
+ * Get previous note summaries scoped to the same series.
+ * Used by the three-tier cascade on meeting detail pages (Tier 2 fallback).
+ */
+export async function getPreviousNotesBySeries(
+  partnerId: string,
+  seriesId: string,
+  excludeMeetingId: string,
+  limit: number = 5
+): Promise<{ title: string; meeting_date: string; ai_summary: string; note_type: string }[]> {
+  const { data, error } = await getSupabaseClient()
+    .from("meeting_notes")
+    .select("title, meeting_date, ai_summary, note_type, meetings!inner(series_id)")
+    .eq("partner_id", partnerId)
+    .eq("status", "complete")
+    .not("ai_summary", "is", null)
+    .neq("meeting_id", excludeMeetingId)
+    .eq("meetings.series_id", seriesId)
+    .order("meeting_date", { ascending: false, nullsFirst: false })
+    .limit(limit);
+
+  if (error) throw new Error(`Failed to fetch previous notes by series: ${error.message}`);
+  return (data ?? []) as { title: string; meeting_date: string; ai_summary: string; note_type: string }[];
+}
+
+/**
  * Get condensed meeting digests for meetings linked to a specific engagement.
  * Returns only notes with non-null condensed field.
  * Used by engagement synthesis (Call 1) to include meeting outcomes in context.

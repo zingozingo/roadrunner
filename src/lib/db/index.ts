@@ -19,6 +19,7 @@ export {
   getActiveEngagements,
   getActiveEngagementsByPartner,
   getEngagementsByPartner,
+  getEngagementNamesById,
   getAllEngagements,
   getEngagementById,
   getEngagementsWithMessageCounts,
@@ -36,6 +37,8 @@ export {
 // Meetings
 export {
   getMeetingsByPartner,
+  getMeetingTitlesById,
+  getAnchorDaysByMeetingIds,
   stampPartnerOnMeetingsByMessageIds,
   getMeetingsWithEngagements,
   getUpcomingMeetings,
@@ -115,6 +118,9 @@ export type { InboxItem } from "./inbox";
 
 // Meeting Notes
 export {
+  getCondensedByMeetingIds,
+  getPreviousNotesByEngagement,
+  getPreviousNotesBySeries,
   getMeetingIdsWithNotes,
   reparentNotesToEngagement,
   reparentTasksToEngagement,

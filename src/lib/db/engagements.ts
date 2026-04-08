@@ -101,6 +101,27 @@ export async function getEngagementsByPartner(partnerId: string): Promise<Engage
   return (data ?? []) as Engagement[];
 }
 
+/**
+ * Get engagement names for a set of engagement IDs. Returns a Map of id → name.
+ */
+export async function getEngagementNamesById(
+  engagementIds: string[]
+): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  if (engagementIds.length === 0) return result;
+
+  const { data, error } = await getSupabaseClient()
+    .from("engagements")
+    .select("id, name")
+    .in("id", engagementIds);
+
+  if (error) throw new Error(`Failed to fetch engagement names: ${error.message}`);
+  for (const e of (data ?? []) as { id: string; name: string | null }[]) {
+    result.set(e.id, e.name ?? "Untitled");
+  }
+  return result;
+}
+
 export async function getEngagementById(id: string): Promise<Engagement | null> {
   const { data, error } = await getSupabaseClient()
     .from("engagements")

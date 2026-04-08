@@ -3,7 +3,7 @@ import {
   getUpcomingMeetings,
   getOpenTasks,
   getInboxGroupCount,
-  getSupabaseClient,
+  getAnchorDaysByMeetingIds,
 } from "@/lib/db";
 import { cleanMeetingTitle } from "@/lib/format-utils";
 import { MEETING_TYPE_DISPLAY } from "@/lib/sync/field-maps";
@@ -67,13 +67,9 @@ export default async function TodayPage() {
       .map((m) => m.series_id!)
   )];
   if (missingRootIds.length > 0) {
-    const db = getSupabaseClient();
-    const { data: roots } = await db
-      .from("meetings")
-      .select("id, anchor_day")
-      .in("id", missingRootIds);
-    for (const r of (roots ?? []) as { id: string; anchor_day: number | null }[]) {
-      if (r.anchor_day !== null) rootAnchorDays.set(r.id, r.anchor_day);
+    const fetchedAnchors = await getAnchorDaysByMeetingIds(missingRootIds);
+    for (const [rootId, anchorDay] of fetchedAnchors) {
+      rootAnchorDays.set(rootId, anchorDay);
     }
   }
   function isMeetingShifted(m: EnrichedMeeting): boolean {

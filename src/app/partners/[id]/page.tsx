@@ -12,7 +12,10 @@ import PartnerScratchpad from "@/components/partners/PartnerScratchpad";
 import { cleanMeetingTitle, stripPartnerPrefix } from "@/lib/format-utils";
 import {
   getPartner,
-  getSupabaseClient,
+  getEngagementsByPartner,
+  getMeetingsByPartner,
+  getMeetingTitlesById,
+  getEngagementNamesById,
   getMeetingNotesByPartner,
   getTasksByPartner,
   getPartnerContext,
@@ -60,25 +63,12 @@ export default async function PartnerDetailPage({
   const partner = await getPartner(id);
   if (!partner) notFound();
 
-  const db = getSupabaseClient();
   const contacts = await getContactsByPartner(id);
 
-  const [{ data: engagements }, { data: meetings }] = await Promise.all([
-    db
-      .from("engagements")
-      .select("*")
-      .eq("partner_id", id)
-      .order("status", { ascending: true })
-      .order("updated_at", { ascending: false }),
-    db
-      .from("meetings")
-      .select("*")
-      .eq("partner_id", id)
-      .order("meeting_date", { ascending: false, nullsFirst: false }),
+  const [linkedEngagements, linkedMeetings] = await Promise.all([
+    getEngagementsByPartner(id),
+    getMeetingsByPartner(id),
   ]);
-
-  const linkedEngagements = (engagements ?? []) as Engagement[];
-  const linkedMeetings = (meetings ?? []) as Meeting[];
 
   const [
     partnerNotes,
@@ -127,16 +117,9 @@ export default async function PartnerDetailPage({
       if (mid) taskMeetingIds.add(mid);
     }
   }
-  const meetingTitleMap = new Map<string, string>();
-  if (taskMeetingIds.size > 0) {
-    const { data: mtgRows } = await db
-      .from("meetings")
-      .select("id, title")
-      .in("id", [...taskMeetingIds]);
-    for (const m of (mtgRows ?? []) as { id: string; title: string | null }[]) {
-      meetingTitleMap.set(m.id, m.title ?? "Untitled");
-    }
-  }
+  const meetingTitleMap = taskMeetingIds.size > 0
+    ? await getMeetingTitlesById([...taskMeetingIds])
+    : new Map<string, string>();
   const taskEngIds = [
     ...new Set(
       openTasks
@@ -144,19 +127,7 @@ export default async function PartnerDetailPage({
         .filter((x): x is string => x !== null)
     ),
   ];
-  const engNameMap = new Map<string, string>();
-  if (taskEngIds.length > 0) {
-    const { data: engRows } = await db
-      .from("engagements")
-      .select("id, name")
-      .in("id", taskEngIds);
-    for (const e of (engRows ?? []) as {
-      id: string;
-      name: string | null;
-    }[]) {
-      engNameMap.set(e.id, e.name ?? "Untitled");
-    }
-  }
+  const engNameMap = await getEngagementNamesById(taskEngIds);
   const tasksWithContext = openTasks.map((t) => {
     const meetingId = t.meeting_note_id
       ? (noteMeetingMap.get(t.meeting_note_id) ?? null)

@@ -14,8 +14,8 @@ import {
   getMeetingsByEngagement,
   getParticipantsByEngagement,
   getPartner,
+  getCondensedByMeetingIds,
 } from "@/lib/db";
-import { getSupabaseClient } from "@/lib/db/client";
 import { cleanMeetingTitle, formatFooterDate } from "@/lib/format-utils";
 import type { TimelineItem } from "@/lib/types";
 
@@ -49,20 +49,7 @@ export default async function EngagementDetailPage({
 
   // Fetch condensed digests for connected meetings
   const meetingIds = meetings.map((m) => m.id);
-  const condensedByMeetingId = new Map<string, string>();
-  if (meetingIds.length > 0) {
-    const db = getSupabaseClient();
-    const { data: noteRows } = await db
-      .from("meeting_notes")
-      .select("meeting_id, condensed")
-      .in("meeting_id", meetingIds)
-      .not("condensed", "is", null);
-    for (const row of noteRows ?? []) {
-      if (row.meeting_id && row.condensed) {
-        condensedByMeetingId.set(row.meeting_id, row.condensed);
-      }
-    }
-  }
+  const condensedByMeetingId = await getCondensedByMeetingIds(meetingIds);
 
   // Build unified timeline: messages + meetings sorted by date desc.
   const meetingSourceMessageIds = new Set(
