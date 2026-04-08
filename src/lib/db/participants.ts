@@ -591,6 +591,32 @@ async function linkMeetingParticipant(
 }
 
 /**
+ * Copy all meeting_participants from one meeting to another.
+ * Used by recurrence spawn to duplicate attendees from the source meeting.
+ */
+export async function copyMeetingParticipants(
+  sourceMeetingId: string,
+  targetMeetingId: string
+): Promise<void> {
+  const db = getSupabaseClient();
+
+  const { data: participants } = await db
+    .from("meeting_participants")
+    .select("participant_id, role")
+    .eq("meeting_id", sourceMeetingId);
+
+  if (participants && participants.length > 0) {
+    await db.from("meeting_participants").insert(
+      participants.map((p: { participant_id: string; role: string | null }) => ({
+        meeting_id: targetMeetingId,
+        participant_id: p.participant_id,
+        role: p.role,
+      }))
+    );
+  }
+}
+
+/**
  * Delete all meeting_participants rows for a meeting.
  * Used before re-syncing on ICS updates or manual attendee edits.
  */

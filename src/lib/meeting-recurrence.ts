@@ -4,7 +4,13 @@
  */
 
 import type { Meeting, RecurrencePattern } from "./types";
-import { getSupabaseClient } from "./db/client";
+import {
+  getOverdueRecurringCandidates,
+  getFutureMeetingsInSeries,
+  getSeriesRootAnchorDay,
+  insertSpawnedMeeting,
+} from "./db/meetings";
+import { copyMeetingParticipants } from "./db/participants";
 import { pushMeetingToAirtable } from "./sync/push";
 
 /**
@@ -115,48 +121,21 @@ function formatDate(d: Date): string {
  * and have no future sibling in the same series.
  */
 export async function getOverdueRecurringMeetings(): Promise<Meeting[]> {
-  const supabase = getSupabaseClient();
   const today = formatDate(new Date());
 
-  // PostgREST can't do NOT EXISTS subqueries, so we use rpc or a two-step approach.
   // Step 1: Get all recurring meetings that are past due and not ended.
-  const { data: candidates, error } = await supabase
-    .from("meetings")
-    .select("*")
-    .not("recurrence_pattern", "is", null)
-    .lt("meeting_date", today)
-    .or(`recurrence_end.is.null,recurrence_end.gte.${today}`);
-
-  if (error) {
-    throw new Error(`Failed to query overdue recurring meetings: ${error.message}`);
-  }
-
-  if (!candidates || candidates.length === 0) return [];
+  const candidates = await getOverdueRecurringCandidates(today);
+  if (candidates.length === 0) return [];
 
   // Step 2: For each candidate, check if a future sibling exists in the same series.
-  // Collect all series_ids, then find any meetings with future dates in those series.
-  const seriesIds = [...new Set(candidates.map((m: Meeting) => m.series_id).filter(Boolean))];
+  const seriesIds = [...new Set(candidates.map((m) => m.series_id).filter(Boolean))] as string[];
+  if (seriesIds.length === 0) return candidates;
 
-  if (seriesIds.length === 0) return candidates as Meeting[];
-
-  const { data: futureSiblings, error: futureErr } = await supabase
-    .from("meetings")
-    .select("series_id, meeting_date")
-    .in("series_id", seriesIds)
-    .gte("meeting_date", today);
-
-  if (futureErr) {
-    throw new Error(`Failed to query future siblings: ${futureErr.message}`);
-  }
-
-  const seriesWithFuture = new Set(
-    (futureSiblings || []).map((m: { series_id: string }) => m.series_id)
-  );
+  const futureSiblings = await getFutureMeetingsInSeries(seriesIds, today);
+  const seriesWithFuture = new Set(futureSiblings.map((m) => m.series_id));
 
   // Filter out candidates whose series already has a future meeting
-  return candidates.filter(
-    (m: Meeting) => !m.series_id || !seriesWithFuture.has(m.series_id)
-  ) as Meeting[];
+  return candidates.filter((m) => !m.series_id || !seriesWithFuture.has(m.series_id));
 }
 
 /**
@@ -166,17 +145,10 @@ export async function getOverdueRecurringMeetings(): Promise<Meeting[]> {
 export async function spawnNextOccurrence(meeting: Meeting): Promise<Meeting | null> {
   if (!meeting.recurrence_pattern || !meeting.series_id) return null;
 
-  const supabase = getSupabaseClient();
-
   // Look up anchor_day from the series root meeting
   let anchorDay: number | undefined;
   if (meeting.series_id !== meeting.id) {
-    const { data: root } = await supabase
-      .from("meetings")
-      .select("anchor_day")
-      .eq("id", meeting.series_id)
-      .maybeSingle();
-    anchorDay = root?.anchor_day ?? undefined;
+    anchorDay = await getSeriesRootAnchorDay(meeting.series_id);
   } else {
     anchorDay = meeting.anchor_day ?? undefined;
   }
@@ -187,55 +159,32 @@ export async function spawnNextOccurrence(meeting: Meeting): Promise<Meeting | n
   if (meeting.recurrence_end && nextDate > meeting.recurrence_end) return null;
 
   try {
-    // Insert the new occurrence
-    const { data: newMeeting, error: insertErr } = await supabase
-      .from("meetings")
-      .insert({
-        title: meeting.title,
-        partner_id: meeting.partner_id,
-        engagement_id: meeting.engagement_id,
-        meeting_type: meeting.meeting_type,
-        recurrence_pattern: meeting.recurrence_pattern,
-        recurrence_end: meeting.recurrence_end,
-        series_id: meeting.series_id,
-        anchor_day: anchorDay ?? null,
-        meeting_date: nextDate,
-        status: "scheduled",
-        source: "auto",
-        notes: meeting.notes,
-        location: meeting.location,
-        start_time: meeting.start_time,
-        end_time: meeting.end_time,
-      })
-      .select()
-      .single();
+    // Insert the new occurrence (returns null on unique constraint violation)
+    const newMeeting = await insertSpawnedMeeting({
+      title: meeting.title,
+      partner_id: meeting.partner_id,
+      engagement_id: meeting.engagement_id,
+      meeting_type: meeting.meeting_type,
+      recurrence_pattern: meeting.recurrence_pattern,
+      recurrence_end: meeting.recurrence_end,
+      series_id: meeting.series_id,
+      anchor_day: anchorDay ?? null,
+      meeting_date: nextDate,
+      notes: meeting.notes,
+      location: meeting.location,
+      start_time: meeting.start_time,
+      end_time: meeting.end_time,
+    });
 
-    if (insertErr) {
-      // Unique constraint violation (series_id, meeting_date) — another request already spawned it
-      if (insertErr.code === "23505") return null;
-      throw insertErr;
-    }
+    if (!newMeeting) return null;
 
     // Copy meeting_participants from source meeting
-    const { data: participants } = await supabase
-      .from("meeting_participants")
-      .select("participant_id, role")
-      .eq("meeting_id", meeting.id);
-
-    if (participants && participants.length > 0) {
-      await supabase.from("meeting_participants").insert(
-        participants.map((p: { participant_id: string; role: string | null }) => ({
-          meeting_id: newMeeting.id,
-          participant_id: p.participant_id,
-          role: p.role,
-        }))
-      );
-    }
+    await copyMeetingParticipants(meeting.id, newMeeting.id);
 
     // Push to Airtable
     await pushMeetingToAirtable(newMeeting.id);
 
-    return newMeeting as Meeting;
+    return newMeeting;
   } catch (err) {
     // Re-check for unique constraint in case it surfaces differently
     if (err && typeof err === "object" && "code" in err && (err as { code: string }).code === "23505") {

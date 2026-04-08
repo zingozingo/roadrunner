@@ -181,6 +181,98 @@ export async function getSeriesSiblings(seriesId: string): Promise<Pick<Meeting,
   return (data ?? []) as Pick<Meeting, "id" | "title" | "meeting_date" | "status" | "anchor_day">[];
 }
 
+/**
+ * Find recurring meetings that are past due and not ended.
+ * Used as candidates for spawn checking — caller filters by future siblings.
+ */
+export async function getOverdueRecurringCandidates(
+  todayStr: string
+): Promise<Meeting[]> {
+  const { data, error } = await getSupabaseClient()
+    .from("meetings")
+    .select("*")
+    .not("recurrence_pattern", "is", null)
+    .lt("meeting_date", todayStr)
+    .or(`recurrence_end.is.null,recurrence_end.gte.${todayStr}`);
+
+  if (error) throw new Error(`Failed to query overdue recurring meetings: ${error.message}`);
+  return (data ?? []) as Meeting[];
+}
+
+/**
+ * Find future meetings in given series (meeting_date >= today).
+ * Returns series_id + meeting_date for each.
+ */
+export async function getFutureMeetingsInSeries(
+  seriesIds: string[],
+  todayStr: string
+): Promise<{ series_id: string; meeting_date: string }[]> {
+  if (seriesIds.length === 0) return [];
+
+  const { data, error } = await getSupabaseClient()
+    .from("meetings")
+    .select("series_id, meeting_date")
+    .in("series_id", seriesIds)
+    .gte("meeting_date", todayStr);
+
+  if (error) throw new Error(`Failed to query future siblings: ${error.message}`);
+  return (data ?? []) as { series_id: string; meeting_date: string }[];
+}
+
+/**
+ * Get the anchor_day from a series root meeting.
+ */
+export async function getSeriesRootAnchorDay(
+  seriesId: string
+): Promise<number | undefined> {
+  const { data } = await getSupabaseClient()
+    .from("meetings")
+    .select("anchor_day")
+    .eq("id", seriesId)
+    .maybeSingle();
+
+  return data?.anchor_day ?? undefined;
+}
+
+/**
+ * Insert a spawned recurring meeting occurrence.
+ * Returns null on unique constraint violation (series_id, meeting_date) — another request already spawned it.
+ */
+export async function insertSpawnedMeeting(
+  data: {
+    title: string;
+    partner_id: string | null;
+    engagement_id: string | null;
+    meeting_type: string | null;
+    recurrence_pattern: string;
+    recurrence_end: string | null;
+    series_id: string;
+    anchor_day: number | null;
+    meeting_date: string;
+    notes: string | null;
+    location: string | null;
+    start_time: string | null;
+    end_time: string | null;
+  }
+): Promise<Meeting | null> {
+  const { data: meeting, error } = await getSupabaseClient()
+    .from("meetings")
+    .insert({
+      ...data,
+      status: "scheduled",
+      source: "auto",
+    })
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === "23505") return null;
+    throw new Error(`Failed to insert spawned meeting: ${error.message}`);
+  }
+
+  return meeting as Meeting;
+}
+
 export async function getMeetingsByEngagement(engagementId: string): Promise<Meeting[]> {
   const { data, error } = await getSupabaseClient()
     .from("meetings")
