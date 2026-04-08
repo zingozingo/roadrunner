@@ -7529,3 +7529,93 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** ring3.ts query joins programs(category, mdf_value). EnrollmentSection shows "MDF through Dec YYYY" or "MDF expired Dec YYYY" next to date on qualifying rows. Cloudaware example: Security Comp achieved Nov 2025 → "MDF through Dec 2026", Cloud Ops achieved Sep 2018 → "MDF expired Dec 2019".
 
 ---
+
+### #424 — Idempotent note creation to prevent ?notes=true race condition
+
+**Date:** 2026-04-08
+**Status:** ✅ Implemented
+
+**Decision:** POST /api/notes checks for existing note by meeting_id before insert, returns it with 200 if found. Module-level Set (not component ref) guards autoOpen useEffect against React strict mode double-mount. Two-layer fix: server idempotency + client guard.
+
+**Context:** The "Open Notes" shortcut (?notes=true) on the Today page navigates to /meetings/{id}?notes=true, where MeetingNotesSection auto-creates notes. React strict mode double-mounts the component, firing the useEffect twice. The second POST hit the UNIQUE constraint on meeting_notes.meeting_id.
+
+**Rationale:** Server-side idempotency is the primary fix — makes the endpoint safe regardless of how many times it's called. The client-side module-level Set is belt-and-suspenders, surviving strict mode remounts (unlike component refs which reset on unmount). Manual "Start Notes" button still works identically.
+
+**Impact:** POST /api/notes now imports getMeetingNoteByMeetingId. MeetingNotesSection uses module-level autoCreateInFlight Set<string>. No more "Failed to create note" errors on ?notes=true navigation.
+
+---
+
+### #425 — Centralized validation constants in src/lib/validation.ts
+
+**Date:** 2026-04-08
+**Status:** ✅ Implemented
+
+**Decision:** All 12 VALID_* constants consolidated from 19 scattered definitions across 13 files into a single canonical source (src/lib/validation.ts). Typed against existing union types (Pillar, ProgramCategory, ProgramSubtype, RecurrencePattern, Event["type"]). sync/utils.ts re-exports from validation.ts rather than defining its own copies.
+
+**Context:** Codebase hygiene audit found 7 of 12 constants duplicated across route files (e.g., VALID_STATUSES defined separately in both engagements/route.ts and engagements/[id]/route.ts). Two were duplicated between sync/utils.ts and API routes, creating divergence risk.
+
+**Rationale:** Single source of truth eliminates the risk of adding a value in one file but missing it in another. Typed Sets catch mismatches at compile time. Disambiguated 4 "VALID_STATUSES" collisions into entity-specific names (VALID_ENGAGEMENT_STATUSES, VALID_MEETING_STATUSES, VALID_ENROLLMENT_STATUSES, VALID_EVENT_PARTICIPATION_STATUSES).
+
+**Impact:** 12 route files import from validation.ts. Zero locally-defined VALID_* constants remain in src/app/. sync/pull.ts casts to ReadonlySet<string> at call sites for type compatibility with raw Airtable strings.
+
+---
+
+### #426 — validateEnum() helper standardizes validation error formatting
+
+**Date:** 2026-04-08
+**Status:** ✅ Implemented
+
+**Decision:** Shared validateEnum(field, value, validSet) function in validation.ts accepts field name, value, and ReadonlySet<string>. Returns error message string or null. Replaces ad-hoc inline validation patterns across 12 route files.
+
+**Context:** Every route had its own variation of `if (!VALID_X.has(value)) return NextResponse.json({ error: \`...\` })`. Error message formats varied — some included the invalid value, some didn't, some listed valid options, some didn't.
+
+**Rationale:** Consistent "field must be one of: x, y, z" messaging across all routes. Reduces validation boilerplate to two lines (call + check). ReadonlySet<string> parameter type accepts both typed and untyped Sets.
+
+**Impact:** All validation checks across 12 route files use validateEnum(). Error messages are now uniform.
+
+---
+
+### #427 — resolvePartnerByName() centralized in db/partners.ts
+
+**Date:** 2026-04-08
+**Status:** ✅ Implemented
+
+**Decision:** Case-insensitive partner name → UUID lookup extracted from 3 identical inline implementations (meetings/route.ts, meetings/[id]/route.ts, engagements/[id]/route.ts) into db/partners.ts. Returns string | null. Distinct from existing getPartnerByName() which returns full Partner object.
+
+**Context:** Three route files had the exact same 6-line pattern: import getSupabaseClient, query partners with ilike on name, extract first row's id. Classic DRY violation with no behavior difference between copies.
+
+**Rationale:** Centralizing in the db layer follows the existing pattern where all Supabase queries live in db/ modules. Returning just the ID (not full Partner) matches the route use case — they only need the UUID to set partner_id on another entity.
+
+**Impact:** 3 route files simplified. Zero inline partner ilike queries remain in src/app/api/. Re-exported from db/index.ts.
+
+---
+
+### #428 — cleanSubject() extracted to format-utils.ts
+
+**Date:** 2026-04-08
+**Status:** ✅ Implemented
+
+**Decision:** Email subject cleaner moved from inline definition in reviews/resolve/route.ts to format-utils.ts as a shared export. Kept as a separate function from cleanMeetingTitle because they handle different use cases.
+
+**Context:** cleanSubject strips RE/FW/FWD + [EXTERNAL] + [bracketed] tags and returns "New Engagement" fallback. cleanMeetingTitle strips FW/Fwd/Re/Accepted/Tentative/Declined iteratively with no fallback. Both clean prefixes, but from different sources (email subjects vs calendar titles).
+
+**Rationale:** Different stripping needs justify separate functions. Email subjects have noise patterns (security tags, list brackets) that calendar titles don't. Calendar titles have response status prefixes that email subjects don't. Naming makes the distinction clear.
+
+**Impact:** reviews/resolve/route.ts imports from format-utils.ts instead of defining locally. Both cleanSubject and cleanMeetingTitle available for future use.
+
+---
+
+### #429 — DELETE response shape normalized to { deleted: true }
+
+**Date:** 2026-04-08
+**Status:** ✅ Implemented
+
+**Decision:** All 10 DELETE handlers standardized to return { deleted: true } with status 200. Replaces mixed shapes: { status: "deleted" } (7 routes), { success: true } (2 routes), { status: "deleted", messagesDeleted } (1 route, extra field preserved as { deleted: true, messagesDeleted }).
+
+**Context:** DELETE response shapes had drifted over time as routes were added by different sessions. No frontend code checks DELETE response bodies (all use res.ok), making this a safe normalization.
+
+**Rationale:** Consistent response shapes reduce cognitive load and make the API predictable. { deleted: true } is the simplest shape — a boolean confirmation. Extra fields (like messagesDeleted) can be added alongside it when needed.
+
+**Impact:** 10 route files updated. Zero { status: "deleted" } or { success: true } patterns remain.
+
+---
