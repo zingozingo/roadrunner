@@ -54,25 +54,8 @@ export function hasChanges(
   return false;
 }
 
-// ── Valid value sets (must match DB CHECK constraints) ───────
-
-export const VALID_PROGRAM_CATEGORIES = new Set([
-  "Specialization", "Funding", "Agreement", "Operational", "Enablement",
-]);
-
-export const VALID_PROGRAM_SUBTYPES = new Set([
-  "Competency", "Service Ready", "MSP", "Sub-Category", "MDF", "Credit Program",
-  "Hybrid", "SCA", "Co-Sell", "Channel", "Migration", "Workshop", "Certification",
-]);
-
-export const VALID_EVENT_TYPES = new Set([
-  "conference", "summit", "workshop", "trade_show", "training",
-  "webinar", "roundtable",
-]);
-
-export const VALID_LIFECYCLE_TYPES = new Set([
-  "indefinite", "recurring", "expiring",
-]);
+// ── Valid value sets — re-exported from canonical source ────
+export { VALID_PROGRAM_CATEGORIES, VALID_PROGRAM_SUBTYPES, VALID_EVENT_TYPES, VALID_LIFECYCLE_TYPES } from "@/lib/validation";
 
 // ── Status maps ─────────────────────────────────────────────
 
