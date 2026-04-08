@@ -427,6 +427,176 @@ export async function backfillMessageSenderNames(
 }
 
 // ============================================================
+// People search + creation
+// ============================================================
+
+interface ParticipantSummary {
+  id: string;
+  name: string | null;
+  email: string;
+  title: string | null;
+  organization: string | null;
+  org_type: string | null;
+}
+
+export interface PartnerConnection {
+  id: string;
+  name: string;
+  role: string | null;
+  source: "curated" | "engagement";
+}
+
+/**
+ * Search and filter participants with pagination.
+ * Handles partner filtering (both curated and engagement paths),
+ * text search across name/email/organization/title, and org_type filter.
+ */
+export async function searchParticipants(options: {
+  q?: string | null;
+  orgType?: string | null;
+  partnerId?: string | null;
+  limit?: number;
+  offset?: number;
+}): Promise<{ participants: ParticipantSummary[]; total: number }> {
+  const db = getSupabaseClient();
+  const limit = options.limit ?? 50;
+  const offset = options.offset ?? 0;
+
+  let query = db
+    .from("participants")
+    .select("id, name, email, title, organization, org_type", { count: "exact" });
+
+  if (options.orgType) {
+    query = query.eq("org_type", options.orgType);
+  }
+
+  // Partner filter: get participant IDs linked to this partner
+  if (options.partnerId) {
+    const { data: partnerLinks } = await db
+      .from("partner_participants")
+      .select("participant_id")
+      .eq("partner_id", options.partnerId);
+
+    const { data: engLinks } = await db
+      .from("engagement_participants")
+      .select("participant_id, engagement:engagements!inner(partner_id)")
+      .eq("engagement.partner_id", options.partnerId);
+
+    const participantIds = new Set<string>();
+    for (const l of partnerLinks ?? []) participantIds.add(l.participant_id);
+    for (const l of (engLinks ?? []) as unknown as { participant_id: string }[]) participantIds.add(l.participant_id);
+
+    if (participantIds.size === 0) {
+      return { participants: [], total: 0 };
+    }
+    query = query.in("id", [...participantIds]);
+  }
+
+  if (options.q) {
+    query = query.or(
+      `name.ilike.%${options.q}%,email.ilike.%${options.q}%,organization.ilike.%${options.q}%,title.ilike.%${options.q}%`
+    );
+  }
+
+  query = query
+    .order("name", { ascending: true, nullsFirst: false })
+    .range(offset, offset + limit - 1);
+
+  const { data, error, count } = await query;
+  if (error) throw new Error(`Failed to search participants: ${error.message}`);
+
+  return {
+    participants: (data ?? []) as ParticipantSummary[],
+    total: count ?? 0,
+  };
+}
+
+/**
+ * Get partner connections for a batch of participants.
+ * Returns both curated (partner_participants) and engagement-derived connections.
+ */
+export async function getParticipantPartnerConnections(
+  participantIds: string[]
+): Promise<Map<string, PartnerConnection[]>> {
+  const result = new Map<string, PartnerConnection[]>();
+  if (participantIds.length === 0) return result;
+
+  const db = getSupabaseClient();
+
+  // Path 1: curated partner_participants links
+  const { data: ppLinks } = await db
+    .from("partner_participants")
+    .select("participant_id, role, partner:partners!inner(id, name)")
+    .in("participant_id", participantIds);
+
+  for (const row of (ppLinks ?? []) as unknown as { participant_id: string; role: string | null; partner: { id: string; name: string } }[]) {
+    const existing = result.get(row.participant_id) ?? [];
+    existing.push({ id: row.partner.id, name: row.partner.name, role: row.role, source: "curated" });
+    result.set(row.participant_id, existing);
+  }
+
+  // Path 2: engagement-derived partner connections
+  const { data: epLinks } = await db
+    .from("engagement_participants")
+    .select("participant_id, engagement:engagements!inner(partner_id, partner:partners!inner(id, name))")
+    .in("participant_id", participantIds);
+
+  for (const row of (epLinks ?? []) as unknown as { participant_id: string; engagement: { partner_id: string; partner: { id: string; name: string } } }[]) {
+    const existing = result.get(row.participant_id) ?? [];
+    const partner = row.engagement.partner;
+    if (!existing.some((e) => e.id === partner.id)) {
+      existing.push({ id: partner.id, name: partner.name, role: null, source: "engagement" });
+      result.set(row.participant_id, existing);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Find an existing participant by email. Returns null if not found.
+ */
+export async function findParticipantByEmail(
+  email: string
+): Promise<Participant | null> {
+  const { data, error } = await getSupabaseClient()
+    .from("participants")
+    .select("*")
+    .eq("email", email)
+    .limit(1);
+
+  if (error) throw new Error(`Failed to find participant: ${error.message}`);
+  return data && data.length > 0 ? (data[0] as Participant) : null;
+}
+
+/**
+ * Create a new participant record. Returns the created participant.
+ * Throws on unique constraint violation (23505).
+ */
+export async function createParticipantRecord(data: {
+  name: string;
+  email: string;
+  title?: string | null;
+  organization?: string | null;
+  org_type?: string | null;
+}): Promise<Participant> {
+  const { data: participant, error } = await getSupabaseClient()
+    .from("participants")
+    .insert({
+      name: data.name,
+      email: data.email,
+      title: data.title ?? null,
+      organization: data.organization ?? null,
+      org_type: data.org_type ?? null,
+    })
+    .select()
+    .single();
+
+  if (error) throw error; // Let caller handle 23505
+  return participant as Participant;
+}
+
+// ============================================================
 // Contact Registry Helpers
 // ============================================================
 
