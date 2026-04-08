@@ -3,6 +3,7 @@ import {
   getMeeting,
   updateMeeting,
   deleteMeeting,
+  resolvePartnerByName,
 } from "@/lib/db";
 import { VALID_MEETING_STATUSES, validateEnum } from "@/lib/validation";
 
@@ -75,14 +76,7 @@ export async function PUT(
     if (partner_name !== undefined) {
       // Resolve partner_name to partner_id
       if (partner_name?.trim()) {
-        const { getSupabaseClient } = await import("@/lib/db");
-        const db = getSupabaseClient();
-        const { data: partnerRows } = await db
-          .from("partners")
-          .select("id")
-          .ilike("name", partner_name.trim())
-          .limit(1);
-        updates.partner_id = partnerRows?.[0]?.id ?? null;
+        updates.partner_id = await resolvePartnerByName(partner_name);
       } else {
         updates.partner_id = null;
       }

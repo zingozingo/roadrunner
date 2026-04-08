@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMeetingsWithEngagements, createMeeting } from "@/lib/db";
+import { getMeetingsWithEngagements, createMeeting, resolvePartnerByName } from "@/lib/db";
 import { getOverdueRecurringMeetings, spawnNextOccurrence } from "@/lib/meeting-recurrence";
 import { VALID_MEETING_STATUSES, VALID_RECURRENCE_PATTERNS, validateEnum } from "@/lib/validation";
 
@@ -63,17 +63,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Resolve partner: prefer direct partner_id, fall back to ilike name lookup
+    // Resolve partner: prefer direct partner_id, fall back to name lookup
     let partner_id: string | null = rawPartnerId || null;
     if (!partner_id && partner_name?.trim()) {
-      const { getSupabaseClient } = await import("@/lib/db");
-      const db = getSupabaseClient();
-      const { data: partnerRows } = await db
-        .from("partners")
-        .select("id")
-        .ilike("name", partner_name.trim())
-        .limit(1);
-      partner_id = partnerRows?.[0]?.id ?? null;
+      partner_id = await resolvePartnerByName(partner_name);
     }
 
     const meeting = await createMeeting({

@@ -6,6 +6,7 @@ import {
   updateEngagement,
   deleteEngagement,
   deleteMessagesByEngagement,
+  resolvePartnerByName,
 } from "@/lib/db";
 import { VALID_ENGAGEMENT_STATUSES, VALID_ENGAGEMENT_PILLARS, validateEnum } from "@/lib/validation";
 
@@ -57,14 +58,7 @@ export async function PUT(
     let partner_id: string | null | undefined;
     if (partner_name !== undefined) {
       if (partner_name) {
-        const { getSupabaseClient } = await import("@/lib/db");
-        const db = getSupabaseClient();
-        const { data: partnerRows } = await db
-          .from("partners")
-          .select("id")
-          .ilike("name", partner_name.trim())
-          .limit(1);
-        partner_id = partnerRows?.[0]?.id ?? null;
+        partner_id = await resolvePartnerByName(partner_name);
       } else {
         partner_id = null;
       }

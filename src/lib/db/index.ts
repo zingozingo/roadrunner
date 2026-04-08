@@ -41,7 +41,7 @@ export {
 } from "./meetings";
 
 // Partners
-export { getPartners, getPartner, getPartnerByName } from "./partners";
+export { getPartners, getPartner, getPartnerByName, resolvePartnerByName } from "./partners";
 
 // Catalog (Events + Programs)
 export {

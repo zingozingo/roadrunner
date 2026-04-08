@@ -119,6 +119,20 @@ export function cleanMeetingTitle(title: string): string {
 }
 
 /**
+ * Strip email forwarding/noise prefixes from a subject line for engagement titles.
+ * More aggressive than cleanMeetingTitle — also strips [EXTERNAL] and [bracketed] tags.
+ * Returns "New Engagement" if the subject is empty or null.
+ */
+export function cleanSubject(subject: string | null): string {
+  if (!subject) return "New Engagement";
+  return subject
+    .replace(/^(RE|FW|FWD|Fwd|Re|Fw):\s*/gi, "")
+    .replace(/^\[EXTERNAL\]\s*/i, "")
+    .replace(/^\[.*?\]\s*/, "")
+    .trim() || "New Engagement";
+}
+
+/**
  * Strip the "{Partner} — " prefix from a meeting title for task provenance.
  * "ProsperOps — Partner Cadence" → "Partner Cadence"
  * "Orange Logic — Joint ISV/SI GTM" → "Joint ISV/SI GTM"
