@@ -22,6 +22,18 @@ export async function getPartner(id: string): Promise<Partner | null> {
   return data as Partner | null;
 }
 
+/** Resolve a partner name to its UUID (case-insensitive). Returns null if not found. */
+export async function resolvePartnerByName(name: string): Promise<string | null> {
+  const { data, error } = await getSupabaseClient()
+    .from("partners")
+    .select("id")
+    .ilike("name", name.trim())
+    .limit(1);
+
+  if (error) throw new Error(`Failed to resolve partner by name: ${error.message}`);
+  return data?.[0]?.id ?? null;
+}
+
 export async function getPartnerByName(name: string): Promise<Partner | null> {
   const { data, error } = await getSupabaseClient()
     .from("partners")

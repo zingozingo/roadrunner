@@ -113,7 +113,7 @@ export async function DELETE(
 
     if (error) throw new Error(error.message);
 
-    return NextResponse.json({ status: "deleted" });
+    return NextResponse.json({ deleted: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("DELETE /api/partners/[id] error:", message);

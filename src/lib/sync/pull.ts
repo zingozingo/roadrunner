@@ -64,13 +64,13 @@ function mapProgram(rec: AirtableRecord): Record<string, unknown> | null {
   if (!name) return null;
 
   const rawCategory = str(rec.fields[PF.category]);
-  const category = rawCategory && VALID_PROGRAM_CATEGORIES.has(rawCategory) ? rawCategory : null;
+  const category = rawCategory && (VALID_PROGRAM_CATEGORIES as ReadonlySet<string>).has(rawCategory) ? rawCategory : null;
 
   const rawSubtype = str(rec.fields[PF.subtype]);
-  const subtype = rawSubtype && VALID_PROGRAM_SUBTYPES.has(rawSubtype) ? rawSubtype : null;
+  const subtype = rawSubtype && (VALID_PROGRAM_SUBTYPES as ReadonlySet<string>).has(rawSubtype) ? rawSubtype : null;
 
   const rawLifecycle = str(rec.fields[PF.lifecycle]);
-  const lifecycle = rawLifecycle && VALID_LIFECYCLE_TYPES.has(rawLifecycle)
+  const lifecycle = rawLifecycle && (VALID_LIFECYCLE_TYPES as ReadonlySet<string>).has(rawLifecycle)
     ? rawLifecycle
     : "indefinite";
 
@@ -99,7 +99,7 @@ function mapEvent(rec: AirtableRecord): Record<string, unknown> | null {
   if (!name) return null;
 
   const rawType = str(rec.fields[EF.format]);
-  const type = rawType && VALID_EVENT_TYPES.has(rawType) ? rawType : "conference";
+  const type = rawType && (VALID_EVENT_TYPES as ReadonlySet<string>).has(rawType) ? rawType : "conference";
 
   return {
     name,

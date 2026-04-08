@@ -69,7 +69,7 @@ export async function DELETE(
     }
 
     await deleteMeetingNote(id);
-    return NextResponse.json({ status: "deleted" });
+    return NextResponse.json({ deleted: true });
   } catch (error) {
     console.error("DELETE /api/notes/[id] error:", error);
     return NextResponse.json(

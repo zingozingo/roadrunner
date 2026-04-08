@@ -12,6 +12,7 @@ import {
   buildSyntheticPhase1Result,
 } from "@/lib/classifier";
 import type { Engagement, Message } from "@/lib/types";
+import { cleanSubject } from "@/lib/format-utils";
 
 interface ResolveRequest {
   message_id: string;
@@ -205,12 +206,3 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/** Strip common prefixes from email subject for title suggestion */
-function cleanSubject(subject: string | null): string {
-  if (!subject) return "New Engagement";
-  return subject
-    .replace(/^(RE|FW|FWD|Fwd|Re|Fw):\s*/gi, "")
-    .replace(/^\[EXTERNAL\]\s*/i, "")
-    .replace(/^\[.*?\]\s*/, "")
-    .trim() || "New Engagement";
-}

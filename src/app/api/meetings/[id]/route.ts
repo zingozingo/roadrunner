@@ -3,14 +3,9 @@ import {
   getMeeting,
   updateMeeting,
   deleteMeeting,
+  resolvePartnerByName,
 } from "@/lib/db";
-
-const VALID_STATUSES = new Set([
-  "scheduled",
-  "completed",
-  "cancelled",
-  "did_not_occur",
-]);
+import { VALID_MEETING_STATUSES, validateEnum } from "@/lib/validation";
 
 export async function GET(
   _request: NextRequest,
@@ -62,11 +57,9 @@ export async function PUT(
       );
     }
 
-    if (status !== undefined && status !== null && !VALID_STATUSES.has(status)) {
-      return NextResponse.json(
-        { error: `Invalid status "${status}". Must be one of: ${[...VALID_STATUSES].join(", ")}` },
-        { status: 400 }
-      );
+    if (status !== undefined && status !== null) {
+      const err = validateEnum("status", status, VALID_MEETING_STATUSES);
+      if (err) return NextResponse.json({ error: err }, { status: 400 });
     }
 
     const existing = await getMeeting(id);
@@ -83,14 +76,7 @@ export async function PUT(
     if (partner_name !== undefined) {
       // Resolve partner_name to partner_id
       if (partner_name?.trim()) {
-        const { getSupabaseClient } = await import("@/lib/db");
-        const db = getSupabaseClient();
-        const { data: partnerRows } = await db
-          .from("partners")
-          .select("id")
-          .ilike("name", partner_name.trim())
-          .limit(1);
-        updates.partner_id = partnerRows?.[0]?.id ?? null;
+        updates.partner_id = await resolvePartnerByName(partner_name);
       } else {
         updates.partner_id = null;
       }
@@ -231,7 +217,7 @@ export async function DELETE(
 
     await deleteMeeting(id);
 
-    return NextResponse.json({ status: "deleted" });
+    return NextResponse.json({ deleted: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("DELETE /api/meetings/[id] error:", message);

@@ -4,12 +4,7 @@ import {
   updateEvent,
   deleteEvent,
 } from "@/lib/db";
-import { Event } from "@/lib/types";
-
-const VALID_TYPES = new Set<Event["type"]>([
-  "conference", "summit", "workshop", "trade_show",
-  "training", "webinar", "roundtable",
-]);
+import { VALID_EVENT_TYPES, validateEnum } from "@/lib/validation";
 
 export async function GET(
   _request: NextRequest,
@@ -52,11 +47,9 @@ export async function PUT(
       );
     }
 
-    if (type !== undefined && !VALID_TYPES.has(type)) {
-      return NextResponse.json(
-        { error: `Invalid type "${type}"` },
-        { status: 400 }
-      );
+    if (type !== undefined) {
+      const err = validateEnum("type", type, VALID_EVENT_TYPES);
+      if (err) return NextResponse.json({ error: err }, { status: 400 });
     }
 
     const existing = await getEventById(id);
@@ -107,7 +100,7 @@ export async function DELETE(
 
     await deleteEvent(id);
 
-    return NextResponse.json({ status: "deleted" });
+    return NextResponse.json({ deleted: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("DELETE /api/events/[id] error:", message);

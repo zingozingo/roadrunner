@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOpenTasks, getTasksByPartner, getSupabaseClient } from "@/lib/db";
-
-const VALID_OWNERS = new Set(["me", "internal", "partner", "third_party"]);
+import { VALID_TASK_OWNERS, validateEnum } from "@/lib/validation";
 
 export async function GET(request: NextRequest) {
   try {
@@ -47,11 +46,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!owner || !VALID_OWNERS.has(owner)) {
-      return NextResponse.json(
-        { error: `owner must be one of: ${[...VALID_OWNERS].join(", ")}` },
-        { status: 400 }
-      );
+    if (!owner) {
+      return NextResponse.json({ error: "owner is required" }, { status: 400 });
+    }
+    const ownerErr = validateEnum("owner", owner, VALID_TASK_OWNERS);
+    if (ownerErr) {
+      return NextResponse.json({ error: ownerErr }, { status: 400 });
     }
 
     const db = getSupabaseClient();

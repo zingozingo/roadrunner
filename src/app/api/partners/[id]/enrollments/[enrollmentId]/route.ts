@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseClient } from "@/lib/db/client";
-
-const VALID_STATUSES = new Set(["not_started", "in_progress", "submitted", "approved", "interested", "denied", "expired"]);
+import { VALID_ENROLLMENT_STATUSES, validateEnum } from "@/lib/validation";
 
 export async function PUT(
   request: NextRequest,
@@ -17,9 +16,8 @@ export async function PUT(
   if (body.notes !== undefined) updates.notes = body.notes?.trim() || null;
 
   if (body.status !== undefined) {
-    if (!VALID_STATUSES.has(body.status)) {
-      return NextResponse.json({ error: `status must be one of: ${[...VALID_STATUSES].join(", ")}` }, { status: 400 });
-    }
+    const err = validateEnum("status", body.status, VALID_ENROLLMENT_STATUSES);
+    if (err) return NextResponse.json({ error: err }, { status: 400 });
     updates.status = body.status;
   }
 
@@ -61,7 +59,7 @@ export async function DELETE(
       .eq("id", enrollmentId);
 
     if (error) throw error;
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ deleted: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });

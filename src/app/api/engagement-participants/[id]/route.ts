@@ -8,7 +8,7 @@ export async function DELETE(
   try {
     const { id } = await params;
     await deleteEngagementParticipant(id);
-    return NextResponse.json({ status: "deleted" });
+    return NextResponse.json({ deleted: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("DELETE /api/engagement-participants/[id] error:", message);

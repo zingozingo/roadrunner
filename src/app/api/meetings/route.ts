@@ -1,20 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMeetingsWithEngagements, createMeeting } from "@/lib/db";
+import { getMeetingsWithEngagements, createMeeting, resolvePartnerByName } from "@/lib/db";
 import { getOverdueRecurringMeetings, spawnNextOccurrence } from "@/lib/meeting-recurrence";
-
-const VALID_STATUSES = new Set([
-  "scheduled",
-  "completed",
-  "cancelled",
-  "did_not_occur",
-]);
-
-const VALID_RECURRENCE_PATTERNS = new Set([
-  "weekly",
-  "biweekly",
-  "monthly",
-  "quarterly",
-]);
+import { VALID_MEETING_STATUSES, VALID_RECURRENCE_PATTERNS, validateEnum } from "@/lib/validation";
 
 export async function GET() {
   try {
@@ -49,11 +36,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (status && !VALID_STATUSES.has(status)) {
-      return NextResponse.json(
-        { error: `Invalid status "${status}". Must be one of: ${[...VALID_STATUSES].join(", ")}` },
-        { status: 400 }
-      );
+    if (status) {
+      const err = validateEnum("status", status, VALID_MEETING_STATUSES);
+      if (err) return NextResponse.json({ error: err }, { status: 400 });
     }
 
     if (attendees !== undefined && !Array.isArray(attendees)) {
@@ -63,11 +48,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (recurrence_pattern && !VALID_RECURRENCE_PATTERNS.has(recurrence_pattern)) {
-      return NextResponse.json(
-        { error: `Invalid recurrence_pattern "${recurrence_pattern}". Must be one of: ${[...VALID_RECURRENCE_PATTERNS].join(", ")}` },
-        { status: 400 }
-      );
+    if (recurrence_pattern) {
+      const err = validateEnum("recurrence_pattern", recurrence_pattern, VALID_RECURRENCE_PATTERNS);
+      if (err) return NextResponse.json({ error: err }, { status: 400 });
     }
 
     if (recurrence_end !== undefined && recurrence_end !== null) {
@@ -80,17 +63,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Resolve partner: prefer direct partner_id, fall back to ilike name lookup
+    // Resolve partner: prefer direct partner_id, fall back to name lookup
     let partner_id: string | null = rawPartnerId || null;
     if (!partner_id && partner_name?.trim()) {
-      const { getSupabaseClient } = await import("@/lib/db");
-      const db = getSupabaseClient();
-      const { data: partnerRows } = await db
-        .from("partners")
-        .select("id")
-        .ilike("name", partner_name.trim())
-        .limit(1);
-      partner_id = partnerRows?.[0]?.id ?? null;
+      partner_id = await resolvePartnerByName(partner_name);
     }
 
     const meeting = await createMeeting({
