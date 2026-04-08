@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseClient, setPartnerForInboxGroup } from "@/lib/db";
+import { getPartner, setPartnerForInboxGroup } from "@/lib/db";
 
 interface SetPartnerRequest {
   message_id: string;
@@ -19,14 +19,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate partner exists
-    const db = getSupabaseClient();
-    const { data: partner, error: partnerError } = await db
-      .from("partners")
-      .select("id, name")
-      .eq("id", partner_id)
-      .single();
-
-    if (partnerError || !partner) {
+    const partner = await getPartner(partner_id);
+    if (!partner) {
       return NextResponse.json(
         { error: `Partner ${partner_id} not found` },
         { status: 404 }

@@ -34,6 +34,30 @@ export async function resolvePartnerByName(name: string): Promise<string | null>
   return data?.[0]?.id ?? null;
 }
 
+export async function updatePartnerRecord(
+  id: string,
+  updates: Record<string, unknown>
+): Promise<Partner> {
+  const { data, error } = await getSupabaseClient()
+    .from("partners")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to update partner: ${error.message}`);
+  return data as Partner;
+}
+
+export async function deletePartnerRecord(id: string): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .from("partners")
+    .delete()
+    .eq("id", id);
+
+  if (error) throw new Error(`Failed to delete partner: ${error.message}`);
+}
+
 export async function getPartnerByName(name: string): Promise<Partner | null> {
   const { data, error } = await getSupabaseClient()
     .from("partners")

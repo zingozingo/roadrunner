@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseClient } from "@/lib/db/client";
+import { updateEnrollment, deleteEnrollment } from "@/lib/db";
 import { VALID_ENROLLMENT_STATUSES, validateEnum } from "@/lib/validation";
 
 export async function PUT(
@@ -25,20 +25,9 @@ export async function PUT(
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });
   }
 
-  updates.updated_at = new Date().toISOString();
-
-  const db = getSupabaseClient();
-
   try {
-    const { data, error } = await db
-      .from("partner_program_enrollments")
-      .update(updates)
-      .eq("id", enrollmentId)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return NextResponse.json({ enrollment: data });
+    const enrollment = await updateEnrollment(enrollmentId, updates);
+    return NextResponse.json({ enrollment });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -50,15 +39,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; enrollmentId: string }> }
 ) {
   const { enrollmentId } = await params;
-  const db = getSupabaseClient();
 
   try {
-    const { error } = await db
-      .from("partner_program_enrollments")
-      .delete()
-      .eq("id", enrollmentId);
-
-    if (error) throw error;
+    await deleteEnrollment(enrollmentId);
     return NextResponse.json({ deleted: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

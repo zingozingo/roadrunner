@@ -399,7 +399,7 @@ export interface UpdateMeetingNoteInput {
 }
 
 export interface CreateTaskInput {
-  meeting_note_id: string;
+  meeting_note_id: string | null;
   partner_id: string;
   engagement_id?: string | null;
   description: string;

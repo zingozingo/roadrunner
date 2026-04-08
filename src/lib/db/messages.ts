@@ -114,6 +114,43 @@ export async function storeMessages(
 }
 
 /**
+ * Link messages to an engagement and clear pending_review.
+ * Used as fallback when AI synthesis fails during inbox resolution.
+ */
+export async function linkMessagesToEngagement(
+  messageIds: string[],
+  engagementId: string
+): Promise<void> {
+  if (messageIds.length === 0) return;
+
+  const { error } = await getSupabaseClient()
+    .from("messages")
+    .update({ engagement_id: engagementId, pending_review: false })
+    .in("id", messageIds);
+
+  if (error) throw new Error(`Failed to link messages to engagement: ${error.message}`);
+}
+
+/**
+ * Get unrouted messages that have no partner_id.
+ * Used by redetect to re-run partner detection.
+ */
+export async function getUnroutedPartnerlessMessages(): Promise<
+  { id: string; sender_email: string | null; subject: string | null; body_text: string | null; forwarded_at: string; partner_id: string | null }[]
+> {
+  const { data, error } = await getSupabaseClient()
+    .from("messages")
+    .select("id, sender_email, subject, body_text, forwarded_at, partner_id")
+    .is("engagement_id", null)
+    .is("partner_id", null)
+    .or("content_type.is.null,content_type.neq.noise")
+    .order("forwarded_at", { ascending: false });
+
+  if (error) throw new Error(`Failed to fetch unrouted messages: ${error.message}`);
+  return (data ?? []) as { id: string; sender_email: string | null; subject: string | null; body_text: string | null; forwarded_at: string; partner_id: string | null }[];
+}
+
+/**
  * Stamp classification results on messages.
  * Sets engagement_id, content_type, confidence, full result, and clears pending_review.
  */

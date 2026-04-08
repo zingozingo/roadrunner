@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPartner, getSupabaseClient } from "@/lib/db";
+import {
+  getPartner,
+  getEngagementsByPartner,
+  getMeetingsByPartner,
+  updatePartnerRecord,
+  deletePartnerRecord,
+} from "@/lib/db";
 
 export async function GET(
   _request: NextRequest,
@@ -16,27 +22,15 @@ export async function GET(
       );
     }
 
-    const db = getSupabaseClient();
-
-    // Fetch engagements by partner_id FK
-    const { data: engagements } = await db
-      .from("engagements")
-      .select("*")
-      .eq("partner_id", id)
-      .order("status", { ascending: true })
-      .order("updated_at", { ascending: false });
-
-    // Fetch meetings by partner_id FK
-    const { data: meetings } = await db
-      .from("meetings")
-      .select("*")
-      .eq("partner_id", id)
-      .order("meeting_date", { ascending: false, nullsFirst: false });
+    const [engagements, meetings] = await Promise.all([
+      getEngagementsByPartner(id),
+      getMeetingsByPartner(id),
+    ]);
 
     return NextResponse.json({
       partner,
-      engagements: engagements ?? [],
-      meetings: meetings ?? [],
+      engagements,
+      meetings,
     });
   } catch (error) {
     console.error("GET /api/partners/[id] error:", error);
@@ -70,14 +64,7 @@ export async function PUT(
     if (body.aws_stickiness !== undefined) updates.aws_stickiness = body.aws_stickiness || null;
     if (body.key_aws_services !== undefined) updates.key_aws_services = Array.isArray(body.key_aws_services) ? body.key_aws_services : [];
 
-    const { data, error } = await getSupabaseClient()
-      .from("partners")
-      .update(updates)
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
+    const data = await updatePartnerRecord(id, updates);
 
     return NextResponse.json({ partner: data });
   } catch (error) {
@@ -105,13 +92,7 @@ export async function DELETE(
       );
     }
 
-    // partner_id FKs on engagements and meetings use ON DELETE SET NULL
-    const { error } = await getSupabaseClient()
-      .from("partners")
-      .delete()
-      .eq("id", id);
-
-    if (error) throw new Error(error.message);
+    await deletePartnerRecord(id);
 
     return NextResponse.json({ deleted: true });
   } catch (error) {

@@ -159,6 +159,36 @@ export async function getMeetingDatesByPartner(
   return (data ?? []) as { id: string; meeting_date: string | null }[];
 }
 
+export async function getMeetingsByPartner(partnerId: string): Promise<Meeting[]> {
+  const { data, error } = await getSupabaseClient()
+    .from("meetings")
+    .select("*")
+    .eq("partner_id", partnerId)
+    .order("meeting_date", { ascending: false, nullsFirst: false });
+
+  if (error) throw new Error(`Failed to fetch meetings by partner: ${error.message}`);
+  return (data ?? []) as Meeting[];
+}
+
+/**
+ * Stamp partner on meetings matched by message_id (for ICS backfill).
+ * Only updates meetings that have no partner_id yet.
+ */
+export async function stampPartnerOnMeetingsByMessageIds(
+  messageIds: string[],
+  partnerId: string
+): Promise<void> {
+  if (messageIds.length === 0) return;
+
+  const { error } = await getSupabaseClient()
+    .from("meetings")
+    .update({ partner_id: partnerId })
+    .in("message_id", messageIds)
+    .is("partner_id", null);
+
+  if (error) throw new Error(`Failed to stamp partner on meetings: ${error.message}`);
+}
+
 export async function getMeeting(id: string): Promise<Meeting | null> {
   const { data, error } = await getSupabaseClient()
     .from("meetings")

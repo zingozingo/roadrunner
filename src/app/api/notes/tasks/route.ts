@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOpenTasks, getTasksByPartner, getSupabaseClient } from "@/lib/db";
+import { getOpenTasks, getTasksByPartner, createTask } from "@/lib/db";
 import { VALID_TASK_OWNERS, validateEnum } from "@/lib/validation";
 
 export async function GET(request: NextRequest) {
@@ -54,28 +54,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: ownerErr }, { status: 400 });
     }
 
-    const db = getSupabaseClient();
-    const { data, error } = await db
-      .from("tasks")
-      .insert({
-        partner_id,
-        description: description.trim(),
-        owner,
-        owner_name: owner_name?.trim() || null,
-        due_date: due_date || null,
-        engagement_id: engagement_id || null,
-        status: "open",
-        origin: "manual",
-        meeting_note_id: null,
-      })
-      .select()
-      .single();
+    const task = await createTask({
+      meeting_note_id: null,
+      partner_id,
+      description: description.trim(),
+      owner,
+      owner_name: owner_name?.trim() || null,
+      due_date: due_date || null,
+      engagement_id: engagement_id || null,
+      origin: "manual",
+    });
 
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return NextResponse.json({ task: data }, { status: 201 });
+    return NextResponse.json({ task }, { status: 201 });
   } catch (error) {
     console.error("POST /api/notes/tasks error:", error);
     return NextResponse.json(

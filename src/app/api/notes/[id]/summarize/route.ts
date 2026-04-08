@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getMeetingNote,
+  getMeeting,
   updateMeetingNote,
   createTask,
 } from "@/lib/db";
-import { getSupabaseClient } from "@/lib/db/client";
 import { buildMeetingNoteContext } from "@/lib/notes-context";
 import { summarizeNotes } from "@/lib/notes-summarizer";
 import type { Task } from "@/lib/types";
@@ -24,13 +24,8 @@ export async function POST(
     // Resolve engagement_id: note direct FK → meeting FK → null
     let engagementId: string | null = note.engagement_id ?? null;
     if (!engagementId && note.meeting_id) {
-      const db = getSupabaseClient();
-      const { data: meeting } = await db
-        .from("meetings")
-        .select("engagement_id")
-        .eq("id", note.meeting_id)
-        .single();
-      engagementId = (meeting as { engagement_id: string | null } | null)?.engagement_id ?? null;
+      const meeting = await getMeeting(note.meeting_id);
+      engagementId = meeting?.engagement_id ?? null;
     }
 
     // Build scoped context for this meeting note
@@ -55,7 +50,6 @@ export async function POST(
     });
 
     // Save AI prose to the note record (summary + condensed overwrite is fine).
-    // ai_tasks JSONB = existing tasks + new tasks (complete picture for display).
     const existingTaskJsonb = existingTasks.map((t) => ({
       description: t.description,
       owner: t.owner,
@@ -71,7 +65,6 @@ export async function POST(
     });
 
     // Materialize ONLY new tasks as first-class task rows.
-    // Existing tasks (both ai_extracted and manual) are never deleted.
     const createdTasks: Task[] = [];
     for (const task of result.tasks) {
       const created = await createTask({

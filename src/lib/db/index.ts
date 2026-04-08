@@ -6,6 +6,8 @@ export {
   messageFingerprint,
   storeMessages,
   stampMessagesWithClassification,
+  linkMessagesToEngagement,
+  getUnroutedPartnerlessMessages,
   stampPartnerOnMessages,
   reparentMessagesToEngagement,
   findMessageById,
@@ -16,6 +18,7 @@ export {
 export {
   getActiveEngagements,
   getActiveEngagementsByPartner,
+  getEngagementsByPartner,
   getAllEngagements,
   getEngagementById,
   getEngagementsWithMessageCounts,
@@ -32,6 +35,8 @@ export {
 
 // Meetings
 export {
+  getMeetingsByPartner,
+  stampPartnerOnMeetingsByMessageIds,
   getMeetingsWithEngagements,
   getUpcomingMeetings,
   getRecentMeetingsByPartner,
@@ -55,7 +60,7 @@ export {
 } from "./meetings";
 
 // Partners
-export { getPartners, getPartner, getPartnerByName, resolvePartnerByName } from "./partners";
+export { getPartners, getPartner, getPartnerByName, resolvePartnerByName, updatePartnerRecord, deletePartnerRecord } from "./partners";
 
 // Catalog (Events + Programs)
 export {
@@ -149,6 +154,12 @@ export {
   upsertPartnerEventParticipation,
   upsertMpoppFunding,
   upsertMdfFunding,
+  createEnrollment,
+  updateEnrollment,
+  deleteEnrollment,
+  createEventParticipation,
+  updateEventParticipation,
+  deleteEventParticipation,
   getPartnerGoals,
   getPartnerProgramEnrollments,
   getPartnerEventParticipations,

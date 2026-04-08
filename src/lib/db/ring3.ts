@@ -65,6 +65,108 @@ export async function upsertMdfFunding(data: UpsertMdfFunding): Promise<void> {
   if (error) throw new Error(`upsertMdfFunding: ${error.message}`);
 }
 
+// ── CRUD functions (for API routes) ──────────────────────────
+
+export async function createEnrollment(data: {
+  partner_id: string;
+  program_name: string;
+  status: string;
+  date_achieved?: string | null;
+  notes?: string | null;
+  program_id?: string | null;
+}): Promise<PartnerProgramEnrollment> {
+  const { data: enrollment, error } = await getSupabaseClient()
+    .from("partner_program_enrollments")
+    .insert({
+      partner_id: data.partner_id,
+      program_name: data.program_name,
+      status: data.status,
+      date_achieved: data.date_achieved ?? null,
+      notes: data.notes ?? null,
+      program_id: data.program_id ?? null,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return enrollment as PartnerProgramEnrollment;
+}
+
+export async function updateEnrollment(
+  id: string,
+  updates: Record<string, unknown>
+): Promise<PartnerProgramEnrollment> {
+  updates.updated_at = new Date().toISOString();
+
+  const { data, error } = await getSupabaseClient()
+    .from("partner_program_enrollments")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as PartnerProgramEnrollment;
+}
+
+export async function deleteEnrollment(id: string): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .from("partner_program_enrollments")
+    .delete()
+    .eq("id", id);
+
+  if (error) throw error;
+}
+
+export async function createEventParticipation(data: {
+  partner_id: string;
+  event_id: string;
+  status: string;
+  sponsoring?: boolean;
+  notes?: string | null;
+}): Promise<PartnerEventParticipation> {
+  const { data: participation, error } = await getSupabaseClient()
+    .from("partner_event_participations")
+    .insert({
+      partner_id: data.partner_id,
+      event_id: data.event_id,
+      status: data.status,
+      sponsoring: data.sponsoring === true,
+      notes: data.notes ?? null,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return participation as PartnerEventParticipation;
+}
+
+export async function updateEventParticipation(
+  id: string,
+  updates: Record<string, unknown>
+): Promise<PartnerEventParticipation> {
+  updates.updated_at = new Date().toISOString();
+
+  const { data, error } = await getSupabaseClient()
+    .from("partner_event_participations")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as PartnerEventParticipation;
+}
+
+export async function deleteEventParticipation(id: string): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .from("partner_event_participations")
+    .delete()
+    .eq("id", id);
+
+  if (error) throw error;
+}
+
 // ── Query functions (for partner detail page) ───────────────
 
 export async function getPartnerGoals(partnerId: string): Promise<PartnerGoal[]> {

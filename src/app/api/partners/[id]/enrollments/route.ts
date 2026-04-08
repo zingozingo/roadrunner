@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseClient } from "@/lib/db/client";
+import { createEnrollment } from "@/lib/db";
 import { VALID_ENROLLMENT_STATUSES, validateEnum } from "@/lib/validation";
 
 export async function POST(
@@ -21,24 +21,17 @@ export async function POST(
     return NextResponse.json({ error: statusErr }, { status: 400 });
   }
 
-  const db = getSupabaseClient();
-
   try {
-    const { data, error } = await db
-      .from("partner_program_enrollments")
-      .insert({
-        partner_id: partnerId,
-        program_name: program_name.trim(),
-        status,
-        date_achieved: date_achieved || null,
-        notes: notes?.trim() || null,
-        program_id: program_id || null,
-      })
-      .select()
-      .single();
+    const enrollment = await createEnrollment({
+      partner_id: partnerId,
+      program_name: program_name.trim(),
+      status,
+      date_achieved: date_achieved || null,
+      notes: notes?.trim() || null,
+      program_id: program_id || null,
+    });
 
-    if (error) throw error;
-    return NextResponse.json({ enrollment: data }, { status: 201 });
+    return NextResponse.json({ enrollment }, { status: 201 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });

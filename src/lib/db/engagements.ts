@@ -89,6 +89,18 @@ export async function getActiveEngagementsByPartner(partnerId: string): Promise<
   return (data ?? []) as Engagement[];
 }
 
+export async function getEngagementsByPartner(partnerId: string): Promise<Engagement[]> {
+  const { data, error } = await getSupabaseClient()
+    .from("engagements")
+    .select("*")
+    .eq("partner_id", partnerId)
+    .order("status", { ascending: true })
+    .order("updated_at", { ascending: false });
+
+  if (error) throw new Error(`Failed to fetch engagements by partner: ${error.message}`);
+  return (data ?? []) as Engagement[];
+}
+
 export async function getEngagementById(id: string): Promise<Engagement | null> {
   const { data, error } = await getSupabaseClient()
     .from("engagements")

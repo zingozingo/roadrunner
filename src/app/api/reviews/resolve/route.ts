@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  getSupabaseClient,
   createEngagement,
+  getPartner,
+  getEngagementById,
   linkMeetingToEngagement,
+  linkMessagesToEngagement,
   getMessagesForInboxItem,
   discardInboxItem,
 } from "@/lib/db";
@@ -11,7 +13,7 @@ import {
   persistClassificationResult,
   buildSyntheticPhase1Result,
 } from "@/lib/classifier";
-import type { Engagement, Message } from "@/lib/types";
+import type { Engagement } from "@/lib/types";
 import { cleanSubject } from "@/lib/format-utils";
 
 interface ResolveRequest {
@@ -33,8 +35,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const db = getSupabaseClient();
-
     // ── Discard ──────────────────────────────────────────────
     if (action === "discard") {
       await discardInboxItem(message_id);
@@ -55,11 +55,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get partner name
-    const { data: partner } = await db
-      .from("partners")
-      .select("name")
-      .eq("id", partnerId)
-      .single();
+    const partner = await getPartner(partnerId);
     const partnerName = partner?.name ?? "Unknown Partner";
 
     // ── Create New Engagement ────────────────────────────────
@@ -94,10 +90,7 @@ export async function POST(request: NextRequest) {
         await persistClassificationResult(finalResult, engagement.id, messageIds, true);
       } else {
         // Minimal: just link messages to engagement
-        await db
-          .from("messages")
-          .update({ engagement_id: engagement.id, pending_review: false })
-          .in("id", messageIds);
+        await linkMessagesToEngagement(messageIds, engagement.id);
       }
 
       // Link any meetings
@@ -126,20 +119,14 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const { data: eng } = await db
-        .from("engagements")
-        .select("*")
-        .eq("id", engagement_id)
-        .single();
+      const engagement = await getEngagementById(engagement_id);
 
-      if (!eng) {
+      if (!engagement) {
         return NextResponse.json(
           { error: `Engagement ${engagement_id} not found` },
           { status: 404 }
         );
       }
-
-      const engagement = eng as Engagement;
 
       // Validate same partner
       if (engagement.partner_id && engagement.partner_id !== partnerId) {
@@ -169,10 +156,7 @@ export async function POST(request: NextRequest) {
       if (finalResult) {
         await persistClassificationResult(finalResult, engagement.id, messageIds, false);
       } else {
-        await db
-          .from("messages")
-          .update({ engagement_id: engagement.id, pending_review: false })
-          .in("id", messageIds);
+        await linkMessagesToEngagement(messageIds, engagement.id);
       }
 
       // Link any meetings
@@ -205,4 +189,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

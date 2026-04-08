@@ -1,32 +1,20 @@
 import { NextResponse } from "next/server";
-import { getSupabaseClient } from "@/lib/db";
+import {
+  getUnroutedPartnerlessMessages,
+  stampPartnerOnMessages,
+  stampPartnerOnMeetingsByMessageIds,
+} from "@/lib/db";
 import { detectPartnerFromEmail, detectPartnerFromSubject } from "@/lib/partner-detection";
 import { INBOX_GROUP_WINDOW_MS } from "@/lib/db/inbox";
 
 /**
  * GET /api/inbox/redetect
  * Re-run partner detection on all unrouted messages that have no partner_id.
- * Groups messages the same way the inbox does (timestamp proximity), runs
- * domain matching across all messages + subject fallback, and stamps partner_id.
- * Idempotent — skips messages that already have a partner_id.
  */
 export async function GET() {
-  const db = getSupabaseClient();
+  const messages = await getUnroutedPartnerlessMessages();
 
-  // Fetch all unrouted messages without a partner
-  const { data: messages, error } = await db
-    .from("messages")
-    .select("id, sender_email, subject, body_text, forwarded_at, partner_id")
-    .is("engagement_id", null)
-    .is("partner_id", null)
-    .or("content_type.is.null,content_type.neq.noise")
-    .order("forwarded_at", { ascending: false });
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  if (!messages || messages.length === 0) {
+  if (messages.length === 0) {
     return NextResponse.json({ message: "No unmatched inbox messages", updated: 0 });
   }
 
@@ -58,7 +46,6 @@ export async function GET() {
   for (const group of groups) {
     let detected: { partnerId: string; partnerName: string } | null = null;
 
-    // Try domain matching across all messages in the group
     for (const msg of group) {
       detected = await detectPartnerFromEmail(
         msg.sender_email ?? "",
@@ -69,25 +56,14 @@ export async function GET() {
       if (detected) break;
     }
 
-    // Fallback: subject-line matching
     if (!detected && group[0].subject) {
       detected = await detectPartnerFromSubject(group[0].subject);
     }
 
     if (detected) {
       const groupIds = group.map((m) => m.id);
-      await db
-        .from("messages")
-        .update({ partner_id: detected.partnerId })
-        .in("id", groupIds);
-
-      // Also stamp any linked meetings
-      await db
-        .from("meetings")
-        .update({ partner_id: detected.partnerId })
-        .in("message_id", groupIds)
-        .is("partner_id", null);
-
+      await stampPartnerOnMessages(groupIds, detected.partnerId);
+      await stampPartnerOnMeetingsByMessageIds(groupIds, detected.partnerId);
       results.push({ partner: detected.partnerName, messageCount: groupIds.length });
     }
   }
