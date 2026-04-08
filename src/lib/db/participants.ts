@@ -50,6 +50,38 @@ export async function deleteEngagementParticipant(linkId: string): Promise<void>
 
 
 /**
+ * Merge engagement participants from one engagement to another.
+ * Upserts each participant link to the target (idempotent on conflict).
+ * Returns the number of participants processed from the source.
+ */
+export async function mergeEngagementParticipants(
+  fromEngagementId: string,
+  toEngagementId: string
+): Promise<number> {
+  const db = getSupabaseClient();
+
+  const { data: sourceParticipants } = await db
+    .from("engagement_participants")
+    .select("participant_id, role")
+    .eq("engagement_id", fromEngagementId);
+
+  for (const sp of sourceParticipants ?? []) {
+    await db
+      .from("engagement_participants")
+      .upsert(
+        {
+          engagement_id: toEngagementId,
+          participant_id: sp.participant_id,
+          role: sp.role,
+        },
+        { onConflict: "engagement_id,participant_id" }
+      );
+  }
+
+  return sourceParticipants?.length ?? 0;
+}
+
+/**
  * Find or create a participant, then link to an engagement.
  * If email is provided, deduplicates by email.
  */

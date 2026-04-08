@@ -273,6 +273,24 @@ export async function insertSpawnedMeeting(
   return meeting as Meeting;
 }
 
+/**
+ * Move all meetings from one engagement to another.
+ * Returns the number of meetings moved.
+ */
+export async function reparentMeetingsToEngagement(
+  fromEngagementId: string,
+  toEngagementId: string
+): Promise<number> {
+  const { data, error } = await getSupabaseClient()
+    .from("meetings")
+    .update({ engagement_id: toEngagementId })
+    .eq("engagement_id", fromEngagementId)
+    .select("id");
+
+  if (error) throw new Error(`Failed to reparent meetings: ${error.message}`);
+  return data?.length ?? 0;
+}
+
 export async function getMeetingsByEngagement(engagementId: string): Promise<Meeting[]> {
   const { data, error } = await getSupabaseClient()
     .from("meetings")

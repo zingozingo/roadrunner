@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseClient } from "@/lib/db";
+import {
+  getEngagementById,
+  updateEngagement,
+  deleteEngagementRecord,
+  getMessagesByEngagement,
+  getPartner,
+  reparentMessagesToEngagement,
+  reparentMeetingsToEngagement,
+  reparentNotesToEngagement,
+  reparentTasksToEngagement,
+  mergeEngagementParticipants,
+} from "@/lib/db";
 import {
   synthesizeIntoEngagement,
   persistClassificationResult,
   buildSyntheticPhase1Result,
 } from "@/lib/classifier";
-import type { Engagement, Message } from "@/lib/types";
+import type { Message } from "@/lib/types";
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,23 +36,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const db = getSupabaseClient();
-
     // Fetch both engagements
-    const [{ data: source }, { data: target }] = await Promise.all([
-      db.from("engagements").select("*").eq("id", source_id).single(),
-      db.from("engagements").select("*").eq("id", target_id).single(),
+    const [sourceEng, targetEng] = await Promise.all([
+      getEngagementById(source_id),
+      getEngagementById(target_id),
     ]);
 
-    if (!source) {
+    if (!sourceEng) {
       return NextResponse.json({ error: `Source engagement ${source_id} not found` }, { status: 404 });
     }
-    if (!target) {
+    if (!targetEng) {
       return NextResponse.json({ error: `Target engagement ${target_id} not found` }, { status: 404 });
     }
-
-    const sourceEng = source as Engagement;
-    const targetEng = target as Engagement;
 
     // Same-partner guard
     if (sourceEng.partner_id !== targetEng.partner_id) {
@@ -61,55 +67,23 @@ export async function POST(request: NextRequest) {
     console.log(`Merging engagement "${sourceEng.name}" → "${targetEng.name}"`);
 
     // 1. Move all messages from source to target
-    const { data: movedMessages } = await db
-      .from("messages")
-      .update({ engagement_id: target_id })
-      .eq("engagement_id", source_id)
-      .select("id");
-    console.log(`Moved ${movedMessages?.length ?? 0} messages`);
+    const movedMessageCount = await reparentMessagesToEngagement(source_id, target_id);
+    console.log(`Moved ${movedMessageCount} messages`);
 
     // 2. Move all meetings from source to target
-    const { data: movedMeetings } = await db
-      .from("meetings")
-      .update({ engagement_id: target_id })
-      .eq("engagement_id", source_id)
-      .select("id");
-    console.log(`Moved ${movedMeetings?.length ?? 0} meetings`);
+    const movedMeetingCount = await reparentMeetingsToEngagement(source_id, target_id);
+    console.log(`Moved ${movedMeetingCount} meetings`);
 
     // 2b. Update meeting_notes engagement_id (follows meetings)
-    const { data: movedNotes } = await db
-      .from("meeting_notes")
-      .update({ engagement_id: target_id })
-      .eq("engagement_id", source_id)
-      .select("id");
-    console.log(`Moved ${movedNotes?.length ?? 0} meeting notes`);
+    const movedNoteCount = await reparentNotesToEngagement(source_id, target_id);
+    console.log(`Moved ${movedNoteCount} meeting notes`);
 
     // 2c. Update tasks engagement_id (follows meetings)
-    const { data: movedTasks } = await db
-      .from("tasks")
-      .update({ engagement_id: target_id })
-      .eq("engagement_id", source_id)
-      .select("id");
-    console.log(`Moved ${movedTasks?.length ?? 0} tasks`);
+    const movedTaskCount = await reparentTasksToEngagement(source_id, target_id);
+    console.log(`Moved ${movedTaskCount} tasks`);
 
     // 3. Merge engagement_participants (upsert to target)
-    const { data: sourceParticipants } = await db
-      .from("engagement_participants")
-      .select("participant_id, role")
-      .eq("engagement_id", source_id);
-
-    for (const sp of sourceParticipants ?? []) {
-      await db
-        .from("engagement_participants")
-        .upsert(
-          {
-            engagement_id: target_id,
-            participant_id: sp.participant_id,
-            role: sp.role,
-          },
-          { onConflict: "engagement_id,participant_id" }
-        );
-    }
+    const mergedParticipantCount = await mergeEngagementParticipants(source_id, target_id);
 
     // 6. Delete source engagement from Airtable
     if (sourceEng.airtable_record_id) {
@@ -123,39 +97,26 @@ export async function POST(request: NextRequest) {
     }
 
     // 6c. Enrich target's current_state with source context before deletion
-    // The re-synthesis in step 8 reads this as its anchor via getEngagementHistory,
-    // produces a unified synthesis, and overwrites with a clean result.
     if (sourceEng.current_state) {
       const enrichedAnchor = targetEng.current_state
         ? `${targetEng.current_state}\n\n[MERGED FROM "${sourceEng.name}"]\n${sourceEng.current_state}`
         : sourceEng.current_state;
-      await db
-        .from("engagements")
-        .update({ current_state: enrichedAnchor })
-        .eq("id", target_id);
+      await updateEngagement(target_id, { current_state: enrichedAnchor });
       console.log(`Enriched target current_state with source context`);
     }
 
     // 7. Delete source engagement (CASCADE cleans up its junction table rows)
-    await db.from("engagements").delete().eq("id", source_id);
+    await deleteEngagementRecord(source_id);
     console.log(`Deleted source engagement ${source_id}`);
 
     // 8. Re-synthesize target with its latest messages for fresh current_state
     try {
-      const { data: latestMessages } = await db
-        .from("messages")
-        .select("*")
-        .eq("engagement_id", target_id)
-        .order("forwarded_at", { ascending: false })
-        .limit(5);
+      const allMessages = await getMessagesByEngagement(target_id);
+      const latestMessages = allMessages.slice(0, 5);
 
-      if (latestMessages && latestMessages.length > 0) {
+      if (latestMessages.length > 0) {
         const partnerId = targetEng.partner_id;
-        const { data: partner } = await db
-          .from("partners")
-          .select("name")
-          .eq("id", partnerId)
-          .single();
+        const partner = await getPartner(partnerId);
 
         const phase1 = buildSyntheticPhase1Result(
           target_id,
@@ -169,7 +130,7 @@ export async function POST(request: NextRequest) {
           latestMessages as Message[],
           phase1
         );
-        await persistClassificationResult(result, target_id, latestMessages.map((m: { id: string }) => m.id), false);
+        await persistClassificationResult(result, target_id, latestMessages.map((m) => m.id), false);
         console.log("Re-synthesized merged engagement");
       }
     } catch (err) {
@@ -186,21 +147,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch updated target to return
-    const { data: updatedTarget } = await db
-      .from("engagements")
-      .select("*")
-      .eq("id", target_id)
-      .single();
+    const updatedTarget = await getEngagementById(target_id);
 
     return NextResponse.json({
       status: "merged",
       engagement: updatedTarget,
       moved: {
-        messages: movedMessages?.length ?? 0,
-        meetings: movedMeetings?.length ?? 0,
-        notes: movedNotes?.length ?? 0,
-        tasks: movedTasks?.length ?? 0,
-        participants: sourceParticipants?.length ?? 0,
+        messages: movedMessageCount,
+        meetings: movedMeetingCount,
+        notes: movedNoteCount,
+        tasks: movedTaskCount,
+        participants: mergedParticipantCount,
       },
     });
   } catch (error) {

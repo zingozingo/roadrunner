@@ -287,6 +287,19 @@ export async function deleteMessagesByEngagement(engagementId: string): Promise<
   return data?.length ?? 0;
 }
 
+/**
+ * Delete an engagement record from the database only (no Airtable cleanup).
+ * Use when AT cleanup has already been handled separately (e.g., merge flow).
+ */
+export async function deleteEngagementRecord(id: string): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .from("engagements")
+    .delete()
+    .eq("id", id);
+
+  if (error) throw new Error(`Failed to delete engagement: ${error.message}`);
+}
+
 // ============================================================
 // Dashboard query helpers
 // ============================================================

@@ -6,6 +6,7 @@ export {
   messageFingerprint,
   storeMessages,
   stampMessagesWithClassification,
+  reparentMessagesToEngagement,
   findMessageById,
   getUnclassifiedMessages,
 } from "./messages";
@@ -21,6 +22,7 @@ export {
   createEngagement,
   updateEngagement,
   deleteEngagement,
+  deleteEngagementRecord,
   updateMessageEngagement,
   deleteMessagesByEngagement,
   getMessagesByEngagement,
@@ -37,6 +39,7 @@ export {
   getFutureMeetingsInSeries,
   getSeriesRootAnchorDay,
   insertSpawnedMeeting,
+  reparentMeetingsToEngagement,
   getMeeting,
   getSeriesSiblings,
   getMeetingsByEngagement,
@@ -70,6 +73,7 @@ export {
   getParticipantById,
   updateParticipant,
   deleteEngagementParticipant,
+  mergeEngagementParticipants,
   createParticipantWithLink,
   upsertParticipants,
   backfillMessageSenderNames,
@@ -99,6 +103,8 @@ export type { InboxItem } from "./inbox";
 
 // Meeting Notes
 export {
+  reparentNotesToEngagement,
+  reparentTasksToEngagement,
   createMeetingNote,
   getMeetingNote,
   getMeetingNoteByMeetingId,

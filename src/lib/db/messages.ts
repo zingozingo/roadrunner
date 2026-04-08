@@ -142,6 +142,24 @@ export async function stampMessagesWithClassification(
   if (error) throw new Error(`Failed to stamp messages with classification: ${error.message}`);
 }
 
+/**
+ * Move all messages from one engagement to another.
+ * Returns the number of messages moved.
+ */
+export async function reparentMessagesToEngagement(
+  fromEngagementId: string,
+  toEngagementId: string
+): Promise<number> {
+  const { data, error } = await getSupabaseClient()
+    .from("messages")
+    .update({ engagement_id: toEngagementId })
+    .eq("engagement_id", fromEngagementId)
+    .select("id");
+
+  if (error) throw new Error(`Failed to reparent messages: ${error.message}`);
+  return data?.length ?? 0;
+}
+
 export async function findMessageById(id: string): Promise<Message | null> {
   const { data, error } = await getSupabaseClient()
     .from("messages")

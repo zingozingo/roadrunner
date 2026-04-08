@@ -181,6 +181,42 @@ export async function getMeetingNotesByPartner(
   }));
 }
 
+/**
+ * Move all meeting_notes from one engagement to another.
+ * Returns the number of notes moved.
+ */
+export async function reparentNotesToEngagement(
+  fromEngagementId: string,
+  toEngagementId: string
+): Promise<number> {
+  const { data, error } = await getSupabaseClient()
+    .from("meeting_notes")
+    .update({ engagement_id: toEngagementId })
+    .eq("engagement_id", fromEngagementId)
+    .select("id");
+
+  if (error) throw new Error(`Failed to reparent notes: ${error.message}`);
+  return data?.length ?? 0;
+}
+
+/**
+ * Move all tasks from one engagement to another.
+ * Returns the number of tasks moved.
+ */
+export async function reparentTasksToEngagement(
+  fromEngagementId: string,
+  toEngagementId: string
+): Promise<number> {
+  const { data, error } = await getSupabaseClient()
+    .from("tasks")
+    .update({ engagement_id: toEngagementId })
+    .eq("engagement_id", fromEngagementId)
+    .select("id");
+
+  if (error) throw new Error(`Failed to reparent tasks: ${error.message}`);
+  return data?.length ?? 0;
+}
+
 export async function updateMeetingNote(
   id: string,
   input: UpdateMeetingNoteInput
