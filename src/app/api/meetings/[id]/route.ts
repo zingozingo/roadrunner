@@ -5,10 +5,10 @@ import {
   deleteMeeting,
   resolvePartnerByName,
   getEngagementById,
-  cascadeEngagementToTasks,
 } from "@/lib/db";
 import { VALID_MEETING_STATUSES, validateEnum } from "@/lib/validation";
 import { propagateRecurrenceChange } from "@/lib/meeting-recurrence";
+import { handleMeetingEngagementChange } from "@/lib/meeting-lifecycle";
 
 export async function GET(
   _request: NextRequest,
@@ -126,23 +126,7 @@ export async function PUT(
 
     // Engagement-specific side effects: only when engagement link changes
     if (engagement_id !== undefined) {
-      // Re-synthesize engagement activity summary when linked (not unlinked)
-      if (engagement_id) {
-        try {
-          const { pushEngagementToAirtable } = await import("@/lib/sync");
-          await pushEngagementToAirtable(engagement_id);
-          console.log(`Engagement activity summary refreshed for ${engagement_id} after meeting link`);
-        } catch (err) {
-          console.error(`Engagement sync failed for ${engagement_id}:`, err);
-        }
-      }
-
-      // Cascade engagement_id to tasks from this meeting's notes
-      try {
-        await cascadeEngagementToTasks(id, engagement_id || null, existing.engagement_id);
-      } catch (err) {
-        console.error(`Task cascade failed for meeting ${id}:`, err);
-      }
+      await handleMeetingEngagementChange(id, engagement_id || null, existing.engagement_id);
     }
 
     return NextResponse.json({ meeting: updated });

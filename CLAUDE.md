@@ -311,9 +311,11 @@ roadrunner/
 │       ├── contact-parser.ts      #   Universal "Name <email> (Title)" parser
 │       ├── format-utils.ts        #   Display name formatting + stripPartnerPrefix
 │       ├── inbound-pipeline.ts    #   Email processing pipeline (body selection, parse, store, detect partner, ICS)
+│       ├── mailgun-helpers.ts    #   Mailgun webhook utilities (signature verification, form field extraction)
 │       ├── inbox-resolver.ts     #   Inbox resolution orchestration (synthesis, persist, link, AT push)
 │       ├── engagement-merge.ts   #   Engagement merge pipeline (reparent, delete, re-synthesize, AT sync)
 │       ├── meeting-recurrence.ts #   Recurring meeting engine (spawn, overdue detection, series propagation)
+│       ├── meeting-lifecycle.ts  #   Meeting side-effects (engagement link change → AT push + task cascade)
 │       ├── notes-summarizer.ts    #   AI meeting note summarizer (Claude API)
 │       ├── notes-context.ts       #   Context builders (buildPartnerContext, buildMeetingNoteContext, buildBrainContext)
 │       ├── contact-display.ts     #   Contact display formatting for UI
