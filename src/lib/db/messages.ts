@@ -113,6 +113,35 @@ export async function storeMessages(
   return data as Message[];
 }
 
+/**
+ * Stamp classification results on messages.
+ * Sets engagement_id, content_type, confidence, full result, and clears pending_review.
+ */
+export async function stampMessagesWithClassification(
+  messageIds: string[],
+  data: {
+    engagement_id: string;
+    content_type: string | null;
+    classification_confidence: number;
+    classification_result: unknown;
+  }
+): Promise<void> {
+  if (messageIds.length === 0) return;
+
+  const { error } = await getSupabaseClient()
+    .from("messages")
+    .update({
+      engagement_id: data.engagement_id,
+      content_type: data.content_type,
+      classification_confidence: data.classification_confidence,
+      classification_result: data.classification_result,
+      pending_review: false,
+    })
+    .in("id", messageIds);
+
+  if (error) throw new Error(`Failed to stamp messages with classification: ${error.message}`);
+}
+
 export async function findMessageById(id: string): Promise<Message | null> {
   const { data, error } = await getSupabaseClient()
     .from("messages")

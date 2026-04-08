@@ -5,6 +5,7 @@ export { getSupabaseClient, supabase } from "./client";
 export {
   messageFingerprint,
   storeMessages,
+  stampMessagesWithClassification,
   findMessageById,
   getUnclassifiedMessages,
 } from "./messages";
@@ -123,6 +124,7 @@ export {
   getPartnerContext,
   addPartnerContext,
   deletePartnerContext,
+  replacePartnerSynthesis,
   getPartnerScratchpad,
 } from "./partner-context";
 

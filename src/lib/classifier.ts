@@ -1,11 +1,12 @@
 import { classifyPhase2 } from "./claude";
 import { buildPhase2Context } from "./phase2-prompt";
 import {
-  getSupabaseClient,
   getEngagementHistory,
   getPartner,
+  updateEngagement,
   upsertParticipants,
   backfillMessageSenderNames,
+  stampMessagesWithClassification,
   getContactsByPartner,
   getPartnerScratchpad,
   getCondensedDigestsByEngagement,
@@ -15,6 +16,7 @@ import {
   CombinedClassificationResult,
   Phase1Result,
   Message,
+  Pillar,
 } from "./types";
 import { buildNameResolutionMap } from "./name-resolver";
 
@@ -152,26 +154,25 @@ export async function persistClassificationResult(
   messageIds: string[],
   isNewEngagement: boolean
 ): Promise<void> {
-  const db = getSupabaseClient();
-
   // 1. Update messages with classification data and engagement assignment
-  await db
-    .from("messages")
-    .update({
-      engagement_id: engagementId,
-      content_type: result.content_type,
-      classification_confidence: result.engagement_match.confidence,
-      classification_result: result,
-      pending_review: false,
-    })
-    .in("id", messageIds);
+  await stampMessagesWithClassification(messageIds, {
+    engagement_id: engagementId,
+    content_type: result.content_type,
+    classification_confidence: result.engagement_match.confidence,
+    classification_result: result,
+  });
 
   // 2. Update engagement state and structured fields
   {
     const combined = result as CombinedClassificationResult;
-    const updates: Record<string, unknown> = {};
+    const updates: {
+      name?: string;
+      current_state?: string | null;
+      condensed?: string | null;
+      pillar?: Pillar | null;
+      topic?: string | null;
+    } = {};
 
-    // All fields write for both new and existing engagements
     if (combined.topic) updates.topic = combined.topic;
     if (combined.engagement_name) updates.name = combined.engagement_name;
     if (result.current_state) updates.current_state = result.current_state;
@@ -181,7 +182,7 @@ export async function persistClassificationResult(
     }
 
     if (Object.keys(updates).length > 0) {
-      await db.from("engagements").update(updates).eq("id", engagementId);
+      await updateEngagement(engagementId, updates);
     }
   }
 

@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { buildBrainContext } from "./notes-context";
-import { getSupabaseClient } from "./db/client";
+import { replacePartnerSynthesis } from "./db/partner-context";
 
 // ============================================================
 // Anthropic client (same singleton pattern as notes-summarizer)
@@ -105,30 +105,6 @@ export async function saveAndSynthesize(
   partnerId: string
 ): Promise<{ synthesis: string; id: string }> {
   const { synthesis } = await synthesizePartnerBrain(partnerId);
-
-  const db = getSupabaseClient();
-
-  // Replace existing ai_synthesis entries (don't accumulate)
-  await db
-    .from("partner_context")
-    .delete()
-    .eq("partner_id", partnerId)
-    .eq("source", "ai_synthesis");
-
-  // Insert new synthesis
-  const { data, error } = await db
-    .from("partner_context")
-    .insert({
-      partner_id: partnerId,
-      content: synthesis,
-      source: "ai_synthesis",
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    throw new Error(`Failed to save brain synthesis: ${error.message}`);
-  }
-
-  return { synthesis, id: data.id as string };
+  const id = await replacePartnerSynthesis(partnerId, synthesis);
+  return { synthesis, id };
 }

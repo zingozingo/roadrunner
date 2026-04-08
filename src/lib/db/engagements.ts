@@ -205,6 +205,7 @@ export async function updateEngagement(
     current_state?: string | null;
     condensed?: string | null;
     pillar?: Pillar | null;
+    topic?: string | null;
   }
 ): Promise<Engagement> {
   const db = getSupabaseClient();
@@ -215,6 +216,7 @@ export async function updateEngagement(
   if (updates.current_state !== undefined) row.current_state = updates.current_state;
   if (updates.condensed !== undefined) row.condensed = updates.condensed;
   if (updates.pillar !== undefined) row.pillar = updates.pillar;
+  if (updates.topic !== undefined) row.topic = updates.topic;
 
   if (updates.status !== undefined) {
     row.status = updates.status;

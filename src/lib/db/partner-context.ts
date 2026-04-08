@@ -46,6 +46,39 @@ export async function deletePartnerContext(id: string): Promise<void> {
 }
 
 /**
+ * Replace the AI synthesis entry for a partner.
+ * Deletes any existing ai_synthesis entries, then inserts the new one.
+ * Returns the ID of the new entry.
+ */
+export async function replacePartnerSynthesis(
+  partnerId: string,
+  content: string
+): Promise<string> {
+  const db = getSupabaseClient();
+
+  // Delete existing ai_synthesis entries (don't accumulate)
+  await db
+    .from("partner_context")
+    .delete()
+    .eq("partner_id", partnerId)
+    .eq("source", "ai_synthesis");
+
+  // Insert new synthesis
+  const { data, error } = await db
+    .from("partner_context")
+    .insert({
+      partner_id: partnerId,
+      content,
+      source: "ai_synthesis",
+    })
+    .select("id")
+    .single();
+
+  if (error) throw new Error(`Failed to save brain synthesis: ${error.message}`);
+  return data.id as string;
+}
+
+/**
  * Get only scratchpad entries for a partner (excludes ai_synthesis and seed_dump).
  * Used by engagement synthesis (Call 1) for tribal knowledge context.
  */
