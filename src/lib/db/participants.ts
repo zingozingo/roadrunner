@@ -596,6 +596,21 @@ export async function createParticipantRecord(data: {
   return participant as Participant;
 }
 
+/**
+ * Get all participants with email, name, organization, and source.
+ * Used by name-resolver to build the email→name resolution map.
+ */
+export async function getAllParticipantsForNameResolution(): Promise<
+  { email: string | null; name: string | null; organization: string | null; source: string | null }[]
+> {
+  const { data, error } = await getSupabaseClient()
+    .from("participants")
+    .select("email, name, organization, source");
+
+  if (error) return [];
+  return (data ?? []) as { email: string | null; name: string | null; organization: string | null; source: string | null }[];
+}
+
 // ============================================================
 // Contact Registry Helpers
 // ============================================================

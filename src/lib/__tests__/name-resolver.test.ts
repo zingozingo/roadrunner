@@ -5,16 +5,14 @@ import type { NameResolutionMap } from "../name-resolver";
 // Hoisted mocks — vi.hoisted runs before vi.mock factories
 // ============================================================
 
-const { mockFrom } = vi.hoisted(() => {
+const { mockGetAllParticipants } = vi.hoisted(() => {
   return {
-    mockFrom: vi.fn(),
+    mockGetAllParticipants: vi.fn(),
   };
 });
 
-vi.mock("../db", () => ({
-  getSupabaseClient: () => ({
-    from: mockFrom,
-  }),
+vi.mock("../db/participants", () => ({
+  getAllParticipantsForNameResolution: mockGetAllParticipants,
 }));
 
 import {
@@ -46,16 +44,7 @@ interface ParticipantRow {
 }
 
 function setupParticipants(rows: ParticipantRow[]) {
-  mockFrom.mockImplementation((table: string) => {
-    if (table === "participants") {
-      return {
-        select: vi.fn().mockResolvedValue({ data: rows, error: null }),
-      };
-    }
-    return {
-      select: vi.fn().mockResolvedValue({ data: [], error: null }),
-    };
-  });
+  mockGetAllParticipants.mockResolvedValue(rows);
 }
 
 // ============================================================

@@ -98,6 +98,7 @@ export {
   syncMeetingAttendeesToRegistry,
   copyMeetingParticipants,
   replaceMeetingParticipants,
+  getAllParticipantsForNameResolution,
   getContactsByPartner,
   getContactsByPartnerBulk,
   getContactsByMeeting,

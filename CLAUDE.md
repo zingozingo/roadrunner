@@ -201,7 +201,7 @@ docs/sessions/
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → human-guided routing → AI synthesis → structured engagements → Airtable sync.
-> 87 migrations · 17 tables · 35 API routes · 14 UI pages · 444 passing tests
+> 87 migrations · 17 tables · 35 API routes · 14 UI pages · 444 passing tests · 160 db functions
 
 ---
 
@@ -445,6 +445,8 @@ These are **NON-NEGOTIABLE**. Every code change must respect these:
 
 **No stubbed routes.** The old `/api/classify` 410 stub was removed in Phase D cleanup.
 
+**All Supabase queries live in `src/lib/db/`.** No direct `supabase.from()` or `getSupabaseClient()` calls outside `src/lib/db/` and `src/lib/sync/`. API routes, page files, and library files import db functions instead. This is a project rule enforced by Plan 6 — 57 rogue queries were extracted into 46 new db functions.
+
 ---
 
 ## Development
@@ -603,4 +605,5 @@ Sequential numbering in `supabase/migrations/` (currently 001-087). New migratio
 - Do NOT skip reading existing code before modifying — always read the file first
 - Do NOT push catalog data TO Airtable — sync is pull-only for catalogs
 - Do NOT simplify the email parser without running its 126-test suite
+- Do NOT write direct `supabase.from()` queries outside `src/lib/db/` — all data access goes through db functions
 - Do NOT band-aid problems — find root cause, fix properly, verify with tests

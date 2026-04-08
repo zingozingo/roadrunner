@@ -1,4 +1,4 @@
-import { getSupabaseClient } from "./db";
+import { getAllParticipantsForNameResolution } from "./db/participants";
 
 // ============================================================
 // Name Resolution — email→name and domain→org lookups
@@ -54,18 +54,12 @@ const PERSONAL_DOMAINS = new Set([
  * already has merged/prioritized data from all contact sources.
  */
 export async function buildNameResolutionMap(): Promise<NameResolutionMap> {
-  const db = getSupabaseClient();
-
-  const { data, error } = await db
-    .from("participants")
-    .select("email, name, organization, source");
+  const data = await getAllParticipantsForNameResolution();
 
   const emailToName = new Map<string, ResolvedName>();
   const domainToOrg = new Map<string, string>();
 
-  if (error || !data) return { emailToName, domainToOrg };
-
-  for (const row of data as { email: string | null; name: string | null; organization: string | null; source: string | null }[]) {
+  for (const row of data) {
     if (!row.email) continue;
     const key = row.email.toLowerCase().trim();
 
