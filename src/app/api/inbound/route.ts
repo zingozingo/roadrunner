@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { parseForwardedEmail, parseSenderField, stripExternalTag } from "@/lib/email-parser";
-import { storeMessages, createMeetingFromICS } from "@/lib/db";
+import { storeMessages, createMeetingFromICS, stampPartnerOnMessages, stampPartnerOnMeeting, getMeeting, getPartner } from "@/lib/db";
 import { extractICSFromAttachments, parseICSContent } from "@/lib/ics-parser";
 import { detectPartnerFromEmail, detectPartnerFromSubject } from "@/lib/partner-detection";
 import { stripPRVS, isUserEmail, USER_CONFIG } from "@/lib/user-config";
@@ -358,12 +358,7 @@ export async function POST(request: NextRequest) {
         }
       }
       if (detectedPartner) {
-        const { getSupabaseClient } = await import("@/lib/db");
-        const db = getSupabaseClient();
-        await db
-          .from("messages")
-          .update({ partner_id: detectedPartner.partnerId })
-          .in("id", storedIds);
+        await stampPartnerOnMessages(storedIds, detectedPartner.partnerId);
         console.log(`Partner detection: ${detectedPartner.partnerName} (${storedIds.length} messages)`);
       } else {
         console.log("Partner detection: no match (user will pick in inbox)");
@@ -428,35 +423,18 @@ export async function POST(request: NextRequest) {
     // If email detection failed but the meeting detected a partner from ICS attendees, backfill it onto the messages.
     if (meetingCreated && meetingId) {
       try {
-        const { getSupabaseClient } = await import("@/lib/db");
-        const db = getSupabaseClient();
-
         if (detectedPartner) {
           // Email headers found the partner — stamp it on the meeting too
-          await db
-            .from("meetings")
-            .update({ partner_id: detectedPartner.partnerId })
-            .eq("id", meetingId);
+          await stampPartnerOnMeeting(meetingId, detectedPartner.partnerId);
         } else {
           // Email headers missed the partner — check if the meeting found one from ICS attendees
-          const { data: meeting } = await db
-            .from("meetings")
-            .select("partner_id")
-            .eq("id", meetingId)
-            .single();
+          const meeting = await getMeeting(meetingId);
 
           if (meeting?.partner_id) {
-            await db
-              .from("messages")
-              .update({ partner_id: meeting.partner_id })
-              .in("id", storedIds);
+            await stampPartnerOnMessages(storedIds, meeting.partner_id);
 
             // Look up partner name for logging
-            const { data: partner } = await db
-              .from("partners")
-              .select("name")
-              .eq("id", meeting.partner_id)
-              .single();
+            const partner = await getPartner(meeting.partner_id);
 
             detectedPartner = { partnerId: meeting.partner_id, partnerName: partner?.name ?? "unknown" };
             console.log(`Partner detection (ICS backfill): ${detectedPartner.partnerName} (${storedIds.length} messages)`);

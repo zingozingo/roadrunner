@@ -143,6 +143,23 @@ export async function stampMessagesWithClassification(
 }
 
 /**
+ * Stamp a partner_id on a batch of messages.
+ */
+export async function stampPartnerOnMessages(
+  messageIds: string[],
+  partnerId: string
+): Promise<void> {
+  if (messageIds.length === 0) return;
+
+  const { error } = await getSupabaseClient()
+    .from("messages")
+    .update({ partner_id: partnerId })
+    .in("id", messageIds);
+
+  if (error) throw new Error(`Failed to stamp partner on messages: ${error.message}`);
+}
+
+/**
  * Move all messages from one engagement to another.
  * Returns the number of messages moved.
  */

@@ -274,6 +274,21 @@ export async function insertSpawnedMeeting(
 }
 
 /**
+ * Stamp a partner_id on a meeting.
+ */
+export async function stampPartnerOnMeeting(
+  meetingId: string,
+  partnerId: string
+): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .from("meetings")
+    .update({ partner_id: partnerId })
+    .eq("id", meetingId);
+
+  if (error) throw new Error(`Failed to stamp partner on meeting: ${error.message}`);
+}
+
+/**
  * Move all meetings from one engagement to another.
  * Returns the number of meetings moved.
  */
