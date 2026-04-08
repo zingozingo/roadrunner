@@ -560,7 +560,7 @@ export async function getCompletedTasks(): Promise<
 export async function getRecentNoteSummaries(
   partnerId: string,
   limit: number = 5
-): Promise<{ title: string | null; meeting_date: string | null; ai_summary: string }[]> {
+): Promise<{ title: string | null; meeting_date: string | null; ai_summary: string; note_type: string }[]> {
   const db = getSupabaseClient();
 
   // Seed notes first (foundational), then meeting notes by date desc
@@ -576,9 +576,32 @@ export async function getRecentNoteSummaries(
   if (error)
     throw new Error(`Failed to fetch note summaries: ${error.message}`);
 
-  return ((data ?? []) as { title: string | null; meeting_date: string | null; ai_summary: string }[]).map(
-    ({ title, meeting_date, ai_summary }) => ({ title, meeting_date, ai_summary })
+  return ((data ?? []) as { title: string | null; meeting_date: string | null; ai_summary: string; note_type: string }[]).map(
+    ({ title, meeting_date, ai_summary, note_type }) => ({ title, meeting_date, ai_summary, note_type })
   );
+}
+
+/**
+ * Get recent condensed meeting digests for a partner (unscoped — not filtered by engagement).
+ * Used as fallback context for standalone meeting note summarization.
+ */
+export async function getRecentCondensedDigests(
+  partnerId: string,
+  limit: number = 3
+): Promise<{ title: string | null; meeting_date: string | null; condensed: string }[]> {
+  const db = getSupabaseClient();
+
+  const { data, error } = await db
+    .from("meeting_notes")
+    .select("title, meeting_date, condensed")
+    .eq("partner_id", partnerId)
+    .not("condensed", "is", null)
+    .order("meeting_date", { ascending: false, nullsFirst: false })
+    .limit(limit);
+
+  if (error) throw new Error(`Failed to fetch condensed digests: ${error.message}`);
+
+  return (data ?? []) as { title: string | null; meeting_date: string | null; condensed: string }[];
 }
 
 /**

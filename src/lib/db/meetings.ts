@@ -129,6 +129,36 @@ export async function getUpcomingMeetings(
   }));
 }
 
+export async function getRecentMeetingsByPartner(
+  partnerId: string,
+  limit: number = 5
+): Promise<Pick<Meeting, "id" | "title" | "meeting_date" | "status">[]> {
+  const { data, error } = await getSupabaseClient()
+    .from("meetings")
+    .select("id, title, meeting_date, status")
+    .eq("partner_id", partnerId)
+    .order("meeting_date", { ascending: false, nullsFirst: false })
+    .limit(limit);
+
+  if (error) throw new Error(`Failed to fetch recent meetings: ${error.message}`);
+  return (data ?? []) as Pick<Meeting, "id" | "title" | "meeting_date" | "status">[];
+}
+
+export async function getMeetingDatesByPartner(
+  partnerId: string,
+  limit: number = 50
+): Promise<{ id: string; meeting_date: string | null }[]> {
+  const { data, error } = await getSupabaseClient()
+    .from("meetings")
+    .select("id, meeting_date")
+    .eq("partner_id", partnerId)
+    .order("meeting_date", { ascending: false })
+    .limit(limit);
+
+  if (error) throw new Error(`Failed to fetch meeting dates: ${error.message}`);
+  return (data ?? []) as { id: string; meeting_date: string | null }[];
+}
+
 export async function getMeeting(id: string): Promise<Meeting | null> {
   const { data, error } = await getSupabaseClient()
     .from("meetings")

@@ -12,6 +12,7 @@ export {
 // Engagements
 export {
   getActiveEngagements,
+  getActiveEngagementsByPartner,
   getAllEngagements,
   getEngagementById,
   getEngagementsWithMessageCounts,
@@ -29,6 +30,8 @@ export {
 export {
   getMeetingsWithEngagements,
   getUpcomingMeetings,
+  getRecentMeetingsByPartner,
+  getMeetingDatesByPartner,
   getMeeting,
   getSeriesSiblings,
   getMeetingsByEngagement,
@@ -105,6 +108,7 @@ export {
   getOpenTasks,
   getCompletedTasks,
   getRecentNoteSummaries,
+  getRecentCondensedDigests,
   getCondensedDigestsByEngagement,
   getStandaloneCondensedDigests,
 } from "./meeting-notes";

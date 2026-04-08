@@ -77,6 +77,18 @@ export async function getAllEngagements(): Promise<
   }));
 }
 
+export async function getActiveEngagementsByPartner(partnerId: string): Promise<Engagement[]> {
+  const { data, error } = await getSupabaseClient()
+    .from("engagements")
+    .select("*")
+    .eq("partner_id", partnerId)
+    .eq("status", "active")
+    .order("updated_at", { ascending: false });
+
+  if (error) throw new Error(`Failed to fetch active engagements: ${error.message}`);
+  return (data ?? []) as Engagement[];
+}
+
 export async function getEngagementById(id: string): Promise<Engagement | null> {
   const { data, error } = await getSupabaseClient()
     .from("engagements")

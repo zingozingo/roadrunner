@@ -1,12 +1,19 @@
-import { getSupabaseClient } from "./db/client";
-import { getTasksByPartner, getStandaloneCondensedDigests } from "./db/meeting-notes";
+import { getPartner } from "./db/partners";
+import { getActiveEngagementsByPartner } from "./db/engagements";
+import { getRecentMeetingsByPartner, getMeetingDatesByPartner } from "./db/meetings";
+import {
+  getTasksByPartner,
+  getStandaloneCondensedDigests,
+  getRecentNoteSummaries,
+  getRecentCondensedDigests,
+  getCondensedDigestsByEngagement,
+} from "./db/meeting-notes";
 import { getPartnerContext, getPartnerScratchpad } from "./db/partner-context";
 import { getContactsByPartner } from "./db/participants";
 import { getPartnerProgramEnrollments, getPartnerGoals, getPartnerMpoppFunding, getPartnerMdfFunding } from "./db/ring3";
 import type {
   Partner,
   Engagement,
-  Meeting,
   PartnerContext,
   DisplayContext,
   Pillar,
@@ -20,57 +27,29 @@ import type {
 export async function buildPartnerContext(
   partnerId: string
 ): Promise<PartnerContext> {
-  const db = getSupabaseClient();
-
-  // Parallel fetch: partner, engagements, meetings, tasks, scratchpad
+  // Parallel fetch: partner, engagements, meetings, tasks, scratchpad, contacts, notes
   const [
-    { data: partnerData, error: partnerErr },
-    { data: engData, error: engErr },
-    { data: mtgData, error: mtgErr },
+    partner,
+    engagements,
+    meetings,
     openTasks,
     scratchpadContext,
+    registryContacts,
+    notesWithType,
   ] = await Promise.all([
-    db.from("partners").select("*").eq("id", partnerId).single(),
-    db
-      .from("engagements")
-      .select("*")
-      .eq("partner_id", partnerId)
-      .eq("status", "active")
-      .order("updated_at", { ascending: false }),
-    db
-      .from("meetings")
-      .select("id, title, meeting_date, status")
-      .eq("partner_id", partnerId)
-      .order("meeting_date", { ascending: false, nullsFirst: false })
-      .limit(5),
+    getPartner(partnerId).then((p) => {
+      if (!p) throw new Error(`Partner not found: ${partnerId}`);
+      return p;
+    }),
+    getActiveEngagementsByPartner(partnerId),
+    getRecentMeetingsByPartner(partnerId, 5),
     getTasksByPartner(partnerId, { status: "open" }),
     getPartnerContext(partnerId),
+    getContactsByPartner(partnerId),
+    getRecentNoteSummaries(partnerId, 5),
   ]);
 
-  if (partnerErr) throw new Error(`Failed to fetch partner: ${partnerErr.message}`);
-  if (engErr) throw new Error(`Failed to fetch engagements: ${engErr.message}`);
-  if (mtgErr) throw new Error(`Failed to fetch meetings: ${mtgErr.message}`);
-
-  const partner = partnerData as Partner;
-  const engagements = (engData ?? []) as Engagement[];
-  const meetings = (mtgData ?? []) as { id: string; title: string; meeting_date: string | null; status: string }[];
-
-  // Build contacts from canonical participants registry
-  const registryContacts = await getContactsByPartner(partnerId);
   const contacts = buildContactsFromRegistry(registryContacts);
-
-  // Program/event names are partner-level (Ring 3), not engagement-level
-  const entityNames = { programs: new Map<string, string>(), events: new Map<string, string>() };
-
-  // Fetch previous note summaries with note_type
-  const { data: notesWithType } = await db
-    .from("meeting_notes")
-    .select("title, meeting_date, ai_summary, note_type")
-    .eq("partner_id", partnerId)
-    .eq("status", "complete")
-    .not("ai_summary", "is", null)
-    .order("meeting_date", { ascending: false, nullsFirst: false })
-    .limit(5);
 
   return {
     partner: {
@@ -95,8 +74,8 @@ export async function buildPartnerContext(
       pillar: e.pillar,
       status: e.status,
       topic: e.topic,
-      program_name: entityNames.programs.get(e.id) ?? null,
-      event_name: entityNames.events.get(e.id) ?? null,
+      program_name: null,
+      event_name: null,
     })),
     recentMeetings: meetings.map((m) => ({
       id: m.id,
@@ -104,14 +83,12 @@ export async function buildPartnerContext(
       meeting_date: m.meeting_date,
       status: m.status,
     })),
-    previousNotes: ((notesWithType ?? []) as { title: string | null; meeting_date: string | null; ai_summary: string; note_type: string }[]).map(
-      (n) => ({
-        title: n.title,
-        meeting_date: n.meeting_date,
-        ai_summary: n.ai_summary,
-        note_type: n.note_type,
-      })
-    ),
+    previousNotes: notesWithType.map((n) => ({
+      title: n.title,
+      meeting_date: n.meeting_date,
+      ai_summary: n.ai_summary,
+      note_type: n.note_type,
+    })),
     openTasks: openTasks.map((t) => ({
       description: t.description,
       owner: t.owner,
@@ -290,21 +267,19 @@ export async function buildMeetingNoteContext(
   partnerId: string,
   engagementId: string | null
 ): Promise<string> {
-  const db = getSupabaseClient();
-
-  // Parallel fetch: partner profile, contacts, scratchpad, previous condensed notes
+  // Parallel fetch: partner profile, contacts, scratchpad
   const [
-    { data: partnerData, error: partnerErr },
+    partner,
     registryContacts,
     scratchpadEntries,
   ] = await Promise.all([
-    db.from("partners").select("name, segment, what_they_do").eq("id", partnerId).single(),
+    getPartner(partnerId).then((p) => {
+      if (!p) throw new Error(`Partner not found: ${partnerId}`);
+      return p;
+    }),
     getContactsByPartner(partnerId),
     getPartnerContext(partnerId),
   ]);
-
-  if (partnerErr) throw new Error(`Failed to fetch partner: ${partnerErr.message}`);
-  const partner = partnerData as { name: string; segment: string | null; what_they_do: string | null };
 
   const sections: string[] = [];
 
@@ -335,17 +310,8 @@ export async function buildMeetingNoteContext(
   // 4. Previous meeting context (condensed digests only)
   if (engagementId) {
     // Scoped: only meetings linked to this engagement
-    const { data: notes } = await db
-      .from("meeting_notes")
-      .select("title, meeting_date, condensed, meeting_id, meetings!inner(engagement_id)")
-      .eq("partner_id", partnerId)
-      .not("condensed", "is", null)
-      .order("meeting_date", { ascending: false, nullsFirst: false })
-      .limit(20); // Over-fetch then filter by engagement
-
-    const scoped = ((notes ?? []) as unknown as { title: string | null; meeting_date: string | null; condensed: string; meetings: { engagement_id: string | null } }[])
-      .filter((n) => n.meetings?.engagement_id === engagementId)
-      .slice(0, 5);
+    const allDigests = await getCondensedDigestsByEngagement(engagementId);
+    const scoped = allDigests.slice(0, 5);
 
     if (scoped.length > 0) {
       const noteLines = scoped.map((n) => {
@@ -357,16 +323,10 @@ export async function buildMeetingNoteContext(
     }
   } else {
     // Unscoped fallback: recent partner meetings
-    const { data: notes } = await db
-      .from("meeting_notes")
-      .select("title, meeting_date, condensed")
-      .eq("partner_id", partnerId)
-      .not("condensed", "is", null)
-      .order("meeting_date", { ascending: false, nullsFirst: false })
-      .limit(3);
+    const notes = await getRecentCondensedDigests(partnerId, 3);
 
-    if (notes && notes.length > 0) {
-      const noteLines = (notes as { title: string | null; meeting_date: string | null; condensed: string }[]).map((n) => {
+    if (notes.length > 0) {
+      const noteLines = notes.map((n) => {
         const label = `[${n.meeting_date ?? "no date"}]`;
         const title = n.title ? ` ${n.title}` : "";
         return `${label}${title}\n${n.condensed}`;
@@ -392,49 +352,35 @@ export async function buildMeetingNoteContext(
  * Activity patterns are computed for the AI to synthesize.
  */
 export async function buildBrainContext(partnerId: string): Promise<string> {
-  const db = getSupabaseClient();
-
   // Parallel fetch everything the brain needs
   const [
-    { data: partnerData, error: partnerErr },
-    { data: engData, error: engErr },
+    partner,
+    engagements,
     registryContacts,
     scratchpadEntries,
     standaloneMeetingDigests,
     openTasks,
-    { data: meetingCountData },
+    meetings,
     programEnrollments,
     partnerGoals,
     mpoppFunding,
     mdfFunding,
   ] = await Promise.all([
-    db.from("partners").select("*").eq("id", partnerId).single(),
-    db.from("engagements")
-      .select("id, name, pillar, status, topic, condensed, updated_at")
-      .eq("partner_id", partnerId)
-      .eq("status", "active")
-      .order("updated_at", { ascending: false }),
+    getPartner(partnerId).then((p) => {
+      if (!p) throw new Error(`Partner not found: ${partnerId}`);
+      return p;
+    }),
+    getActiveEngagementsByPartner(partnerId),
     getContactsByPartner(partnerId),
     getPartnerScratchpad(partnerId),
     getStandaloneCondensedDigests(partnerId),
     getTasksByPartner(partnerId, { status: "open" }),
-    db.from("meetings")
-      .select("id, meeting_date")
-      .eq("partner_id", partnerId)
-      .order("meeting_date", { ascending: false })
-      .limit(50),
+    getMeetingDatesByPartner(partnerId, 50),
     getPartnerProgramEnrollments(partnerId),
     getPartnerGoals(partnerId),
     getPartnerMpoppFunding(partnerId),
     getPartnerMdfFunding(partnerId),
   ]);
-
-  if (partnerErr) throw new Error(`Failed to fetch partner: ${partnerErr.message}`);
-  if (engErr) throw new Error(`Failed to fetch engagements: ${engErr.message}`);
-
-  const partner = partnerData as Partner;
-  const engagements = (engData ?? []) as (Engagement & { condensed: string | null })[];
-  const meetings = (meetingCountData ?? []) as { id: string; meeting_date: string | null }[];
 
   const sections: string[] = [];
 
