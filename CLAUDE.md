@@ -27,9 +27,10 @@ In both modes, all rules below apply.
 
 Read these documents in this order before touching any UI code:
 1. `docs/north-star.md` — The vision: what Roadrunner should become, page specs, UX standards, design principles, anti-patterns
-2. `.claude/roadrunner-ui/SKILL.md` — The design system: tokens, components, patterns. This is a LIVING document — update it as you establish new patterns during implementation
-3. `docs/entity-model.md` — The schema: all 17 tables, FK cascades, Airtable field IDs, ring model. This is your reference for what data exists and how entities connect
-4. `.claude/references/ui-ux-best-practices.md` — Interaction patterns: button states, loading, errors, undo, navigation safety, dark theme, spacing, feedback timing
+2. `.claude/roadrunner-frontend/SKILL.md` — The frontend design system: tokens, components, patterns. This is a LIVING document — update it as you establish new patterns during implementation
+3. `.claude/roadrunner-backend/SKILL.md` — The backend architecture: three-layer architecture, data layer, services, validation, sync patterns
+4. `docs/entity-model.md` — The schema: all 17 tables, FK cascades, Airtable field IDs, ring model. This is your reference for what data exists and how entities connect
+5. `.claude/references/ui-ux-best-practices.md` — Interaction patterns: button states, loading, errors, undo, navigation safety, dark theme, spacing, feedback timing
 
 ### Path Guardrails — Minimum Necessary Changes
 
@@ -184,6 +185,8 @@ docs/sessions/
 ├── templates/
 │   ├── diagnostic.md             # "Run the diagnostic" — Claude Code reads and executes
 │   ├── plan-template.md          # Plan structure — task format, verification, checkpoints
+│   ├── plan-completion.md        # Zero-edit plan closeout — paste into Claude Code after any plan
+│   ├── plan-startup.md           # Plan execution startup — paste into Claude Code to begin
 │   ├── session-start.md          # Steven pastes into Claude.ai at session start
 │   └── session-end.md            # Steven pastes into Claude.ai when wrapping up
 └── summaries/
@@ -262,7 +265,7 @@ roadrunner/
 │       │   ├── session-start.md     #   Claude.ai: session startup context
 │       │   └── session-end.md       #   Claude.ai: wrap-up protocol
 │       └── summaries/             #     Session summaries (one per session)
-├── decisions.md                   # Append-only architectural decision log (431 entries)
+├── decisions.md                   # Append-only architectural decision log (442 entries)
 ├── src/
 │   ├── app/                       # Next.js App Router
 │   │   ├── api/                   #   API routes (35 route files, grouped by entity)
@@ -310,12 +313,18 @@ roadrunner/
 │       ├── name-resolver.ts       #   Contact name resolution from JSONB columns
 │       ├── contact-parser.ts      #   Universal "Name <email> (Title)" parser
 │       ├── format-utils.ts        #   Display name formatting + stripPartnerPrefix
-│       ├── meeting-recurrence.ts  #   Recurring meeting engine (spawn, overdue detection)
+│       ├── inbound-pipeline.ts    #   Email processing pipeline (body selection, parse, store, detect partner, ICS)
+│       ├── mailgun-helpers.ts    #   Mailgun webhook utilities (signature verification, form field extraction)
+│       ├── inbox-resolver.ts     #   Inbox resolution orchestration (synthesis, persist, link, AT push)
+│       ├── engagement-merge.ts   #   Engagement merge pipeline (reparent, delete, re-synthesize, AT sync)
+│       ├── meeting-recurrence.ts #   Recurring meeting engine (spawn, overdue detection, series propagation)
+│       ├── meeting-lifecycle.ts  #   Meeting side-effects (engagement link change → AT push + task cascade)
 │       ├── notes-summarizer.ts    #   AI meeting note summarizer (Claude API)
 │       ├── notes-context.ts       #   Context builders (buildPartnerContext, buildMeetingNoteContext, buildBrainContext)
 │       ├── contact-display.ts     #   Contact display formatting for UI
 │       ├── brain-synthesizer.ts   #   AI partner brain synthesis (single Strategic Posture paragraph)
 │       ├── types.ts               #   All shared TypeScript interfaces
+│       ├── validation.ts          #   Validation constants (12 VALID_* sets) + validateEnum()
 │       ├── user-config.ts         #   Canonical user identity config
 │       ├── airtable.ts            #   Airtable REST API client
 │       ├── db/                    #   Database layer (13 modules)
@@ -336,7 +345,7 @@ roadrunner/
 │       │   ├── push.ts            #     RR → AT activity sync
 │       │   ├── field-maps.ts      #     Airtable field ID constants (6 pull + 2 push + 5 Ring 3)
 │       │   └── utils.ts           #     Coercion helpers + validation
-│       └── __tests__/             #   435 passing tests across 14 test files
+│       └── __tests__/             #   444 passing tests across 14 test files
 ├── supabase/
 │   ├── migrations/                # 87 migration files (001-087)
 │   └── (authoritative schema lives in migrations/)
@@ -439,13 +448,15 @@ These are **NON-NEGOTIABLE**. Every code change must respect these:
 
 **Server Components (reads):** List and detail pages query Supabase directly via server-side functions in `db/`. No API route involved — the component IS the server.
 
-**Client Components (writes):** Action buttons, forms, and mutations call API routes. The routes validate input and call `db/` functions.
+**Client Components (writes):** Action buttons, forms, and mutations call API routes. Routes are thin wrappers: validate input → call service function → format response. Business logic lives in `src/lib/` service files, not in routes.
 
 **External Webhooks:** `/api/inbound` (Mailgun) and `/api/health` (monitoring) are called by external services, not the frontend.
 
 **No stubbed routes.** The old `/api/classify` 410 stub was removed in Phase D cleanup.
 
 **All Supabase queries live in `src/lib/db/`.** No direct `supabase.from()` or `getSupabaseClient()` calls outside `src/lib/db/` and `src/lib/sync/`. API routes, page files, and library files import db functions instead. This is a project rule enforced by Plan 6 — 57 rogue queries were extracted into 46 new db functions.
+
+**Three-layer architecture (Plan 7):** UI → thin API routes → service functions → db layer → Supabase. The 4 largest routes (inbound, reviews/resolve, engagements/merge, meetings/[id]) delegate business logic to dedicated service files: `inbound-pipeline.ts`, `inbox-resolver.ts`, `engagement-merge.ts`, `meeting-recurrence.ts`. Routes handle HTTP concerns only (request parsing, validation, response formatting).
 
 ---
 
@@ -565,15 +576,17 @@ Sequential numbering in `supabase/migrations/` (currently 001-087). New migratio
 
 ## File Quick Reference
 
+**Services (business logic):** `inbound-pipeline.ts` (email processing), `inbox-resolver.ts` (inbox resolution), `engagement-merge.ts` (merge orchestration), `meeting-recurrence.ts` (spawn + propagation)
+
 **Classification:** `classifier.ts` → `phase2-prompt.ts` → `claude.ts` · Partner detection: `partner-detection.ts` · Brain: `brain-synthesizer.ts` → `notes-context.ts` (buildBrainContext)
 
 **Sync:** `sync/pull.ts` / `sync/push.ts` → `sync/field-maps.ts` → `sync/utils.ts`
 
 **Data layer:** `db/index.ts` → `db/engagements.ts` → `db/messages.ts` → `db/meetings.ts` → `db/meeting-notes.ts` → `db/participants.ts` → `db/partner-context.ts` → `db/catalog.ts` → `db/partners.ts` → `db/inbox.ts` → `db/ring3.ts`
 
-**Email:** `email-parser.ts` → `ics-parser.ts` → `name-resolver.ts` → `contact-parser.ts` → `format-utils.ts` · Recurrence: `meeting-recurrence.ts`
+**Email:** `email-parser.ts` → `ics-parser.ts` → `name-resolver.ts` → `contact-parser.ts` → `format-utils.ts`
 
-**Entry points:** `/api/inbound` (Mailgun webhook), `/api/reviews/resolve` (inbox routing — assign/create/discard), `/api/engagements/merge` (engagement merge), `/api/sync` (catalog sync)
+**Entry points:** `/api/inbound` → `inbound-pipeline.ts`, `/api/reviews/resolve` → `inbox-resolver.ts`, `/api/engagements/merge` → `engagement-merge.ts`, `/api/sync` (catalog sync)
 
 ---
 
@@ -582,6 +595,8 @@ Sequential numbering in `supabase/migrations/` (currently 001-087). New migratio
 | Doc | Purpose | When to Read |
 |-----|---------|--------------|
 | `CLAUDE.md` | This file — project overview, architecture, development | Start of every session |
+| `.claude/roadrunner-frontend/SKILL.md` | Frontend design system — visual foundations, interaction patterns, data visualization | UI/UX work |
+| `.claude/roadrunner-backend/SKILL.md` | Backend architecture — three-layer architecture, data layer, services, validation, sync | Backend work |
 | `docs/entity-model.md` | Complete schema — 17 tables, all FKs, AT field IDs, ring model | Schema/data work |
 | `docs/north-star.md` | UI vision spec — page specs, UX standards, design principles | UI/UX work |
 | `docs/ai-call-map.md` | AI call reference — 3 calls: synthesis, summarization, brain | AI/prompt work |
@@ -591,7 +606,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-087). New migratio
 | `docs/sessions/templates/plan-template.md` | Plan structure — task format, pre-flight, verification, checkpoints | Creating new plans |
 | `docs/sessions/templates/` | Session templates — diagnostic, plan template, Claude.ai prompts | Reference when needed |
 | `docs/sessions/summaries/` | Session summaries — one per session, latest is handoff for next session | Session start (paste latest into Claude.ai) |
-| `decisions.md` | Append-only architectural decision log (431 entries) | When you need "why" |
+| `decisions.md` | Append-only architectural decision log (442 entries) | When you need "why" |
 
 ---
 

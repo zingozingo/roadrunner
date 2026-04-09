@@ -15,7 +15,7 @@ Read and execute `docs/sessions/templates/diagnostic.md`. Show me the compact ou
 3. `docs/sessions/templates/plan-template.md` — the plan structure standard (understand what pre-flight, verification, and Steven checkpoints mean)
 4. `docs/north-star.md` — vision spec, especially sections relevant to the current plan
 5. `docs/goal-state.md` — current status, what's done, what's next
-6. `.claude/roadrunner-ui/SKILL.md` — design system authority (three layers: visual, interaction, data visualization). Pay special attention to the Mutation Lifecycle Framework if the plan involves any interactive behavior.
+6. `.claude/roadrunner-frontend/SKILL.md` — design system authority (three layers: visual, interaction, data visualization). Pay special attention to the Mutation Lifecycle Framework if the plan involves any interactive behavior.
 7. `docs/entity-model.md` — schema reference (only if the plan involves data/schema work)
 8. `docs/ai-call-map.md` — AI call breakdown (only if plan involves AI brain work)
 

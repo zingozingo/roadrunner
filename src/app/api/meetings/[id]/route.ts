@@ -5,11 +5,10 @@ import {
   deleteMeeting,
   resolvePartnerByName,
   getEngagementById,
-  getFutureSeriesMeetingsExcluding,
-  getMeetingIdsWithNotes,
-  cascadeEngagementToTasks,
 } from "@/lib/db";
 import { VALID_MEETING_STATUSES, validateEnum } from "@/lib/validation";
+import { propagateRecurrenceChange } from "@/lib/meeting-recurrence";
+import { handleMeetingEngagementChange } from "@/lib/meeting-lifecycle";
 
 export async function GET(
   _request: NextRequest,
@@ -99,52 +98,20 @@ export async function PUT(
 
     // Scope-aware propagation: update future meetings in the series
     if (scope === "this_and_future" && existing.series_id) {
-      const rootId = existing.series_id;
       const patternChanged = recurrence_pattern !== undefined || anchor_day !== undefined;
-
       if (patternChanged) {
         try {
-          const { calculateNextDate } = await import("@/lib/meeting-recurrence");
-          const today = new Date().toISOString().slice(0, 10);
-
-          // Update series root with new pattern/anchor
-          const rootUpdates: Record<string, unknown> = {};
-          if (recurrence_pattern !== undefined) rootUpdates.recurrence_pattern = recurrence_pattern || null;
-          if (anchor_day !== undefined) rootUpdates.anchor_day = anchor_day;
-          if (recurrence_end !== undefined) rootUpdates.recurrence_end = recurrence_end || null;
-          if (id !== rootId) {
-            await updateMeeting(rootId, rootUpdates);
-          }
-
-          // Find future meetings in the series with no notes taken
-          const futureMeetings = await getFutureSeriesMeetingsExcluding(rootId, today, id);
-
-          if (futureMeetings.length > 0) {
-            const notedSet = await getMeetingIdsWithNotes(futureMeetings.map((m) => m.id));
-
-            const newPattern = (recurrence_pattern ?? existing.recurrence_pattern) as import("@/lib/types").RecurrencePattern;
-            const newAnchor = anchor_day ?? existing.anchor_day ?? undefined;
-
-            // Recalculate dates for unattended future meetings
-            let prevDate = updated.meeting_date ?? existing.meeting_date ?? today;
-            for (const fm of futureMeetings) {
-              if (notedSet.has(fm.id)) {
-                prevDate = fm.meeting_date;
-                continue; // Skip meetings with notes
-              }
-              if (newPattern) {
-                const nextDate = calculateNextDate(prevDate, newPattern, newAnchor);
-                await updateMeeting(fm.id, {
-                  meeting_date: nextDate,
-                  recurrence_pattern: newPattern,
-                  anchor_day: newAnchor ?? null,
-                });
-                prevDate = nextDate;
-              }
-            }
-          }
+          await propagateRecurrenceChange({
+            meetingId: id,
+            seriesId: existing.series_id,
+            existing,
+            updated,
+            recurrencePattern: recurrence_pattern,
+            anchorDay: anchor_day,
+            recurrenceEnd: recurrence_end,
+          });
         } catch (err) {
-          console.error(`Scope propagation failed for series ${rootId}:`, err);
+          console.error(`Scope propagation failed for series ${existing.series_id}:`, err);
         }
       }
     }
@@ -159,23 +126,7 @@ export async function PUT(
 
     // Engagement-specific side effects: only when engagement link changes
     if (engagement_id !== undefined) {
-      // Re-synthesize engagement activity summary when linked (not unlinked)
-      if (engagement_id) {
-        try {
-          const { pushEngagementToAirtable } = await import("@/lib/sync");
-          await pushEngagementToAirtable(engagement_id);
-          console.log(`Engagement activity summary refreshed for ${engagement_id} after meeting link`);
-        } catch (err) {
-          console.error(`Engagement sync failed for ${engagement_id}:`, err);
-        }
-      }
-
-      // Cascade engagement_id to tasks from this meeting's notes
-      try {
-        await cascadeEngagementToTasks(id, engagement_id || null, existing.engagement_id);
-      } catch (err) {
-        console.error(`Task cascade failed for meeting ${id}:`, err);
-      }
+      await handleMeetingEngagementChange(id, engagement_id || null, existing.engagement_id);
     }
 
     return NextResponse.json({ meeting: updated });

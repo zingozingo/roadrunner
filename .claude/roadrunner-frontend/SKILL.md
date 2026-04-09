@@ -1,6 +1,6 @@
 ---
-name: roadrunner-ui
-description: UI design system reference for Roadrunner. Covers tokens, components, pages, patterns, and interaction standards. Read docs/north-star.md FIRST for vision and design decisions.
+name: roadrunner-frontend
+description: Frontend design system reference for Roadrunner. Covers tokens, components, pages, patterns, and interaction standards. Read docs/north-star.md FIRST for vision and design decisions.
 ---
 
 # Roadrunner UI Design System
@@ -306,11 +306,13 @@ If unsaved changes exist:
 **Server components (reads):** Query Supabase directly via `db/` functions with `Promise.all`:
 
 ```typescript
-const [{ data: meetings }, { data: engagements }] = await Promise.all([
-  db.from("meetings").select("*").eq("partner_id", id),
-  db.from("engagements").select("*").eq("partner_id", id),
+const [meetings, engagements] = await Promise.all([
+  getMeetingsByPartner(id),
+  getEngagementsByPartner(id),
 ]);
 ```
+
+All data access goes through typed db functions in `src/lib/db/` — never raw `supabase.from()` calls in pages or components.
 
 **Ring 3 data:** Import from `@/lib/db`: `getPartnerGoals`, `getPartnerProgramEnrollments`, `getPartnerEventParticipations`, `getPartnerMpoppFunding`, `getPartnerMdfFunding`.
 
@@ -360,6 +362,25 @@ const [{ data: meetings }, { data: engagements }] = await Promise.all([
 - Spacing values outside the 4px scale
 - Section labels that say "No data" with broken-looking empty UI
 - Unicode escapes (`\u2026`, `\u2019`, etc.) in JSX text content — they render as literal characters, not the intended glyph. Use the actual character (`…`, `'`) or wrap in a JS expression (`{"…"}`). Unicode escapes only work inside JavaScript string literals.
+
+### Module-Level Guard for React Strict Mode
+
+**Problem:** React strict mode (default in Next.js dev) double-mounts components. `useRef` guards reset between mount cycles because the component instance is destroyed and recreated. This causes double API calls in `useEffect`.
+**Solution:** Use a module-level `Set<string>` that persists across mount/unmount cycles:
+```typescript
+const inFlight = new Set<string>();
+
+function MyComponent({ id }: { id: string }) {
+  useEffect(() => {
+    if (inFlight.has(id)) return;
+    inFlight.add(id);
+    doAsyncWork(id).finally(() => inFlight.delete(id));
+  }, [id]);
+}
+```
+**Used on:** MeetingNotesSection (auto-create on `?notes=true`)
+**When to use:** Only for idempotent operations where double-fire causes errors (e.g., POST hitting a UNIQUE constraint). Don't use for operations that are safe to fire twice.
+**Constraints:** Always clean up the Set entry in `.finally()`. The Set persists for the lifetime of the module (page navigation in Next.js may or may not reload it), so stale entries must be cleared.
 
 ---
 
@@ -497,9 +518,29 @@ See **Mutation Lifecycle Framework** below for the canonical Class 3 (Destructiv
 Every user-triggered mutation in the app falls into one of four classes. This framework is the canonical definition of how mutations behave — loading, error handling, confirmation, and scope resolution. No mutation surface should deviate from these patterns.
 
 **Shared utilities:**
-- **`useMutation`** — `src/hooks/useMutation.ts` — returns `{ execute, isLoading, error, clearError }`. Generic async wrapper with loading and error tracking.
 - **`InlineError`** — `src/components/shared/InlineError.tsx` — compact red-tinted inline error display. Auto-dismisses after 8 seconds. Props: `message`, `onDismiss`.
-- **`useNavigationGuard`** — `src/hooks/useNavigationGuard.ts` *(planned)* — blocks navigation while mutations are in-flight. See "Navigation Guard During Mutations" below.
+- **`useNavigationGuard`** — `src/hooks/useNavigationGuard.ts` — blocks navigation while mutations are in-flight. Fully implemented, deployed across 18 components. See "Navigation Guard During Mutations" below.
+
+**Standard mutation pattern:** Components manage mutations with inline state — no shared hook. Every mutation surface follows this shape:
+```typescript
+const [isLoading, setIsLoading] = useState(false);
+const [error, setError] = useState<string | null>(null);
+
+async function handleAction() {
+  setIsLoading(true);
+  setError(null);
+  try {
+    const res = await fetch("/api/...", { method: "POST", body: JSON.stringify(data) });
+    if (!res.ok) throw new Error((await res.json()).error ?? "Failed");
+    // success: router.refresh(), update state, etc.
+  } catch (err) {
+    setError(err instanceof Error ? err.message : "Unknown error");
+  } finally {
+    setIsLoading(false);
+  }
+}
+```
+Each component tailors this to its context. There is no shared `useMutation` hook — it was removed because each mutation has different success handling, and a generic wrapper added indirection without reducing complexity.
 
 ### Class 1 — Optimistic Toggle
 
@@ -525,7 +566,7 @@ Every user-triggered mutation in the app falls into one of four classes. This fr
 **Examples:** Meeting create, engagement save, brain synthesize, inbox assign, recurrence save, engagement link, scratchpad add.
 
 **Behavior:**
-1. Use `useMutation` hook (or equivalent loading/error state management)
+1. Manage loading/error state inline (see standard mutation pattern above)
 2. Loading state activates (see "Mutation Loading States" below for which level to use)
 3. On success: UI updates (router.refresh, state update, or optimistic add)
 4. On failure: `InlineError` appears near the action, trigger re-enables for retry
@@ -533,6 +574,8 @@ Every user-triggered mutation in the app falls into one of four classes. This fr
 **Loading label convention:** Always verb-based. "Saving...", "Creating...", "Deleting...", "Assigning...", "Linking...", "Synthesizing...". Never "Loading..." or "Please wait..." or "Working...".
 
 **Error placement:** `InlineError` renders below the trigger button or inside the card/section where the action lives. Never a toast. Never a page-level banner for component-level errors.
+
+**Idempotent endpoints:** Some POST endpoints check for existing resources before creating (e.g., POST /api/notes checks if a note already exists for the meeting). These return 200 with the existing resource if found, 201 if newly created. Frontend code should handle both status codes as success — the response body shape is identical. Use `res.ok` rather than checking for a specific status code.
 
 **Constraints:** Don't use Class 2 for toggles (those are Class 1). Don't skip the loading label — a disabled button without text change looks broken.
 
@@ -627,7 +670,7 @@ How to lay out multiple action buttons on the same item (list rows, card headers
 
 Any page with mutations MUST block navigation while an async operation is in-flight. This prevents data loss from accidental back-button clicks, sidebar navigation, or page reload during a multi-second operation (e.g., AI synthesis, engagement creation with Airtable push).
 
-**Hook:** `useNavigationGuard(blocked: boolean)` *(planned: `src/hooks/useNavigationGuard.ts`)*
+**Hook:** `useNavigationGuard(blocked: boolean)` — `src/hooks/useNavigationGuard.ts`
 
 **Three interception points:**
 1. `beforeunload` — browser close, reload, or external navigation. Standard `event.preventDefault()`.
@@ -660,8 +703,13 @@ useNavigationGuard(busyAction !== null);
 
 1. **No silent failures.** Every `catch` block must surface the error to the user via `InlineError`. `console.error` is allowed for logging but never as the ONLY error handling.
 2. **Loading labels are verb-based.** "Saving...", "Creating...", "Deleting...". Never "Loading..." or "Please wait...".
-3. **`useMutation` is the default.** Every Class 2/3/4 mutation should use the `useMutation` hook unless there's a specific reason not to (e.g., Class 1 optimistic toggles that manage their own state).
-4. **InlineError placement.** Below the trigger button or inside the card/section where the action lives. Never a toast. Never a page-level banner for component-level errors.
+3. **Inline state management is the default.** Every Class 2/3/4 mutation manages its own `isLoading` + `error` state (see standard mutation pattern above). Class 1 optimistic toggles manage their own pre/post state directly.
+4. **InlineError placement.** Context-specific positioning — always near the trigger, never a toast or page-level banner:
+   - **Form/modal errors:** Below the submit button, inside the modal/form container
+   - **List row errors:** Inside the row, replacing or below the action buttons
+   - **Section-level errors:** Below the section header, inside the section card
+   - **Auto-dismiss:** 8 seconds. User can dismiss manually via × button.
+   - **Mandatory:** Every mutation surface must use `InlineError`. No bare `<p className="text-red-400">`. No custom error divs. No `console.error` as the only error handling.
 5. **Destructive actions are never the primary button.** Always `text-red-400` or secondary styling. Always separated from safe actions.
 6. **Scope before execute.** For Class 4 actions, always resolve the full target set before mutating. Never assume the caller's ID is the only affected record.
 7. **Guard navigation during mutations.** Every page with Class 2/3/4 mutations must use `useNavigationGuard` to block navigation while operations are in-flight.
@@ -770,19 +818,31 @@ For each mutation surface, verify:
 **Design rationale:** Every entity name that refers to another entity should be clickable. The user should never see a name and wonder "can I go there?"
 **Constraints:** Don't make entity names clickable if there's no detail page for that entity type. Don't use `target="_blank"` for internal links.
 
-### Slide-Over Panel
+### Query Param Deep-Linking
 
-**Component:** `SlideOverPanel` (`src/components/shared/SlideOverPanel.tsx`)
-**Used on:** Partner detail page (Partner Reference Panel — Solution Profile, Operational Status, Scratchpad)
+**Component:** Meeting detail page (`src/app/meetings/[id]/page.tsx`) + `MeetingNotesSection`
+**Used on:** Today page "Open Notes" shortcut
 **Behavior:**
-- Right-aligned panel: `w-[450px] max-w-[90vw]`, slides in from right
-- Backdrop: `bg-black/40`, click to close
-- Escape key to close
-- Tab bar at top: underline-style tabs (`border-b-2 border-accent` on active)
-- Content area: scrollable, `p-6`
-- Portal-rendered via `createPortal(document.body)` to avoid z-index issues
-**Design rationale:** Slide-overs are for reference content that the user wants alongside the main view — not content that replaces the view. Used for "deep reference" sections on partner detail (Solution Profile, Operational Status, Scratchpad) that would make the page too long if inline.
-**Constraints:** Don't put primary actions in slide-overs. Don't nest slide-overs. Max 4 tabs — more than that needs a dedicated page.
+- URL: `/meetings/{id}?notes=true`
+- Server component reads `searchParams.notes` and passes `autoOpen` prop to MeetingNotesSection
+- If notes exist: auto-scrolls to notes section
+- If no notes exist: auto-creates note (same as "Start Notes" click) and opens editor
+- The "Open Notes" link on Today page is a SEPARATE Link element from the meeting row Link — uses Split Link pattern (see below)
+**Design rationale:** One-click shortcut saves 2-3 interactions vs navigating to meeting → scrolling → clicking "Start Notes"
+**Constraints:** Auto-create must be idempotent (see Module-Level Guard pattern in Anti-Patterns). Only use `?notes=true` for meetings — don't proliferate query params without clear need.
+
+### Split Link Pattern
+
+**Component:** Today page meeting rows (`src/app/page.tsx`)
+**Used on:** Today page (meeting row click vs "Open Notes" click)
+**Behavior:**
+- A list row wraps the row body in one `<Link>` and the action in a separate `<Link>`
+- Row body Link: navigates to entity detail (e.g., `/meetings/{id}`)
+- Action Link: navigates to a deep-linked variant (e.g., `/meetings/{id}?notes=true`)
+- Uses a `<div>` wrapper instead of a single `<Link>` wrapping the entire row
+- Both links have independent hover states
+**Design rationale:** Allows a single row to have two distinct navigation targets without nested links (which are invalid HTML). The action link provides a shortcut while the row link goes to the standard detail view.
+**Constraints:** Max one action link per row. Don't use buttons inside links — use separate Link elements.
 
 ---
 

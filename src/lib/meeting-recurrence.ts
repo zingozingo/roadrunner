@@ -9,7 +9,10 @@ import {
   getFutureMeetingsInSeries,
   getSeriesRootAnchorDay,
   insertSpawnedMeeting,
+  getFutureSeriesMeetingsExcluding,
+  updateMeeting,
 } from "./db/meetings";
+import { getMeetingIdsWithNotes } from "./db/meeting-notes";
 import { copyMeetingParticipants } from "./db/participants";
 import { pushMeetingToAirtable } from "./sync/push";
 
@@ -192,4 +195,62 @@ export async function spawnNextOccurrence(meeting: Meeting): Promise<Meeting | n
     }
     throw err;
   }
+}
+
+/**
+ * Propagate recurrence pattern/anchor/date changes to future meetings in a series.
+ * Skips meetings that already have notes (user has customized them).
+ * Called from the meetings PUT route when scope === "this_and_future".
+ */
+export async function propagateRecurrenceChange(params: {
+  meetingId: string;
+  seriesId: string;
+  existing: Meeting;
+  updated: Meeting;
+  recurrencePattern?: string;
+  anchorDay?: number | null;
+  recurrenceEnd?: string;
+}): Promise<{ updatedCount: number }> {
+  const { meetingId, seriesId, existing, updated, recurrencePattern, anchorDay, recurrenceEnd } = params;
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Update series root with new pattern/anchor
+  const rootUpdates: Record<string, unknown> = {};
+  if (recurrencePattern !== undefined) rootUpdates.recurrence_pattern = recurrencePattern || null;
+  if (anchorDay !== undefined) rootUpdates.anchor_day = anchorDay;
+  if (recurrenceEnd !== undefined) rootUpdates.recurrence_end = recurrenceEnd || null;
+  if (meetingId !== seriesId && Object.keys(rootUpdates).length > 0) {
+    await updateMeeting(seriesId, rootUpdates);
+  }
+
+  // Find future meetings in the series (excluding current)
+  const futureMeetings = await getFutureSeriesMeetingsExcluding(seriesId, today, meetingId);
+  if (futureMeetings.length === 0) return { updatedCount: 0 };
+
+  const notedSet = await getMeetingIdsWithNotes(futureMeetings.map((m) => m.id));
+
+  const newPattern = (recurrencePattern ?? existing.recurrence_pattern) as RecurrencePattern;
+  const newAnchor = anchorDay ?? existing.anchor_day ?? undefined;
+
+  // Recalculate dates for unattended future meetings
+  let updatedCount = 0;
+  let prevDate = updated.meeting_date ?? existing.meeting_date ?? today;
+  for (const fm of futureMeetings) {
+    if (notedSet.has(fm.id)) {
+      prevDate = fm.meeting_date;
+      continue; // Skip meetings with notes
+    }
+    if (newPattern) {
+      const nextDate = calculateNextDate(prevDate, newPattern, newAnchor);
+      await updateMeeting(fm.id, {
+        meeting_date: nextDate,
+        recurrence_pattern: newPattern,
+        anchor_day: newAnchor ?? null,
+      });
+      prevDate = nextDate;
+      updatedCount++;
+    }
+  }
+
+  return { updatedCount };
 }

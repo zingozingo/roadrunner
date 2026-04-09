@@ -1,3 +1,3 @@
-# Active Task Plan
+# No Active Plan
 
-No active task plan. Working in interactive mode.
+No task plan is currently active. Use `docs/sessions/templates/plan-template.md` to create a new one.

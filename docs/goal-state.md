@@ -6,7 +6,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 87 migrations, 17 active tables, 35 API routes, 14 UI pages, 444 passing tests (0 failures), tsc --noEmit passes clean, 36 components, 160 db functions, decisions through #431
+- 87 migrations, 17 active tables, 35 API routes, 14 UI pages, 444 passing tests (0 failures), tsc --noEmit passes clean, 36 components, 160 db functions, decisions through #442
 - Human-guided intake pipeline fully operational: webhook → mechanical partner detection → ICS partner backfill → inbox triage (with unknown partner picker) → single-phase AI synthesis (decisions #223-252)
 - Meetings Motion complete (decisions #253-259): 10 interaction-based meeting types, recurring meeting engine with auto-spawn, series tracking via self-referential FK, RecurrenceEditor UI, synthesis-on-link, conference boilerplate pre-split fix, ICS multi-VEVENT guardrail confirmed
 - AI Brain Overhaul Phases 1-3 complete (decisions #260-269): goal field eliminated (migration 069), condensed columns on engagements + meeting_notes (migration 068), meeting summarization restructured with scoped context builder, structured output (Discussion/Decisions/Key Context), condensed 3-5 bullet digest, non-redundancy with tasks
@@ -58,22 +58,20 @@ A system where a PDM forwards an email and Roadrunner:
 ## What's Next
 
 ### Immediate
-- Plan 7 — Services layer extraction: extract business logic from 4 oversized routes (inbound 464L, meetings/[id] 218L, reviews/resolve 191L, merge 171L) into service functions
+- Phase 2 — Junction table ownership flip: CRUD for partner program enrollments + partner event participations in Roadrunner UI, flip sync direction from pull to push for these tables
 - UI/UX polish pass — partner detail page layout for scale, SKILL.md layout patterns
-- Partner profile data audit — architecture, deployment options, AWS stickiness fields review
-- Events page improvements — grouping by format, timeline view, upcoming vs past refinement
 
 ### Soon
+- Phase 3 — UI/UX redesign: partner detail four-tab reorg (Overview, Operations, Profile, People), page improvements, Today page evolution
+- Airtable exit path planning — progressive flip of remaining tables to Roadrunner-owned
 - Programs page UI polish — consider grouping by Category with Subtype sections
-- Plan 4 — Partner detail page reorganization: tabs or progressive disclosure for the longest page in the app
 - People page evolution — alphabetical grouping or pagination for 227+ participants
-- Partner Events seeding — continue adding partner registrations as data arrives
 
 ### Later
-- Completed tasks pattern on partner detail page (same collapsed section approach)
+- Project genesis kit — extract Roadrunner's scaffolding (CLAUDE.md, skills, templates, three-layer architecture) into a reusable starter template
+- Structural checker scripts — automated grep-based architecture enforcement (no rogue queries, no local VALID_* constants, route line count limits)
 - Task backfill — 41 tasks without engagement_id need linking via meeting→engagement chain
 - Meeting data cleanup — Vasion duplicate series merge, standalone-to-series conversions (KnowBe4, NinjaOne, Cloudaware)
-- Airtable exit path — AT push for manually-created enrollments and event participations
 - Email-less participant support (5 null-email participants in registry)
 
 ### Completed
@@ -173,6 +171,15 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~Idempotent note creation~~ ✅ (2026-04-08, decision #424): POST /api/notes checks for existing note before insert, returns with 200. Module-level Set guards against React strict mode double-mount race condition
 - ~~Plan 5: Validation Centralization~~ ✅ (2026-04-08, decisions #425-429): 12 VALID_* constants centralized in validation.ts, validateEnum() helper, resolvePartnerByName() extracted to db layer, cleanSubject() extracted to format-utils, all 10 DELETE responses normalized to { deleted: true }
 - ~~Plan 6: Data Layer Centralization~~ ✅ (2026-04-08, decisions #430-431): 79 rogue supabase.from() queries extracted from 23 files into 46 new db functions (114→160 total). Zero direct Supabase access remains outside db/ and sync/. CreateTaskInput.meeting_note_id made nullable. Project rule enforced: all queries in src/lib/db/
+- ~~Plan 7: Services Layer Extraction~~ ✅ (2026-04-08): Business logic extracted from 4 oversized routes into dedicated service files. inbound/route.ts 464→120, reviews/resolve 192→114, engagements/merge 172→65, meetings/[id] 219→169. 5 service files created/extended (inbound-pipeline.ts, inbox-resolver.ts, engagement-merge.ts, meeting-lifecycle.ts, mailgun-helpers.ts) + meeting-recurrence.ts extended. Three-layer architecture complete: UI → thin routes → services → db → Supabase
+- ~~Sync audit + orphan cleanup~~ ✅ (2026-04-08, decisions #424-429): Ring 3 orphan cleanup added, null program_id guard, meeting push broadened, notes auto-complete, migration 087 backfill, bulk sync gate removed. All 10 sync flows verified 1:1
+- ~~Backend SKILL.md created~~ ✅ (2026-04-08, decision #438): .claude/roadrunner-backend/SKILL.md — three-layer architecture, data layer rules, route patterns, validation, sync
+- ~~Frontend SKILL.md renamed + updated~~ ✅ (2026-04-08, decision #439): roadrunner-ui → roadrunner-frontend, phantoms removed, 5 patterns added
+- ~~Plan completion template~~ ✅ (2026-04-08, decision #440): Zero-edit closeout command
+- ~~Dead code cleanup~~ ✅ (2026-04-08, decision #442): 3 orphaned files, empty dir, dead sync constants, 8 any types
+- ~~InlineError consistency~~ ✅ (2026-04-08, decision #441): Mandatory across all 42 mutation surfaces
+- ~~Open Notes shortcut~~ ✅ (2026-04-08, decision #432): ?notes=true deep-linking from Today page
+- ~~Idempotent note creation~~ ✅ (2026-04-08, decision #431): Race condition fix with module-level Set guard
 
 ## Architecture Principles
 

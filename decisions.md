@@ -7649,3 +7649,288 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** 6 composite functions created: mergeEngagementParticipants, replacePartnerSynthesis, searchParticipants, copyMeetingParticipants, insertSpawnedMeeting (with 23505 handling), reparent* family (4 functions).
 
 ---
+
+### #424 — Pull sync orphan cleanup for Ring 3 tables
+
+**Date:** 2026-04-08
+**Status:** ✅ Implemented
+
+**Decision:** Added deleteOrphanedRows() to all 5 Ring 3 sync functions (partner_goals, partner_program_enrollments, partner_event_participations, partner_funding_mpopp, partner_funding_mdf). After upserting, deletes Supabase rows whose airtable_id no longer exists in AT. Ring 1 tables already had this. All 8 pull tables now have orphan cleanup.
+
+**Context:** Sync audit found 2 orphaned enrollment rows in Supabase that no longer existed in Airtable. Ring 1 pull functions (partners, programs, events) already had orphan cleanup, but Ring 3 functions (added later) did not.
+
+**Rationale:** Orphaned rows cause stale data in the UI and inflated counts. Orphan cleanup should be standard for all pull sync tables.
+
+**Impact:** All 8 AT→RR pull sync tables verified 1:1 against Airtable. Zero orphans remain.
+
+---
+
+### #425 — Null program_id guard on enrollment sync
+
+**Date:** 2026-04-08
+**Status:** ✅ Implemented
+
+**Decision:** syncPartnerProgramEnrollments now skips records where programId resolves to null, matching the existing pattern in syncPartnerEventParticipations. Prevents silent null FK upserts.
+
+**Context:** Some Airtable enrollment records have broken Program links (the linked record was deleted). Without the guard, these upsert with program_id=null, violating the intended FK relationship.
+
+**Rationale:** Consistent with the event participation guard. Better to skip a record than insert with a null FK that creates confusing UI state.
+
+**Impact:** Enrollment sync skips null-FK records with a warning log. Zero silent null inserts.
+
+---
+
+### #426 — Meeting push fires on every update
+
+**Date:** 2026-04-08
+**Status:** ✅ Implemented
+
+**Decision:** Moved pushMeetingToAirtable() outside the engagement_id guard in the meetings PUT route. Previously only pushed when engagement_id changed — now pushes on every successful update (status, title, date, type, etc.).
+
+**Context:** Audit found all 66 meetings in Airtable were stuck on "Scheduled" because status changes never triggered a push. The push was gated behind `if (engagement_id !== undefined)`.
+
+**Rationale:** Every meeting field change should sync to Airtable. The engagement_id gate was an artifact of the original implementation where meetings were only pushed when linked to engagements.
+
+**Impact:** Status, title, date, type, and all other meeting field changes now reach Airtable immediately.
+
+---
+
+### #427 — Notes save auto-completes meetings
+
+**Date:** 2026-04-08
+**Status:** ✅ Implemented
+
+**Decision:** When a note is created for a meeting via POST /api/notes, if the meeting's status is "scheduled", it auto-flips to "completed" and pushes to Airtable. Only flips scheduled→completed; cancelled and did_not_occur are never auto-set.
+
+**Context:** Taking meeting notes is a strong behavioral signal that the meeting happened. Previously, status had to be manually changed even after notes were saved.
+
+**Rationale:** Behavioral signal: taking notes means the meeting happened. Auto-completing eliminates a manual step without losing information. Cancelled/did_not_occur meetings are explicitly set by the user and should never be overridden.
+
+**Impact:** Meeting status automatically reflects reality. Combined with #426 (push on every update), Airtable status stays current.
+
+---
+
+### #428 — Migration 087 — backfill meeting status
+
+**Date:** 2026-04-08
+**Status:** ✅ Implemented
+
+**Decision:** One-time migration flipping 48 meetings from "scheduled" to "completed" where notes existed. Idempotent (only touches scheduled rows with notes).
+
+**Context:** 48 meetings were created before the auto-complete logic (#427) existed. They had notes but were still marked "scheduled."
+
+**Rationale:** Brings historical data into alignment with the new behavioral rule. Idempotent SQL ensures safe re-runs.
+
+**Impact:** 48 meetings updated. Zero scheduled meetings with notes remain.
+
+---
+
+### #429 — Bulk meeting sync gate removed
+
+**Date:** 2026-04-08
+**Status:** ✅ Implemented
+
+**Decision:** syncMeetingsToAirtable no longer skips meetings without engagement_id. All meetings are pushed during bulk sync, not just engagement-linked ones.
+
+**Context:** Previously only 4 of 66 meetings were bulk-synced because the gate filtered to engagement-linked meetings only. The other 62 were invisible to bulk sync.
+
+**Rationale:** All meetings should be synced regardless of engagement linkage. The gate was an artifact of the early assumption that only engagement-linked meetings mattered to Airtable.
+
+**Impact:** All meetings push during bulk sync. Airtable meeting table is fully representative.
+
+---
+
+### #430 — Program ID formula field in Airtable
+
+**Date:** 2026-04-08
+**Status:** ✅ Implemented
+
+**Decision:** Converted the Partner Programs primary field from manual text to ARRAYJOIN({Program}) formula. Auto-derives display name from the linked Program record. Zero manual typing needed for new enrollments.
+
+**Context:** The Partner Programs table in Airtable had a manual text field for the display name, requiring copy-paste from the linked Program record. This was error-prone and tedious.
+
+**Rationale:** Formula fields auto-update when the linked record changes. Eliminates a manual step and ensures consistency.
+
+**Impact:** Program enrollment display names are always accurate and require no manual input.
+
+---
+
+### #431 — Idempotent note creation (race condition fix)
+
+**Date:** 2026-04-08
+**Status:** ✅ Implemented
+
+**Decision:** POST /api/notes now checks for existing note before inserting. Returns existing note with 200 if found, creates with 201 if new. Prevents UNIQUE constraint violations from React strict mode double-mounts. MeetingNotesSection uses module-level Set guard as belt-and-suspenders.
+
+**Context:** The ?notes=true deep-linking feature auto-creates notes on mount. React strict mode double-mounts components in dev, causing two simultaneous POST requests that race against the UNIQUE(meeting_id) constraint.
+
+**Rationale:** Two-layer defense: server-side idempotency (check-before-create) handles any client. Client-side module-level Set prevents the double request entirely. Belt-and-suspenders because the race window is real.
+
+**Impact:** Zero UNIQUE constraint violations. Auto-create works reliably in dev and production.
+
+---
+
+### #432 — Open Notes shortcut on Today page
+
+**Date:** 2026-04-08
+**Status:** ✅ Implemented
+
+**Decision:** "Open Notes" is a separate Link element (split Link pattern) navigating to /meetings/{id}?notes=true. Meeting detail page detects query param and auto-creates/auto-scrolls to notes. Saves 2-3 clicks per meeting.
+
+**Context:** The #1 interaction in the app is opening meeting notes. Previously required: click meeting → scroll to notes → click "Start Notes" (3 interactions). Now: click "Open Notes" (1 interaction).
+
+**Rationale:** The Today page is a launchpad. The most common action should be the fastest. Split Link pattern allows a row to have two distinct navigation targets without nested links.
+
+**Impact:** One-click note access from Today page. Split Link pattern documented in Frontend SKILL.md.
+
+---
+
+### #433 — Sync layer exempted from db centralization
+
+**Date:** 2026-04-08
+**Status:** ✅ Decided
+
+**Decision:** push.ts and pull.ts keep direct Supabase calls. Sync is self-contained in src/lib/sync/, does AT-specific operations, and will eventually be deleted when Airtable is unplugged. Wrapping 38 queries in db functions adds complexity to code with an expiration date.
+
+**Context:** Plan 6 centralized all supabase.from() calls into src/lib/db/. The sync layer (38 queries across push.ts and pull.ts) was evaluated for inclusion.
+
+**Rationale:** Sync code is self-contained, has no consumers outside itself, and will be deleted when Airtable is unplugged. The db functions it would need are highly specific (upsert-with-airtable-id patterns) and would never be reused. The cost of wrapping exceeds the benefit.
+
+**Impact:** The data layer rule is: all supabase.from() calls live in src/lib/db/ or src/lib/sync/. Sync is the only exemption.
+
+---
+
+### #434 — Validation centralization (Plan 5)
+
+**Date:** 2026-04-08
+**Status:** ✅ Implemented
+
+**Decision:** All 12 VALID_* constants defined once in src/lib/validation.ts. Routes import, sync re-exports. validateEnum() helper replaces repeated inline validation. resolvePartnerByName() extracted to db/partners.ts. DELETE responses normalized to { deleted: true }.
+
+**Context:** 7 duplicated VALID_* constant definitions were scattered across route files and sync/utils.ts. Three different DELETE response shapes existed ({ status: "deleted" }, { success: true }, { deleted: true }).
+
+**Rationale:** Single source of truth for validation constants prevents divergence. validateEnum() eliminates boilerplate. Consistent DELETE responses make the API predictable.
+
+**Impact:** Zero duplicated VALID_* constants. All 10 DELETE handlers return { deleted: true }. validation.ts is the canonical validation module.
+
+---
+
+### #435 — Data layer boundary established (Plan 6)
+
+**Date:** 2026-04-08
+**Status:** ✅ Implemented
+
+**Decision:** All supabase.from() calls live in src/lib/db/ (except sync/). 82 rogue queries extracted across 10 tasks. 46 new db functions created, bringing total from 114 to 160. Zero direct Supabase access outside db/ and sync/. This is a project rule enforced going forward.
+
+**Context:** A codebase audit found 82 direct Supabase queries scattered across 23 files (API routes, page files, library files). These queries were inline, untyped, and untestable.
+
+**Rationale:** Centralized data access provides: single point of change when schema evolves, typed return values, independently testable functions, routes become thin wrappers, enables future migration away from Supabase.
+
+**Impact:** Zero direct Supabase access outside db/ and sync/. 160 exported db functions. CLAUDE.md updated with the rule.
+
+---
+
+### #436 — Services layer extraction (Plan 7)
+
+**Date:** 2026-04-08
+**Status:** ✅ Implemented
+
+**Decision:** Business logic extracted from 4 oversized routes into dedicated service files. inbound-pipeline.ts (email processing), inbox-resolver.ts (message-to-engagement resolution), engagement-merge.ts (merge orchestration), meeting-lifecycle.ts (engagement link side effects), meeting-recurrence.ts extended with propagateRecurrenceChange(). Routes reduced: inbound 464→120, resolve 192→114, merge 172→65, meetings/[id] 219→169.
+
+**Context:** Post-Plan 6, the 4 largest routes were readable sequences of db function calls but still contained business logic that didn't belong in route handlers.
+
+**Rationale:** Routes should be thin wrappers: validate → call service → respond. Business logic in services is independently testable and reusable.
+
+**Impact:** 4 routes thinned, 5 service files created/extended. Three-layer architecture complete.
+
+---
+
+### #437 — Three-layer backend architecture
+
+**Date:** 2026-04-08
+**Status:** ✅ Established
+
+**Decision:** Routes → Services → DB. Routes are thin wrappers (<200 lines): validate input, call service/db, format response. Services coordinate multi-step operations. DB layer is the only data access point. Documented in backend SKILL.md.
+
+**Context:** Plans 5, 6, and 7 incrementally established this architecture. This decision formalizes it as a project rule.
+
+**Rationale:** Clean separation of concerns makes each layer independently testable, replaceable, and comprehensible. The architecture scales to larger teams and more complex features.
+
+**Impact:** Architecture rule enforced going forward. Backend SKILL.md documents all patterns and conventions.
+
+---
+
+### #438 — Backend SKILL.md created
+
+**Date:** 2026-04-08
+**Status:** ✅ Implemented
+
+**Decision:** .claude/roadrunner-backend/SKILL.md codifies all backend architecture rules: three-layer architecture, data layer naming conventions, route structure template, response shapes, validation rules, sync rules, idempotency patterns, error handling, and new-feature checklist.
+
+**Context:** Backend patterns were documented in CLAUDE.md but scattered across sections. A dedicated SKILL.md brings them together as the backend authority, mirroring the frontend SKILL.md.
+
+**Rationale:** Two SKILL.md files — frontend and backend — provide clear authority for each domain. CLAUDE.md remains the project overview; SKILL.md files are the implementation authority.
+
+**Impact:** Backend patterns are now a single-document reference. New features follow the checklist.
+
+---
+
+### #439 — Frontend SKILL.md renamed and updated
+
+**Date:** 2026-04-08
+**Status:** ✅ Implemented
+
+**Decision:** .claude/roadrunner-ui/ renamed to .claude/roadrunner-frontend/. Removed phantom useMutation hook references (hook was deleted). Removed phantom SlideOverPanel section. Updated useNavigationGuard from "(planned)" to fully implemented. Added 5 new patterns: query param deep-linking, split Link pattern, module-level Set guard, idempotent POST handling, expanded InlineError positioning rules.
+
+**Context:** Post-audit found 2 phantom references (useMutation, SlideOverPanel), 1 mislabeled hook (useNavigationGuard), and 5 undocumented patterns from recent work.
+
+**Rationale:** SKILL.md must be as accurate as code. Phantom references actively mislead. Missing patterns create inconsistency.
+
+**Impact:** Frontend SKILL.md at ~95% accuracy. All active patterns documented.
+
+---
+
+### #440 — Plan completion template
+
+**Date:** 2026-04-08
+**Status:** ✅ Implemented
+
+**Decision:** Zero-edit template at docs/sessions/templates/plan-completion.md. Paste directly into Claude Code after any plan — it detects the plan, branch, and state automatically, then handles: derive decisions, update docs, archive plan, write session summary, merge to main, delete branch, verify.
+
+**Context:** Previously, session end required manually coordinating decisions, docs, plan archival, and branch management. Each step was error-prone and required remembering the protocol.
+
+**Rationale:** Automated closeout reduces errors and ensures consistent documentation. The template is zero-edit because it reads the plan and codebase state dynamically.
+
+**Impact:** Plan completion is now a single paste-and-go operation.
+
+---
+
+### #441 — InlineError as mandatory error display
+
+**Date:** 2026-04-08
+**Status:** ✅ Implemented
+
+**Decision:** All mutation surfaces must use the InlineError component. Ad-hoc error styling (bare <p> with red text, custom bordered divs) replaced across MeetingEditModal, EngagementActions, and EnrollmentSection. This is now a SKILL.md-enforced pattern.
+
+**Context:** 3 components had custom error display that didn't match InlineError's auto-dismiss, positioning, and styling behavior. InlineError was already used on 38 other surfaces.
+
+**Rationale:** Consistent error display is a UX requirement. Users should see the same error pattern everywhere. InlineError handles auto-dismiss, positioning, and accessibility.
+
+**Impact:** 42 mutation surfaces now use InlineError consistently. Zero ad-hoc error divs remain.
+
+---
+
+### #442 — Dead code cleanup
+
+**Date:** 2026-04-08
+**Status:** ✅ Implemented
+
+**Decision:** Deleted orphaned files (SlideOverPanel.tsx, StatusBadge.tsx, useMutation.ts), empty src/components/engagement/ directory, dead RELATIONSHIPS_TABLE and RF.* sync constants from field-maps.ts. Eliminated 8 `any` types in production code.
+
+**Context:** Comprehensive codebase hygiene audit found 3 orphaned component/hook files with zero imports, an empty directory, dead sync constants for the dropped relationships table, and 8 `any` types that should have been typed.
+
+**Rationale:** Dead code creates confusion and increases the surface area for stale references (as demonstrated by the SKILL.md phantom references to useMutation and SlideOverPanel).
+
+**Impact:** 3 files deleted, 1 empty directory removed, dead sync constants removed, 8 `any` types eliminated. Component count: 38→36.
+
+---

@@ -3,18 +3,11 @@ import {
   createEngagement,
   getPartner,
   getEngagementById,
-  linkMeetingToEngagement,
-  linkMessagesToEngagement,
   getMessagesForInboxItem,
   discardInboxItem,
 } from "@/lib/db";
-import {
-  synthesizeIntoEngagement,
-  persistClassificationResult,
-  buildSyntheticPhase1Result,
-} from "@/lib/classifier";
-import type { Engagement } from "@/lib/types";
 import { cleanSubject } from "@/lib/format-utils";
+import { resolveInboxToEngagement } from "@/lib/inbox-resolver";
 
 interface ResolveRequest {
   message_id: string;
@@ -43,7 +36,6 @@ export async function POST(request: NextRequest) {
 
     // ── Shared: fetch messages for create_new & assign_existing ──
     const messages = await getMessagesForInboxItem(message_id);
-    const messageIds = messages.map((m) => m.id);
     const forwarderNote = messages[0]?.forwarder_note ?? null;
     const partnerId = messages[0]?.partner_id ?? null;
 
@@ -54,7 +46,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get partner name
     const partner = await getPartner(partnerId);
     const partnerName = partner?.name ?? "Unknown Partner";
 
@@ -69,43 +60,9 @@ export async function POST(request: NextRequest) {
         topic: null,
       });
 
-      // Run AI synthesis
-      const phase1 = buildSyntheticPhase1Result(
-        engagement.id,
-        partnerId,
-        partnerName,
-        true,
-        engagementTitle
-      );
-
-      let finalResult;
-      try {
-        finalResult = await synthesizeIntoEngagement(messages, phase1, forwarderNote);
-      } catch (err) {
-        console.error("Synthesis failed for new engagement, continuing with basic data:", err);
-        finalResult = null;
-      }
-
-      if (finalResult) {
-        await persistClassificationResult(finalResult, engagement.id, messageIds, true);
-      } else {
-        // Minimal: just link messages to engagement
-        await linkMessagesToEngagement(messageIds, engagement.id);
-      }
-
-      // Link any meetings
-      for (const msgId of messageIds) {
-        await linkMeetingToEngagement(msgId, engagement.id);
-      }
-
-      // Push to Airtable
-      try {
-        const { pushEngagementToAirtable } = await import("@/lib/sync");
-        await pushEngagementToAirtable(engagement.id);
-        console.log(`Airtable push: created engagement ${engagement.id}`);
-      } catch (err) {
-        console.error(`Airtable push failed for ${engagement.id}:`, err);
-      }
+      await resolveInboxToEngagement({
+        messages, engagement, partnerId, partnerName, forwarderNote, isNew: true,
+      });
 
       return NextResponse.json({ status: "created", engagement });
     }
@@ -128,7 +85,6 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Validate same partner
       if (engagement.partner_id && engagement.partner_id !== partnerId) {
         return NextResponse.json(
           { error: "Message partner does not match engagement partner" },
@@ -136,42 +92,9 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Run AI synthesis
-      const phase1 = buildSyntheticPhase1Result(
-        engagement.id,
-        partnerId,
-        partnerName,
-        false,
-        engagement.name
-      );
-
-      let finalResult;
-      try {
-        finalResult = await synthesizeIntoEngagement(messages, phase1, forwarderNote);
-      } catch (err) {
-        console.error("Synthesis failed for assign_existing, continuing with basic link:", err);
-        finalResult = null;
-      }
-
-      if (finalResult) {
-        await persistClassificationResult(finalResult, engagement.id, messageIds, false);
-      } else {
-        await linkMessagesToEngagement(messageIds, engagement.id);
-      }
-
-      // Link any meetings
-      for (const msgId of messageIds) {
-        await linkMeetingToEngagement(msgId, engagement.id);
-      }
-
-      // Push to Airtable
-      try {
-        const { pushEngagementToAirtable } = await import("@/lib/sync");
-        await pushEngagementToAirtable(engagement.id);
-        console.log(`Airtable push: updated engagement ${engagement.id}`);
-      } catch (err) {
-        console.error(`Airtable push failed for ${engagement.id}:`, err);
-      }
+      await resolveInboxToEngagement({
+        messages, engagement, partnerId, partnerName, forwarderNote, isNew: false,
+      });
 
       return NextResponse.json({ status: "assigned", engagement });
     }
