@@ -185,6 +185,8 @@ docs/sessions/
 ├── templates/
 │   ├── diagnostic.md             # "Run the diagnostic" — Claude Code reads and executes
 │   ├── plan-template.md          # Plan structure — task format, verification, checkpoints
+│   ├── plan-completion.md        # Zero-edit plan closeout — paste into Claude Code after any plan
+│   ├── plan-startup.md           # Plan execution startup — paste into Claude Code to begin
 │   ├── session-start.md          # Steven pastes into Claude.ai at session start
 │   └── session-end.md            # Steven pastes into Claude.ai when wrapping up
 └── summaries/
@@ -263,7 +265,7 @@ roadrunner/
 │       │   ├── session-start.md     #   Claude.ai: session startup context
 │       │   └── session-end.md       #   Claude.ai: wrap-up protocol
 │       └── summaries/             #     Session summaries (one per session)
-├── decisions.md                   # Append-only architectural decision log (431 entries)
+├── decisions.md                   # Append-only architectural decision log (442 entries)
 ├── src/
 │   ├── app/                       # Next.js App Router
 │   │   ├── api/                   #   API routes (35 route files, grouped by entity)
@@ -322,6 +324,7 @@ roadrunner/
 │       ├── contact-display.ts     #   Contact display formatting for UI
 │       ├── brain-synthesizer.ts   #   AI partner brain synthesis (single Strategic Posture paragraph)
 │       ├── types.ts               #   All shared TypeScript interfaces
+│       ├── validation.ts          #   Validation constants (12 VALID_* sets) + validateEnum()
 │       ├── user-config.ts         #   Canonical user identity config
 │       ├── airtable.ts            #   Airtable REST API client
 │       ├── db/                    #   Database layer (13 modules)
@@ -603,7 +606,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-087). New migratio
 | `docs/sessions/templates/plan-template.md` | Plan structure — task format, pre-flight, verification, checkpoints | Creating new plans |
 | `docs/sessions/templates/` | Session templates — diagnostic, plan template, Claude.ai prompts | Reference when needed |
 | `docs/sessions/summaries/` | Session summaries — one per session, latest is handoff for next session | Session start (paste latest into Claude.ai) |
-| `decisions.md` | Append-only architectural decision log (431 entries) | When you need "why" |
+| `decisions.md` | Append-only architectural decision log (442 entries) | When you need "why" |
 
 ---
 
