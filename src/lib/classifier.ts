@@ -166,7 +166,6 @@ export async function persistClassificationResult(
   {
     const combined = result as CombinedClassificationResult;
     const updates: {
-      name?: string;
       current_state?: string | null;
       condensed?: string | null;
       pillar?: Pillar | null;
@@ -174,7 +173,6 @@ export async function persistClassificationResult(
     } = {};
 
     if (combined.topic) updates.topic = combined.topic;
-    if (combined.engagement_name) updates.name = combined.engagement_name;
     if (result.current_state) updates.current_state = result.current_state;
     if (combined.pillar) updates.pillar = combined.pillar;
     if (combined.condensed !== undefined && combined.condensed !== null) {
