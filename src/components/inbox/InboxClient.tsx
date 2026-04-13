@@ -388,6 +388,11 @@ export default function InboxClient({ items: initialItems }: Props) {
                       {item.sender_name || item.sender_email}
                     </p>
                   )}
+                  {item.body_text?.trim() && (
+                    <p className="text-xs text-muted/60 mt-1 line-clamp-2">
+                      {item.body_text.replace(/\s+/g, " ").trim()}
+                    </p>
+                  )}
                 </div>
 
                 {/* Row-level loading: spinner + status replaces action buttons */}
