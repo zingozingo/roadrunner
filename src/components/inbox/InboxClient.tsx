@@ -13,6 +13,35 @@ interface Props {
 interface EngagementOption {
   id: string;
   name: string;
+  status: string;
+  topic: string | null;
+  updated_at: string;
+}
+
+const statusDotColor: Record<string, string> = {
+  active: "bg-emerald-500",
+  planned: "bg-blue-400",
+  blocked: "bg-amber-500",
+  completed: "bg-violet-500",
+  archived: "bg-zinc-500",
+};
+
+function relativeTime(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diffMs = now - then;
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks}w ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(months / 12)}y ago`;
 }
 
 interface PartnerOption {
@@ -157,7 +186,9 @@ export default function InboxClient({ items: initialItems }: Props) {
       const res = await fetch(`/api/engagements?partner_id=${item.partner_id}`);
       const data = await res.json();
       setEngagements(
-        (data.engagements ?? []).map((e: { id: string; name: string }) => ({ id: e.id, name: e.name }))
+        (data.engagements ?? []).map((e: { id: string; name: string; status: string; topic: string | null; updated_at: string }) => ({
+          id: e.id, name: e.name, status: e.status, topic: e.topic, updated_at: e.updated_at,
+        }))
       );
     } catch (err) {
       console.error("Failed to fetch engagements:", err);
@@ -525,9 +556,18 @@ export default function InboxClient({ items: initialItems }: Props) {
                           key={eng.id}
                           onClick={() => confirmAssign(group.key, eng.id, eng.name)}
                           disabled={busyGroup !== null}
-                          className="w-full text-left flex items-baseline gap-3 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50 disabled:opacity-50"
+                          className="w-full text-left border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50 disabled:opacity-50"
                         >
                           <span className="text-sm font-medium text-foreground">{eng.name}</span>
+                          {eng.topic && (
+                            <p className="text-xs text-muted/60 mt-0.5 truncate">{eng.topic}</p>
+                          )}
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className={`inline-block h-1.5 w-1.5 rounded-full ${statusDotColor[eng.status] ?? "bg-zinc-500"}`} />
+                            <span className="text-xs text-muted/60 capitalize">{eng.status}</span>
+                            <span className="text-xs text-muted/40">&middot;</span>
+                            <span className="text-xs text-muted/40">{relativeTime(eng.updated_at)}</span>
+                          </div>
                         </button>
                       ))}
                     </div>
