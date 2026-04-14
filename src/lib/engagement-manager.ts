@@ -7,7 +7,17 @@ import {
   getTasksByNoteIds,
   updateTasksEngagement,
   getEngagementItemCounts,
+  getEngagementById,
+  getMessagesByEngagement,
+  getPartner,
+  updateEngagement,
 } from "@/lib/db";
+import {
+  synthesizeIntoEngagement,
+  persistClassificationResult,
+  buildSyntheticPhase1Result,
+} from "@/lib/classifier";
+import type { Message } from "@/lib/types";
 
 // --- Types ---
 
@@ -30,9 +40,8 @@ export interface ReassignResult {
 
 /**
  * Move selected messages and standalone meetings from one engagement to another
- * (or to null/inbox). Cascades linked entities: messages -> meetings (via message_id)
- * -> notes -> tasks. Does NOT handle re-synthesis — that is layered on top by the caller
- * or by Task 8.2's integration.
+ * (or to null/inbox). Cascades linked entities, then re-synthesizes both source
+ * and target engagements.
  *
  * Cascade chain:
  * 1. Move selected messages (update engagement_id)
@@ -41,6 +50,9 @@ export interface ReassignResult {
  * 4. Cascade notes from all moved meetings (via meeting_id)
  * 5. Cascade tasks from all moved notes (via meeting_note_id)
  * 6. Check if source engagement is now empty
+ * 7. Re-synthesize source (Option C: clear + rebuild from remaining)
+ * 8. Re-synthesize target (incremental: moved messages as "new")
+ * 9. Push both to Airtable
  */
 export async function reassignMessages(
   input: ReassignInput
@@ -103,6 +115,14 @@ export async function reassignMessages(
     console.log(`[reassign] Source engagement ${sourceEngagementId} is now empty`);
   }
 
+  // Step 7: Re-synthesize source (Option C — clear + rebuild from remaining)
+  await resynthesizeSource(sourceEngagementId, sourceEmpty);
+
+  // Step 8: Re-synthesize target (incremental — moved messages as "new")
+  if (targetEngagementId) {
+    await resynthesizeTarget(targetEngagementId, messageIds);
+  }
+
   return {
     movedMessages,
     movedMeetings,
@@ -110,4 +130,135 @@ export async function reassignMessages(
     movedTasks,
     sourceEmpty,
   };
+}
+
+// --- Re-synthesis helpers ---
+
+/**
+ * Source re-synthesis: Option C — clear current_state and condensed,
+ * then rebuild from the latest 10 remaining messages.
+ * If source is empty (no remaining messages), skip synthesis entirely.
+ */
+async function resynthesizeSource(
+  sourceEngagementId: string,
+  sourceEmpty: boolean
+): Promise<void> {
+  if (sourceEmpty) {
+    console.log(`[reassign] Source is empty, skipping re-synthesis`);
+    return;
+  }
+
+  try {
+    // Clear stale summary before rebuilding
+    await updateEngagement(sourceEngagementId, {
+      current_state: null,
+      condensed: null,
+    });
+
+    // Fetch remaining messages (DESC order, take latest 10)
+    const remaining = await getMessagesByEngagement(sourceEngagementId);
+    const latest10 = remaining.slice(0, 10);
+
+    if (latest10.length === 0) {
+      console.log(`[reassign] No remaining messages for source re-synthesis`);
+      return;
+    }
+
+    const source = await getEngagementById(sourceEngagementId);
+    if (!source || !source.partner_id) {
+      console.error(`[reassign] Source engagement not found for re-synthesis`);
+      return;
+    }
+
+    const partner = await getPartner(source.partner_id);
+    const phase1 = buildSyntheticPhase1Result(
+      sourceEngagementId,
+      source.partner_id,
+      partner?.name ?? "Unknown",
+      false,
+      source.name
+    );
+
+    const result = await synthesizeIntoEngagement(
+      latest10 as Message[],
+      phase1
+    );
+    await persistClassificationResult(
+      result,
+      sourceEngagementId,
+      latest10.map((m) => m.id),
+      false
+    );
+    console.log(`[reassign] Source re-synthesized from ${latest10.length} remaining messages`);
+
+    // Push source to Airtable
+    const { pushEngagementToAirtable } = await import("@/lib/sync");
+    await pushEngagementToAirtable(sourceEngagementId);
+    console.log(`[reassign] Airtable push: source ${sourceEngagementId}`);
+  } catch (err) {
+    console.error(`[reassign] Source re-synthesis failed (reassignment still succeeded):`, err);
+  }
+}
+
+/**
+ * Target re-synthesis: incremental — moved messages treated as "new" arriving
+ * at the target engagement. Uses the normal synthesis pipeline which evolves
+ * the target's existing current_state.
+ */
+async function resynthesizeTarget(
+  targetEngagementId: string,
+  movedMessageIds: string[]
+): Promise<void> {
+  if (movedMessageIds.length === 0) {
+    console.log(`[reassign] No messages to synthesize into target`);
+    return;
+  }
+
+  try {
+    const target = await getEngagementById(targetEngagementId);
+    if (!target || !target.partner_id) {
+      console.error(`[reassign] Target engagement not found for re-synthesis`);
+      return;
+    }
+
+    // Fetch the moved messages (now belonging to target)
+    // We need the full message objects, not just IDs
+    const allTargetMessages = await getMessagesByEngagement(targetEngagementId);
+    const movedMessages = allTargetMessages.filter((m) =>
+      movedMessageIds.includes(m.id)
+    );
+
+    if (movedMessages.length === 0) {
+      console.log(`[reassign] Moved messages not found in target for re-synthesis`);
+      return;
+    }
+
+    const partner = await getPartner(target.partner_id);
+    const phase1 = buildSyntheticPhase1Result(
+      targetEngagementId,
+      target.partner_id,
+      partner?.name ?? "Unknown",
+      false,
+      target.name
+    );
+
+    const result = await synthesizeIntoEngagement(
+      movedMessages as Message[],
+      phase1
+    );
+    await persistClassificationResult(
+      result,
+      targetEngagementId,
+      movedMessages.map((m) => m.id),
+      false
+    );
+    console.log(`[reassign] Target re-synthesized with ${movedMessages.length} moved messages`);
+
+    // Push target to Airtable
+    const { pushEngagementToAirtable } = await import("@/lib/sync");
+    await pushEngagementToAirtable(targetEngagementId);
+    console.log(`[reassign] Airtable push: target ${targetEngagementId}`);
+  } catch (err) {
+    console.error(`[reassign] Target re-synthesis failed (reassignment still succeeded):`, err);
+  }
 }
