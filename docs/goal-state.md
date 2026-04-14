@@ -6,7 +6,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 87 migrations, 17 active tables, 35 API routes, 14 UI pages, 444 passing tests (0 failures), tsc --noEmit passes clean, 36 components, 160 db functions, decisions through #442
+- 87 migrations, 17 active tables, 36 API routes, 14 UI pages, 444 passing tests (0 failures), tsc --noEmit passes clean, 39 components, 173 db functions, decisions through #447
 - Human-guided intake pipeline fully operational: webhook → mechanical partner detection → ICS partner backfill → inbox triage (with unknown partner picker) → single-phase AI synthesis (decisions #223-252)
 - Meetings Motion complete (decisions #253-259): 10 interaction-based meeting types, recurring meeting engine with auto-spawn, series tracking via self-referential FK, RecurrenceEditor UI, synthesis-on-link, conference boilerplate pre-split fix, ICS multi-VEVENT guardrail confirmed
 - AI Brain Overhaul Phases 1-3 complete (decisions #260-269): goal field eliminated (migration 069), condensed columns on engagements + meeting_notes (migration 068), meeting summarization restructured with scoped context builder, structured output (Discussion/Decisions/Key Context), condensed 3-5 bullet digest, non-redundancy with tasks
@@ -58,11 +58,11 @@ A system where a PDM forwards an email and Roadrunner:
 ## What's Next
 
 ### Immediate
-- Phase 2 — Junction table ownership flip: CRUD for partner program enrollments + partner event participations in Roadrunner UI, flip sync direction from pull to push for these tables
-- UI/UX polish pass — partner detail page layout for scale, SKILL.md layout patterns
+- Visual polish and end-to-end testing pass — full inbox→engagement→manage flow with real data, verify Tier 1 inbox changes and management modal
 
 ### Soon
-- Phase 3 — UI/UX redesign: partner detail four-tab reorg (Overview, Operations, Profile, People), page improvements, Today page evolution
+- Junction table ownership flip — CRUD for partner program enrollments + partner event participations in Roadrunner UI, flip sync direction from pull to push for these tables
+- UI/UX redesign — partner detail four-tab reorg (Overview, Operations, Profile, People), page improvements, Today page evolution
 - Airtable exit path planning — progressive flip of remaining tables to Roadrunner-owned
 - Programs page UI polish — consider grouping by Category with Subtype sections
 - People page evolution — alphabetical grouping or pagination for 227+ participants
@@ -180,6 +180,14 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~InlineError consistency~~ ✅ (2026-04-08, decision #441): Mandatory across all 42 mutation surfaces
 - ~~Open Notes shortcut~~ ✅ (2026-04-08, decision #432): ?notes=true deep-linking from Today page
 - ~~Idempotent note creation~~ ✅ (2026-04-08, decision #431): Race condition fix with module-level Set guard
+- ~~AI naming bug fix~~ ✅ (2026-04-13, decision #443): Removed engagement_name persistence from persistClassificationResult()
+- ~~Inbox body preview~~ ✅ (2026-04-13): 2-line body_text preview on inbox cards
+- ~~Engagement picker enrichment~~ ✅ (2026-04-13): Status dot, topic, relative time added to picker
+- ~~Plan 8: Engagement Message Management~~ ✅ (2026-04-13, decisions #443-447): 6 tasks, 2 phases — select messages/meetings, move between engagements or to inbox, discard, cascade + dual re-synthesis. 4 new files, 3 new components, 13 new db functions
+- ~~Discard action in management modal~~ ✅ (2026-04-13, decision #446): Hard-delete with FK-safe cascade + source re-synthesis
+- ~~Pick Partner repositioned~~ ✅ (2026-04-13): Moved from badge to right-aligned action button
+- ~~Inbox count fix~~ ✅ (2026-04-13, decision #447): Header shows group count matching visible cards
+- ~~Session templates updated~~ ✅ (2026-04-13): Backend SKILL.md references added to all 5 templates
 
 ## Architecture Principles
 

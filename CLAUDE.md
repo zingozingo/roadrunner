@@ -204,7 +204,7 @@ docs/sessions/
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → human-guided routing → AI synthesis → structured engagements → Airtable sync.
-> 87 migrations · 17 tables · 35 API routes · 14 UI pages · 160 db functions · 444 passing tests
+> 87 migrations · 17 tables · 36 API routes · 14 UI pages · 173 db functions · 444 passing tests
 
 ---
 
@@ -265,10 +265,10 @@ roadrunner/
 │       │   ├── session-start.md     #   Claude.ai: session startup context
 │       │   └── session-end.md       #   Claude.ai: wrap-up protocol
 │       └── summaries/             #     Session summaries (one per session)
-├── decisions.md                   # Append-only architectural decision log (442 entries)
+├── decisions.md                   # Append-only architectural decision log (447 entries)
 ├── src/
 │   ├── app/                       # Next.js App Router
-│   │   ├── api/                   #   API routes (35 route files, grouped by entity)
+│   │   ├── api/                   #   API routes (36 route files, grouped by entity)
 │   │   │   ├── engagements/       #     CRUD + merge + participants
 │   │   │   ├── events/            #     CRUD
 │   │   │   ├── health/            #     Health check
@@ -292,15 +292,15 @@ roadrunner/
 │   │   ├── tasks/                 #   Cross-partner task dashboard
 │   │   ├── layout.tsx             #   Root layout + sidebar
 │   │   └── page.tsx               #   Today page (two-column: meetings + tasks/inbox)
-│   ├── components/                # React components (36 across 6 groups)
+│   ├── components/                # React components (39 across 7 groups)
 │   │   ├── actions/               #   Entity action buttons + MergeButton + MeetingEditModal (6 files)
+│   │   ├── engagements/           #   ManageEngagement modal (1 file)
 │   │   ├── inbox/                 #   Inbox triage UI — InboxClient (1 file)
 │   │   ├── layout/                #   App structure — sidebar, headers, PageContainer (5 files)
 │   │   ├── notes/                 #   NoteWorkspace, ContextSidebar, PreviousNotes, TaskEditor, MeetingNotesSection
 │   │   ├── partners/              #   BrainSynthesis, PartnerScratchpad, EnrollmentSection, EventParticipationSection
-│   │   └── shared/                #   Reusable primitives — RecurrenceCard, RecurrenceEditor, MakeRecurringButton, UnsavedChangesProvider, EngagementLinker, SlideOverPanel, badges, ContactGroup (16 files)
+│   │   └── shared/                #   Reusable primitives — RecurrenceCard, RecurrenceEditor, MakeRecurringButton, UnsavedChangesProvider, EngagementLinker, EngagementPicker, CreateEngagementForm, badges, ContactGroup (18 files)
 │   ├── hooks/                     # React hooks
-│   │   ├── useMutation.ts         #   Generic async mutation wrapper
 │   │   └── useNavigationGuard.ts  #   Blocks navigation during in-flight mutations
 │   └── lib/                       # Core business logic
 │       ├── classifier.ts          #   Synthesis orchestrator (synthesizeIntoEngagement, persistClassificationResult)
@@ -317,6 +317,7 @@ roadrunner/
 │       ├── mailgun-helpers.ts    #   Mailgun webhook utilities (signature verification, form field extraction)
 │       ├── inbox-resolver.ts     #   Inbox resolution orchestration (synthesis, persist, link, AT push)
 │       ├── engagement-merge.ts   #   Engagement merge pipeline (reparent, delete, re-synthesize, AT sync)
+│       ├── engagement-manager.ts #   Engagement item reassignment + discard (cascade, re-synthesis, AT push)
 │       ├── meeting-recurrence.ts #   Recurring meeting engine (spawn, overdue detection, series propagation)
 │       ├── meeting-lifecycle.ts  #   Meeting side-effects (engagement link change → AT push + task cascade)
 │       ├── notes-summarizer.ts    #   AI meeting note summarizer (Claude API)
@@ -456,7 +457,7 @@ These are **NON-NEGOTIABLE**. Every code change must respect these:
 
 **All Supabase queries live in `src/lib/db/`.** No direct `supabase.from()` or `getSupabaseClient()` calls outside `src/lib/db/` and `src/lib/sync/`. API routes, page files, and library files import db functions instead. This is a project rule enforced by Plan 6 — 57 rogue queries were extracted into 46 new db functions.
 
-**Three-layer architecture (Plan 7):** UI → thin API routes → service functions → db layer → Supabase. The 4 largest routes (inbound, reviews/resolve, engagements/merge, meetings/[id]) delegate business logic to dedicated service files: `inbound-pipeline.ts`, `inbox-resolver.ts`, `engagement-merge.ts`, `meeting-recurrence.ts`. Routes handle HTTP concerns only (request parsing, validation, response formatting).
+**Three-layer architecture (Plan 7):** UI → thin API routes → service functions → db layer → Supabase. The 5 largest routes (inbound, reviews/resolve, engagements/merge, engagements/[id]/reassign, meetings/[id]) delegate business logic to dedicated service files: `inbound-pipeline.ts`, `inbox-resolver.ts`, `engagement-merge.ts`, `engagement-manager.ts`, `meeting-recurrence.ts`. Routes handle HTTP concerns only (request parsing, validation, response formatting).
 
 ---
 
@@ -576,7 +577,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-087). New migratio
 
 ## File Quick Reference
 
-**Services (business logic):** `inbound-pipeline.ts` (email processing), `inbox-resolver.ts` (inbox resolution), `engagement-merge.ts` (merge orchestration), `meeting-recurrence.ts` (spawn + propagation)
+**Services (business logic):** `inbound-pipeline.ts` (email processing), `inbox-resolver.ts` (inbox resolution), `engagement-merge.ts` (merge orchestration), `engagement-manager.ts` (item reassignment + discard), `meeting-recurrence.ts` (spawn + propagation)
 
 **Classification:** `classifier.ts` → `phase2-prompt.ts` → `claude.ts` · Partner detection: `partner-detection.ts` · Brain: `brain-synthesizer.ts` → `notes-context.ts` (buildBrainContext)
 
@@ -586,7 +587,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-087). New migratio
 
 **Email:** `email-parser.ts` → `ics-parser.ts` → `name-resolver.ts` → `contact-parser.ts` → `format-utils.ts`
 
-**Entry points:** `/api/inbound` → `inbound-pipeline.ts`, `/api/reviews/resolve` → `inbox-resolver.ts`, `/api/engagements/merge` → `engagement-merge.ts`, `/api/sync` (catalog sync)
+**Entry points:** `/api/inbound` → `inbound-pipeline.ts`, `/api/reviews/resolve` → `inbox-resolver.ts`, `/api/engagements/merge` → `engagement-merge.ts`, `/api/engagements/[id]/reassign` → `engagement-manager.ts`, `/api/sync` (catalog sync)
 
 ---
 
@@ -606,7 +607,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-087). New migratio
 | `docs/sessions/templates/plan-template.md` | Plan structure — task format, pre-flight, verification, checkpoints | Creating new plans |
 | `docs/sessions/templates/` | Session templates — diagnostic, plan template, Claude.ai prompts | Reference when needed |
 | `docs/sessions/summaries/` | Session summaries — one per session, latest is handoff for next session | Session start (paste latest into Claude.ai) |
-| `decisions.md` | Append-only architectural decision log (442 entries) | When you need "why" |
+| `decisions.md` | Append-only architectural decision log (447 entries) | When you need "why" |
 
 ---
 

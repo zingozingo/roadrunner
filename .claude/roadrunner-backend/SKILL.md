@@ -149,6 +149,7 @@ export async function POST(req: Request) {
 | `inbound-pipeline.ts` | `processInboundEmail()` | Full email ingestion pipeline: parse → store → detect partner → create meeting → backfill |
 | `inbox-resolver.ts` | `resolveInboxToEngagement()` | Inbox resolution: AI synthesis → persist → link meetings → AT push |
 | `engagement-merge.ts` | `mergeEngagements()` | Merge pipeline: reparent → enrich → delete source → re-synthesize → push |
+| `engagement-manager.ts` | `reassignMessages()`, `discardFromEngagement()` | Item reassignment (cascade + dual re-synthesis) and discard (cascade delete + source re-synthesis) |
 | `meeting-recurrence.ts` | `propagateRecurrenceChange()`, `spawnNextOccurrence()` | Recurrence: date calculation, series propagation, occurrence spawning |
 | `classifier.ts` | `synthesizeIntoEngagement()` | AI classification + engagement synthesis |
 | `notes-summarizer.ts` | `summarizeNotes()` | AI meeting note summarization |
@@ -277,4 +278,47 @@ When adding a new feature that touches the backend:
 4. **Service logic:** If the operation coordinates multiple db calls, create a service function in `src/lib/`
 5. **API route:** Thin wrapper — validate → call service/db → respond
 6. **Sync:** If the data syncs with Airtable, update field-maps.ts and the appropriate pull/push function
+7. **Tests:** Existing tests must still pass. Add tests for new logic if applicable.
+
+---
+
+## Entity Reassignment Pattern
+
+**Service:** `engagement-manager.ts` → `reassignMessages()`
+**Used by:** `POST /api/engagements/[id]/reassign`
+
+Move selected messages and standalone meetings from one engagement to another (or to null/inbox). Full entity cascade:
+
+1. Move selected messages (update `engagement_id`, set `pending_review` based on target)
+2. Cascade meetings linked to moved messages (via `message_id` FK)
+3. Move standalone meetings (explicitly selected, no `message_id`)
+4. Cascade notes from all moved meetings (via `meeting_id`)
+5. Cascade tasks from all moved notes (via `meeting_note_id`)
+6. Check if source engagement is now empty
+
+**Re-synthesis after reassignment:**
+- **Source (Option C):** Clear `current_state` and `condensed`, rebuild from latest 10 remaining messages. Prevents stale information from removed messages persisting in summaries.
+- **Target (incremental):** Moved messages treated as "new" arriving at target. Normal synthesis pipeline evolves existing `current_state`.
+- Both push to Airtable after synthesis.
+- If target is null (inbox return): skip target synthesis.
+- If source is empty: skip source synthesis (caller will delete).
+
+**Key principle:** Re-synthesis is non-blocking — if it fails, the data movement still succeeded. Log the error, don't revert.
+
+---
+
+## Cascade Deletion Pattern
+
+**Service:** `engagement-manager.ts` → `discardFromEngagement()`
+**Used by:** `POST /api/engagements/[id]/reassign` (action: "discard")
+
+Hard-delete selected messages and their cascaded entities from an engagement.
+
+**FK-safe delete order** (children before parents):
+1. Find linked meetings (via `message_id` FK) + standalone selected meetings
+2. Find notes linked to those meetings
+3. Find tasks linked to those notes
+4. Delete: tasks → notes → meetings → messages
+
+**After deletion:** Re-synthesize source via Option C (clear + rebuild from remaining). Skip if source is now empty.
 7. **Tests:** Existing tests must still pass (444+). Add tests for new logic if applicable.

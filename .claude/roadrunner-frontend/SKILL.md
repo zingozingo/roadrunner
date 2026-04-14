@@ -1096,3 +1096,52 @@ Patterns for rendering complex information visually. Status indicators, timeline
 - Capped at 12 items with "+N more tasks" link below
 **Design rationale:** Grouping by partner matches how the PDM thinks — "what do I owe Spacelift? What do I owe OPSWAT?" The sort order surfaces urgent items first. Cap at 12 shows a useful task list while keeping the page manageable.
 **Constraints:** Today page tasks are read-only (no inline editing). Full task management happens on /tasks.
+
+---
+
+## Management Modal
+
+### Engagement Management Modal
+
+**Component:** `ManageEngagement` (`src/components/engagements/ManageEngagement.tsx`)
+**Used on:** Engagement detail page (via "Manage" button in EngagementActions)
+**Behavior:**
+- Focused modal overlay showing all messages and meetings in an engagement as a selectable list
+- Messages show: checkbox, email icon, subject, sender, 1-line body preview, date
+- Standalone meetings (no `message_id`): checkbox, calendar icon, title, time, date
+- Linked meetings (spawned from ICS attachment): indented sub-items under parent message, NOT independently selectable. Show "will move with email" indicator when parent is checked
+- Select all / deselect all in header with count
+- Four actions in action bar (visible when 1+ items selected): Move to Engagement (opens EngagementPicker), New Engagement (opens CreateEngagementForm), Return to Inbox (confirm dialog), Discard (destructive confirm dialog)
+- Discard positioned left-aligned with selection count, move actions right-aligned — visual separation between destructive and reassignment
+- Empty-engagement warning: when all items selected, confirmation warns "The engagement will be permanently deleted"
+- Loading: spinner + verb-based label replaces action bar during submission
+- Success: close modal, router.refresh() or redirect if source deleted
+- Error: InlineError above action bar, modal stays open for retry
+**Design rationale:** Modal keeps engagement context visible in background. Item-level selection gives surgical control. Linked meetings auto-follow because they're part of the email's context (ICS attachment). Destructive action separated visually per SKILL.md Danger-Styled Actions pattern.
+**Constraints:** Don't nest modals (picker/form render inline below the list, not as nested modals). Don't show action bar when zero items selected.
+
+### Shared Engagement Picker
+
+**Component:** `EngagementPicker` (`src/components/shared/EngagementPicker.tsx`)
+**Used on:** Inbox (assign to existing), Management modal (move to existing)
+**Behavior:**
+- Self-contained: accepts `partnerId`, fetches engagements internally via useEffect
+- Enriched display per row: name (primary), topic (muted/60), status dot + status text + relative time
+- `excludeIds` prop filters out specific engagements (e.g., source engagement in management modal)
+- `onCreateNew` callback renders "Create new?" link when no engagements exist
+- Loading state with spinner while fetching
+- Scrollable list (max-h-48)
+**Design rationale:** Same user decision (pick an engagement) must use the same component everywhere. Self-contained data fetching means the parent doesn't need to manage engagement state.
+**Constraints:** Don't add search/filter to the picker unless partner engagement counts exceed ~20. Don't cache engagements across different partnerId values.
+
+### Shared Create Engagement Form
+
+**Component:** `CreateEngagementForm` (`src/components/shared/CreateEngagementForm.tsx`)
+**Used on:** Inbox (create new engagement), Management modal (move to new)
+**Behavior:**
+- Title input with `defaultTitle` prop (pre-filled with partner name or subject)
+- Enter-to-submit keyboard shortcut
+- Create button (accent-colored primary) disabled when title is empty
+- Cancel button returns to previous state
+**Design rationale:** Minimal form — engagement creation only needs a title. Partner is inherited from context. All other fields (pillar, topic, status) are set by AI synthesis or manual edit later.
+**Constraints:** Don't add fields beyond title. Don't auto-submit — user must click Create or press Enter.

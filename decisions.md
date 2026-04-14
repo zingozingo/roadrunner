@@ -7934,3 +7934,78 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** 3 files deleted, 1 empty directory removed, dead sync constants removed, 8 `any` types eliminated. Component count: 38→36.
 
 ---
+
+### #443 — AI never overwrites engagement names
+
+**Date:** 2026-04-13
+**Status:** ✅ Implemented
+
+**Decision:** Removed engagement_name persistence from persistClassificationResult(). Engagement names are set at creation and only changed by the user through the edit UI. AI-generated names remain in synthesis output as metadata but are not written to the engagement record.
+
+**Context:** Bug confirmed: every time inbox resolve fired, the AI-generated name would overwrite whatever the user had manually set. This was a one-line fix (removing the conditional name assignment in persistClassificationResult).
+
+**Rationale:** The user chose the name. AI should not override user intent. The AI's suggested name is still available in the classification result for reference but has no write path to the engagement.
+
+**Impact:** Engagement names are stable once set. Users can rename via edit UI without fear of AI reversion.
+
+---
+
+### #444 — Engagement message management (Plan 8)
+
+**Date:** 2026-04-13
+**Status:** ✅ Implemented
+
+**Decision:** New capability to select messages and meetings within an engagement and move them to another engagement, a new engagement, back to the inbox, or discard them. Service function reassignMessages() handles full entity cascade (messages → meetings via message_id → notes → tasks). Source re-synthesis uses Option C (clear current_state/condensed, rebuild from latest 10 remaining messages). Target uses incremental synthesis. Both push to Airtable.
+
+**Context:** Messages could enter engagements but never leave. Bad merges, misrouted forwards, and mixed threads had no surgical fix. The management modal provides item-level control.
+
+**Rationale:** Option C for source re-synthesis prevents stale information from removed messages persisting in summaries. Incremental for target is correct because the target's existing summary is still valid — the moved messages are genuinely "new" content arriving. The cascade follows the established pattern from engagement-merge.ts but operates on selected items rather than all items.
+
+**Impact:** 4 new files: engagement-manager.ts (service), reassign/route.ts (API), ManageEngagement.tsx (modal), plus shared EngagementPicker and CreateEngagementForm. 13 new db functions for targeted entity movement and cascade deletion.
+
+---
+
+### #445 — Shared EngagementPicker and CreateEngagementForm components
+
+**Date:** 2026-04-13
+**Status:** ✅ Implemented
+
+**Decision:** Extracted engagement picker and creation form from InboxClient into src/components/shared/. Both inbox routing and engagement management modal use the same components.
+
+**Context:** The inbox's "assign to existing" and the management modal's "move to existing" are the same user decision with different triggers. Duplicating the UI would create divergent UX.
+
+**Rationale:** Same decision, same component. The picker manages its own data fetching (useEffect on partnerId), supports excludeIds for self-reference prevention, and the enriched display (name + topic + status + recency) is consistent everywhere.
+
+**Impact:** InboxClient simplified (removed inline picker/form state). EngagementPicker self-contained with internal fetch. Both surfaces guaranteed identical UX.
+
+---
+
+### #446 — Discard action in engagement management
+
+**Date:** 2026-04-13
+**Status:** ✅ Implemented
+
+**Decision:** Fourth action in management modal alongside move-to-existing, move-to-new, and return-to-inbox. Hard-deletes selected messages with FK-safe cascade (tasks → notes → meetings → messages), then re-synthesizes source engagement via Option C.
+
+**Context:** Without discard, removing noise from an engagement required returning messages to inbox first and then discarding from there. Direct discard is faster and more intuitive.
+
+**Rationale:** Hard delete matches inbox discard semantics. FK-safe cascade order (children before parents) prevents constraint violations. Source re-synthesis after discard is essential — the engagement summary references the deleted content and must be rebuilt.
+
+**Impact:** New discardFromEngagement() service function. 5 new bulk-delete db functions. Discard button styled as destructive (text-muted → text-red-400 hover) with confirmation dialog.
+
+---
+
+### #447 — Inbox count displays group count not message count
+
+**Date:** 2026-04-13
+**Status:** ✅ Implemented
+
+**Decision:** Page header shows number of visible cards (groups) rather than individual message rows. Prevents confusion when multi-message threads display as single cards.
+
+**Context:** When messages from the same forward (within 5s window) grouped into one card, the header said "2 items" but only 1 card was visible. The section header inside InboxClient already showed the correct group count.
+
+**Rationale:** The count should match what the user sees. The server-side page header was using items.length (individual messages) while the UI grouped them. Removed the misleading count from the page header; the section header "Unrouted Messages {N}" shows the correct group count.
+
+**Impact:** No more "2 items in inbox" with only 1 card visible. Sidebar badge already used getInboxGroupCount() so it was already correct.
+
+---
