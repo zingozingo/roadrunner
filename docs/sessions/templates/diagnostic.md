@@ -52,7 +52,7 @@ tail -40 decisions.md
 
 ## Doc Freshness
 ```bash
-for f in docs/goal-state.md docs/north-star.md docs/entity-model.md docs/ai-call-map.md .claude/roadrunner-frontend/SKILL.md; do
+for f in docs/goal-state.md docs/north-star.md docs/entity-model.md docs/ai-call-map.md .claude/roadrunner-frontend/SKILL.md .claude/roadrunner-backend/SKILL.md; do
   echo "$f: $(git log -1 --format='%ai' -- "$f" | cut -d' ' -f1)"
 done
 ```

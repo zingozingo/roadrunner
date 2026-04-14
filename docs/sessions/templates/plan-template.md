@@ -25,7 +25,7 @@ Use this template when creating a new task plan. Copy this structure into `docs/
 {Which files/directories does this plan touch? Helps the agent stay in scope.}
 - Phase 1: {paths}
 - Phase 2: {paths}
-- All phases: docs/, .claude/roadrunner-frontend/SKILL.md (for pattern updates)
+- All phases: docs/, .claude/roadrunner-frontend/SKILL.md, .claude/roadrunner-backend/SKILL.md (for pattern updates)
 
 ## SKILL.md Evolution
 {Which patterns will be established or updated during this plan? Alerts the agent to check and update the design system as it works.}

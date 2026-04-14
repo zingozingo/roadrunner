@@ -60,6 +60,7 @@ The command must:
    - `docs/entity-model.md` — ONLY if schema changed (new table, new field, new FK, dropped table)
    - `docs/ai-call-map.md` — ONLY if AI pipeline changed (prompt rewrite, new context, new call)
    - `.claude/roadrunner-frontend/SKILL.md` — ONLY if UI patterns were established or evolved
+   - `.claude/roadrunner-backend/SKILL.md` — ONLY if backend patterns were established or evolved (new service patterns, route conventions, db layer rules)
    - `docs/plans/active.md` — If a plan was completed: append "## Completion Summary" (what was accomplished across all phases, total stats change before/after, total decisions logged, pre-existing issues noted for future work), then move to `docs/plans/archive/{date}-{name}.md`, then replace `active.md` with placeholder content: "# Active Task Plan\n\nNo active task plan. Working in interactive mode."
 
 5. **Write session summary** to `docs/sessions/summaries/{YYYY-MM-DD}-{session-name}.md`
