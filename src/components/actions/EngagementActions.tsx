@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Engagement, Pillar } from "@/lib/types";
+import { Engagement, Pillar, Message, Meeting } from "@/lib/types";
 import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 import InlineError from "@/components/shared/InlineError";
+import ManageEngagement from "@/components/engagements/ManageEngagement";
 
 const STATUS_OPTIONS: Engagement["status"][] = ["active", "blocked", "completed", "archived"];
 const PILLAR_OPTIONS: Pillar[] = ["Co-Sell", "Co-Market", "Co-Build"];
@@ -12,9 +13,13 @@ const PILLAR_OPTIONS: Pillar[] = ["Co-Sell", "Co-Market", "Co-Build"];
 export default function EngagementActions({
   engagement,
   partnerName: initialPartnerName,
+  messages,
+  meetings,
 }: {
   engagement: Engagement;
   partnerName?: string | null;
+  messages?: Message[];
+  meetings?: Meeting[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -22,6 +27,7 @@ export default function EngagementActions({
   const [deleting, setDeleting] = useState(false);
   useNavigationGuard(saving || deleting);
   const [deleteMode, setDeleteMode] = useState<null | "keep" | "remove">(null);
+  const [managing, setManaging] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Edit form state
@@ -228,6 +234,14 @@ export default function EngagementActions({
   return (
     <>
       <div className="flex gap-2">
+        {messages && meetings && engagement.partner_id && (
+          <button
+            onClick={() => setManaging(true)}
+            className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-muted transition-colors hover:border-foreground/30 hover:text-foreground"
+          >
+            Manage
+          </button>
+        )}
         <button
           onClick={startEdit}
           className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground transition-colors hover:border-accent hover:text-accent"
@@ -247,6 +261,19 @@ export default function EngagementActions({
         <div className="mt-2">
           <InlineError message={error} onDismiss={() => setError(null)} />
         </div>
+      )}
+
+      {/* Manage items modal */}
+      {managing && messages && meetings && engagement.partner_id && (
+        <ManageEngagement
+          engagementId={engagement.id}
+          engagementName={engagement.name}
+          partnerId={engagement.partner_id}
+          partnerName={initialPartnerName ?? null}
+          messages={messages}
+          meetings={meetings}
+          onClose={() => setManaging(false)}
+        />
       )}
 
       {/* Delete confirmation dialog with two options */}

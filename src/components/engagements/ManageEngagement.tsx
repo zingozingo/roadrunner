@@ -207,8 +207,19 @@ export default function ManageEngagement({
     }
   }
 
+  /** Check if all items are selected — warns about engagement deletion */
+  function confirmIfAllSelected(): boolean {
+    if (allSelected) {
+      return confirm(
+        `This will move all items out of "${engagementName}". The engagement will be permanently deleted.`
+      );
+    }
+    return true;
+  }
+
   // ── Move to existing ──────────────────────────────────────
   function handleMoveToExisting(engagement: EngagementOption) {
+    if (!confirmIfAllSelected()) return;
     setSubmitLabel(`Moving to ${engagement.name}...`);
     executeReassign({
       action: "move_to_existing",
@@ -218,6 +229,7 @@ export default function ManageEngagement({
 
   // ── Move to new ───────────────────────────────────────────
   function handleMoveToNew(title: string) {
+    if (!confirmIfAllSelected()) return;
     setSubmitLabel("Creating engagement and moving...");
     executeReassign({
       action: "move_to_new",
@@ -227,7 +239,11 @@ export default function ManageEngagement({
 
   // ── Return to inbox ───────────────────────────────────────
   function handleReturnToInbox() {
-    if (!confirm("Return selected items to inbox? They will need to be re-routed.")) return;
+    if (allSelected) {
+      if (!confirm(`This will move all items out of "${engagementName}". The engagement will be permanently deleted.`)) return;
+    } else {
+      if (!confirm("Return selected items to inbox? They will need to be re-routed.")) return;
+    }
     setSubmitLabel("Returning to inbox...");
     executeReassign({ action: "return_to_inbox" });
   }

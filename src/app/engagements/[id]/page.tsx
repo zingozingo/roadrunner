@@ -101,7 +101,7 @@ export default async function EngagementDetailPage({
               partnerId={engagement.partner_id}
             />
           )}
-          <EngagementActions engagement={engagement} partnerName={partnerName} />
+          <EngagementActions engagement={engagement} partnerName={partnerName} messages={messages} meetings={meetings} />
         </div>
       </div>
 
