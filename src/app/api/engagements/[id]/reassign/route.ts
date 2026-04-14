@@ -6,12 +6,12 @@ import {
   createEngagement,
   deleteEngagement,
 } from "@/lib/db";
-import { reassignMessages } from "@/lib/engagement-manager";
+import { reassignMessages, discardFromEngagement } from "@/lib/engagement-manager";
 
 interface ReassignRequest {
   messageIds: string[];
   meetingIds: string[];
-  action: "move_to_existing" | "move_to_new" | "return_to_inbox";
+  action: "move_to_existing" | "move_to_new" | "return_to_inbox" | "discard";
   targetEngagementId?: string;
   newEngagementTitle?: string;
 }
@@ -77,6 +77,31 @@ export async function POST(
           { status: 400 }
         );
       }
+    }
+
+    // --- Discard (hard delete) ---
+
+    if (action === "discard") {
+      const result = await discardFromEngagement({
+        messageIds: messageIds ?? [],
+        meetingIds: meetingIds ?? [],
+        sourceEngagementId: sourceId,
+      });
+
+      let sourceDeleted = false;
+      if (result.sourceEmpty) {
+        await deleteEngagement(sourceId);
+        sourceDeleted = true;
+        console.log(`[reassign] Auto-deleted empty source engagement ${sourceId}`);
+      }
+
+      return NextResponse.json({
+        discarded: {
+          messages: result.deletedMessages,
+          meetings: result.deletedMeetings,
+        },
+        sourceDeleted,
+      });
     }
 
     // --- Resolve target ---

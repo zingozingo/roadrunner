@@ -6,6 +6,10 @@ import {
   updateNotesEngagement,
   getTasksByNoteIds,
   updateTasksEngagement,
+  deleteTasksByIds,
+  deleteNotesByIds,
+  deleteMeetingsByIds,
+  deleteMessagesByIds,
   getEngagementItemCounts,
   getEngagementById,
   getMessagesByEngagement,
@@ -261,4 +265,89 @@ async function resynthesizeTarget(
   } catch (err) {
     console.error(`[reassign] Target re-synthesis failed (reassignment still succeeded):`, err);
   }
+}
+
+// --- Discard service ---
+
+export interface DiscardInput {
+  messageIds: string[];
+  meetingIds: string[];
+  sourceEngagementId: string;
+}
+
+export interface DiscardResult {
+  deletedMessages: number;
+  deletedMeetings: number;
+  sourceEmpty: boolean;
+}
+
+/**
+ * Hard-delete selected messages and standalone meetings from an engagement.
+ * Cascades: find linked meetings → find notes → find tasks → delete in
+ * reverse FK order (tasks → notes → meetings → messages).
+ * Re-synthesizes source engagement after deletion.
+ */
+export async function discardFromEngagement(
+  input: DiscardInput
+): Promise<DiscardResult> {
+  const { messageIds, meetingIds, sourceEngagementId } = input;
+
+  console.log(
+    `[discard] Deleting ${messageIds.length} messages + ${meetingIds.length} standalone meetings from ${sourceEngagementId}`
+  );
+
+  // Find all meetings linked to selected messages (via message_id FK)
+  const linkedMeetings = await getMeetingsByMessageIds(messageIds);
+  const linkedMeetingIds = linkedMeetings.map((m) => m.id);
+
+  // Collect all meeting IDs to cascade (linked + standalone)
+  const allMeetingIds = [...linkedMeetingIds, ...meetingIds];
+
+  // Find notes linked to all meetings being deleted
+  const linkedNotes = await getNotesByMeetingIds(allMeetingIds);
+  const linkedNoteIds = linkedNotes.map((n) => n.id);
+
+  // Find tasks linked to those notes
+  const linkedTasks = await getTasksByNoteIds(linkedNoteIds);
+  const linkedTaskIds = linkedTasks.map((t) => t.id);
+
+  // Delete in FK-safe order: tasks → notes → meetings → messages
+  if (linkedTaskIds.length > 0) {
+    const count = await deleteTasksByIds(linkedTaskIds);
+    console.log(`[discard] Deleted ${count} tasks`);
+  }
+
+  if (linkedNoteIds.length > 0) {
+    const count = await deleteNotesByIds(linkedNoteIds);
+    console.log(`[discard] Deleted ${count} notes`);
+  }
+
+  let deletedMeetings = 0;
+  if (allMeetingIds.length > 0) {
+    deletedMeetings = await deleteMeetingsByIds(allMeetingIds);
+    console.log(`[discard] Deleted ${deletedMeetings} meetings`);
+  }
+
+  let deletedMessages = 0;
+  if (messageIds.length > 0) {
+    deletedMessages = await deleteMessagesByIds(messageIds);
+    console.log(`[discard] Deleted ${deletedMessages} messages`);
+  }
+
+  // Check if source engagement is now empty
+  const counts = await getEngagementItemCounts(sourceEngagementId);
+  const sourceEmpty = counts.messages === 0 && counts.meetings === 0;
+
+  if (sourceEmpty) {
+    console.log(`[discard] Source engagement ${sourceEngagementId} is now empty`);
+  }
+
+  // Re-synthesize source (Option C: clear + rebuild from remaining)
+  await resynthesizeSource(sourceEngagementId, sourceEmpty);
+
+  return {
+    deletedMessages,
+    deletedMeetings,
+    sourceEmpty,
+  };
 }

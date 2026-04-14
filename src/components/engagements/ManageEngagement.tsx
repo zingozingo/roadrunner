@@ -237,6 +237,14 @@ export default function ManageEngagement({
     });
   }
 
+  // ── Discard (hard delete) ───────────────────────────────
+  function handleDiscard() {
+    const count = selectionCount;
+    if (!confirm(`Permanently delete ${count} selected item${count !== 1 ? "s" : ""}? This cannot be undone.`)) return;
+    setSubmitLabel("Deleting...");
+    executeReassign({ action: "discard" });
+  }
+
   // ── Return to inbox ───────────────────────────────────────
   function handleReturnToInbox() {
     if (allSelected) {
@@ -399,7 +407,7 @@ export default function ManageEngagement({
           {actionMode === "create_new" && (
             <div className="px-6 pb-3">
               <CreateEngagementForm
-                defaultTitle={`${partnerName ?? ""} - `}
+                defaultTitle={partnerName ?? ""}
                 onCancel={cancelActionMode}
                 onCreate={handleMoveToNew}
                 disabled={isSubmitting}
@@ -425,9 +433,17 @@ export default function ManageEngagement({
               </div>
             ) : (
               <>
-                <span className="text-sm text-muted">
-                  {selectionCount} item{selectionCount !== 1 ? "s" : ""} selected
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted">
+                    {selectionCount} item{selectionCount !== 1 ? "s" : ""} selected
+                  </span>
+                  <button
+                    onClick={handleDiscard}
+                    className="text-sm text-muted hover:text-red-400 transition-colors px-3 py-1.5"
+                  >
+                    Discard
+                  </button>
+                </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setActionMode("pick_existing")}
@@ -439,7 +455,7 @@ export default function ManageEngagement({
                     onClick={() => setActionMode("create_new")}
                     className="bg-accent text-white rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent-hover transition-colors"
                   >
-                    Move to New
+                    New Engagement
                   </button>
                   <button
                     onClick={handleReturnToInbox}

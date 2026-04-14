@@ -311,6 +311,38 @@ export async function updateTasksEngagement(
   return data?.length ?? 0;
 }
 
+/**
+ * Delete tasks by IDs. Used by discard cascade.
+ */
+export async function deleteTasksByIds(taskIds: string[]): Promise<number> {
+  if (taskIds.length === 0) return 0;
+
+  const { data, error } = await getSupabaseClient()
+    .from("tasks")
+    .delete()
+    .in("id", taskIds)
+    .select("id");
+
+  if (error) throw new Error(`Failed to delete tasks: ${error.message}`);
+  return data?.length ?? 0;
+}
+
+/**
+ * Delete meeting notes by IDs. Used by discard cascade.
+ */
+export async function deleteNotesByIds(noteIds: string[]): Promise<number> {
+  if (noteIds.length === 0) return 0;
+
+  const { data, error } = await getSupabaseClient()
+    .from("meeting_notes")
+    .delete()
+    .in("id", noteIds)
+    .select("id");
+
+  if (error) throw new Error(`Failed to delete notes: ${error.message}`);
+  return data?.length ?? 0;
+}
+
 export async function updateMeetingNote(
   id: string,
   input: UpdateMeetingNoteInput

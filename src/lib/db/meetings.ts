@@ -270,6 +270,22 @@ export async function updateMeetingsEngagement(
   return data?.length ?? 0;
 }
 
+/**
+ * Delete meetings by IDs. Used by discard cascade.
+ */
+export async function deleteMeetingsByIds(meetingIds: string[]): Promise<number> {
+  if (meetingIds.length === 0) return 0;
+
+  const { data, error } = await getSupabaseClient()
+    .from("meetings")
+    .delete()
+    .in("id", meetingIds)
+    .select("id");
+
+  if (error) throw new Error(`Failed to delete meetings: ${error.message}`);
+  return data?.length ?? 0;
+}
+
 export async function getMeeting(id: string): Promise<Meeting | null> {
   const { data, error } = await getSupabaseClient()
     .from("meetings")

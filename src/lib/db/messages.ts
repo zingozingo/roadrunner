@@ -228,6 +228,9 @@ export async function findMessageById(id: string): Promise<Message | null> {
 /**
  * Update engagement_id on specific messages by ID.
  * Pass null to return messages to inbox (unrouted).
+ * Also sets pending_review: true when returning to inbox (null),
+ * false when moving to an engagement, so messages are properly
+ * flagged for inbox review after being returned.
  */
 export async function updateMessagesEngagement(
   messageIds: string[],
@@ -237,11 +240,30 @@ export async function updateMessagesEngagement(
 
   const { data, error } = await getSupabaseClient()
     .from("messages")
-    .update({ engagement_id: engagementId })
+    .update({
+      engagement_id: engagementId,
+      pending_review: engagementId === null,
+    })
     .in("id", messageIds)
     .select("id");
 
   if (error) throw new Error(`Failed to update messages engagement: ${error.message}`);
+  return data?.length ?? 0;
+}
+
+/**
+ * Delete messages by IDs. Used by discard cascade.
+ */
+export async function deleteMessagesByIds(messageIds: string[]): Promise<number> {
+  if (messageIds.length === 0) return 0;
+
+  const { data, error } = await getSupabaseClient()
+    .from("messages")
+    .delete()
+    .in("id", messageIds)
+    .select("id");
+
+  if (error) throw new Error(`Failed to delete messages: ${error.message}`);
   return data?.length ?? 0;
 }
 
