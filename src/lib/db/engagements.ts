@@ -333,6 +333,33 @@ export async function deleteEngagementRecord(id: string): Promise<void> {
   if (error) throw new Error(`Failed to delete engagement: ${error.message}`);
 }
 
+/**
+ * Get counts of messages and meetings belonging to an engagement.
+ * Used to check if an engagement is empty after reassignment.
+ */
+export async function getEngagementItemCounts(
+  engagementId: string
+): Promise<{ messages: number; meetings: number }> {
+  const db = getSupabaseClient();
+
+  const [{ count: msgCount, error: msgErr }, { count: mtgCount, error: mtgErr }] =
+    await Promise.all([
+      db
+        .from("messages")
+        .select("id", { count: "exact", head: true })
+        .eq("engagement_id", engagementId),
+      db
+        .from("meetings")
+        .select("id", { count: "exact", head: true })
+        .eq("engagement_id", engagementId),
+    ]);
+
+  if (msgErr) throw new Error(`Failed to count messages: ${msgErr.message}`);
+  if (mtgErr) throw new Error(`Failed to count meetings: ${mtgErr.message}`);
+
+  return { messages: msgCount ?? 0, meetings: mtgCount ?? 0 };
+}
+
 // ============================================================
 // Dashboard query helpers
 // ============================================================

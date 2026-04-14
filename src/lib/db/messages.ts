@@ -225,6 +225,26 @@ export async function findMessageById(id: string): Promise<Message | null> {
   return data as Message | null;
 }
 
+/**
+ * Update engagement_id on specific messages by ID.
+ * Pass null to return messages to inbox (unrouted).
+ */
+export async function updateMessagesEngagement(
+  messageIds: string[],
+  engagementId: string | null
+): Promise<number> {
+  if (messageIds.length === 0) return 0;
+
+  const { data, error } = await getSupabaseClient()
+    .from("messages")
+    .update({ engagement_id: engagementId })
+    .in("id", messageIds)
+    .select("id");
+
+  if (error) throw new Error(`Failed to update messages engagement: ${error.message}`);
+  return data?.length ?? 0;
+}
+
 export async function getUnclassifiedMessages(): Promise<Message[]> {
   const { data, error } = await getSupabaseClient()
     .from("messages")

@@ -235,6 +235,82 @@ export async function reparentTasksToEngagement(
   return data?.length ?? 0;
 }
 
+/**
+ * Get meeting notes linked to specific meetings by meeting_id.
+ * Returns note id and meeting_id for cascade tracking.
+ */
+export async function getNotesByMeetingIds(
+  meetingIds: string[]
+): Promise<{ id: string; meeting_id: string }[]> {
+  if (meetingIds.length === 0) return [];
+
+  const { data, error } = await getSupabaseClient()
+    .from("meeting_notes")
+    .select("id, meeting_id")
+    .in("meeting_id", meetingIds);
+
+  if (error) throw new Error(`Failed to fetch notes by meeting IDs: ${error.message}`);
+  return (data ?? []) as { id: string; meeting_id: string }[];
+}
+
+/**
+ * Update engagement_id on specific meeting notes by ID.
+ * Pass null to unlink notes from any engagement.
+ */
+export async function updateNotesEngagement(
+  noteIds: string[],
+  engagementId: string | null
+): Promise<number> {
+  if (noteIds.length === 0) return 0;
+
+  const { data, error } = await getSupabaseClient()
+    .from("meeting_notes")
+    .update({ engagement_id: engagementId })
+    .in("id", noteIds)
+    .select("id");
+
+  if (error) throw new Error(`Failed to update notes engagement: ${error.message}`);
+  return data?.length ?? 0;
+}
+
+/**
+ * Get tasks linked to specific meeting notes by meeting_note_id.
+ * Returns task id and meeting_note_id for cascade tracking.
+ */
+export async function getTasksByNoteIds(
+  noteIds: string[]
+): Promise<{ id: string; meeting_note_id: string }[]> {
+  if (noteIds.length === 0) return [];
+
+  const { data, error } = await getSupabaseClient()
+    .from("tasks")
+    .select("id, meeting_note_id")
+    .in("meeting_note_id", noteIds);
+
+  if (error) throw new Error(`Failed to fetch tasks by note IDs: ${error.message}`);
+  return (data ?? []) as { id: string; meeting_note_id: string }[];
+}
+
+/**
+ * Update engagement_id on specific tasks by ID.
+ * Pass null to unlink tasks from any engagement.
+ */
+export async function updateTasksEngagement(
+  taskIds: string[],
+  engagementId: string | null
+): Promise<number> {
+  if (taskIds.length === 0) return 0;
+
+  const { data, error } = await getSupabaseClient()
+    .from("tasks")
+    .update({ engagement_id: engagementId })
+    .in("id", taskIds)
+    .select("id");
+
+  if (error) throw new Error(`Failed to update tasks engagement: ${error.message}`);
+  return data?.length ?? 0;
+}
+
 export async function updateMeetingNote(
   id: string,
   input: UpdateMeetingNoteInput

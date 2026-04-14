@@ -232,6 +232,44 @@ export async function getAnchorDaysByMeetingIds(
   return result;
 }
 
+/**
+ * Get meetings linked to specific messages via message_id FK.
+ * Returns meeting id and message_id for cascade tracking.
+ */
+export async function getMeetingsByMessageIds(
+  messageIds: string[]
+): Promise<{ id: string; message_id: string }[]> {
+  if (messageIds.length === 0) return [];
+
+  const { data, error } = await getSupabaseClient()
+    .from("meetings")
+    .select("id, message_id")
+    .in("message_id", messageIds);
+
+  if (error) throw new Error(`Failed to fetch meetings by message IDs: ${error.message}`);
+  return (data ?? []) as { id: string; message_id: string }[];
+}
+
+/**
+ * Update engagement_id on specific meetings by ID.
+ * Pass null to unlink meetings from any engagement.
+ */
+export async function updateMeetingsEngagement(
+  meetingIds: string[],
+  engagementId: string | null
+): Promise<number> {
+  if (meetingIds.length === 0) return 0;
+
+  const { data, error } = await getSupabaseClient()
+    .from("meetings")
+    .update({ engagement_id: engagementId })
+    .in("id", meetingIds)
+    .select("id");
+
+  if (error) throw new Error(`Failed to update meetings engagement: ${error.message}`);
+  return data?.length ?? 0;
+}
+
 export async function getMeeting(id: string): Promise<Meeting | null> {
   const { data, error } = await getSupabaseClient()
     .from("meetings")

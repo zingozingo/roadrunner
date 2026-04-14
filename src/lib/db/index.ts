@@ -10,6 +10,7 @@ export {
   getUnroutedPartnerlessMessages,
   stampPartnerOnMessages,
   reparentMessagesToEngagement,
+  updateMessagesEngagement,
   findMessageById,
   getUnclassifiedMessages,
 } from "./messages";
@@ -32,6 +33,7 @@ export {
   deleteMessagesByEngagement,
   getMessagesByEngagement,
   getParticipantsByEngagement,
+  getEngagementItemCounts,
 } from "./engagements";
 
 // Meetings
@@ -51,6 +53,8 @@ export {
   getFutureSeriesMeetingsExcluding,
   stampPartnerOnMeeting,
   reparentMeetingsToEngagement,
+  getMeetingsByMessageIds,
+  updateMeetingsEngagement,
   getMeeting,
   getSeriesSiblings,
   getMeetingsByEngagement,
@@ -125,6 +129,10 @@ export {
   getMeetingIdsWithNotes,
   reparentNotesToEngagement,
   reparentTasksToEngagement,
+  getNotesByMeetingIds,
+  updateNotesEngagement,
+  getTasksByNoteIds,
+  updateTasksEngagement,
   createMeetingNote,
   getMeetingNote,
   getMeetingNoteByMeetingId,
