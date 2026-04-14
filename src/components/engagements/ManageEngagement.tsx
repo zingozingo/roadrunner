@@ -1,20 +1,22 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import type { Message, Meeting } from "@/lib/types";
+import EngagementPicker from "@/components/shared/EngagementPicker";
+import type { EngagementOption } from "@/components/shared/EngagementPicker";
+import CreateEngagementForm from "@/components/shared/CreateEngagementForm";
+import InlineError from "@/components/shared/InlineError";
+import { useNavigationGuard } from "@/hooks/useNavigationGuard";
 
 interface Props {
+  engagementId: string;
+  engagementName: string;
+  partnerId: string;
+  partnerName: string | null;
   messages: Message[];
   meetings: Meeting[];
-  engagementName: string;
   onClose: () => void;
-  onMove: (params: {
-    messageIds: string[];
-    meetingIds: string[];
-    action: "move_to_existing" | "move_to_new" | "return_to_inbox";
-    targetEngagementId?: string;
-    newEngagementTitle?: string;
-  }) => Promise<void>;
 }
 
 /** Combined row — either a message or a standalone meeting */
@@ -22,21 +24,17 @@ interface ItemRow {
   id: string;
   type: "message" | "meeting";
   date: string;
-  // Message fields
   subject?: string | null;
   senderName?: string | null;
   senderEmail?: string | null;
   bodyPreview?: string | null;
-  // Meeting fields
   title?: string;
   startTime?: string | null;
   endTime?: string | null;
-  // Linked meetings (sub-items of a message, not independently selectable)
   linkedMeetings: Meeting[];
 }
 
 function buildItemRows(messages: Message[], meetings: Meeting[]): ItemRow[] {
-  // Index meetings by message_id for linked sub-items
   const meetingsByMessageId = new Map<string, Meeting[]>();
   const standaloneMeetings: Meeting[] = [];
 
@@ -52,7 +50,6 @@ function buildItemRows(messages: Message[], meetings: Meeting[]): ItemRow[] {
 
   const rows: ItemRow[] = [];
 
-  // Message rows with linked meetings as sub-items
   for (const msg of messages) {
     rows.push({
       id: msg.id,
@@ -66,7 +63,6 @@ function buildItemRows(messages: Message[], meetings: Meeting[]): ItemRow[] {
     });
   }
 
-  // Standalone meeting rows
   for (const mtg of standaloneMeetings) {
     rows.push({
       id: mtg.id,
@@ -79,9 +75,7 @@ function buildItemRows(messages: Message[], meetings: Meeting[]): ItemRow[] {
     });
   }
 
-  // Sort most recent first
   rows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
   return rows;
 }
 
@@ -92,11 +86,9 @@ function formatDate(dateStr: string): string {
 
 function formatTime(time: string | null | undefined): string {
   if (!time) return "";
-  // time is "HH:mm" or "HH:mm:ss" — display as-is or parse
   return time.slice(0, 5);
 }
 
-/** Email icon (16px) */
 function EmailIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="shrink-0 text-muted/60">
@@ -106,7 +98,6 @@ function EmailIcon() {
   );
 }
 
-/** Calendar icon (16px) */
 function CalendarIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="shrink-0 text-muted/60">
@@ -117,28 +108,42 @@ function CalendarIcon() {
   );
 }
 
+function Spinner() {
+  return (
+    <svg className="h-4 w-4 animate-spin text-muted" viewBox="0 0 24 24" fill="none">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
+  );
+}
+
 export default function ManageEngagement({
+  engagementId,
+  engagementName,
+  partnerId,
+  partnerName,
   messages,
   meetings,
-  engagementName,
   onClose,
-  onMove,
 }: Props) {
+  const router = useRouter();
   const rows = useMemo(() => buildItemRows(messages, meetings), [messages, meetings]);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [actionMode, setActionMode] = useState<"none" | "pick_existing" | "create_new">("none");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitLabel, setSubmitLabel] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  // Count selectable items (messages + standalone meetings only)
+  useNavigationGuard(isSubmitting);
+
   const selectableCount = rows.length;
 
   function toggleItem(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
@@ -151,7 +156,6 @@ export default function ManageEngagement({
     }
   }
 
-  // Split selection into messageIds and meetingIds for the API
   const selectedMessageIds = rows
     .filter((r) => r.type === "message" && selected.has(r.id))
     .map((r) => r.id);
@@ -162,10 +166,76 @@ export default function ManageEngagement({
   const selectionCount = selected.size;
   const allSelected = selectionCount === selectableCount && selectableCount > 0;
 
+  function cancelActionMode() {
+    setActionMode("none");
+    setError(null);
+  }
+
+  // ── Execute reassignment API call ──────────────────────────
+  async function executeReassign(body: Record<string, unknown>) {
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/engagements/${engagementId}/reassign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messageIds: selectedMessageIds,
+          meetingIds: selectedMeetingIds,
+          ...body,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Reassign failed (${res.status})`);
+      }
+      const result = await res.json();
+
+      onClose();
+
+      if (result.sourceDeleted) {
+        // Source engagement was auto-deleted — redirect away
+        router.push(partnerId ? `/partners/${partnerId}` : "/engagements");
+      } else {
+        router.refresh();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Reassignment failed");
+    } finally {
+      setIsSubmitting(false);
+      setSubmitLabel("");
+    }
+  }
+
+  // ── Move to existing ──────────────────────────────────────
+  function handleMoveToExisting(engagement: EngagementOption) {
+    setSubmitLabel(`Moving to ${engagement.name}...`);
+    executeReassign({
+      action: "move_to_existing",
+      targetEngagementId: engagement.id,
+    });
+  }
+
+  // ── Move to new ───────────────────────────────────────────
+  function handleMoveToNew(title: string) {
+    setSubmitLabel("Creating engagement and moving...");
+    executeReassign({
+      action: "move_to_new",
+      newEngagementTitle: title,
+    });
+  }
+
+  // ── Return to inbox ───────────────────────────────────────
+  function handleReturnToInbox() {
+    if (!confirm("Return selected items to inbox? They will need to be re-routed.")) return;
+    setSubmitLabel("Returning to inbox...");
+    executeReassign({ action: "return_to_inbox" });
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50" onClick={isSubmitting ? undefined : onClose} />
 
       {/* Modal */}
       <div className="relative z-10 w-full max-w-2xl max-h-[80vh] flex flex-col bg-surface rounded-lg border border-border/50">
@@ -179,7 +249,8 @@ export default function ManageEngagement({
           </div>
           <button
             onClick={onClose}
-            className="text-muted hover:text-foreground transition-colors p-1"
+            disabled={isSubmitting}
+            className="text-muted hover:text-foreground transition-colors p-1 disabled:opacity-50"
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M5 5l10 10M15 5L5 15" />
@@ -193,6 +264,7 @@ export default function ManageEngagement({
             type="checkbox"
             checked={allSelected}
             onChange={toggleAll}
+            disabled={isSubmitting}
             className="h-4 w-4 rounded border-border accent-accent cursor-pointer"
           />
           <span className="text-xs text-muted">
@@ -211,14 +283,16 @@ export default function ManageEngagement({
           ) : (
             rows.map((row) => (
               <div key={row.id}>
-                {/* Main row */}
                 <label
-                  className="flex items-start gap-3 px-6 py-3 border-b border-border/20 cursor-pointer hover:bg-surface-hover/30 transition-colors"
+                  className={`flex items-start gap-3 px-6 py-3 border-b border-border/20 cursor-pointer hover:bg-surface-hover/30 transition-colors ${
+                    isSubmitting ? "opacity-60 pointer-events-none" : ""
+                  }`}
                 >
                   <input
                     type="checkbox"
                     checked={selected.has(row.id)}
                     onChange={() => toggleItem(row.id)}
+                    disabled={isSubmitting}
                     className="h-4 w-4 mt-0.5 rounded border-border accent-accent cursor-pointer shrink-0"
                   />
 
@@ -265,7 +339,7 @@ export default function ManageEngagement({
                   )}
                 </label>
 
-                {/* Linked meeting sub-items (not independently selectable) */}
+                {/* Linked meeting sub-items */}
                 {row.linkedMeetings.map((mtg) => (
                   <div
                     key={mtg.id}
@@ -290,46 +364,76 @@ export default function ManageEngagement({
               </div>
             ))
           )}
+
+          {/* Picker / Create form shown below the list */}
+          {actionMode === "pick_existing" && (
+            <div className="px-6 pb-3">
+              <EngagementPicker
+                partnerId={partnerId}
+                partnerName={partnerName ?? undefined}
+                excludeIds={[engagementId]}
+                onSelect={handleMoveToExisting}
+                onCancel={cancelActionMode}
+                onCreateNew={() => setActionMode("create_new")}
+                disabled={isSubmitting}
+              />
+            </div>
+          )}
+
+          {actionMode === "create_new" && (
+            <div className="px-6 pb-3">
+              <CreateEngagementForm
+                defaultTitle={`${partnerName ?? ""} - `}
+                onCancel={cancelActionMode}
+                onCreate={handleMoveToNew}
+                disabled={isSubmitting}
+              />
+            </div>
+          )}
         </div>
 
-        {/* Action bar — visible when items selected */}
+        {/* Error display */}
+        {error && (
+          <div className="px-6 py-2 border-t border-border/20">
+            <InlineError message={error} onDismiss={() => setError(null)} />
+          </div>
+        )}
+
+        {/* Action bar */}
         {selectionCount > 0 && (
           <div className="flex items-center justify-between px-6 py-3 border-t border-border/30 bg-surface">
-            <span className="text-sm text-muted">
-              {selectionCount} item{selectionCount !== 1 ? "s" : ""} selected
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onMove({
-                  messageIds: selectedMessageIds,
-                  meetingIds: selectedMeetingIds,
-                  action: "move_to_existing",
-                })}
-                className="bg-surface border border-border/50 text-foreground/70 rounded-md px-3 py-1.5 text-sm hover:bg-surface-hover hover:text-foreground transition-colors"
-              >
-                Move to Engagement
-              </button>
-              <button
-                onClick={() => onMove({
-                  messageIds: selectedMessageIds,
-                  meetingIds: selectedMeetingIds,
-                  action: "move_to_new",
-                })}
-                className="bg-accent text-white rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent-hover transition-colors"
-              >
-                Move to New
-              </button>
-              <button
-                onClick={() => onMove({
-                  messageIds: selectedMessageIds,
-                  meetingIds: selectedMeetingIds,
-                  action: "return_to_inbox",
-                })}
-                className="text-sm text-muted hover:text-foreground transition-colors px-3 py-1.5"
-              >
-                Return to Inbox
-              </button>
-            </div>
+            {isSubmitting ? (
+              <div className="flex items-center gap-2">
+                <Spinner />
+                <span className="text-sm text-muted">{submitLabel}</span>
+              </div>
+            ) : (
+              <>
+                <span className="text-sm text-muted">
+                  {selectionCount} item{selectionCount !== 1 ? "s" : ""} selected
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setActionMode("pick_existing")}
+                    className="bg-surface border border-border/50 text-foreground/70 rounded-md px-3 py-1.5 text-sm hover:bg-surface-hover hover:text-foreground transition-colors"
+                  >
+                    Move to Engagement
+                  </button>
+                  <button
+                    onClick={() => setActionMode("create_new")}
+                    className="bg-accent text-white rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent-hover transition-colors"
+                  >
+                    Move to New
+                  </button>
+                  <button
+                    onClick={handleReturnToInbox}
+                    className="text-sm text-muted hover:text-foreground transition-colors px-3 py-1.5"
+                  >
+                    Return to Inbox
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
