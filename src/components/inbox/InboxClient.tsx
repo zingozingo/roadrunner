@@ -334,13 +334,7 @@ export default function InboxClient({ items: initialItems }: Props) {
                         {item.partner_name}
                       </span>
                     ) : (
-                      <button
-                        onClick={() => startPickPartner(group)}
-                        disabled={busyGroup !== null}
-                        className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400 whitespace-nowrap hover:bg-amber-500/20 transition-colors disabled:opacity-50"
-                      >
-                        Pick Partner
-                      </button>
+                      <span className="text-xs text-muted/50">No partner</span>
                     )}
                     {count > 1 && (
                       <span className="text-xs text-muted/50">{count} messages</span>
@@ -376,8 +370,17 @@ export default function InboxClient({ items: initialItems }: Props) {
                     <span className="text-sm text-muted">{busyLabel}</span>
                   </div>
                 ) : activeGroup !== group.key ? (
-                  /* Action button group: safe → creation → destructive */
+                  /* Action button group: partner pick → safe → creation → destructive */
                   <div className="flex items-center gap-3 shrink-0">
+                    {!item.partner_id && (
+                      <button
+                        onClick={() => startPickPartner(group)}
+                        disabled={busyGroup !== null}
+                        className="text-sm text-amber-400 hover:text-amber-300 transition-colors disabled:opacity-50 min-h-[32px]"
+                      >
+                        Pick Partner
+                      </button>
+                    )}
                     {item.partner_id && (
                       <button
                         onClick={() => startAssign(group)}
