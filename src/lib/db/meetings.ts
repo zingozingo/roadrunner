@@ -62,7 +62,7 @@ export async function getMeetingsWithEngagements(): Promise<
 
 export async function getUpcomingMeetings(
   days: number = 7
-): Promise<(Meeting & { engagement_name: string | null; partner_name: string | null })[]> {
+): Promise<(Meeting & { engagement_name: string | null; partner_name: string | null; note_status: "draft" | "complete" | null })[]> {
   const db = getSupabaseClient();
 
   const today = new Date();
@@ -72,21 +72,44 @@ export async function getUpcomingMeetings(
   end.setDate(end.getDate() + days);
   const endStr = end.toISOString().slice(0, 10);
 
+  // Fetch meetings in date range, excluding cancelled/no_show
   const { data: meetings, error } = await db
     .from("meetings")
     .select("*")
     .gte("meeting_date", todayStr)
     .lte("meeting_date", endStr)
+    .not("status", "in", "(cancelled,no_show)")
     .order("meeting_date", { ascending: true })
     .order("start_time", { ascending: true, nullsFirst: false });
 
   if (error) throw new Error(`Failed to fetch upcoming meetings: ${error.message}`);
 
   const typedMeetings = (meetings ?? []) as Meeting[];
+  if (typedMeetings.length === 0) return [];
+
+  const meetingIds = typedMeetings.map((m) => m.id);
+
+  // Fetch note statuses for these meetings (one note per meeting, unique index)
+  const { data: notes } = await db
+    .from("meeting_notes")
+    .select("meeting_id, status")
+    .in("meeting_id", meetingIds);
+
+  const noteStatusMap = new Map<string, string>();
+  for (const n of notes ?? []) {
+    const row = n as { meeting_id: string; status: string };
+    noteStatusMap.set(row.meeting_id, row.status);
+  }
+
+  // Filter out completed meetings with complete notes
+  const filtered = typedMeetings.filter((m) => {
+    if (m.status === "completed" && noteStatusMap.get(m.id) === "complete") return false;
+    return true;
+  });
 
   // Resolve engagement names
   const engagementIds = new Set<string>();
-  for (const m of typedMeetings) {
+  for (const m of filtered) {
     if (m.engagement_id) engagementIds.add(m.engagement_id);
   }
 
@@ -105,7 +128,7 @@ export async function getUpcomingMeetings(
 
   // Resolve partner names
   const partnerIds = new Set<string>();
-  for (const m of typedMeetings) {
+  for (const m of filtered) {
     if (m.partner_id) partnerIds.add(m.partner_id);
   }
 
@@ -122,10 +145,11 @@ export async function getUpcomingMeetings(
     }
   }
 
-  return typedMeetings.map((m) => ({
+  return filtered.map((m) => ({
     ...m,
     engagement_name: m.engagement_id ? engagementNames.get(m.engagement_id) ?? null : null,
     partner_name: m.partner_id ? partnerNames.get(m.partner_id) ?? null : null,
+    note_status: (noteStatusMap.get(m.id) as "draft" | "complete") ?? null,
   }));
 }
 
