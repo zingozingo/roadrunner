@@ -500,43 +500,59 @@ export default async function PartnerDetailPage({
             {mpoppFunding.length > 0 && (
               <>
                 <div className="px-4 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted/40">MPOPP</div>
-                {mpoppFunding.map((f) => {
-                  const remaining = (f.allocated ?? 0) - (f.spent ?? 0);
-                  return (
-                    <div key={f.id} className="flex items-center gap-3 border-b border-border/30 px-4 py-2.5 last:border-b-0">
+                {mpoppFunding.map((f) => (
+                  <div key={f.id} className="flex items-center gap-2 border-b border-border/30 px-4 py-2.5 last:border-b-0">
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
                       {f.status && (
-                        <span className={`shrink-0 text-[11px] ${f.status?.toLowerCase() === "approved" ? "text-status-active" : "text-status-blocked"}`}>
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${f.status?.toLowerCase() === "approved" ? "bg-status-active/10 text-status-active" : "bg-status-blocked/10 text-status-blocked"}`}>
                           {f.status}
                         </span>
                       )}
                       {f.half && <span className="shrink-0 text-[11px] text-muted">{f.half.toUpperCase()}</span>}
-                      <span className="min-w-0 flex-1 truncate text-sm text-foreground/80">{f.track ?? "\u2014"}</span>
-                      <span className="shrink-0 font-mono text-xs text-muted">{fmtCurrency(f.allocated)}</span>
-                      <span className="shrink-0 font-mono text-xs text-muted">spent {fmtCurrency(f.spent)}</span>
-                      <span className={`shrink-0 font-mono text-xs font-medium ${remaining > 0 ? "text-status-active" : "text-muted"}`}>
-                        {fmtCurrency(remaining)} left
-                      </span>
+                      <span className="min-w-0 truncate text-sm text-foreground/80">{f.track ?? "\u2014"}</span>
                     </div>
-                  );
-                })}
+                    {f.allocated != null ? (
+                      <span className="shrink-0 font-mono text-[11px] text-muted">
+                        Allocated: {fmtCurrency(f.allocated)}
+                        {" \u00b7 "}Spent: {fmtCurrency(f.spent ?? 0)}
+                        {" \u00b7 "}<span className={`font-medium ${(f.allocated - (f.spent ?? 0)) > 0 ? "text-status-active" : "text-muted"}`}>Remaining: {fmtCurrency(f.allocated - (f.spent ?? 0))}</span>
+                      </span>
+                    ) : (
+                      <span className="shrink-0 text-[11px] text-muted">No allocation</span>
+                    )}
+                  </div>
+                ))}
               </>
             )}
             {mdfFunding.length > 0 && (
               <>
                 <div className="px-4 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted/40">MDF</div>
-                {mdfFunding.map((f) => {
-                  const remaining = (f.allocated ?? 0) - (f.utilized ?? 0);
-                  return (
-                    <div key={f.id} className="flex items-center gap-3 border-b border-border/30 px-4 py-2.5 last:border-b-0">
-                      <span className="min-w-0 flex-1 truncate text-sm text-foreground/80">{f.record_name ?? "\u2014"}</span>
-                      <span className="shrink-0 font-mono text-xs text-muted">{fmtCurrency(f.allocated)}</span>
-                      <span className="shrink-0 font-mono text-xs text-muted">used {fmtCurrency(f.utilized)}</span>
-                      <span className={`shrink-0 font-mono text-xs font-medium ${remaining > 0 ? "text-status-active" : "text-muted"}`}>
-                        {fmtCurrency(remaining)} left
-                      </span>
+                {mdfFunding.map((f) => (
+                  <div key={f.id} className="flex items-center gap-2 border-b border-border/30 px-4 py-2.5 last:border-b-0">
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <span className="min-w-0 truncate text-sm text-foreground/80">{f.record_name ?? "\u2014"}</span>
+                      {f.source && (
+                        <span className="shrink-0 rounded-full bg-muted/15 px-2 py-0.5 text-[11px] font-medium text-muted">
+                          {f.source === "competency_service_ready" ? "Competency/SR" : "Custom"}
+                        </span>
+                      )}
+                      {f.recurrence && (
+                        <span className="shrink-0 rounded-full bg-muted/15 px-2 py-0.5 text-[11px] font-medium text-muted">
+                          {f.recurrence === "reloads_next_year" ? "Reloads" : "One-Time"}
+                        </span>
+                      )}
                     </div>
-                  );
-                })}
+                    {f.allocated != null ? (
+                      <span className="shrink-0 font-mono text-[11px] text-muted">
+                        Allocated: {fmtCurrency(f.allocated)}
+                        {" \u00b7 "}Spent: {fmtCurrency(f.utilized ?? 0)}
+                        {" \u00b7 "}<span className={`font-medium ${(f.allocated - (f.utilized ?? 0)) > 0 ? "text-status-active" : "text-muted"}`}>Remaining: {fmtCurrency(f.allocated - (f.utilized ?? 0))}</span>
+                      </span>
+                    ) : (
+                      <span className="shrink-0 text-[11px] text-muted">No allocation</span>
+                    )}
+                  </div>
+                ))}
               </>
             )}
           </Section>

@@ -240,14 +240,16 @@ export default function EventParticipationSection({
                 </span>
               )}
 
-              {/* Sponsoring toggle */}
-              <button
-                onClick={() => handleSponsoringToggle(p.id, !p.sponsoring)}
-                className={`shrink-0 text-[11px] transition-colors ${p.sponsoring ? "text-accent" : "text-muted/20 opacity-0 group-hover:opacity-100"}`}
-                title={p.sponsoring ? "Sponsoring (click to remove)" : "Mark as sponsoring"}
-              >
-                ★
-              </button>
+              {/* Sponsoring badge */}
+              {p.sponsoring && (
+                <button
+                  onClick={() => handleSponsoringToggle(p.id, false)}
+                  className="shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-medium text-accent/70 transition-colors hover:bg-accent/20"
+                  title="Sponsoring (click to remove)"
+                >
+                  Sponsor
+                </button>
+              )}
 
               {/* Event date */}
               {p.event_start_date && (
