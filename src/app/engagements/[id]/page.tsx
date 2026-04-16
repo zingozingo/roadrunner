@@ -30,10 +30,13 @@ const statusDotColor: Record<string, string> = {
 
 export default async function EngagementDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const { id } = await params;
+  const sp = await searchParams;
 
   const engagement = await getEngagementById(id);
   if (!engagement) notFound();
@@ -72,6 +75,19 @@ export default async function EngagementDetailPage({
 
   const dotColor = statusDotColor[engagement.status] ?? "bg-zinc-500";
 
+  // Origin-aware back link: respect where the user came from
+  const from = typeof sp.from === "string" ? sp.from : null;
+  const partnerParam = typeof sp.partner === "string" ? sp.partner : null;
+  let backHref: string;
+  let backLabel: string;
+  if (from === "engagements") {
+    backHref = partnerParam ? `/engagements?partner=${partnerParam}` : "/engagements";
+    backLabel = "Back to engagements";
+  } else {
+    backHref = engagement.partner_id ? `/partners/${engagement.partner_id}` : "/partners";
+    backLabel = partnerName ? `Back to ${partnerName}` : "Back to Partners";
+  }
+
   // Connected meetings sorted by date desc (exclude meetings already in timeline as messages)
   const connectedMeetings = meetings
     .filter((m) => m.meeting_date)
@@ -80,13 +96,13 @@ export default async function EngagementDetailPage({
   return (
     <PageContainer>
       <Link
-        href={engagement.partner_id ? `/partners/${engagement.partner_id}` : "/partners"}
+        href={backHref}
         className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M10 4l-4 4 4 4" />
         </svg>
-        {partnerName ? `Back to ${partnerName}` : "Back to Partners"}
+        {backLabel}
       </Link>
 
       {/* ═══ IDENTITY BAR ═══ */}

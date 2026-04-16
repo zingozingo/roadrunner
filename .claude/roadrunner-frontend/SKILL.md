@@ -421,6 +421,63 @@ Reusable behavior patterns for interactive elements. Any pattern established her
 **Design rationale:** Pill filters are faster than dropdowns for small option sets (<12 options). The meeting type list (10 types) fits comfortably in one row at 1440px.
 **Constraints:** Don't use pill filters for option sets >12 — switch to a dropdown. Don't allow multi-select (ambiguous UX with no clear "selected count" indicator).
 
+### Filter Persistence via URL Params
+
+**Hook:** `useFilterParam(key)` (`src/hooks/useFilterParam.ts`)
+**Used on:** Engagements list (partner filter). Canonical pattern for all list page filters going forward.
+**Behavior:**
+- Reads/writes a single URL search parameter as filter state
+- Returns `[value, setValue]` — same API as `useState<string | null>`
+- Setter uses `router.replace` (not `push`) so filter clicks don't pollute browser history
+- Setting `null` removes the param entirely (clean URL)
+- Preserves other search params on the URL
+- Filter survives browser back/forward, page refresh, and deep linking
+**Usage:**
+```tsx
+// In a client component:
+const [partner, setPartner] = useFilterParam("partner");
+// URL: /engagements?partner=abc → partner === "abc"
+// setPartner("xyz") → URL becomes /engagements?partner=xyz
+// setPartner(null)  → URL becomes /engagements
+```
+**Server page requirement:** The client component using `useFilterParam` must be wrapped in `<Suspense>` (Next.js App Router requirement for `useSearchParams`).
+**When to use:** Any list page with filters that users navigate away from and back to. Drop-in replacement for `useState<string | null>(null)` — no other code changes needed.
+**Constraints:** One param per hook call. For pages with multiple filters, call the hook once per filter key. Use stable IDs (not display names) as param values.
+
+### Origin-Aware Back Links
+
+**Used on:** Engagement detail page. Pattern for any detail page reachable from multiple list surfaces.
+**Problem:** A detail page's in-page back link should return the user to wherever they came from, with filter state intact. If you always link "Back to Partner", users who came from a filtered `/engagements` list lose their filter.
+**Convention:** The outbound link (list → detail) encodes origin via `?from=<list>` plus any active filter params. The detail page reads these and builds the back link dynamically.
+
+**Outbound link (list side):**
+```tsx
+// In EngagementsClient.tsx — EngagementRow builds href with origin context:
+const params = new URLSearchParams({ from: "engagements" });
+if (activeFilter) params.set("partner", activeFilter);
+<Link href={`/engagements/${id}?${params.toString()}`}>
+```
+
+**Back link (detail side):**
+```tsx
+// In server component — read searchParams, build back link:
+const from = typeof sp.from === "string" ? sp.from : null;
+const partnerParam = typeof sp.partner === "string" ? sp.partner : null;
+if (from === "engagements") {
+  backHref = partnerParam ? `/engagements?partner=${partnerParam}` : "/engagements";
+  backLabel = "Back to engagements";
+} else {
+  backHref = `/partners/${partner_id}`;  // default behavior
+  backLabel = `Back to ${partnerName}`;
+}
+```
+
+**Rules:**
+- Only add `from=<list>` on links originating from list pages that need return navigation
+- Links from partner detail pages, Today page, or inline linkers should NOT include `from` — they use the default back behavior
+- The browser back button works independently (URL history) — this pattern is for the in-page back link only
+- `from` values should be page path segments: `"engagements"`, `"meetings"`, `"tasks"`, etc.
+
 ### Flat/Grouped Toggle
 
 **Component:** Inline toggle on Tasks page

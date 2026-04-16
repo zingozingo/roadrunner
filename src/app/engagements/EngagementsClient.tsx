@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import PageContainer from "@/components/layout/PageContainer";
 import EmptyState from "@/components/layout/EmptyState";
+import { useFilterParam } from "@/hooks/useFilterParam";
 import type { Engagement, Pillar } from "@/lib/types";
 
 type EngagementWithContext = Engagement & {
@@ -50,7 +51,7 @@ interface Props {
 }
 
 export default function EngagementsClient({ engagements, partnerOptions }: Props) {
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useFilterParam("partner");
 
   const filtered = useMemo(() => {
     if (!activeFilter) return engagements;
@@ -176,6 +177,7 @@ export default function EngagementsClient({ engagements, partnerOptions }: Props
                           key={engagement.id}
                           engagement={engagement}
                           isLast={i === group.engagements.length - 1}
+                          activeFilter={activeFilter}
                         />
                       ))}
                     </div>
@@ -193,13 +195,17 @@ export default function EngagementsClient({ engagements, partnerOptions }: Props
 function EngagementRow({
   engagement,
   isLast,
+  activeFilter,
 }: {
   engagement: EngagementWithContext;
   isLast: boolean;
+  activeFilter: string | null;
 }) {
+  const params = new URLSearchParams({ from: "engagements" });
+  if (activeFilter) params.set("partner", activeFilter);
   return (
     <Link
-      href={`/engagements/${engagement.id}`}
+      href={`/engagements/${engagement.id}?${params.toString()}`}
       className={`block px-4 py-3 transition-colors hover:bg-surface-hover ${
         !isLast ? "border-b border-border/30" : ""
       }`}
