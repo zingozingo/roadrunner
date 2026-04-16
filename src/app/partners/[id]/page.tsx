@@ -505,7 +505,7 @@ export default async function PartnerDetailPage({
                   return (
                     <div key={f.id} className="flex items-center gap-3 border-b border-border/30 px-4 py-2.5 last:border-b-0">
                       {f.status && (
-                        <span className={`shrink-0 text-[11px] ${f.status === "Approved" ? "text-status-active" : "text-status-blocked"}`}>
+                        <span className={`shrink-0 text-[11px] ${f.status?.toLowerCase() === "approved" ? "text-status-active" : "text-status-blocked"}`}>
                           {f.status}
                         </span>
                       )}
@@ -513,7 +513,7 @@ export default async function PartnerDetailPage({
                       <span className="min-w-0 flex-1 truncate text-sm text-foreground/80">{f.track ?? "\u2014"}</span>
                       <span className="shrink-0 font-mono text-xs text-muted">{fmtCurrency(f.allocated)}</span>
                       <span className="shrink-0 font-mono text-xs text-muted">spent {fmtCurrency(f.spent)}</span>
-                      <span className={`shrink-0 font-mono text-xs font-medium ${remaining > 0 ? "text-status-blocked" : "text-muted"}`}>
+                      <span className={`shrink-0 font-mono text-xs font-medium ${remaining > 0 ? "text-status-active" : "text-muted"}`}>
                         {fmtCurrency(remaining)} left
                       </span>
                     </div>
@@ -531,7 +531,7 @@ export default async function PartnerDetailPage({
                       <span className="min-w-0 flex-1 truncate text-sm text-foreground/80">{f.record_name ?? "\u2014"}</span>
                       <span className="shrink-0 font-mono text-xs text-muted">{fmtCurrency(f.allocated)}</span>
                       <span className="shrink-0 font-mono text-xs text-muted">used {fmtCurrency(f.utilized)}</span>
-                      <span className={`shrink-0 font-mono text-xs font-medium ${remaining > 0 ? "text-status-blocked" : "text-muted"}`}>
+                      <span className={`shrink-0 font-mono text-xs font-medium ${remaining > 0 ? "text-status-active" : "text-muted"}`}>
                         {fmtCurrency(remaining)} left
                       </span>
                     </div>
