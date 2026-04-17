@@ -204,7 +204,7 @@ docs/sessions/
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → human-guided routing → AI synthesis → structured engagements → Airtable sync.
-> 87 migrations · 17 tables · 36 API routes · 14 UI pages · 173 db functions · 453 passing tests
+> 87 migrations · 17 tables · 37 API routes · 14 UI pages · 173 db functions · 453 passing tests
 
 ---
 
@@ -265,7 +265,7 @@ roadrunner/
 │       │   ├── session-start.md     #   Claude.ai: session startup context
 │       │   └── session-end.md       #   Claude.ai: wrap-up protocol
 │       └── summaries/             #     Session summaries (one per session)
-├── decisions.md                   # Append-only architectural decision log (456 entries)
+├── decisions.md                   # Append-only architectural decision log (458 entries)
 ├── src/
 │   ├── app/                       # Next.js App Router
 │   │   ├── api/                   #   API routes (36 route files, grouped by entity)
@@ -274,7 +274,7 @@ roadrunner/
 │   │   │   ├── health/            #     Health check
 │   │   │   ├── inbound/           #     Mailgun webhook
 │   │   │   ├── inbox/             #     Inbox grouped count + set-partner
-│   │   │   ├── meetings/          #     CRUD
+│   │   │   ├── meetings/          #     CRUD + end-series
 │   │   │   ├── notes/             #     Notes CRUD + summarize + tasks + context
 │   │   │   ├── participants/      #     Update participant
 │   │   │   ├── partners/          #     CRUD + partner context + enrollments + event-participations
@@ -609,7 +609,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-087). New migratio
 | `docs/sessions/templates/plan-template.md` | Plan structure — task format, pre-flight, verification, checkpoints | Creating new plans |
 | `docs/sessions/templates/` | Session templates — diagnostic, plan template, Claude.ai prompts | Reference when needed |
 | `docs/sessions/summaries/` | Session summaries — one per session, latest is handoff for next session | Session start (paste latest into Claude.ai) |
-| `decisions.md` | Append-only architectural decision log (456 entries) | When you need "why" |
+| `decisions.md` | Append-only architectural decision log (458 entries) | When you need "why" |
 
 ---
 

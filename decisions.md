@@ -8144,3 +8144,33 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** New formatTime() and formatDayHeader() helpers in MeetingsClient. Ternary rendering path: dayGroups present → grouped rendering, absent → flat rendering. SKILL.md subgroup pattern documents the count variant.
 
 ---
+
+### #457 — Atomic end-series endpoint
+
+**Date:** 2026-04-17
+**Status:** ✅ Implemented
+
+**Decision:** New POST /api/meetings/[id]/end-series endpoint clears recurrence_pattern on ALL series members and sets recurrence_end on root. Replaces broken root-only PUT approach. Resolves series ID from any member (child or root).
+
+**Context:** The previous endSeries() in RecurrenceCard sent a generic PUT to the series root, only nulling that one record's recurrence_pattern. Children retained their patterns and series_id, making them active spawn candidates for the auto-spawn engine on /meetings page load. This caused two user-visible bugs: "End series does nothing" (card re-rendered from children) and "Delete meeting respawns" (orphaned children triggered auto-spawn immediately after deletion).
+
+**Rationale:** A dedicated endpoint is atomic — all siblings updated in one request. No partial failure risk. The endpoint resolves series_id from any member, so it works whether called with the root ID or a child ID. Setting recurrence_end on the root preserves when the series was ended for historical reference.
+
+**Impact:** New endpoint, new db function (endMeetingSeries). RecurrenceCard calls POST instead of generic PUT. Vasion orphan data repaired (2 series ended, ghost meeting deleted). Auto-spawn no longer creates phantom meetings.
+
+---
+
+### #458 — Phantom status no_show replaced with canonical did_not_occur
+
+**Date:** 2026-04-17
+**Status:** ✅ Implemented
+
+**Decision:** Three files corrected to use "did_not_occur" instead of "no_show": db/meetings.ts (Today page query filter), MeetingsClient.tsx (Upcoming/TBD hidden statuses), meetings/[id]/page.tsx (status dot color map).
+
+**Context:** "no_show" was never a valid database value — the CHECK constraint (migration 046) only allows scheduled, completed, cancelled, did_not_occur. Two of the three occurrences were introduced this session (Chunks 2 and 4). The filters were silently inactive — they checked for a value that could never exist, so did_not_occur meetings were never hidden from Upcoming or the Today page.
+
+**Rationale:** The canonical status is authoritative (types.ts, validation.ts, migration SQL). All code must use the same vocabulary. "no_show" likely originated from an early naming discussion that was resolved to "did_not_occur" before the migration was written, but the phantom name leaked into later code.
+
+**Impact:** Today page query now correctly excludes did_not_occur meetings. Meetings list Upcoming/TBD sections now correctly hide did_not_occur. Status dot on meeting detail page now correctly colors did_not_occur meetings.
+
+---

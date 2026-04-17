@@ -6,7 +6,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 87 migrations, 17 active tables, 36 API routes, 14 UI pages, 453 passing tests (0 failures), tsc --noEmit passes clean, 39 components, 173 db functions, decisions through #456
+- 87 migrations, 17 active tables, 37 API routes, 14 UI pages, 453 passing tests (0 failures), tsc --noEmit passes clean, 39 components, 173 db functions, decisions through #458
 - Human-guided intake pipeline fully operational: webhook → mechanical partner detection → ICS partner backfill → inbox triage (with unknown partner picker) → single-phase AI synthesis (decisions #223-252)
 - Meetings Motion complete (decisions #253-259): 10 interaction-based meeting types, recurring meeting engine with auto-spawn, series tracking via self-referential FK, RecurrenceEditor UI, synthesis-on-link, conference boilerplate pre-split fix, ICS multi-VEVENT guardrail confirmed
 - AI Brain Overhaul Phases 1-3 complete (decisions #260-269): goal field eliminated (migration 069), condensed columns on engagements + meeting_notes (migration 068), meeting summarization restructured with scoped context builder, structured output (Discussion/Decisions/Key Context), condensed 3-5 bullet digest, non-redundancy with tasks
@@ -73,6 +73,7 @@ A system where a PDM forwards an email and Roadrunner:
 - Structural checker scripts — automated grep-based architecture enforcement (no rogue queries, no local VALID_* constants, route line count limits)
 - Task backfill — 41 tasks without engagement_id need linking via meeting→engagement chain
 - Meeting data cleanup — Vasion duplicate series merge, standalone-to-series conversions (KnowBe4, NinjaOne, Cloudaware)
+- Meeting series UX overhaul — consolidate Edit/Delete vs Edit pattern/Skip/End series, replace browser confirm() with ConfirmDialog, human-readable status labels in edit modal
 - Email-less participant support (5 null-email participants in registry)
 
 ### Completed
@@ -194,6 +195,7 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~List filter persistence~~ ✅ (2026-04-16, decision #453): useFilterParam hook, applied to Engagements + Meetings
 - ~~Origin-aware back links~~ ✅ (2026-04-16, decision #454): from param convention on engagement detail
 - ~~Meetings page day grouping~~ ✅ (2026-04-16, decisions #455-456): Upcoming grouped by day with weekday headers, cancelled filtered, URL-persisted type filter
+- ~~Meeting series end/delete bug~~ ✅ (2026-04-17, decisions #457-458): Atomic end-series endpoint, Vasion orphan data repair, phantom no_show status fixed
 
 ## Architecture Principles
 
