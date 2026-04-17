@@ -119,10 +119,8 @@ export default function RecurrenceCard({
     setSaving(true);
     try {
       const targetId = seriesId ?? meetingId;
-      const res = await fetch(`/api/meetings/${targetId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recurrence_pattern: null, recurrence_end: null }),
+      const res = await fetch(`/api/meetings/${targetId}/end-series`, {
+        method: "POST",
       });
       if (!res.ok) throw new Error("Failed to end series");
       setShowEndConfirm(false);

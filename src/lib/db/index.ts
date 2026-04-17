@@ -57,6 +57,7 @@ export {
   getMeetingsByMessageIds,
   updateMeetingsEngagement,
   deleteMeetingsByIds,
+  endMeetingSeries,
   getMeeting,
   getSeriesSiblings,
   getMeetingsByEngagement,

@@ -29,7 +29,7 @@ const statusDotColor: Record<string, string> = {
   scheduled: "bg-accent",
   completed: "bg-status-active",
   cancelled: "bg-status-archived",
-  no_show: "bg-status-blocked",
+  did_not_occur: "bg-status-blocked",
 };
 
 function formatDate(dateStr: string | null): string {

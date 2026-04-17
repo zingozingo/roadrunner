@@ -244,7 +244,7 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
     const past: MeetingWithNames[] = [];
     const tbd: MeetingWithNames[] = [];
 
-    const hiddenStatuses = new Set(["cancelled", "no_show"]);
+    const hiddenStatuses = new Set(["cancelled", "did_not_occur"]);
     for (const m of filteredMeetings) {
       if (!m.meeting_date) {
         if (!hiddenStatuses.has(m.status)) tbd.push(m);

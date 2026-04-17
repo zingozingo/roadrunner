@@ -72,13 +72,13 @@ export async function getUpcomingMeetings(
   end.setDate(end.getDate() + days);
   const endStr = end.toISOString().slice(0, 10);
 
-  // Fetch meetings in date range, excluding cancelled/no_show
+  // Fetch meetings in date range, excluding cancelled/did_not_occur
   const { data: meetings, error } = await db
     .from("meetings")
     .select("*")
     .gte("meeting_date", todayStr)
     .lte("meeting_date", endStr)
-    .not("status", "in", "(cancelled,no_show)")
+    .not("status", "in", "(cancelled,did_not_occur)")
     .order("meeting_date", { ascending: true })
     .order("start_time", { ascending: true, nullsFirst: false });
 
@@ -308,6 +308,39 @@ export async function deleteMeetingsByIds(meetingIds: string[]): Promise<number>
 
   if (error) throw new Error(`Failed to delete meetings: ${error.message}`);
   return data?.length ?? 0;
+}
+
+/**
+ * End a recurring series: clear recurrence_pattern on ALL meetings
+ * sharing the given series_id, and set recurrence_end on the root.
+ * Returns the number of meetings updated.
+ */
+export async function endMeetingSeries(
+  seriesId: string,
+  recurrenceEnd: string
+): Promise<number> {
+  const db = getSupabaseClient();
+
+  // Clear recurrence_pattern on all meetings in the series
+  const { data: updated, error } = await db
+    .from("meetings")
+    .update({ recurrence_pattern: null })
+    .eq("series_id", seriesId)
+    .select("id");
+
+  if (error) throw new Error(`Failed to end series: ${error.message}`);
+
+  // Set recurrence_end on the root (preserves when the series was ended)
+  const { error: rootError } = await db
+    .from("meetings")
+    .update({ recurrence_end: recurrenceEnd })
+    .eq("id", seriesId);
+
+  if (rootError) {
+    console.error(`Failed to set recurrence_end on root ${seriesId}:`, rootError.message);
+  }
+
+  return updated?.length ?? 0;
 }
 
 export async function getMeeting(id: string): Promise<Meeting | null> {
