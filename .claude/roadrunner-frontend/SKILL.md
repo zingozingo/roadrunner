@@ -519,15 +519,18 @@ if (from === "engagements") {
 
 ### Upcoming/Past Temporal Groups
 
-**Component:** Inline on Meetings list
+**Component:** Inline on Meetings list (`src/app/meetings/MeetingsClient.tsx`)
 **Used on:** Meetings list page
 **Behavior:**
-- Meetings split into "UPCOMING" (future) and "PAST" sections
-- UPCOMING is open by default; PAST is collapsed by default (via `<details>`)
-- Section header: `text-xs font-medium uppercase tracking-wider text-muted/60` with count badge
-- Within UPCOMING, meetings grouped by date with date shown only on first row of each group
-**Design rationale:** Most visits to /meetings are about upcoming meetings. Past meetings are reference material. Default collapsed keeps the page focused.
-**Constraints:** Always show both sections — even if UPCOMING is empty, show the empty section header.
+- Three sections: "UPCOMING" (future), "PAST" (before today), "DATE TBD" (null date)
+- UPCOMING open by default; PAST collapsed if 10+ items; TBD open by default
+- Section header: `text-xs font-medium uppercase tracking-[0.08em] text-muted/70` with count badge
+- Cancelled/no_show meetings hidden from UPCOMING and TBD (archival only in PAST)
+- **UPCOMING uses day-grouped subheaders:** meetings grouped by `meeting_date`, each day gets a subgroup header ("Monday, Apr 21" + count) using the standard subgroup header style. Within each day, sorted by `start_time` ascending (nulls last), then title alphabetically.
+- **Day-grouped rows show time, not date:** Since the date is in the day header, each row shows `start_time` formatted as "9:00 AM" in the date slot. When `start_time` is null, the slot renders empty (no placeholder) — the `w-24` fixed width keeps alignment stable.
+- PAST and TBD remain flat lists with "Apr 15" / "TBD" date prefixes per row.
+**Design rationale:** Most visits to /meetings are about planning upcoming meetings. Day headers make it instantly clear what day each meeting falls on, replacing mental date-to-weekday conversion. Past meetings are reference material — flat list with search is sufficient.
+**Constraints:** Never render empty day headers — only dates with at least one meeting. Empty sections are omitted entirely.
 
 ### Completed Items Section (Tasks)
 
@@ -1121,7 +1124,8 @@ Patterns for rendering complex information visually. Status indicators, timeline
 - `px-4 pt-3 pb-1` — compact padding, lives inside the section card
 - No count badge (parent section has the total count)
 **Design rationale:** Subgroups organize within a section without creating visual noise. The reduced opacity (/40 vs /60) makes them clearly subordinate to section headers.
-**Constraints:** Max 3-4 subgroups per section. If more, reconsider the section structure.
+**Count variant:** When the number of items per subgroup is useful context (e.g., meetings per day), append a count in `font-normal` (inherits text-muted/40): `<span className="ml-2 font-normal">{count}</span>`. Used on Meetings page for day-grouped upcoming meetings.
+**Constraints:** Max 3-4 subgroups per section for static groups. Temporal groups (days, weeks) are unbounded but each group should have at least 1 item — never render empty day headers.
 
 ### Two-Column Launchpad (Today Page)
 

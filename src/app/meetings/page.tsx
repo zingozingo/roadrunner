@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import { Suspense } from "react";
 import { getMeetingsWithEngagements, getPartners, getActiveEngagements } from "@/lib/db";
 import { getOverdueRecurringMeetings, spawnNextOccurrence } from "@/lib/meeting-recurrence";
 import MeetingsClient from "./MeetingsClient";
@@ -19,5 +20,9 @@ export default async function MeetingsPage() {
     getActiveEngagements(),
   ]);
 
-  return <MeetingsClient meetings={meetings} partners={partners} engagements={engagements} />;
+  return (
+    <Suspense>
+      <MeetingsClient meetings={meetings} partners={partners} engagements={engagements} />
+    </Suspense>
+  );
 }

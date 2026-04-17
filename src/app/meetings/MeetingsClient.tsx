@@ -7,6 +7,7 @@ import PageHeader from "@/components/layout/PageHeader";
 import PageContainer from "@/components/layout/PageContainer";
 import EmptyState from "@/components/layout/EmptyState";
 import { useNavigationGuard } from "@/hooks/useNavigationGuard";
+import { useFilterParam } from "@/hooks/useFilterParam";
 import FilterBar from "@/components/layout/FilterBar";
 import { Meeting, Partner, Engagement } from "@/lib/types";
 import { cleanMeetingTitle } from "@/lib/format-utils";
@@ -58,6 +59,20 @@ function previewDates(startDate: string, pattern: string, count: number): string
   return dates;
 }
 
+/** Format "HH:MM:SS" (Postgres time) to "9:00 AM" */
+function formatTime(time: string): string {
+  const [h, m] = time.split(":").map(Number);
+  const suffix = h >= 12 ? "PM" : "AM";
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${hour12}:${String(m).padStart(2, "0")} ${suffix}`;
+}
+
+/** Format "YYYY-MM-DD" to "Monday, Apr 21" */
+function formatDayHeader(dateStr: string): string {
+  const date = new Date(dateStr + "T00:00:00");
+  return date.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+}
+
 interface MeetingsClientProps {
   meetings: MeetingWithNames[];
   partners: Partner[];
@@ -67,7 +82,7 @@ interface MeetingsClientProps {
 export default function MeetingsClient({ meetings, partners, engagements }: MeetingsClientProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useFilterParam("type");
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
@@ -229,22 +244,45 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
     const past: MeetingWithNames[] = [];
     const tbd: MeetingWithNames[] = [];
 
+    const hiddenStatuses = new Set(["cancelled", "no_show"]);
     for (const m of filteredMeetings) {
       if (!m.meeting_date) {
-        tbd.push(m);
+        if (!hiddenStatuses.has(m.status)) tbd.push(m);
       } else {
         const mDate = new Date(m.meeting_date + "T00:00:00");
-        if (mDate >= now) upcoming.push(m);
-        else past.push(m);
+        if (mDate >= now) {
+          if (!hiddenStatuses.has(m.status)) upcoming.push(m);
+        } else {
+          past.push(m);
+        }
       }
     }
 
-    upcoming.sort((a, b) => a.meeting_date!.localeCompare(b.meeting_date!));
+    // Sort upcoming by date, then by start_time within each day (nulls last), then by title
+    upcoming.sort((a, b) => {
+      const dateCmp = a.meeting_date!.localeCompare(b.meeting_date!);
+      if (dateCmp !== 0) return dateCmp;
+      if (a.start_time && b.start_time) return a.start_time.localeCompare(b.start_time);
+      if (a.start_time) return -1;
+      if (b.start_time) return 1;
+      return a.title.localeCompare(b.title);
+    });
     past.sort((a, b) => b.meeting_date!.localeCompare(a.meeting_date!));
     tbd.sort((a, b) => a.title.localeCompare(b.title));
 
-    const result: { label: string; meetings: MeetingWithNames[] }[] = [];
-    if (upcoming.length > 0) result.push({ label: "Upcoming", meetings: upcoming });
+    // Group upcoming meetings by date for day headers
+    const upcomingByDay: [string, MeetingWithNames[]][] = [];
+    for (const m of upcoming) {
+      const last = upcomingByDay[upcomingByDay.length - 1];
+      if (last && last[0] === m.meeting_date) {
+        last[1].push(m);
+      } else {
+        upcomingByDay.push([m.meeting_date!, [m]]);
+      }
+    }
+
+    const result: { label: string; meetings: MeetingWithNames[]; dayGroups?: [string, MeetingWithNames[]][] }[] = [];
+    if (upcoming.length > 0) result.push({ label: "Upcoming", meetings: upcoming, dayGroups: upcomingByDay });
     if (past.length > 0) result.push({ label: "Past", meetings: past });
     if (tbd.length > 0) result.push({ label: "Date TBD", meetings: tbd });
     return result;
@@ -309,45 +347,92 @@ export default function MeetingsClient({ meetings, partners, engagements }: Meet
                       <span className="font-normal text-muted/50">{section.meetings.length}</span>
                     </summary>
                     <div>
-                      {section.meetings.map((m) => {
-                        const shortDate = m.meeting_date
-                          ? new Date(m.meeting_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                          : "TBD";
-                        const shifted = isShifted(m);
-
-                        return (
-                          <Link
-                            key={m.id}
-                            href={`/meetings/${m.id}`}
-                            className="flex items-baseline gap-4 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
-                          >
-                            <span className={`w-24 shrink-0 text-xs ${shifted ? "text-status-blocked/70" : "text-muted"}`} title={shifted ? "Rescheduled from regular day" : undefined}>
-                              {shortDate}
-                            </span>
-                            <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                              {cleanMeetingTitle(m.title)}
-                            </span>
-                            {(m.recurrence_pattern || m.series_id) && (
-                              <span className="shrink-0 flex items-center gap-1 text-accent/70" title={m.recurrence_pattern ? m.recurrence_pattern.charAt(0).toUpperCase() + m.recurrence_pattern.slice(1) : "Recurring"}>
-                                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="shrink-0">
-                                  <path d="M2 8a6 6 0 0 1 10.47-4M14 8a6 6 0 0 1-10.47 4" />
-                                  <path d="M14 2v4h-4M2 14v-4h4" />
-                                </svg>
+                      {section.dayGroups ? (
+                        /* Day-grouped rendering for Upcoming */
+                        section.dayGroups.map(([date, dayMeetings]) => (
+                          <div key={date}>
+                            <div className="px-4 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted/40">
+                              {formatDayHeader(date)}
+                              <span className="ml-2 font-normal">{dayMeetings.length}</span>
+                            </div>
+                            {dayMeetings.map((m) => {
+                              const shifted = isShifted(m);
+                              return (
+                                <Link
+                                  key={m.id}
+                                  href={`/meetings/${m.id}`}
+                                  className="flex items-baseline gap-4 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
+                                >
+                                  <span className={`w-24 shrink-0 text-xs ${shifted ? "text-status-blocked/70" : "text-muted"}`} title={shifted ? "Rescheduled from regular day" : undefined}>
+                                    {m.start_time ? formatTime(m.start_time) : ""}
+                                  </span>
+                                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                                    {cleanMeetingTitle(m.title)}
+                                  </span>
+                                  {(m.recurrence_pattern || m.series_id) && (
+                                    <span className="shrink-0 flex items-center gap-1 text-accent/70" title={m.recurrence_pattern ? m.recurrence_pattern.charAt(0).toUpperCase() + m.recurrence_pattern.slice(1) : "Recurring"}>
+                                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="shrink-0">
+                                        <path d="M2 8a6 6 0 0 1 10.47-4M14 8a6 6 0 0 1-10.47 4" />
+                                        <path d="M14 2v4h-4M2 14v-4h4" />
+                                      </svg>
+                                    </span>
+                                  )}
+                                  {m.partner_name && (
+                                    <span className="shrink-0 text-xs text-muted">
+                                      {m.partner_name}
+                                    </span>
+                                  )}
+                                  {m.engagement_name && (
+                                    <span className="shrink-0 text-xs text-muted/50 truncate max-w-[12rem]">
+                                      {m.engagement_name}
+                                    </span>
+                                  )}
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        ))
+                      ) : (
+                        /* Flat rendering for Past and Date TBD */
+                        section.meetings.map((m) => {
+                          const shortDate = m.meeting_date
+                            ? new Date(m.meeting_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                            : "TBD";
+                          const shifted = isShifted(m);
+                          return (
+                            <Link
+                              key={m.id}
+                              href={`/meetings/${m.id}`}
+                              className="flex items-baseline gap-4 border-b border-border/20 px-3 py-2.5 transition-colors hover:bg-surface/50"
+                            >
+                              <span className={`w-24 shrink-0 text-xs ${shifted ? "text-status-blocked/70" : "text-muted"}`} title={shifted ? "Rescheduled from regular day" : undefined}>
+                                {shortDate}
                               </span>
-                            )}
-                            {m.partner_name && (
-                              <span className="shrink-0 text-xs text-muted">
-                                {m.partner_name}
+                              <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                                {cleanMeetingTitle(m.title)}
                               </span>
-                            )}
-                            {m.engagement_name && (
-                              <span className="shrink-0 text-xs text-muted/50 truncate max-w-[12rem]">
-                                {m.engagement_name}
-                              </span>
-                            )}
-                          </Link>
-                        );
-                      })}
+                              {(m.recurrence_pattern || m.series_id) && (
+                                <span className="shrink-0 flex items-center gap-1 text-accent/70" title={m.recurrence_pattern ? m.recurrence_pattern.charAt(0).toUpperCase() + m.recurrence_pattern.slice(1) : "Recurring"}>
+                                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="shrink-0">
+                                    <path d="M2 8a6 6 0 0 1 10.47-4M14 8a6 6 0 0 1-10.47 4" />
+                                    <path d="M14 2v4h-4M2 14v-4h4" />
+                                  </svg>
+                                </span>
+                              )}
+                              {m.partner_name && (
+                                <span className="shrink-0 text-xs text-muted">
+                                  {m.partner_name}
+                                </span>
+                              )}
+                              {m.engagement_name && (
+                                <span className="shrink-0 text-xs text-muted/50 truncate max-w-[12rem]">
+                                  {m.engagement_name}
+                                </span>
+                              )}
+                            </Link>
+                          );
+                        })
+                      )}
                     </div>
                   </details>
                 );
