@@ -8009,3 +8009,138 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** No more "2 items in inbox" with only 1 card visible. Sidebar badge already used getInboxGroupCount() so it was already correct.
 
 ---
+
+### #448 — Canonical funding vocabulary across Airtable and Roadrunner
+
+**Date:** 2026-04-16
+**Status:** ✅ Implemented
+
+**Decision:** Standardize funding field naming: Allocated Amount / Spent Amount / Remaining — consistent across MPOPP and MDF. Airtable MDF fields renamed via MCP ("Amount Allocated" → "Allocated Amount", "Amount Utilized" → "Spent Amount") to match MPOPP's existing vocabulary.
+
+**Context:** MPOPP and MDF used different Airtable field names for the same concept (Amount Allocated vs Allocated Amount, Amount Utilized vs Spent Amount). The UI displayed raw field names, creating confusion.
+
+**Rationale:** A single vocabulary for the same financial concept eliminates cognitive overhead. Renaming in Airtable (where field IDs are stable) is safe — field IDs don't change on rename.
+
+**Impact:** Consistent "Allocated: $X · Spent: $Y · Remaining: $Z" pattern on both MPOPP and MDF cards.
+
+---
+
+### #449 — Funding null handling convention
+
+**Date:** 2026-04-16
+**Status:** ✅ Implemented
+
+**Decision:** When allocated is null, display "No allocation" instead of computing broken math ("— spent — $0 left"). Spent defaults to $0 when null. Applies to both MPOPP and MDF cards.
+
+**Context:** Some MPOPP/MDF records have null allocation (e.g., pending approval). Previous code attempted arithmetic on null, producing NaN or misleading "$0 remaining".
+
+**Rationale:** Null allocation is a distinct state from zero allocation. "No allocation" communicates the correct meaning. Spent defaulting to $0 when null is safe — no spend recorded means zero.
+
+**Impact:** Partner detail funding cards handle null allocation gracefully. Clear visual distinction between "no budget set" and "budget exhausted".
+
+---
+
+### #450 — Sponsoring display — labeled badge replaces bare icon
+
+**Date:** 2026-04-16
+**Status:** ✅ Implemented
+
+**Decision:** Star character replaced with "Sponsor" pill badge on event participation rows. Non-sponsoring events show nothing (removed confusing hover-reveal star).
+
+**Context:** The bare ★ character originated from Airtable's Sponsoring checkbox field icon. It was ambiguous — users couldn't tell if it meant "sponsor", "favorite", or "important". The hover-reveal on non-sponsoring events added visual noise.
+
+**Rationale:** Labeled badges are unambiguous. The "Sponsor" pill follows the existing badge pattern (pillar badges, status badges). Removing the hover-reveal simplifies the row and eliminates a non-standard interaction.
+
+**Impact:** Event participation rows show "Sponsor" pill when sponsoring=true, nothing when false. Clickable to toggle.
+
+---
+
+### #451 — Funding remaining color semantics
+
+**Date:** 2026-04-16
+**Status:** ✅ Implemented
+
+**Decision:** Remaining > 0 = green (text-status-active), remaining = 0 = neutral (text-muted). Previous logic was inverted — red for having funds left.
+
+**Context:** The original implementation used text-status-blocked (red/amber) for remaining > 0, which visually signaled "problem" when funds were available. Green for zero remaining communicated "good" when the budget was exhausted.
+
+**Rationale:** Convention: green = action available (funds to spend), neutral = nothing to act on (budget used up). This matches financial dashboard conventions where available balance is highlighted.
+
+**Impact:** Funding remaining amounts now use intuitive color coding across all partner detail funding cards.
+
+---
+
+### #452 — Today page meeting filtering
+
+**Date:** 2026-04-16
+**Status:** ✅ Implemented
+
+**Decision:** Hide cancelled/no_show and fully-completed meetings from Today page. Fully-completed = meetings.status = "completed" AND meeting_notes.status = "complete". Keep scheduled and draft-notes meetings visible. Left-joins meeting_notes, returns note_status per meeting for future UI indicators.
+
+**Context:** The Today page showed all meetings in the upcoming window regardless of status. Completed meetings with finalized notes cluttered the view — they're done and don't need attention. But meetings with in-progress (draft) notes should remain visible since the user is still working on them.
+
+**Rationale:** Today page should show only actionable items. The two-query approach (meetings + note statuses) avoids complex joins while providing clear filtering logic. Returning note_status per meeting enables future UI indicators (e.g., draft badge).
+
+**Impact:** getUpcomingMeetings() now excludes cancelled/no_show via PostgREST filter and excludes completed+complete via application-level filter. note_status returned per meeting.
+
+---
+
+### #453 — List filter persistence via useFilterParam hook
+
+**Date:** 2026-04-16
+**Status:** ✅ Implemented
+
+**Decision:** Reusable hook (src/hooks/useFilterParam.ts) syncs a single filter value with URL search params. Uses router.replace (no history pollution), scroll: false, preserves other params. Applied to Engagements (partner filter) and Meetings (type filter). Pattern documented in SKILL.md for rollout to remaining list pages.
+
+**Context:** List page filters reset on navigation — clicking into a detail page and pressing back lost the active filter. URL search params naturally persist through navigation, browser back/forward, and page refresh.
+
+**Rationale:** router.replace instead of router.push prevents each filter click from creating a browser history entry. The hook's API matches useState<string | null> for drop-in replacement. Requires Suspense boundary (Next.js App Router requirement for useSearchParams).
+
+**Impact:** New reusable hook with 9 tests. Applied to 2 list pages. Pattern ready for Tasks, Partners, People pages.
+
+---
+
+### #454 — Origin-aware back links via from param
+
+**Date:** 2026-04-16
+**Status:** ✅ Implemented
+
+**Decision:** Detail pages read `from` search param to determine back-link destination. List pages encode origin context in outbound links (?from=engagements&partner=<id>). Default behavior preserved when `from` absent.
+
+**Context:** Engagement detail page was always linking "Back to Partner" regardless of whether the user came from /engagements or /partners/[id]. Users who came from a filtered engagements list lost their filter state and landed on the wrong page.
+
+**Rationale:** The from param is lightweight, doesn't affect server-side rendering, and degrades gracefully — when absent, the default back link works as before. Including the active filter param (partner=<id>) ensures the engagements list restores its filter state.
+
+**Impact:** Applied to engagement detail page. Pattern documented in SKILL.md for rollout to other detail pages reachable from multiple surfaces.
+
+---
+
+### #455 — Meetings page cancelled/no_show filtered from Upcoming
+
+**Date:** 2026-04-16
+**Status:** ✅ Implemented
+
+**Decision:** Upcoming and Date TBD sections exclude cancelled/no_show meetings. Past section retains all statuses for archival reference. Consistent with Today page filtering logic from #452.
+
+**Context:** Cancelled and no-show meetings appeared in the Upcoming section, cluttering the view with meetings that will never happen. Past section needs all statuses for historical completeness.
+
+**Rationale:** Upcoming is about planning — only show meetings that will actually occur. Past is about record-keeping — show everything for audit trail. The hiddenStatuses Set makes the filter easy to extend if new terminal statuses are added.
+
+**Impact:** Client-side filtering in MeetingsClient. No server-side query change — all meetings still fetched, filtered at render time for flexibility.
+
+---
+
+### #456 — Meetings page day grouping with weekday headers
+
+**Date:** 2026-04-16
+**Status:** ✅ Implemented
+
+**Decision:** Upcoming meetings grouped by date with subgroup headers ("MONDAY, APR 21 · 3"). Rows within day groups show start_time instead of redundant date. Fixed-width time slot keeps alignment when start_time is null. SKILL.md subgroup pattern extended with count variant.
+
+**Context:** The Upcoming section was a flat list with "Apr 21" date prefixes on every row, requiring mental date-to-weekday conversion and obscuring day boundaries. With ~20 partners and regular cadences, grouping by day creates natural planning units.
+
+**Rationale:** Day headers eliminate date-to-weekday mental conversion. Showing time within day groups is more useful than repeating the date. The count variant on subgroup headers provides at-a-glance density information. Past/TBD sections remain flat — they don't benefit from day grouping.
+
+**Impact:** New formatTime() and formatDayHeader() helpers in MeetingsClient. Ternary rendering path: dayGroups present → grouped rendering, absent → flat rendering. SKILL.md subgroup pattern documents the count variant.
+
+---

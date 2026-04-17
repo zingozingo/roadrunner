@@ -6,7 +6,7 @@ AI-powered email classification and engagement tracking for AWS Partner Developm
 
 ## Current State
 
-- 87 migrations, 17 active tables, 36 API routes, 14 UI pages, 444 passing tests (0 failures), tsc --noEmit passes clean, 39 components, 173 db functions, decisions through #447
+- 87 migrations, 17 active tables, 36 API routes, 14 UI pages, 453 passing tests (0 failures), tsc --noEmit passes clean, 39 components, 173 db functions, decisions through #456
 - Human-guided intake pipeline fully operational: webhook → mechanical partner detection → ICS partner backfill → inbox triage (with unknown partner picker) → single-phase AI synthesis (decisions #223-252)
 - Meetings Motion complete (decisions #253-259): 10 interaction-based meeting types, recurring meeting engine with auto-spawn, series tracking via self-referential FK, RecurrenceEditor UI, synthesis-on-link, conference boilerplate pre-split fix, ICS multi-VEVENT guardrail confirmed
 - AI Brain Overhaul Phases 1-3 complete (decisions #260-269): goal field eliminated (migration 069), condensed columns on engagements + meeting_notes (migration 068), meeting summarization restructured with scoped context builder, structured output (Discussion/Decisions/Key Context), condensed 3-5 bullet digest, non-redundancy with tasks
@@ -58,9 +58,10 @@ A system where a PDM forwards an email and Roadrunner:
 ## What's Next
 
 ### Immediate
-- Visual polish and end-to-end testing pass — full inbox→engagement→manage flow with real data, verify Tier 1 inbox changes and management modal
+- Visual polish continuation — walk through every page, pick up 8 parked low-severity items (junction notes, funding notes, empty states, PTRF consolidation)
 
 ### Soon
+- Apply useFilterParam to remaining list pages (Tasks, Partners, People)
 - Junction table ownership flip — CRUD for partner program enrollments + partner event participations in Roadrunner UI, flip sync direction from pull to push for these tables
 - UI/UX redesign — partner detail four-tab reorg (Overview, Operations, Profile, People), page improvements, Today page evolution
 - Airtable exit path planning — progressive flip of remaining tables to Roadrunner-owned
@@ -188,6 +189,11 @@ A system where a PDM forwards an email and Roadrunner:
 - ~~Pick Partner repositioned~~ ✅ (2026-04-13): Moved from badge to right-aligned action button
 - ~~Inbox count fix~~ ✅ (2026-04-13, decision #447): Header shows group count matching visible cards
 - ~~Session templates updated~~ ✅ (2026-04-13): Backend SKILL.md references added to all 5 templates
+- ~~Partner detail funding polish~~ ✅ (2026-04-16, decisions #448-451): Canonical vocabulary (Allocated/Spent/Remaining), null handling, labeled Sponsor badge, remaining color fix
+- ~~Today page meeting filtering~~ ✅ (2026-04-16, decision #452): Hide cancelled/no_show + completed-with-complete-notes from Today
+- ~~List filter persistence~~ ✅ (2026-04-16, decision #453): useFilterParam hook, applied to Engagements + Meetings
+- ~~Origin-aware back links~~ ✅ (2026-04-16, decision #454): from param convention on engagement detail
+- ~~Meetings page day grouping~~ ✅ (2026-04-16, decisions #455-456): Upcoming grouped by day with weekday headers, cancelled filtered, URL-persisted type filter
 
 ## Architecture Principles
 

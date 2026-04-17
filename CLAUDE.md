@@ -204,7 +204,7 @@ docs/sessions/
 # Roadrunner (Relay)
 
 > AI-powered partner engagement management for AWS PDMs. Forward emails → human-guided routing → AI synthesis → structured engagements → Airtable sync.
-> 87 migrations · 17 tables · 36 API routes · 14 UI pages · 173 db functions · 444 passing tests
+> 87 migrations · 17 tables · 36 API routes · 14 UI pages · 173 db functions · 453 passing tests
 
 ---
 
@@ -265,7 +265,7 @@ roadrunner/
 │       │   ├── session-start.md     #   Claude.ai: session startup context
 │       │   └── session-end.md       #   Claude.ai: wrap-up protocol
 │       └── summaries/             #     Session summaries (one per session)
-├── decisions.md                   # Append-only architectural decision log (447 entries)
+├── decisions.md                   # Append-only architectural decision log (456 entries)
 ├── src/
 │   ├── app/                       # Next.js App Router
 │   │   ├── api/                   #   API routes (36 route files, grouped by entity)
@@ -301,6 +301,7 @@ roadrunner/
 │   │   ├── partners/              #   BrainSynthesis, PartnerScratchpad, EnrollmentSection, EventParticipationSection
 │   │   └── shared/                #   Reusable primitives — RecurrenceCard, RecurrenceEditor, MakeRecurringButton, UnsavedChangesProvider, EngagementLinker, EngagementPicker, CreateEngagementForm, badges, ContactGroup (18 files)
 │   ├── hooks/                     # React hooks
+│   │   ├── useFilterParam.ts      #   URL-persisted filter state (drop-in useState replacement)
 │   │   └── useNavigationGuard.ts  #   Blocks navigation during in-flight mutations
 │   └── lib/                       # Core business logic
 │       ├── classifier.ts          #   Synthesis orchestrator (synthesizeIntoEngagement, persistClassificationResult)
@@ -346,7 +347,7 @@ roadrunner/
 │       │   ├── push.ts            #     RR → AT activity sync
 │       │   ├── field-maps.ts      #     Airtable field ID constants (6 pull + 2 push + 5 Ring 3)
 │       │   └── utils.ts           #     Coercion helpers + validation
-│       └── __tests__/             #   444 passing tests across 14 test files
+│       └── __tests__/             #   453 passing tests across 15 test files
 ├── supabase/
 │   ├── migrations/                # 87 migration files (001-087)
 │   └── (authoritative schema lives in migrations/)
@@ -480,7 +481,7 @@ AIRTABLE_BASE_ID=appy9TT1LRJTAuQ4W
 ```bash
 npm install                        # Install dependencies
 npm run dev                        # Start Next.js dev server on :3000
-npx vitest run --reporter=verbose  # Run tests (444 passing, 0 failures)
+npx vitest run --reporter=verbose  # Run tests (453 passing, 0 failures)
 npx tsc --noEmit                   # TypeScript check (must pass with zero errors)
 ```
 
@@ -504,6 +505,7 @@ npx tsc --noEmit                   # TypeScript check (must pass with zero error
 | prompt-builder.test.ts | 3 | Forwarder section builder (buildForwarderSection) |
 | dedup.test.ts | 6 | Message fingerprint deduplication |
 | meeting-status-map.test.ts | 5 | Meeting status mapping (mapMeetingStatus in sync/utils) |
+| useFilterParam.test.ts | 9 | URL filter param hook logic (read/write/preserve/remove) |
 
 **DB mocking:** Supabase client is mocked via `vi.mock` with `vi.hoisted()` for mock variables — see existing tests for the pattern.
 
@@ -607,7 +609,7 @@ Sequential numbering in `supabase/migrations/` (currently 001-087). New migratio
 | `docs/sessions/templates/plan-template.md` | Plan structure — task format, pre-flight, verification, checkpoints | Creating new plans |
 | `docs/sessions/templates/` | Session templates — diagnostic, plan template, Claude.ai prompts | Reference when needed |
 | `docs/sessions/summaries/` | Session summaries — one per session, latest is handoff for next session | Session start (paste latest into Claude.ai) |
-| `decisions.md` | Append-only architectural decision log (447 entries) | When you need "why" |
+| `decisions.md` | Append-only architectural decision log (456 entries) | When you need "why" |
 
 ---
 

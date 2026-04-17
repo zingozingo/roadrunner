@@ -63,7 +63,9 @@ The command must:
    - `.claude/roadrunner-backend/SKILL.md` — ONLY if backend patterns were established or evolved (new service patterns, route conventions, db layer rules)
    - `docs/plans/active.md` — If a plan was completed: append "## Completion Summary" (what was accomplished across all phases, total stats change before/after, total decisions logged, pre-existing issues noted for future work), then move to `docs/plans/archive/{date}-{name}.md`, then replace `active.md` with placeholder content: "# Active Task Plan\n\nNo active task plan. Working in interactive mode."
 
-5. **Write session summary** to `docs/sessions/summaries/{YYYY-MM-DD}-{session-name}.md`
+5. **Create empty session summary file** at `docs/sessions/summaries/{YYYY-MM-DD}-{session-name}.md` — the file should be empty so Steven can paste the approved content from Claude.ai
+
+6. **Update session end template** (`docs/sessions/templates/session-end.md`) — if the template doesn't already include a step to create an empty session summary file, add one
 
 Use this command structure:
 ```
