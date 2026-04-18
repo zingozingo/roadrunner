@@ -8174,3 +8174,18 @@ Removed dead `buildEngagementsSection()` and `buildPartnersSection()` from promp
 **Impact:** Today page query now correctly excludes did_not_occur meetings. Meetings list Upcoming/TBD sections now correctly hide did_not_occur. Status dot on meeting detail page now correctly colors did_not_occur meetings.
 
 ---
+
+### #459 — CLAUDE.md restructured as behavioral contract
+
+**Date:** 2026-04-17
+**Status:** ✅ Implemented
+
+**Decision:** Removed all volatile stats from CLAUDE.md (627 → 471 lines). Stats live exclusively in goal-state.md — single source of truth. Directory tree (118 lines), testing table (25 lines), sync constants table, and file quick reference all replaced with short pointers. All essential behavioral sections preserved: working modes, path guardrails, verification protocols, core principles, common gotchas, what NOT to do.
+
+**Context:** CLAUDE.md was 55% volatile/reference content that changed every session, causing stats drift (e.g., "36 route files" when the real count was 37). Every session required updating stats in both CLAUDE.md AND goal-state.md — double maintenance with no added value. The directory tree listed every individual file, growing with each new file added.
+
+**Rationale:** CLAUDE.md's purpose is to shape Claude Code's behavior — working protocols, constraints, guardrails, gotchas. Stats and file listings are reference data that can be derived from the filesystem or read from goal-state.md. Consolidating stats to one location (goal-state.md) eliminates drift and reduces session-end maintenance. Session-end and plan-completion templates updated to prevent re-adding stats.
+
+**Impact:** CLAUDE.md reduced by 156 lines (25%). Zero hardcoded project stats remain. Session-end workflow simplified — no more updating CLAUDE.md for stat changes. Two templates updated (session-end.md, plan-completion.md) with explicit "Do NOT update CLAUDE.md for stats" guardrails.
+
+---

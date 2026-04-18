@@ -36,7 +36,7 @@ The command must:
 **Read first:**
 - `decisions.md` — check current last decision number and format
 - `docs/goal-state.md` — check current status descriptions and stats
-- `CLAUDE.md` — check current stats in header banner, directory tree, and test matrix
+- `CLAUDE.md` — check for structural changes only (no stats — those are in goal-state.md)
 
 **Then update:**
 
@@ -48,13 +48,12 @@ The command must:
    - Update stats if they changed: migration count, table count, test count, component count, page count, route count
    - Update the current state description to reflect what was built
 
-3. **CLAUDE.md** — Only if stats changed:
-   - Header banner (migrations, tables, routes, pages, tests)
-   - Directory structure tree (if files added/deleted)
-   - Component listings (if components added/deleted)
-   - Decision count in documentation map
-   - Session management section (if template files changed — e.g., diagnostic.md replacing quick/deep)
-   - Any other references to specific counts
+3. **CLAUDE.md** — Only if structural changes occurred:
+   - New directory added to the key layout list (e.g., `src/hooks/`)
+   - New "Common Gotchas" or "What NOT to Do" entry from production experience
+   - New procedural checklist (e.g., "Adding a New X" workflow)
+   - New behavioral pattern that affects how Claude Code should work
+   - Do NOT update CLAUDE.md for: stat changes, file additions/removals, test count changes, decision count changes, or component count changes. All project stats live exclusively in `docs/goal-state.md`.
 
 4. **Conditional updates (only if relevant work was done):**
    - `docs/entity-model.md` — ONLY if schema changed (new table, new field, new FK, dropped table)
@@ -88,7 +87,7 @@ Update docs/goal-state.md:
 - Stats: {specific changes}
 
 
-Update CLAUDE.md stats: {specific changes, or "no changes needed"}
+Update CLAUDE.md: {structural changes only, or "no changes needed" — stats live in goal-state.md}
 
 {Conditional: entity-model.md changes}
 {Conditional: ai-call-map.md changes}
